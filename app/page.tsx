@@ -1,65 +1,93 @@
-import Image from "next/image";
-
-export default function Home() {
+export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex min-h-screen w-full flex-col md:flex-row">
+      {/* Image Section (50%) - Hidden on mobile, visible on medium screens and up */}
+      <div className="relative hidden w-full md:block md:w-1/2">
+        <img
+          src="https://images.unsplash.com/photo-1616243850909-f010afe8de3a?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+          alt="Ministry Background"
+          className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+        {/* Optional overlay to blend slightly with the theme */}
+        <div className="absolute inset-0 bg-[#006a5a]/10 mix-blend-multiply" />
+      </div>
+
+      {/* Login Form Section (50%) */}
+      <div className="flex flex-1 w-full flex-col justify-center bg-white px-4 py-12 md:w-1/2 md:px-12 lg:px-24">
+        <div className="mx-auto w-full max-w-sm lg:w-96">
+          <div className="text-center">
+            <h2 className="mt-6 text-3xl font-extrabold text-[#006a5a]">
+              เข้าสู่ระบบ
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              ระบบบริหารจัดการ (Ministry Portal)
+            </p>
+          </div>
+
+          <form className="mt-8 space-y-6" action="#" method="POST">
+            <div className="space-y-4 rounded-md shadow-sm">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium leading-6 text-gray-900">
+                  ชื่อผู้ใช้งาน
+                </label>
+                <div className="mt-2">
+                  <input
+                    id="username"
+                    name="username"
+                    type="text"
+                    required
+                    className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#006a5a] sm:text-sm sm:leading-6 px-3"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium leading-6 text-gray-900">
+                  รหัสผ่าน
+                </label>
+                <div className="mt-2">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    required
+                    className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-[#006a5a] sm:text-sm sm:leading-6 px-3"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <input
+                  id="remember-me"
+                  name="remember-me"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 text-[#006a5a] focus:ring-[#006a5a]"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                  จดจำฉัน
+                </label>
+              </div>
+
+              <div className="text-sm">
+                <a href="#" className="font-medium text-[#006a5a] hover:text-[#00554a]">
+                  ลืมรหัสผ่าน?
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                className="flex w-full justify-center rounded-md bg-[#006a5a] px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-[#00554a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006a5a]"
+              >
+                เข้าสู่ระบบ
+              </button>
+            </div>
+          </form>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }
