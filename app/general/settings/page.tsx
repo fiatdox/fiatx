@@ -29,7 +29,7 @@ const GeneralPageContent = () => {
       title: 'ตั้งค่าคนขับรถ',
       icon: <IdcardOutlined className="text-4xl text-primary" />,
       description: 'จัดการรายชื่อพนักงานขับรถและตารางงาน',
-      href: '/general/settings/drivers'
+      href: '/general/settings/vehicle-driver-management'
     },
     {
       title: 'ตั้งค่าหัวหน้าช่างซ่อมบำรุง',
@@ -53,13 +53,14 @@ const GeneralPageContent = () => {
           items={[
             { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FileTextOutlined /> ระบบบริหารงานทั่วไป</> },
+            { title: <><FileTextOutlined /> ตั้งค่าระบบ</> },
           ]}
           className="mb-6"
         />
 
         <div className="max-w-full mx-auto">
           <div className="mb-8">
-            <Title level={3} className="text-primary m-0 mt-4">ระบบบริหารงานทั่วไป</Title>
+            <Title level={3} className="text-primary m-0 mt-4">ตั้งค่าระบบระบบบริหารงานทั่วไป</Title>
             <Text type="secondary">จัดการข้อมูลยานพาหนะและงานซ่อมบำรุง</Text>
           </div>
 
