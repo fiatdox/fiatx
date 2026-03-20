@@ -76,21 +76,20 @@ const LeavePageContent = () => {
   }
 
   return (
-      <div className="min-h-screen bg-slate-50">
-        <Navbar />
-        <div className="p-6 md:p-8">
-        {/* Breadcrumb */}
-        <Breadcrumb
-          items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
-            { title: <><FileTextOutlined /> ระบบงานบุคคล</> },
-            { title: 'บันทึกการลา' },
-          ]}
-          className="mb-6"
-        />
-
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-8">
+    <div className="min-h-7 bg-slate-50">
+      <Navbar />
+      <div className="p-6 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Breadcrumb */}
+          <Breadcrumb
+            items={[
+              { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+              { title: <><FileTextOutlined /> ระบบงานบุคคล</> },
+              { title: 'บันทึกการลา' },
+            ]}
+            className="mb-4"
+          />
+          <div className="mb-4">
             <Title level={2} className="text-primary m-0">แบบฟอร์มบันทึกการลา</Title>
             <Text type="secondary">กรุณากรอกข้อมูลการลาให้ครบถ้วนเพื่อเสนออนุมัติตามลำดับขั้นตอน</Text>
           </div>
@@ -274,7 +273,7 @@ const LeavePageContent = () => {
                   <Title level={4} className="mb-6 flex items-center gap-2">
                     <CheckCircleOutlined className="text-primary" /> ลำดับการอนุมัติ
                   </Title>
-                  
+
                   <Space orientation="vertical" className="w-full" size="large">
                     <Form.Item
                       name="approver1"
@@ -326,8 +325,8 @@ const LeavePageContent = () => {
             </Row>
           </Form>
         </div>
-        </div>
       </div>
+    </div>
   )
 }
 
