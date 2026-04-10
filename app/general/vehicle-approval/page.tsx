@@ -16,7 +16,8 @@ import {
   Select,
   Space,
   Alert,
-  Divider
+  Divider,
+  theme
 } from 'antd'
 import {
   HomeOutlined,
@@ -50,31 +51,31 @@ interface VehicleRequest {
 
 const mockData: VehicleRequest[] = [
   {
-    id: 'VR-202311001',
+    id: 'VR-202604001',
     requester: 'นายสมปอง ขยันยิ่ง',
     department: 'กลุ่มงานบริหารทั่วไป',
     destination: 'กระทรวงสาธารณสุข นนทบุรี',
-    date: '20/11/2023 08:00 - 16:00',
+    date: '14/04/2026 08:00 - 16:00',
     purpose: 'ส่งเอกสารเบิกจ่ายงบประมาณ',
     passengers: 2,
     status: 'pending_dept',
   },
   {
-    id: 'VR-202311002',
+    id: 'VR-202604002',
     requester: 'พญ.สมใจ รักษาดี',
     department: 'กลุ่มงานการแพทย์',
     destination: 'ศาลากลางจังหวัด',
-    date: '21/11/2023 09:00 - 12:00',
+    date: '15/04/2026 09:00 - 12:00',
     purpose: 'ร่วมประชุมคณะกรรมการจังหวัด',
     passengers: 1,
     status: 'pending_vehicle',
   },
   {
-    id: 'VR-202311003',
+    id: 'VR-202604003',
     requester: 'นายวิชัย กล้าหาญ',
     department: 'กลุ่มงานเภสัชกรรม',
     destination: 'อย. นนทบุรี',
-    date: '22/11/2023 08:30 - 16:30',
+    date: '16/04/2026 08:30 - 16:30',
     purpose: 'รับยาและเวชภัณฑ์',
     passengers: 3,
     status: 'pending_director',
@@ -82,11 +83,11 @@ const mockData: VehicleRequest[] = [
     driverAssigned: 'นายสมชาย คนขับ',
   },
   {
-    id: 'VR-202311004',
+    id: 'VR-202604004',
     requester: 'นางสาวมานี มีตา',
     department: 'กลุ่มงานการพยาบาล',
     destination: 'โรงพยาบาลศูนย์',
-    date: '18/11/2023 13:00 - 16:00',
+    date: '09/04/2026 13:00 - 16:00',
     purpose: 'ส่งต่อผู้ป่วย',
     passengers: 4,
     status: 'approved',
@@ -197,7 +198,7 @@ const VehicleApprovalPageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-900">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -237,7 +238,7 @@ const VehicleApprovalPageContent = () => {
         {selectedReq && (
           <div className="mt-6">
             {/* Workflow Steps */}
-            <div className="bg-slate-50 p-6 rounded-lg mb-6 border border-slate-100">
+            <div className="bg-slate-800 p-6 rounded-lg mb-6 border border-slate-700">
               <Steps
                 current={getStepCurrent(selectedReq.status)}
                 status={selectedReq.status === 'rejected' ? 'error' : 'process'}
@@ -285,7 +286,7 @@ const VehicleApprovalPageContent = () => {
 
             {/* Form จัดสรรรถ สำหรับหัวหน้ายานพาหนะ */}
             {selectedReq.status === 'pending_vehicle' && (
-              <div className="bg-blue-50/50 p-6 rounded-lg border border-blue-100 mb-6">
+              <div className="bg-slate-800 p-6 rounded-lg border border-blue-900 mb-6">
                 <Title level={5} className="mb-4 text-blue-800"><CarOutlined /> ส่วนการจัดสรรรถ (เฉพาะหัวหน้างานยานพาหนะ)</Title>
                 <Form form={form} layout="vertical">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -324,7 +325,7 @@ const VehicleApprovalPageContent = () => {
                 type="info"
                 showIcon
                 icon={<BellOutlined />}
-                className="mb-6 bg-slate-50 border-slate-200"
+                className="mb-6"
               />
             )}
 
@@ -364,6 +365,7 @@ const VehicleApprovalPage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,

@@ -1,6 +1,6 @@
 'use client'
 import React, { useState } from 'react'
-import { Form, Input, Button, InputNumber, Select, Typography, Card, ConfigProvider, Steps, Result, Breadcrumb, Row, Col, Alert, Divider } from 'antd'
+import { Form, Input, Button, InputNumber, Select, Typography, Card, ConfigProvider, Steps, Result, Breadcrumb, Row, Col, Alert, Divider, theme } from 'antd'
 import { HomeOutlined, FileTextOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import type { Rule } from 'antd/lib/form'
 import Navbar from '../../components/Navbar'
@@ -39,8 +39,8 @@ const Page = () => {
   const reasonsRules: Rule[] = [{ required: true, message: 'กรุณาเลือกอย่างน้อยหนึ่งเหตุผล', type: 'array' }];
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#FF6500' } }}>
-      <div className="min-h-screen bg-slate-50">
+    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#FF6500' } }}>
+      <div className="min-h-screen bg-slate-900">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -117,14 +117,13 @@ const Page = () => {
 
                   {/* คอลัมน์ขวา: คำแนะนำและปุ่มกด */}
                   <Col xs={24} lg={8}>
-                    <Card variant="borderless" className="shadow-sm mb-6 bg-orange-50 border-orange-100" style={{ borderRadius: 12 }}>
+                    <Card variant="borderless" className="shadow-sm mb-6" style={{ borderRadius: 12 }}>
                       <Title level={4} className="mb-4" style={{ color: '#FF6500' }}>ข้อมูลประกอบ</Title>
                       <Alert
                         title="ข้อแนะนำในการยื่นคำร้อง"
                         description="คณะกรรมการจะพิจารณาจัดสรรบ้านพักจากระยะทาง ภูมิลำเนา และลักษณะการปฏิบัติงานของท่านเป็นสำคัญ"
                         type="info"
                         showIcon
-                        className="bg-white"
                       />
                     </Card>
 
@@ -143,7 +142,7 @@ const Page = () => {
                       >
                         ส่งคำขอเข้าพัก
                       </Button>
-                      <Button type="link" block className="mt-2 text-slate-400">
+                      <Button type="link" block className="mt-2 text-slate-400" onClick={() => form.resetFields()}>
                         ยกเลิก
                       </Button>
                     </Card>

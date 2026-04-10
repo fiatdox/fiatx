@@ -12,9 +12,10 @@ import {
   BellOutlined
 } from '@ant-design/icons'
 import {
-  FaCalendarMinus, FaUserClock, FaBed, FaCar, FaBoxOpen, FaTools, FaStethoscope,
-  FaChartLine, FaUserGraduate, FaDesktop, FaKey, FaFileInvoiceDollar,
-  FaUsers
+  FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
+  FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
+  FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator,
+  FaClipboardList, FaExclamationTriangle, FaTasks
 } from 'react-icons/fa'
 
 const { Header } = Layout
@@ -36,10 +37,10 @@ const Navbar: React.FC = () => {
   }, [pathname])
 
   // สีส้มตาม Theme 
-  const themeColor = '#FF6500'
+  const themeColor = '#6B21A8'
 
-  // สร้างพื้นหลังลายน้ำรูปพระจันทร์ (SVG Data URI)
-  const moonPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='rgba(255,255,255,0.07)'%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(30, 40) rotate(15) scale(1.5)'/%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(100, 30) rotate(-25) scale(0.8)'/%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(160, 80) rotate(45) scale(2)'/%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(40, 130) rotate(-15) scale(1.2)'/%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(110, 150) rotate(72) scale(0.6)'/%3E%3Cpath d='M12 21.35a9.69 9.69 0 0 1-7.35-3.35 1 1 0 0 1 .53-1.59 8 8 0 0 0 4.67-11.83 1 1 0 0 1 1.09-1.5 9.69 9.69 0 0 1 8.41 9.57 9.71 9.71 0 0 1-7.35 8.7z' transform='translate(180, 160) rotate(-40) scale(1)'/%3E%3C/g%3E%3C/svg%3E")`
+  // สร้างพื้นหลังลายน้ำรูปดาวแบบสุ่มตำแหน่งและขนาด (SVG Data URI)
+  const starPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cg fill='white' fill-opacity='0.08'%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(20,40) rotate(15) scale(1.2)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(120,30) rotate(-25) scale(0.8)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(180,90) rotate(45) scale(1.5)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(40,160) rotate(-10) scale(0.6)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(130,180) rotate(60) scale(1.1)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(210,190) rotate(-40) scale(0.9)'/%3E%3C/g%3E%3C/svg%3E")`
 
   return (
     <>
@@ -112,11 +113,11 @@ const Navbar: React.FC = () => {
           onClose={() => setOpenMenu(false)}
           open={openMenu}
           size="default"
-          styles={{ 
-            body: { padding: '16px 0' },
-            header: { borderBottom: '1px solid rgba(255, 255, 255, 0.2)' },
-            section: { background: `${moonPattern}, linear-gradient(180deg, ${themeColor} 0%, #FF9F43 100%)` }
-          }}
+            styles={{ 
+              body: { padding: '16px 0' },
+              header: { borderBottom: '1px solid rgba(255, 255, 255, 0.2)' },
+              section: { background: `${starPattern}, linear-gradient(180deg, ${themeColor} 0%, #FF9F43 100%)` }
+            }}
         >
           <Menu
             mode="inline"
@@ -132,52 +133,57 @@ const Navbar: React.FC = () => {
             { key: '/', icon: <HomeOutlined />, label: 'หน้าหลัก' },
             { 
               key: 'hr', 
-              icon: <FileTextOutlined />, 
+              icon: <FaUsersCog />, 
               label: 'งานทรัพยากรบุคคล',
               children: [
                 { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร' },
-                { key: '/hr/leave', icon: <FaCalendarMinus />, label: 'ลาพักผ่อน / ลากิจ /ลาคลอดบุตร' },
+                { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ลาพักผ่อน / ลากิจ / ลาคลอด' },
                 { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
+                { key: '/hr/settings/supervisor', icon: <FaUserTie />, label: 'ผังผู้บริหาร' },
               ]
             },
             { 
               key: 'general', 
-              icon: <FileTextOutlined />, 
+              icon: <FaBuilding />, 
               label: 'งานบริหารงานทั่วไป',
               children: [
                 { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
-                { key: '/general/vehicle-booking', icon: <FaCar />, label: 'ขอรถเดินทางไปราชการ' },
-                { key: '/general/item-moving', icon: <FaBoxOpen />, label: 'ขอย้ายสิ่งของ จัดสถานที่' },
-                { key: '/general/maintenance-request', icon: <FaTools />, label: 'แจ้งซ่อมบำรุง' },
-                { key: '/general/medical-equipment-request', icon: <FaStethoscope />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
+                { key: '/general/vehicle-request', icon: <FaCar />, label: 'ขอรถเดินทางไปราชการ' },
+                { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ / จัดสถานที่' },
+                { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
+                { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
               ]
             },
             { 
               key: 'HSS-DS', 
-              icon: <FileTextOutlined />, 
+              icon: <FaHospitalSymbol />, 
               label: 'งานพัฒนาระบบบริการและสนับสนุนบริการสุขภาพ',
               children: [
-                { key: '/HSS-DSHit-maintenance-request', icon: <FaChartLine />, label: 'งานยุทธศาสตร์และแผนงาน' },
-                { key: '/HSS-DS/it-user-request', icon: <FaUserGraduate />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
+                { key: '/hss/strategy', icon: <FaChartBar />, label: 'งานยุทธศาสตร์และแผนงาน' },
+                { key: '/hss/hrd', icon: <FaGraduationCap />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
               ]
             },
 
-            { 
-              key: 'it', 
-              icon: <FileTextOutlined />, 
+            {
+              key: 'information-technology',
+              icon: <FaMicrochip />,
               label: 'งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ',
               children: [
-                { key: '/it/it-maintenance-request', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
-                { key: '/it/it-user-request', icon: <FaKey />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+                { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
+                { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+                { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'HAIT ข้อ 4 บริการ IT' },
+                { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA (4.2-4.3)' },
+                { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์ (4.4)' },
+                { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT (4.5)' },
               ]
             },
             { 
               key: 'accounting', 
-              icon: <FileTextOutlined />, 
+              icon: <FaCalculator />, 
               label: 'งานการเงินและบัญชี',
               children: [
                 { key: '/accounting/salary', icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
-                { key: '/accounting/it-user-request', icon: <FaKey />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+                { key: '/accounting/credentials', icon: <FaLock />, label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
               ]
             },
             

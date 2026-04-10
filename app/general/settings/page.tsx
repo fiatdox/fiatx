@@ -2,7 +2,7 @@
 
 'use client'
 import React from 'react'
-import { Card, Typography, Breadcrumb, ConfigProvider, App, Row, Col } from 'antd'
+import { Card, Typography, Breadcrumb, ConfigProvider, App, Row, Col, theme } from 'antd'
 import {
   HomeOutlined,
   SettingOutlined,
@@ -46,7 +46,7 @@ const GeneralPageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-900">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -107,6 +107,7 @@ const GeneralPage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,

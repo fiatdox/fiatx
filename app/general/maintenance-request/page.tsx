@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { 
   Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, 
-  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload, Checkbox
+  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload, Checkbox, theme
 } from 'antd'
 import { 
   HomeOutlined, FileTextOutlined, CheckCircleOutlined, ToolOutlined, PlusOutlined 
@@ -59,8 +59,8 @@ const MaintenanceRequestPage = () => {
   };
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#FF6500', borderRadius: 8 } }}>
-      <div className="min-h-screen bg-slate-50">
+    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#FF6500', borderRadius: 8 } }}>
+      <div className="min-h-screen bg-slate-900 text-slate-200">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -126,18 +126,18 @@ const MaintenanceRequestPage = () => {
                         <Radio.Group className="w-full">
                           <Row gutter={[16, 16]}>
                             <Col xs={24} sm={12}>
-                              <Card size="small" hoverable className={repairCategory === 'equipment' ? 'border-[#FF6500] bg-orange-50' : ''}>
+                              <Card size="small" hoverable className={repairCategory === 'equipment' ? 'border-[#FF6500] bg-[#FF6500]/10' : ''}>
                                 <Radio value="equipment" className="w-full">
-                                  <span className="font-semibold text-base">งานซ่อมครุภัณฑ์</span>
-                                  <div className="text-xs text-slate-500 whitespace-normal mt-1">มีเลขครุภัณฑ์ (เช่น คอมพิวเตอร์, เครื่องพิมพ์, โต๊ะ)</div>
+                                  <span className="font-semibold text-base text-slate-200">งานซ่อมครุภัณฑ์</span>
+                                  <div className="text-xs text-slate-400 whitespace-normal mt-1">มีเลขครุภัณฑ์ (เช่น คอมพิวเตอร์, เครื่องพิมพ์, โต๊ะ)</div>
                                 </Radio>
                               </Card>
                             </Col>
                             <Col xs={24} sm={12}>
-                              <Card size="small" hoverable className={repairCategory === 'general' ? 'border-[#FF6500] bg-orange-50' : ''}>
+                              <Card size="small" hoverable className={repairCategory === 'general' ? 'border-[#FF6500] bg-[#FF6500]/10' : ''}>
                                 <Radio value="general" className="w-full">
-                                  <span className="font-semibold text-base">งานซ่อมทั่วไป</span>
-                                  <div className="text-xs text-slate-500 whitespace-normal mt-1">ไม่มีเลขครุภัณฑ์ (เช่น หลอดไฟ, ท่อน้ำ, ผนัง)</div>
+                                  <span className="font-semibold text-base text-slate-200">งานซ่อมทั่วไป</span>
+                                  <div className="text-xs text-slate-400 whitespace-normal mt-1">ไม่มีเลขครุภัณฑ์ (เช่น หลอดไฟ, ท่อน้ำ, ผนัง)</div>
                                 </Radio>
                               </Card>
                             </Col>
@@ -182,7 +182,7 @@ const MaintenanceRequestPage = () => {
                           </Form.Item>
                         </Col>
                         <Col xs={24} sm={12}>
-                          <Form.Item label="สถานที่/บริเวณ (รายละเอียด)" name="location" rules={[{ required: true, message: 'กรุณาระบุรายละเอียดสถานที่' }]}>
+                          <Form.Item label="สถานที่/บริเวณที่เกิดปัญหา" name="location" rules={[{ required: true, message: 'กรุณาระบุสถานที่' }]}>
                             <Input placeholder="เช่น ชั้น 2 ห้อง 201, หน้าลิฟต์" size="large" />
                           </Form.Item>
                         </Col>
@@ -243,12 +243,12 @@ const MaintenanceRequestPage = () => {
 
                   {/* คอลัมน์ขวา: คำแนะนำและปุ่มกด */}
                   <Col xs={24} lg={8}>
-                    <Card variant="borderless" className="shadow-sm mb-6 bg-orange-50 border-orange-100" style={{ borderRadius: 12 }}>
+                    <Card variant="borderless" className="shadow-sm mb-6 bg-slate-800 border-slate-700" style={{ borderRadius: 12 }}>
                       <Title level={4} className="mb-4" style={{ color: '#FF6500' }}>ข้อแนะนำ</Title>
                       <Alert
                         title="การระบุข้อมูล"
                         description={
-                          <ul className="list-disc pl-4 mt-2 mb-0 text-slate-600 text-sm">
+                          <ul className="list-disc pl-4 mt-2 mb-0 text-slate-300 text-sm">
                             <li>หากเป็น <b>ครุภัณฑ์</b> การมีเลขครุภัณฑ์จะช่วยให้งานพัสดุค้นหาประวัติได้รวดเร็วขึ้น (หากหาไม่พบ ให้เว้นว่างไว้)</li>
                             <li>การแนบรูปภาพจุดเกิดเหตุหรือป้ายอุปกรณ์ จะทำให้ช่างเตรียมเครื่องมือได้ตรงจุด</li>
                             <li>กรณีเร่งด่วนฉุกเฉิน (เช่น ท่อประปาแตกน้ำท่วม, ไฟช็อต) กรุณาโทรแจ้งงานซ่อมบำรุงโดยตรง</li>
@@ -256,7 +256,6 @@ const MaintenanceRequestPage = () => {
                         }
                         type="info"
                         showIcon
-                        className="bg-white"
                       />
                     </Card>
 

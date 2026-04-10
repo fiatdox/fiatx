@@ -19,7 +19,8 @@ import {
   Divider,
   InputNumber,
   Space,
-  Tag
+  Tag,
+  theme
 } from 'antd'
 import {
   HomeOutlined,
@@ -39,12 +40,12 @@ const { TextArea } = Input
 
 // Mockup Data
 const mockSchedule: Record<string, { vehicle: string, driver: string, status: 'booked' | 'available', time?: string, destination?: string }[]> = {
-  '2023-11-20': [
+  '2026-04-14': [
     { vehicle: 'รถตู้ นข-1111', driver: 'นายสมชาย', status: 'booked', time: '08:00 - 16:00', destination: 'กระทรวงสาธารณสุข' },
     { vehicle: 'รถตู้ ฮฮ-2222', driver: 'นายสมศักดิ์', status: 'available' },
     { vehicle: 'รถกระบะ บบ-3333', driver: 'ไม่มี (ขับเอง)', status: 'available' },
   ],
-  '2023-11-21': [
+  '2026-04-15': [
     { vehicle: 'รถตู้ นข-1111', driver: 'นายสมชาย', status: 'available' },
     { vehicle: 'รถตู้ ฮฮ-2222', driver: 'นายสมศักดิ์', status: 'booked', time: '09:00 - 12:00', destination: 'ศาลากลางจังหวัด' },
   ]
@@ -91,7 +92,7 @@ const VehicleRequestPageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-900 text-slate-200">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -219,11 +220,11 @@ const VehicleRequestPageContent = () => {
 
             {/* Right: Calendar & Availability */}
             <Col xs={24} lg={10}>
-              <Card variant="borderless" className="shadow-sm mb-6 bg-primary/5 border-primary/10">
+              <Card variant="borderless" className="shadow-sm mb-6 bg-slate-800/50 border-slate-700">
                 <Title level={4} className="mb-4 flex items-center gap-2">
                   <CalendarOutlined className="text-primary" /> ปฏิทินตรวจสอบคิวรถ
                 </Title>
-                <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 mb-4">
+                <div className="bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-700 mb-4">
                   <Calendar 
                     fullscreen={false} 
                     onSelect={(date) => setSelectedDate(date)}
@@ -236,20 +237,20 @@ const VehicleRequestPageContent = () => {
                 </Title>
                 <div className="flex flex-col gap-2">
                   {currentSchedule.map((item: any, index: number) => (
-                    <div key={index} className="flex gap-4 bg-white p-3 rounded-md border border-slate-100 shadow-sm">
+                    <div key={index} className="flex gap-4 bg-slate-800 p-3 rounded-md border border-slate-700 shadow-sm">
                       <div className="shrink-0">
                         <CarOutlined className={`text-2xl mt-1 ${item.status === 'available' ? 'text-green-500' : 'text-orange-500'}`} />
                       </div>
                       <div className="grow min-w-0">
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium text-slate-800">{item.vehicle}</span>
+                          <span className="text-sm font-medium text-slate-200">{item.vehicle}</span>
                           {item.status === 'available' ? (
                             <Tag color="success" className="m-0">ว่าง</Tag>
                           ) : (
                             <Tag color="warning" className="m-0">มีจองแล้ว</Tag>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 space-y-1">
+                        <div className="text-xs text-slate-400 space-y-1">
                           <div><UserOutlined /> คนขับ: {item.driver}</div>
                           {item.status === 'booked' && (
                             <>
@@ -275,6 +276,7 @@ const VehicleRequestPage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,

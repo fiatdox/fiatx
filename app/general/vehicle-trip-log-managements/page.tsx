@@ -17,7 +17,8 @@ import {
   Row,
   Col,
   Divider,
-  Input
+  Input,
+  theme
 } from 'antd'
 import {
   HomeOutlined,
@@ -35,8 +36,8 @@ const { Title, Text } = Typography
 // Mock Data
 const mockTrips = [
   {
-    id: 'TRIP-202311001',
-    date: '20/11/2023',
+    id: 'TRIP-202604001',
+    date: '09/04/2026',
     destination: 'กระทรวงสาธารณสุข นนทบุรี',
     vehicle: 'รถตู้ นข-1111',
     driver: 'นายสมชาย',
@@ -44,8 +45,8 @@ const mockTrips = [
     status: 'completed',
   },
   {
-    id: 'TRIP-202311002',
-    date: '21/11/2023',
+    id: 'TRIP-202604002',
+    date: '14/04/2026',
     destination: 'ศาลากลางจังหวัด',
     vehicle: 'รถตู้ ฮฮ-2222',
     driver: 'นายสมศักดิ์',
@@ -53,8 +54,8 @@ const mockTrips = [
     status: 'assigned',
   },
   {
-    id: 'TRIP-202311003',
-    date: '22/11/2023',
+    id: 'TRIP-202604003',
+    date: '15/04/2026',
     destination: 'อย. นนทบุรี',
     vehicle: 'รถกระบะ บบ-3333',
     driver: 'นายวิชัย กล้าหาญ',
@@ -147,7 +148,7 @@ const TripLogManagementContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-900">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -221,7 +222,7 @@ const TripLogManagementContent = () => {
           <Divider titlePlacement="left" styles={{ content: { margin: 0 } }} className="text-green-600 border-green-200 mt-6">
             <DollarCircleOutlined /> บันทึกค่าใช้จ่าย (Expenses)
           </Divider>
-          <div className="bg-slate-50 p-4 rounded-md border border-slate-100">
+          <div className="bg-slate-800 p-4 rounded-md border border-slate-700">
             {['ค่าน้ำมันเชื้อเพลิง', 'ค่าทางด่วน', 'ค่าที่จอดรถ'].map((item, index) => (
               <Row gutter={16} key={index} className={index !== 0 ? "mt-4" : ""}>
                 <Col span={12}>
@@ -253,6 +254,7 @@ const TripLogPage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,

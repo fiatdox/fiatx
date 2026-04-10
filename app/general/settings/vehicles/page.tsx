@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react';
 import {
-  Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form, Select, Breadcrumb, message, Tooltip, Row, Col, Statistic, Avatar, Modal, DatePicker, Radio
+  Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form, Select, Breadcrumb, message, Tooltip, Row, Col, Statistic, Avatar, Modal, DatePicker, Radio, theme
 } from 'antd';
 import {
   FaEdit, FaTrashAlt, FaSearch, FaCar, FaPlus, FaHome, FaTools, FaBan, FaCheckCircle, FaTachometerAlt, FaHistory
@@ -229,7 +229,7 @@ const Page = () => {
       render: (text: string) => (
         <div className="flex items-center gap-3">
           <Avatar style={{ backgroundColor: '#006a5a' }} icon={<FaCar />} />
-          <div className="font-semibold text-slate-800">{text}</div>
+          <div className="font-semibold">{text}</div>
         </div>
       ),
       sorter: (a: Vehicle, b: Vehicle) => a.licensePlate.localeCompare(b.licensePlate),
@@ -239,8 +239,8 @@ const Page = () => {
       key: 'brandModel',
       render: (_: any, record: Vehicle) => (
         <div>
-          <div className="font-medium text-slate-700">{record.brand}</div>
-          <div className="text-xs text-slate-500">{record.model}</div>
+          <div className="font-medium">{record.brand}</div>
+          <div className="text-xs text-slate-400">{record.model}</div>
         </div>
       ),
     },
@@ -322,6 +322,7 @@ const Page = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,
@@ -331,15 +332,10 @@ const Page = () => {
           Card: {
             headerFontSize: 16,
           },
-          Table: {
-            headerBg: '#f8fafc',
-            headerColor: '#475569',
-            rowHoverBg: '#f0fdf4',
-          }
         }
       }}
     >
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-900">
         <Navbar />
         <div className="p-6 md:p-8 max-w-7xl mx-auto">
           {/* Header & Breadcrumb */}
@@ -355,8 +351,8 @@ const Page = () => {
             />
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-slate-800 m-0">ระบบจัดการรถยนต์ราชการ</h1>
-                <p className="text-slate-500 mt-1">จัดการข้อมูลรถยนต์ สถานะ และประวัติการซ่อมบำรุง</p>
+                <h1 className="text-3xl font-bold m-0">ระบบจัดการรถยนต์ราชการ</h1>
+                <p className="text-slate-400 mt-1">จัดการข้อมูลรถยนต์ สถานะ และประวัติการซ่อมบำรุง</p>
               </div>
               <Button type="primary" size="large" icon={<FaPlus />} onClick={handleAdd}>
                 เพิ่มรถยนต์
@@ -371,7 +367,7 @@ const Page = () => {
                 <Statistic
                   title="รถยนต์ทั้งหมด"
                   value={totalVehicles}
-                  prefix={<FaCar className="text-slate-500 bg-slate-100 p-2 rounded-lg mr-2" />}
+                  prefix={<FaCar className="text-slate-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คัน"
                   styles={{ content: { fontWeight: 'bold' } }}
                 />
@@ -382,7 +378,7 @@ const Page = () => {
                 <Statistic
                   title="พร้อมใช้งาน"
                   value={availableVehicles}
-                  prefix={<FaCheckCircle className="text-green-600 bg-green-50 p-2 rounded-lg mr-2" />}
+                  prefix={<FaCheckCircle className="text-green-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คัน"
                   styles={{ content: { color: '#16a34a', fontWeight: 'bold' } }}
                 />
@@ -393,7 +389,7 @@ const Page = () => {
                 <Statistic
                   title="กำลังใช้งาน"
                   value={inUseVehicles}
-                  prefix={<FaCar className="text-blue-600 bg-blue-50 p-2 rounded-lg mr-2" />}
+                  prefix={<FaCar className="text-blue-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คัน"
                   styles={{ content: { color: '#2563eb', fontWeight: 'bold' } }}
                 />
@@ -404,7 +400,7 @@ const Page = () => {
                 <Statistic
                   title="ส่งซ่อม"
                   value={maintenanceVehicles}
-                  prefix={<FaTools className="text-orange-600 bg-orange-50 p-2 rounded-lg mr-2" />}
+                  prefix={<FaTools className="text-orange-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คัน"
                   styles={{ content: { color: '#ea580c', fontWeight: 'bold' } }}
                 />
@@ -416,7 +412,7 @@ const Page = () => {
           <Card variant="borderless" className="shadow-sm rounded-xl overflow-hidden">
             <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-slate-700">รายการรถยนต์ราชการ</span>
+                <span className="text-base font-semibold">รายการรถยนต์ราชการ</span>
               </div>
               <Input
                 placeholder="ค้นหาทะเบียน, ยี่ห้อ, รุ่น..."
@@ -461,7 +457,7 @@ const Page = () => {
             }
           >
             <Form layout="vertical" form={form} onFinish={onFinish} requiredMark="optional">
-              <h3 className="text-base font-medium text-slate-700 mb-4 border-b pb-2"><FaCar className="inline mr-2"/>ข้อมูลรถยนต์</h3>
+              <h3 className="text-base font-medium mb-4 border-b border-slate-700 pb-2"><FaCar className="inline mr-2"/>ข้อมูลรถยนต์</h3>
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item
@@ -532,8 +528,8 @@ const Page = () => {
               <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.status !== currentValues.status}>
                 {({ getFieldValue }) =>
                   getFieldValue('status') === 'ส่งซ่อม' ? (
-                    <div className="bg-orange-50 p-4 rounded-xl mb-4 border border-orange-200">
-                      <h3 className="text-sm font-semibold text-orange-800 mb-4"><FaTools className="inline mr-2"/>รายละเอียดการส่งซ่อม</h3>
+                    <div className="bg-slate-800 p-4 rounded-xl mb-4 border border-orange-900">
+                      <h3 className="text-sm font-semibold text-orange-400 mb-4"><FaTools className="inline mr-2"/>รายละเอียดการส่งซ่อม</h3>
                       <Row gutter={16}>
                         <Col span={12}>
                           <Form.Item name="repairDate" label="วันที่แจ้งซ่อม" rules={[{ required: true, message: 'กรุณาเลือกวันที่' }]}>
@@ -615,10 +611,10 @@ const Page = () => {
                       <Col span={24}>
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h4 className="font-semibold text-slate-800 mb-1">
+                            <h4 className="font-semibold mb-1">
                               ครั้งที่ {(selectedVehicleForHistory.repairHistory || []).length - index}
                             </h4>
-                            <p className="text-sm text-slate-600">
+                            <p className="text-sm text-slate-400">
                               <span className="font-medium">วันที่:</span> {dayjs(record.date).format('DD/MM/YYYY')}
                             </p>
                           </div>
@@ -628,12 +624,12 @@ const Page = () => {
                         </div>
                         <div className="mt-3 space-y-2">
                           <p className="text-sm">
-                            <span className="font-medium text-slate-700">สถานที่ซ่อม:</span>
-                            <span className="ml-2 text-slate-600">{record.type}</span>
+                            <span className="font-medium">สถานที่ซ่อม:</span>
+                            <span className="ml-2 text-slate-400">{record.type}</span>
                           </p>
                           <p className="text-sm">
-                            <span className="font-medium text-slate-700">อาการที่เสีย:</span>
-                            <span className="ml-2 text-slate-600">{record.symptoms}</span>
+                            <span className="font-medium">อาการที่เสีย:</span>
+                            <span className="ml-2 text-slate-400">{record.symptoms}</span>
                           </p>
                         </div>
                       </Col>
@@ -644,7 +640,7 @@ const Page = () => {
             ) : (
               <div className="text-center py-8">
                 <FaHistory className="text-4xl text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">ไม่มีประวัติการซ่อมสำหรับรถคันนี้</p>
+                <p className="text-slate-400">ไม่มีประวัติการซ่อมสำหรับรถคันนี้</p>
               </div>
             )}
           </Modal>

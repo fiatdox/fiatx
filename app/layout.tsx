@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${sarabun.variable} antialiased min-h-screen text-foreground`}
+        className={`${sarabun.variable} antialiased min-h-screen bg-slate-900 text-slate-200`}
       >
         {children}
       </body>

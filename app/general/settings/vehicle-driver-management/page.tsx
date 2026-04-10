@@ -2,7 +2,7 @@
 'use client'
 import React, { useState } from 'react';
 import {
-  Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form, Select, Breadcrumb, DatePicker, message, Tooltip, Row, Col, Statistic, Avatar
+  Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form, Select, Breadcrumb, DatePicker, message, Tooltip, Row, Col, Statistic, Avatar, theme
 } from 'antd';
 import {
   EditOutlined, DeleteOutlined, SearchOutlined, UserOutlined, PlusOutlined, HomeOutlined, PhoneOutlined, IdcardOutlined, CarOutlined, SafetyCertificateOutlined
@@ -121,8 +121,8 @@ const Page = () => {
         <div className="flex items-center gap-3">
           <Avatar style={{ backgroundColor: '#006a5a' }} icon={<UserOutlined />} />
           <div>
-            <div className="font-medium text-slate-800">{text}</div>
-            <div className="text-xs text-slate-500 mt-0.5"><PhoneOutlined className="mr-1" />{record.phone}</div>
+            <div className="font-medium">{text}</div>
+            <div className="text-xs text-slate-400 mt-0.5"><PhoneOutlined className="mr-1" />{record.phone}</div>
           </div>
         </div>
       ),
@@ -133,12 +133,12 @@ const Page = () => {
       key: 'license',
       render: (_: any, record: Driver) => (
         <div>
-          <div className="text-sm text-slate-700 mb-1">
+          <div className="text-sm mb-1">
             <SafetyCertificateOutlined className="text-blue-500 mr-2" />
             {record.licenseType}
           </div>
           <div className="text-xs flex items-center">
-            <span className="text-slate-500">หมดอายุ: {dayjs(record.expiryDate).format('DD/MM/YYYY')}</span>
+            <span className="text-slate-400">หมดอายุ: {dayjs(record.expiryDate).format('DD/MM/YYYY')}</span>
             {getExpiryStatus(record.expiryDate)}
           </div>
         </div>
@@ -187,6 +187,7 @@ const Page = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,
@@ -196,15 +197,10 @@ const Page = () => {
           Card: {
             headerFontSize: 16,
           },
-          Table: {
-            headerBg: '#f8fafc',
-            headerColor: '#475569',
-            rowHoverBg: '#f0fdf4',
-          }
         }
       }}
     >
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen bg-slate-900">
         <Navbar />
         <div className="p-6 md:p-8 max-w-7xl mx-auto">
           {/* Header & Breadcrumb */}
@@ -220,8 +216,8 @@ const Page = () => {
             />
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-slate-800 m-0">ระบบจัดการพนักงานขับรถ</h1>
-                <p className="text-slate-500 mt-1">จัดการข้อมูลส่วนตัว เบอร์ติดต่อ และวันหมดอายุใบอนุญาตขับขี่ของพนักงานขับรถส่วนกลาง</p>
+                <h1 className="text-3xl font-bold m-0">ระบบจัดการพนักงานขับรถ</h1>
+                <p className="text-slate-400 mt-1">จัดการข้อมูลส่วนตัว เบอร์ติดต่อ และวันหมดอายุใบอนุญาตขับขี่ของพนักงานขับรถส่วนกลาง</p>
               </div>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} size="large" className="shadow-lg shadow-green-600/20">
                 เพิ่มพนักงานขับรถ
@@ -236,7 +232,7 @@ const Page = () => {
                 <Statistic
                   title="พนักงานขับรถทั้งหมด"
                   value={totalDrivers}
-                  prefix={<IdcardOutlined className="text-slate-500 bg-slate-100 p-2 rounded-lg mr-2" />}
+                  prefix={<IdcardOutlined className="text-slate-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คน"
                   styles={{ content: { fontWeight: 'bold' } }}
                 />
@@ -247,7 +243,7 @@ const Page = () => {
                 <Statistic
                   title="สถานะ: ว่าง"
                   value={availableDrivers}
-                  prefix={<UserOutlined className="text-green-600 bg-green-50 p-2 rounded-lg mr-2" />}
+                  prefix={<UserOutlined className="text-green-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คน"
                   styles={{ content: { color: '#16a34a', fontWeight: 'bold' } }}
                 />
@@ -258,7 +254,7 @@ const Page = () => {
                 <Statistic
                   title="สถานะ: ติดภารกิจ"
                   value={onDutyDrivers}
-                  prefix={<CarOutlined className="text-blue-600 bg-blue-50 p-2 rounded-lg mr-2" />}
+                  prefix={<CarOutlined className="text-blue-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คน"
                   styles={{ content: { color: '#2563eb', fontWeight: 'bold' } }}
                 />
@@ -269,7 +265,7 @@ const Page = () => {
                 <Statistic
                   title="สถานะ: ลาพักผ่อน"
                   value={onLeaveDrivers}
-                  prefix={<UserOutlined className="text-orange-600 bg-orange-50 p-2 rounded-lg mr-2" />}
+                  prefix={<UserOutlined className="text-orange-400 bg-slate-700 p-2 rounded-lg mr-2" />}
                   suffix="คน"
                   styles={{ content: { color: '#ea580c', fontWeight: 'bold' } }}
                 />
@@ -281,7 +277,7 @@ const Page = () => {
           <Card variant="borderless" className="shadow-sm rounded-xl overflow-hidden">
             <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold text-slate-700">รายชื่อพนักงานขับรถ</span>
+                <span className="text-base font-semibold">รายชื่อพนักงานขับรถ</span>
               </div>
               <Input
                 placeholder="ค้นหาชื่อ, เบอร์ติดต่อ..."
@@ -326,7 +322,7 @@ const Page = () => {
             }
           >
             <Form layout="vertical" form={form} onFinish={onFinish} requiredMark="optional">
-              <h3 className="text-base font-medium text-slate-700 mb-4 border-b pb-2"><UserOutlined className="mr-2"/>ข้อมูลส่วนตัว</h3>
+              <h3 className="text-base font-medium mb-4 border-b border-slate-700 pb-2"><UserOutlined className="mr-2"/>ข้อมูลส่วนตัว</h3>
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item

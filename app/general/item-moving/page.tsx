@@ -1,6 +1,6 @@
 'use client'
 import React, { useState } from 'react'
-import { Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, Result, Breadcrumb, Row, Col, Alert, Divider, Steps } from 'antd'
+import { Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, Result, Breadcrumb, Row, Col, Alert, Divider, Steps, theme } from 'antd'
 import { HomeOutlined, FileTextOutlined, CheckCircleOutlined, ToolOutlined } from '@ant-design/icons'
 import Navbar from '../../components/Navbar'
 
@@ -29,8 +29,8 @@ const ItemMovingPage = () => {
   };
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#FF6500', borderRadius: 8 } }}>
-      <div className="min-h-screen bg-slate-50">
+    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#FF6500', borderRadius: 8 } }}>
+      <div className="min-h-screen bg-slate-900">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -141,7 +141,7 @@ const ItemMovingPage = () => {
 
                   {/* คอลัมน์ขวา: คำแนะนำและปุ่มกด */}
                   <Col xs={24} lg={8}>
-                    <Card variant="borderless" className="shadow-sm mb-6 bg-orange-50 border-orange-100" style={{ borderRadius: 12 }}>
+                    <Card variant="borderless" className="shadow-sm mb-6" style={{ borderRadius: 12 }}>
                       <Title level={4} className="mb-4" style={{ color: '#FF6500' }}>ข้อแนะนำ</Title>
                       <Alert
                         title="เงื่อนไขการขอรับบริการ"
@@ -154,7 +154,6 @@ const ItemMovingPage = () => {
                         }
                         type="info"
                         showIcon
-                        className="bg-white"
                       />
                     </Card>
 
