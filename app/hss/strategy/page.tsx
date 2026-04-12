@@ -57,7 +57,7 @@ const StrategyDashboard = () => {
         <div className="absolute bottom-[10%] right-[5%] w-[40%] h-[40%] bg-emerald-600/5 blur-[120px] rounded-full" />
       </div>
 
-      <div className="relative z-10 p-6 md:p-12 max-w-7xl mx-auto">
+      <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
             { href: '/', title: <span className="text-slate-500 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },

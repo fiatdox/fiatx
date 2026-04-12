@@ -182,7 +182,7 @@ export default function MaintenanceChefsPage() {
             className="mb-6"
           />
 
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div>
                 <h1 className="text-2xl font-bold m-0">จัดการหัวหน้าช่างซ่อมบำรุง</h1>

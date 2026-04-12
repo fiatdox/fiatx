@@ -109,7 +109,7 @@ export default function HaitPage() {
   return (
     <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       {contextHolder}
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen w-full bg-slate-900 text-slate-200">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -121,7 +121,7 @@ export default function HaitPage() {
             className="mb-6"
           />
 
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full">
             {/* Header */}
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-2">
@@ -154,7 +154,7 @@ export default function HaitPage() {
                   <Progress
                     percent={progress}
                     strokeColor="#a855f7"
-                    trailColor="#334155"
+                    railColor="#334155"
                     format={p => `${p}%`}
                   />
                 </Col>

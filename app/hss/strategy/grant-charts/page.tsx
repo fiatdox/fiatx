@@ -125,7 +125,7 @@ const GanttPageContent = () => {
         <div className="absolute top-[60%] left-[40%]  w-[20%] h-[20%] bg-amber-200/15  blur-[100px] rounded-full" />
       </div>
 
-      <div className="relative z-10 p-6 md:p-10 max-w-[1600px] mx-auto">
+      <div className="relative z-10 p-6 md:p-10 w-full">
 
         {/* ── Header ── */}
         <div className="mb-8">
@@ -305,7 +305,7 @@ const GanttPageContent = () => {
                             size="small"
                             showInfo={false}
                             strokeColor={fill}
-                            trailColor="#e2e8f0"
+                            railColor="#e2e8f0"
                             className="m-0"
                           />
                         </div>

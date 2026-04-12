@@ -72,7 +72,7 @@ const MaintenanceRequestPage = () => {
             className="mb-6"
           />
 
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="mb-8">
               <Title level={2} style={{ color: '#FF6500', margin: 0 }}>แบบฟอร์มแจ้งซ่อมบำรุง / แจ้งปัญหา</Title>
               <Text type="secondary">กรุณากรอกรายละเอียดปัญหาหรือความเสียหาย เพื่อให้ช่างซ่อมบำรุงดำเนินการแก้ไข</Text>

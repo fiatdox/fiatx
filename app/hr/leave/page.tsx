@@ -79,7 +79,7 @@ const LeavePageContent = () => {
     <div className="min-h-7 bg-slate-50">
       <Navbar />
       <div className="p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           {/* Breadcrumb */}
           <Breadcrumb
             items={[

@@ -8,7 +8,8 @@ import {
 import {
   EditOutlined, DeleteOutlined, SearchOutlined, PlusOutlined, HomeOutlined,
   DesktopOutlined, UserOutlined, BarChartOutlined, CalendarOutlined,
-  WarningOutlined, BulbOutlined, RiseOutlined, FallOutlined, FireOutlined
+  WarningOutlined, BulbOutlined, RiseOutlined, FallOutlined, FireOutlined,
+  TableOutlined
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
 import Swal from 'sweetalert2'
@@ -26,21 +27,22 @@ interface ActivityLog {
   system: string
   hours: number
   outcome: string
+  startTime: string
 }
 
 const initialLogs: ActivityLog[] = [
-  { id: 1, logDate: '01/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'ซ่อมเครื่องคอมพิวเตอร์ห้องพยาบาลชั้น 2 จำนวน 2 เครื่อง', system: 'คอมพิวเตอร์', hours: 3, outcome: 'แก้ไขสำเร็จ ทั้ง 2 เครื่อง' },
-  { id: 2, logDate: '02/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'ตรวจสอบ backup รายวัน และ patch ระบบปฏิบัติการ server', system: 'เซิร์ฟเวอร์', hours: 2, outcome: 'Backup สมบูรณ์ Patch สำเร็จ 3/3 server' },
-  { id: 3, logDate: '02/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'ฝึกอบรม', detail: 'ฝึกอบรมการใช้งานระบบ HIS แผนกใหม่ให้กับเจ้าหน้าที่ 5 คน', system: 'ระบบ HIS', hours: 4, outcome: 'เจ้าหน้าที่ผ่านการทดสอบครบ 5 คน' },
-  { id: 4, logDate: '03/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ติดตั้งระบบ', detail: 'ติดตั้งและตั้งค่า Switch ใหม่อาคาร IPD ชั้น 3', system: 'เครือข่าย', hours: 5, outcome: 'ติดตั้งสำเร็จ เครือข่ายใช้งานได้ปกติ' },
-  { id: 5, logDate: '04/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'เครื่องพิมพ์ห้องการเงินพิมพ์ไม่ออก ทำความสะอาดหัวพิมพ์', system: 'เครื่องพิมพ์', hours: 1.5, outcome: 'พิมพ์ได้ปกติ' },
-  { id: 6, logDate: '04/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'Monitor performance HIS server ช่วง peak hour', system: 'ระบบ HIS', hours: 2, outcome: 'ไม่พบความผิดปกติ' },
-  { id: 7, logDate: '05/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'เครื่องพิมพ์ OPD กระดาษติด ซ่อมและเปลี่ยน roller', system: 'เครื่องพิมพ์', hours: 2, outcome: 'เปลี่ยน roller สำเร็จ' },
-  { id: 8, logDate: '06/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'พัฒนาระบบ', detail: 'พัฒนา dashboard รายงานสถิติผู้ป่วยสำหรับฝ่ายบริหาร', system: 'ระบบ HIS', hours: 6, outcome: 'Dashboard v1 เสร็จ รอ UAT' },
-  { id: 9, logDate: '07/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ประสานงาน', detail: 'ประสานงานกับบริษัท HIS เรื่องการ upgrade version', system: 'ระบบ HIS', hours: 1.5, outcome: 'นัดประชุม 20/04/2026' },
-  { id: 10, logDate: '07/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'คอมพิวเตอร์ห้องตรวจ 5 เปิดไม่ติด ตรวจสอบพบ power supply เสีย', system: 'คอมพิวเตอร์', hours: 2, outcome: 'สั่งอะไหล่ รอเปลี่ยน' },
-  { id: 11, logDate: '08/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'ประชุม', detail: 'ประชุมคณะกรรมการ IT เรื่องแผนงาน IT ปี 2570', system: 'อื่นๆ', hours: 3, outcome: 'ได้แผนงานเบื้องต้น' },
-  { id: 12, logDate: '09/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'ตรวจสอบ log ความปลอดภัยและ failed login attempts รายสัปดาห์', system: 'เซิร์ฟเวอร์', hours: 2, outcome: 'พบ 3 IP น่าสงสัย block แล้ว' },
+  { id: 1, logDate: '01/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'ซ่อมเครื่องคอมพิวเตอร์ห้องพยาบาลชั้น 2 จำนวน 2 เครื่อง', system: 'คอมพิวเตอร์', hours: 3, outcome: 'แก้ไขสำเร็จ ทั้ง 2 เครื่อง', startTime: '08:00' },
+  { id: 2, logDate: '02/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'ตรวจสอบ backup รายวัน และ patch ระบบปฏิบัติการ server', system: 'เซิร์ฟเวอร์', hours: 2, outcome: 'Backup สมบูรณ์ Patch สำเร็จ 3/3 server', startTime: '09:00' },
+  { id: 3, logDate: '02/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'ฝึกอบรม', detail: 'ฝึกอบรมการใช้งานระบบ HIS แผนกใหม่ให้กับเจ้าหน้าที่ 5 คน', system: 'ระบบ HIS', hours: 4, outcome: 'เจ้าหน้าที่ผ่านการทดสอบครบ 5 คน', startTime: '08:00' },
+  { id: 4, logDate: '03/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ติดตั้งระบบ', detail: 'ติดตั้งและตั้งค่า Switch ใหม่อาคาร IPD ชั้น 3', system: 'เครือข่าย', hours: 5, outcome: 'ติดตั้งสำเร็จ เครือข่ายใช้งานได้ปกติ', startTime: '08:00' },
+  { id: 5, logDate: '04/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'เครื่องพิมพ์ห้องการเงินพิมพ์ไม่ออก ทำความสะอาดหัวพิมพ์', system: 'เครื่องพิมพ์', hours: 1.5, outcome: 'พิมพ์ได้ปกติ', startTime: '13:00' },
+  { id: 6, logDate: '04/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'Monitor performance HIS server ช่วง peak hour', system: 'ระบบ HIS', hours: 2, outcome: 'ไม่พบความผิดปกติ', startTime: '10:00' },
+  { id: 7, logDate: '05/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'เครื่องพิมพ์ OPD กระดาษติด ซ่อมและเปลี่ยน roller', system: 'เครื่องพิมพ์', hours: 2, outcome: 'เปลี่ยน roller สำเร็จ', startTime: '08:00' },
+  { id: 8, logDate: '06/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'พัฒนาระบบ', detail: 'พัฒนา dashboard รายงานสถิติผู้ป่วยสำหรับฝ่ายบริหาร', system: 'ระบบ HIS', hours: 6, outcome: 'Dashboard v1 เสร็จ รอ UAT', startTime: '08:00' },
+  { id: 9, logDate: '07/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ประสานงาน', detail: 'ประสานงานกับบริษัท HIS เรื่องการ upgrade version', system: 'ระบบ HIS', hours: 1.5, outcome: 'นัดประชุม 20/04/2026', startTime: '14:00' },
+  { id: 10, logDate: '07/04/2026', staffName: 'นายสมชาย ใจดี', activityType: 'ซ่อมบำรุง', detail: 'คอมพิวเตอร์ห้องตรวจ 5 เปิดไม่ติด ตรวจสอบพบ power supply เสีย', system: 'คอมพิวเตอร์', hours: 2, outcome: 'สั่งอะไหล่ รอเปลี่ยน', startTime: '10:00' },
+  { id: 11, logDate: '08/04/2026', staffName: 'นายวีระ มุ่งมั่น', activityType: 'ประชุม', detail: 'ประชุมคณะกรรมการ IT เรื่องแผนงาน IT ปี 2570', system: 'อื่นๆ', hours: 3, outcome: 'ได้แผนงานเบื้องต้น', startTime: '09:00' },
+  { id: 12, logDate: '09/04/2026', staffName: 'นางสาวสุดา รักงาน', activityType: 'ดูแลระบบ', detail: 'ตรวจสอบ log ความปลอดภัยและ failed login attempts รายสัปดาห์', system: 'เซิร์ฟเวอร์', hours: 2, outcome: 'พบ 3 IP น่าสงสัย block แล้ว', startTime: '14:00' },
 ]
 
 const staffList = [
@@ -70,6 +72,20 @@ const systemOptions = [
   { label: 'อื่นๆ', value: 'อื่นๆ' },
 ]
 
+const TIME_SLOTS = [8, 9, 10, 11, 12, 13, 14, 15]
+
+const getStartHour = (startTime: string): number => parseInt(startTime.split(':')[0], 10)
+
+const activityInSlot = (log: ActivityLog, slotHour: number): boolean => {
+  const sh = getStartHour(log.startTime)
+  return slotHour >= sh && slotHour < sh + log.hours
+}
+
+const timeSlotOptions = TIME_SLOTS.map(h => ({
+  label: `${String(h).padStart(2, '0')}:00`,
+  value: `${String(h).padStart(2, '0')}:00`,
+}))
+
 const activityColors: Record<string, string> = {
   'ซ่อมบำรุง': 'orange',
   'ดูแลระบบ': 'blue',
@@ -87,6 +103,8 @@ export default function ActivityPage() {
   const [filterStaff, setFilterStaff] = useState<string>('')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingLog, setEditingLog] = useState<ActivityLog | null>(null)
+  const [scheduleDate, setScheduleDate] = useState<dayjs.Dayjs>(dayjs('2026-04-07', 'YYYY-MM-DD'))
+  const [analysisRange, setAnalysisRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
   const [form] = Form.useForm()
   const [messageApi, contextHolder] = message.useMessage()
 
@@ -102,10 +120,19 @@ export default function ActivityPage() {
   const totalHours = logs.reduce((sum, l) => sum + l.hours, 0)
   const uniqueStaff = [...new Set(logs.map(l => l.staffName))].length
 
+  // --- กรองข้อมูลสำหรับการวิเคราะห์ตามช่วงวันที่ ---
+  const analysisLogs = analysisRange
+    ? logs.filter(l => {
+        const d = dayjs(l.logDate, 'DD/MM/YYYY')
+        return !d.isBefore(analysisRange[0], 'day') && !d.isAfter(analysisRange[1], 'day')
+      })
+    : logs
+  const analysisTotalHours = analysisLogs.reduce((sum, l) => sum + l.hours, 0)
+
   // --- วิเคราะห์ชั่วโมงตามประเภทกิจกรรม ---
   const byActivityType = activityTypeOptions
     .map(opt => {
-      const matching = logs.filter(l => l.activityType === opt.value)
+      const matching = analysisLogs.filter(l => l.activityType === opt.value)
       const hours = matching.reduce((s, l) => s + l.hours, 0)
       return { type: opt.value, count: matching.length, hours }
     })
@@ -115,7 +142,7 @@ export default function ActivityPage() {
   // --- วิเคราะห์ชั่วโมงตามระบบ ---
   const bySystem = systemOptions
     .map(opt => {
-      const matching = logs.filter(l => l.system === opt.value)
+      const matching = analysisLogs.filter(l => l.system === opt.value)
       const hours = matching.reduce((s, l) => s + l.hours, 0)
       return { system: opt.value, count: matching.length, hours }
     })
@@ -125,13 +152,13 @@ export default function ActivityPage() {
   // --- สัดส่วนงานเชิงรับ vs งานเชิงรุก ---
   const reactiveTypes = ['ซ่อมบำรุง']
   const proactiveTypes = ['ดูแลระบบ', 'ติดตั้งระบบ', 'พัฒนาระบบ']
-  const reactiveHours = logs.filter(l => reactiveTypes.includes(l.activityType)).reduce((s, l) => s + l.hours, 0)
-  const proactiveHours = logs.filter(l => proactiveTypes.includes(l.activityType)).reduce((s, l) => s + l.hours, 0)
-  const reactivePercent = totalHours > 0 ? Math.round((reactiveHours / totalHours) * 100) : 0
+  const reactiveHours = analysisLogs.filter(l => reactiveTypes.includes(l.activityType)).reduce((s, l) => s + l.hours, 0)
+  const proactiveHours = analysisLogs.filter(l => proactiveTypes.includes(l.activityType)).reduce((s, l) => s + l.hours, 0)
+  const reactivePercent = analysisTotalHours > 0 ? Math.round((reactiveHours / analysisTotalHours) * 100) : 0
 
   // --- ภาระงานรายบุคคล ---
   const byStaff = staffList.map(s => {
-    const staffLogs = logs.filter(l => l.staffName === s.value)
+    const staffLogs = analysisLogs.filter(l => l.staffName === s.value)
     const staffHours = staffLogs.reduce((sum, l) => sum + l.hours, 0)
     const topType = [...activityTypeOptions]
       .map(opt => ({ type: opt.value, hours: staffLogs.filter(l => l.activityType === opt.value).reduce((sum, l) => sum + l.hours, 0) }))
@@ -140,7 +167,7 @@ export default function ActivityPage() {
   }).filter(s => s.hours > 0).sort((a, b) => b.hours - a.hours)
 
   // --- Pain Point: ระบบที่ต้องซ่อมบ่อยที่สุด ---
-  const maintenanceLogs = logs.filter(l => l.activityType === 'ซ่อมบำรุง')
+  const maintenanceLogs = analysisLogs.filter(l => l.activityType === 'ซ่อมบำรุง')
   const painPointSystem = [...systemOptions]
     .map(opt => ({
       system: opt.value,
@@ -158,8 +185,8 @@ export default function ActivityPage() {
   if (painPointSystem[0]?.count >= 2) {
     insights.push({ type: 'warning', message: `"${painPointSystem[0].system}" เป็นระบบที่ต้องซ่อมบ่อยที่สุด (${painPointSystem[0].count} ครั้ง / ${painPointSystem[0].hours} ชม.) — ควรพิจารณาจัดหาอุปกรณ์สำรองหรืออัปเกรด` })
   }
-  if (bySystem[0]?.hours / (totalHours || 1) > 0.4) {
-    insights.push({ type: 'info', message: `ระบบ "${bySystem[0].system}" กินเวลาทีมมากที่สุด (${Math.round(bySystem[0].hours / totalHours * 100)}%) — ควรพิจารณาจัดสรรทรัพยากรหรือ Automation` })
+  if (bySystem[0]?.hours / (analysisTotalHours || 1) > 0.4) {
+    insights.push({ type: 'info', message: `ระบบ "${bySystem[0].system}" กินเวลาทีมมากที่สุด (${Math.round(bySystem[0].hours / analysisTotalHours * 100)}%) — ควรพิจารณาจัดสรรทรัพยากรหรือ Automation` })
   }
   if (proactiveHours > reactiveHours) {
     insights.push({ type: 'success', message: `ทีมใช้เวลากับงานเชิงรุก (${proactiveHours} ชม.) มากกว่างานซ่อมบำรุงเชิงรับ (${reactiveHours} ชม.) — ดีมาก แสดงถึงการบริหารงานเชิงป้องกัน` })
@@ -167,6 +194,76 @@ export default function ActivityPage() {
   if (byStaff.length > 1 && byStaff[0].hours / byStaff[byStaff.length - 1].hours > 2) {
     insights.push({ type: 'info', message: `ภาระงานไม่สมดุล — ${byStaff[0].name} มีชั่วโมงงานสูงกว่าคนอื่นอย่างมีนัยสำคัญ ควรพิจารณาจัดสรรงานใหม่` })
   }
+
+  // --- ตารางงานรายวัน (Time Slot) ---
+  const logsForDate = logs.filter(l => l.logDate === scheduleDate.format('DD/MM/YYYY'))
+  const staffInDate = staffList.filter(s => logsForDate.some(l => l.staffName === s.value))
+  const scheduleTableData = staffInDate.map(s => ({ key: s.value, staffName: s.label }))
+  const scheduleColumns = [
+    {
+      title: <span className="text-sm font-semibold">เจ้าหน้าที่</span>,
+      dataIndex: 'staffName',
+      key: 'staffName',
+      width: 170,
+      fixed: 'left' as const,
+      render: (name: string) => (
+        <Space>
+          <UserOutlined style={{ color: '#6B21A8' }} />
+          <span className="text-sm font-semibold">{name}</span>
+        </Space>
+      ),
+    },
+    ...TIME_SLOTS.map(slot => ({
+      title: (
+        <div className="text-center font-mono text-xs font-semibold" style={{ color: '#6B21A8' }}>
+          {`${String(slot).padStart(2, '0')}:00`}
+          <div className="text-gray-400 font-normal" style={{ fontSize: 10 }}>
+            {`–${String(slot + 1).padStart(2, '0')}:00`}
+          </div>
+        </div>
+      ),
+      key: `slot-${slot}`,
+      width: 140,
+      render: (_: any, record: { key: string; staffName: string }) => {
+        const slotLogs = logsForDate.filter(
+          l => l.staffName === record.key && activityInSlot(l, slot)
+        )
+        if (!slotLogs.length) return <div style={{ minHeight: 36 }} />
+        return (
+          <div className="space-y-1">
+            {slotLogs.map(act => {
+              const isStart = getStartHour(act.startTime) === slot
+              return (
+                <div
+                  key={act.id}
+                  className="px-2 py-1.5 rounded-md text-xs"
+                  style={{
+                    background: isStart ? '#2d1b4e' : '#1e1333',
+                    borderLeft: '3px solid #a855f7',
+                    opacity: isStart ? 1 : 0.6,
+                  }}
+                >
+                  {isStart ? (
+                    <>
+                      <Tag color={activityColors[act.activityType] || 'default'} className="mb-1 text-xs">
+                        {act.activityType}
+                      </Tag>
+                      <div className="text-slate-200 text-xs leading-snug">{act.detail}</div>
+                      <div className="text-slate-400 text-xs mt-0.5">
+                        {act.system} · {act.hours} ชม.
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center text-purple-400 text-xs py-1 italic">↕ ต่อเนื่อง</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      },
+    })),
+  ]
 
   const openAddDrawer = () => {
     setEditingLog(null)
@@ -267,9 +364,9 @@ export default function ActivityPage() {
   ]
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       {contextHolder}
-      <div className="min-h-screen bg-gray-50 text-gray-800">
+      <div className="min-h-screen bg-slate-900 text-slate-200">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -282,7 +379,7 @@ export default function ActivityPage() {
             className="mb-6"
           />
 
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-full mx-auto">
             <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div>
                 <Title level={2} style={{ color: '#6B21A8', margin: 0 }}>บันทึกกิจกรรมการทำงาน IT</Title>
@@ -350,10 +447,71 @@ export default function ActivityPage() {
                   )
                 },
                 {
+                  key: 'schedule',
+                  label: <span><TableOutlined /> ตารางงานรายวัน</span>,
+                  children: (
+                    <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12 }}>
+                      <div className="mb-4 flex flex-wrap items-center gap-3">
+                        <span className="text-sm font-medium text-gray-700">เลือกวันที่:</span>
+                        <DatePicker
+                          value={scheduleDate}
+                          onChange={d => d && setScheduleDate(d)}
+                          format="DD/MM/YYYY"
+                          allowClear={false}
+                        />
+                        <span className="text-sm text-gray-400">
+                          {logsForDate.length > 0
+                            ? `${logsForDate.length} รายการ / ${[...new Set(logsForDate.map(l => l.staffName))].length} คน`
+                            : 'ไม่มีข้อมูลในวันนี้'}
+                        </span>
+                      </div>
+                      {logsForDate.length === 0 ? (
+                        <div className="text-center py-16 text-gray-400">
+                          <CalendarOutlined style={{ fontSize: 40, marginBottom: 12, display: 'block', margin: '0 auto 12px' }} />
+                          <div>ไม่มีข้อมูลกิจกรรมในวันที่เลือก</div>
+                          <div className="text-xs mt-1">ลองเลือกวันที่มีข้อมูล เช่น 07/04/2026</div>
+                        </div>
+                      ) : (
+                        <Table
+                          columns={scheduleColumns}
+                          dataSource={scheduleTableData}
+                          pagination={false}
+                          bordered
+                          size="middle"
+                          scroll={{ x: 'max-content' }}
+                        />
+                      )}
+                    </Card>
+                  ),
+                },
+                {
                   key: 'analysis',
-                  label: <span><BarChartOutlined /> วิเคราะห์ Pain Points (4.6)</span>,
+                  label: <span><BarChartOutlined /> วิเคราะห์ Pain Points</span>,
                   children: (
                     <div className="space-y-6">
+
+                      {/* กรองช่วงวันที่ */}
+                      <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12 }}>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <BarChartOutlined style={{ color: '#6B21A8', fontSize: 16 }} />
+                          <Text strong>วิเคราะห์ช่วงวันที่:</Text>
+                          <DatePicker.RangePicker
+                            value={analysisRange}
+                            onChange={v => setAnalysisRange(v as [dayjs.Dayjs, dayjs.Dayjs] | null)}
+                            format="DD/MM/YYYY"
+                            allowClear
+                            placeholder={['วันเริ่มต้น', 'วันสิ้นสุด']}
+                          />
+                          {analysisRange && (
+                            <Text type="secondary" className="text-xs">
+                              พบ <Text strong>{analysisLogs.length}</Text> รายการ · <Text strong>{analysisTotalHours}</Text> ชม.
+                            </Text>
+                          )}
+                          {!analysisRange && (
+                            <Text type="secondary" className="text-xs">แสดงข้อมูลทั้งหมด ({logs.length} รายการ)</Text>
+                          )}
+                        </div>
+                      </Card>
 
                       {/* Insights อัตโนมัติ */}
                       {insights.length > 0 && (
@@ -398,7 +556,7 @@ export default function ActivityPage() {
                                       percent={pct}
                                       showInfo={false}
                                       strokeColor={isTop ? '#ef4444' : '#a855f7'}
-                                    trailColor="#f1f5f9"
+                                    railColor="#f1f5f9"
                                       size="small"
                                     />
                                   </div>
@@ -435,7 +593,7 @@ export default function ActivityPage() {
                                       percent={pct}
                                       showInfo={false}
                                       strokeColor={isTop ? '#f59e0b' : '#3b82f6'}
-                                    trailColor="#f1f5f9"
+                                    railColor="#f1f5f9"
                                       size="small"
                                     />
                                   </div>
@@ -466,7 +624,7 @@ export default function ActivityPage() {
                                   </span>
                                 <Text strong className="text-red-600">{reactiveHours} ชม. ({reactivePercent}%)</Text>
                                 </div>
-                              <Progress percent={reactivePercent} showInfo={false} strokeColor="#ef4444" trailColor="#f1f5f9" />
+                              <Progress percent={reactivePercent} showInfo={false} strokeColor="#ef4444" railColor="#f1f5f9" />
                               </div>
                               <div>
                                 <div className="flex justify-between mb-1">
@@ -482,7 +640,7 @@ export default function ActivityPage() {
                                   percent={totalHours > 0 ? Math.round(proactiveHours / totalHours * 100) : 0}
                                   showInfo={false}
                                   strokeColor="#22c55e"
-                                trailColor="#f1f5f9"
+                                railColor="#f1f5f9"
                                 />
                               </div>
                             </div>
@@ -565,7 +723,7 @@ export default function ActivityPage() {
                                       percent={pct}
                                       showInfo={false}
                                       strokeColor={isTop ? '#f97316' : '#6B21A8'}
-                                    trailColor="#f1f5f9"
+                                    railColor="#f1f5f9"
                                       size="small"
                                     />
                                   </div>
@@ -598,9 +756,18 @@ export default function ActivityPage() {
         }
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
-          <Form.Item label="วันที่" name="logDate" rules={[{ required: true }]}>
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={14}>
+              <Form.Item label="วันที่" name="logDate" rules={[{ required: true }]}>
+                <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
+            <Col span={10}>
+              <Form.Item label="เวลาเริ่มต้น" name="startTime" rules={[{ required: true, message: 'กรุณาเลือกเวลา' }]}>
+                <Select options={timeSlotOptions} placeholder="08:00" />
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item label="เจ้าหน้าที่" name="staffName" rules={[{ required: true, message: 'กรุณาเลือกเจ้าหน้าที่' }]}>
             <Select options={staffList} placeholder="เลือกเจ้าหน้าที่" showSearch optionFilterProp="label" />
           </Form.Item>

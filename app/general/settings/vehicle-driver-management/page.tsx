@@ -202,7 +202,7 @@ const Page = () => {
     >
       <div className="min-h-screen bg-slate-900">
         <Navbar />
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className="p-6 md:p-8 w-full">
           {/* Header & Breadcrumb */}
           <div className="mb-8">
             <Breadcrumb

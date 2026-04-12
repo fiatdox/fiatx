@@ -160,7 +160,7 @@ const TripLogManagementContent = () => {
           className="mb-6"
         />
 
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           <div className="mb-8">
             <Title level={2} className="text-primary m-0">บันทึกการเดินทาง (Logbook & Expenses)</Title>
             <Text type="secondary">บันทึกเลขไมล์ เวลาที่ใช้จริง และเบิกจ่ายค่าใช้จ่ายต่างๆ ระหว่างการเดินทาง</Text>

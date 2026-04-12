@@ -155,7 +155,7 @@ export default function MaintenanceRequestDetailPage({ params }: { params: Promi
               extra={<Button type="primary" onClick={() => router.push('/general/maintenance-request')}>กลับหน้าแจ้งซ่อม</Button>}
             />
           ) : (
-            <div className="max-w-8xl mx-auto">
+            <div className="w-full">
               <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
                 <div>
                   <Title level={2} style={{ color: '#FF6500', margin: 0 }}>รายละเอียดการแจ้งซ่อม</Title>

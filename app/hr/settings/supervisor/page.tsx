@@ -236,7 +236,7 @@ export default function SupervisorPage() {
     >
       <div className="min-h-screen bg-slate-900 text-slate-200 pb-12">
         <Navbar />
-        <div className="p-6 md:p-8 max-w-7xl mx-auto">
+        <div className="p-6 md:p-8 w-full">
           {/* Header */}
           <div className="mb-8">
             <Breadcrumb

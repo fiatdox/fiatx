@@ -255,7 +255,7 @@ export default function IncidentReportsPage() {
             className="mb-6"
           />
 
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full">
             <div className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center gap-4">
               <div>
                 <Title level={2} style={{ color: '#a855f7', margin: 0 }}>บันทึกอุบัติการณ์ระบบ IT</Title>

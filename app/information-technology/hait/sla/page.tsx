@@ -237,7 +237,7 @@ export default function SLAPage() {
             className="mb-6"
           />
 
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full">
             <div className="mb-8">
               <Title level={2} style={{ color: '#a855f7', margin: 0 }}>Service Level Agreement (SLA)</Title>
               <Text type="secondary">HAIT 4.2 กำหนด SLA | 4.3 ติดตามผลการดำเนินการตาม SLA</Text>
@@ -312,7 +312,7 @@ export default function SLAPage() {
                           <Progress
                             percent={slaMetRate}
                             strokeColor={slaMetRate >= 80 ? '#22c55e' : '#ef4444'}
-                            trailColor="#334155"
+                            railColor="#334155"
                             style={{ width: 300, marginTop: 4 }}
                           />
                         </div>
@@ -340,7 +340,7 @@ export default function SLAPage() {
         title={editingSLA ? 'แก้ไข SLA' : 'เพิ่ม SLA ใหม่'}
         open={isDrawerOpen}
         onClose={() => { setIsDrawerOpen(false); form.resetFields() }}
-        width={520}
+        size="large"
         footer={
           <Space className="float-right">
             <Button onClick={() => { setIsDrawerOpen(false); form.resetFields() }}>ยกเลิก</Button>
@@ -378,7 +378,7 @@ export default function SLAPage() {
         title="บันทึกผลการดำเนินการตาม SLA"
         open={isLogDrawerOpen}
         onClose={() => { setIsLogDrawerOpen(false); logForm.resetFields() }}
-        width={520}
+        size="large"
         footer={
           <Space className="float-right">
             <Button onClick={() => { setIsLogDrawerOpen(false); logForm.resetFields() }}>ยกเลิก</Button>

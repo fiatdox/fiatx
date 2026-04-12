@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const icons = require\\('@ant-design/icons'\\); console.log\\('ProjectOutlined:', !!icons.ProjectOutlined, 'FileProtectOutlined:', !!icons.FileProtectOutlined\\)\")",
+      "Bash(find app:*)"
+    ]
+  }
+}

@@ -52,7 +52,7 @@ const Page = () => {
             className="mb-6"
           />
 
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="mb-8">
               <Title level={2} style={{ color: '#FF6500', margin: 0 }}>ขออนุมัติบ้านพัก/แฟลตเจ้าหน้าที่</Title>
               <Text type="secondary">กรุณากรอกข้อมูลเพื่อขออนุมัติบ้านพักหรือแฟลตสำหรับเจ้าหน้าที่</Text>

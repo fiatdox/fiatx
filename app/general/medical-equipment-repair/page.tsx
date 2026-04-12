@@ -69,7 +69,7 @@ const MedicalEquipmentRepairPage = () => {
             className="mb-6"
           />
 
-          <div className="max-w-7xl mx-auto">
+          <div className="w-full">
             <div className="mb-8">
               <Title level={2} style={{ color: '#FF6500', margin: 0 }}>แบบฟอร์มแจ้งซ่อมเครื่องมือแพทย์</Title>
               <Text type="secondary">กรุณากรอกรายละเอียดเครื่องมือแพทย์ที่ต้องการแจ้งซ่อม เพื่อให้ช่างเทคนิคการแพทย์ดำเนินการแก้ไข</Text>

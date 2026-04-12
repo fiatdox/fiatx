@@ -199,7 +199,7 @@ const LeaveSummaryPageContent = () => {
         className="mb-10"
       />
 
-      <div className="max-w-7xl mx-auto mt-10">
+      <div className="w-full mt-10">
         {/* Cards สรุปจำนวนวันลา */}
         <Row gutter={[16, 16]} className="mb-8">
           <Col xs={24} sm={12} md={6}>

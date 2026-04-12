@@ -159,7 +159,16 @@ const Navbar: React.FC = () => {
               icon: <FaHospitalSymbol />, 
               label: 'งานพัฒนาระบบบริการและสนับสนุนบริการสุขภาพ',
               children: [
-                { key: '/hss/strategy', icon: <FaChartBar />, label: 'งานยุทธศาสตร์และแผนงาน' },
+                {
+                  key: 'hss-strategy-group',
+                  icon: <FaChartBar />,
+                  label: 'งานยุทธศาสตร์และแผนงาน',
+                  children: [
+                    { key: '/hss/strategy', label: 'ภาพรวมยุทธศาสตร์' },
+                    { key: '/hss/strategy/grant-charts', label: 'Project Roadmap' },
+                    { key: '/hss/strategy/kpis', label: 'KPI Dashboard' },
+                  ]
+                },
                 { key: '/hss/hrd', icon: <FaGraduationCap />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
               ]
             },
@@ -171,10 +180,10 @@ const Navbar: React.FC = () => {
               children: [
                 { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
                 { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
-                { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'HAIT ข้อ 4 บริการ IT' },
-                { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA (4.2-4.3)' },
-                { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์ (4.4)' },
-                { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT (4.5)' },
+                { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'HAIT' },
+                { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
+                { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์ (Incident Reports)' },
+                { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT (Activity)' },
               ]
             },
             { 
