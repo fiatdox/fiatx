@@ -15,7 +15,7 @@ import {
   FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
   FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
   FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator,
-  FaClipboardList, FaExclamationTriangle, FaTasks
+  FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired
 } from 'react-icons/fa'
 
 const { Header } = Layout
@@ -28,12 +28,35 @@ const Navbar: React.FC = () => {
   const router = useRouter()
   const [openKeys, setOpenKeys] = useState<string[]>([])
 
-  // กางเมนูหลัก (SubMenu) อัตโนมัติตาม URL ปัจจุบัน (เช่น /general/* จะกางเมนู 'general')
+  // กางเมนูหลักและ submenu ที่ซ้อนอยู่อัตโนมัติตาม URL ปัจจุบัน
   useEffect(() => {
-    const parentPath = pathname.split('/')[1]
-    if (parentPath) {
-      setOpenKeys((prev) => Array.from(new Set([...prev, parentPath])))
+    const segments = pathname.split('/').filter(Boolean)
+    const keys: string[] = []
+
+    if (segments[0]) keys.push(segments[0]) // เมนูหลัก เช่น 'general', 'information-technology'
+
+    // submenu การลา
+    if (segments[0] === 'hr' && segments[1] === 'leave') {
+      keys.push('hr-leave')
     }
+
+    // submenu รถราชการ
+    if (segments[0] === 'general' && segments[1] === 'vehicle') {
+      keys.push('general-vehicle')
+    }
+
+    // submenu HAIT
+    if (segments[0] === 'information-technology' && segments[1] === 'hait') {
+      keys.push('it-hait')
+    }
+
+    // submenu HSS Strategy
+    if (segments[0] === 'hss') {
+      keys.push('HSS-DS')
+      if (segments[1] === 'strategy') keys.push('hss-strategy-group')
+    }
+
+    setOpenKeys((prev) => Array.from(new Set([...prev, ...keys])))
   }, [pathname])
 
   // สีส้มตาม Theme 
@@ -137,18 +160,36 @@ const Navbar: React.FC = () => {
               label: 'งานทรัพยากรบุคคล',
               children: [
                 { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร' },
-                { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ลาพักผ่อน / ลากิจ / ลาคลอด' },
+                {
+                  key: 'hr-leave',
+                  icon: <FaCalendarAlt />,
+                  label: 'การลา',
+                  children: [
+                    { key: '/hr/leave',          icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+                    { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
+                    { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปรายการลา' },
+                  ]
+                },
                 { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
                 { key: '/hr/settings/supervisor', icon: <FaUserTie />, label: 'ผังผู้บริหาร' },
               ]
             },
-            { 
-              key: 'general', 
-              icon: <FaBuilding />, 
+            {
+              key: 'general',
+              icon: <FaBuilding />,
               label: 'งานบริหารงานทั่วไป',
               children: [
                 { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
-                { key: '/general/vehicle-request', icon: <FaCar />, label: 'ขอรถเดินทางไปราชการ' },
+                {
+                  key: 'general-vehicle',
+                  icon: <FaCar />,
+                  label: 'รถราชการ',
+                  children: [
+                    { key: '/general/vehicle/request', icon: <FaClipboardList />, label: 'ขอใช้รถราชการ' },
+                    { key: '/general/vehicle/approval', icon: <FaTasks />, label: 'อนุมัติคำขอใช้รถ' },
+                    { key: '/general/vehicle/trip-log', icon: <FaChartBar />, label: 'บันทึกการเดินทาง' },
+                  ]
+                },
                 { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ / จัดสถานที่' },
                 { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
                 { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
@@ -180,10 +221,18 @@ const Navbar: React.FC = () => {
               children: [
                 { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
                 { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
-                { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'HAIT' },
-                { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
-                { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์ (Incident Reports)' },
-                { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT (Activity)' },
+                { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
+                {
+                  key: 'it-hait',
+                  icon: <FaMicrochip />,
+                  label: 'HAIT',
+                  children: [
+                    { key: '/information-technology/hait', icon: <FaChartBar />, label: 'ภาพรวม HAIT' },
+                    { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
+                    { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์' },
+                    { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT' },
+                  ]
+                },
               ]
             },
             { 

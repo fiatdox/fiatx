@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import {
   Table,
   Tag,
@@ -18,6 +18,8 @@ import {
   Col,
   Divider,
   Input,
+  Select,
+  Radio,
   theme
 } from 'antd'
 import {
@@ -27,7 +29,8 @@ import {
   DashboardOutlined,
   DollarCircleOutlined,
   EditOutlined,
-  CarOutlined
+  CarOutlined,
+  BulbOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
 
@@ -186,7 +189,7 @@ const TripLogManagementContent = () => {
         open={isModalOpen}
         onOk={handleOk}
         onCancel={() => setIsModalOpen(false)}
-        width={800}
+        width="80%"
         okText="บันทึกข้อมูล"
         cancelText="ยกเลิก"
       >
@@ -219,11 +222,54 @@ const TripLogManagementContent = () => {
             </Col>
           </Row>
 
-          <Divider titlePlacement="left" styles={{ content: { margin: 0 } }} className="text-green-600 border-green-200 mt-6">
-            <DollarCircleOutlined /> บันทึกค่าใช้จ่าย (Expenses)
+          <Divider titlePlacement="left" styles={{ content: { margin: 0 } }} className="text-yellow-500 border-yellow-700 mt-6">
+            ⛽ ข้อมูลการเติมน้ำมัน
           </Divider>
           <div className="bg-slate-800 p-4 rounded-md border border-slate-700">
-            {['ค่าน้ำมันเชื้อเพลิง', 'ค่าทางด่วน', 'ค่าที่จอดรถ'].map((item, index) => (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="fuelType" label="ประเภทน้ำมัน" rules={[{ required: true, message: 'กรุณาเลือกประเภทน้ำมัน' }]}>
+                  <Select placeholder="เลือกประเภทน้ำมัน" options={[
+                    { value: 'benzine95', label: 'เบนซิน 95' },
+                    { value: 'benzine91', label: 'เบนซิน 91' },
+                    { value: 'diesel', label: 'ดีเซล' },
+                    { value: 'e20', label: 'E20' },
+                    { value: 'e85', label: 'E85' },
+                    { value: 'ngv', label: 'NGV' },
+                    { value: 'lpg', label: 'LPG' },
+                  ]} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="fuelLiters" label="จำนวนที่เติม (ลิตร)">
+                  <InputNumber min={0} step={0.01} className="w-full" placeholder="ระบุจำนวนลิตร" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="fuelPricePerLiter" label="ราคาต่อลิตร (บาท)">
+                  <InputNumber min={0} step={0.01} className="w-full" placeholder="ราคาต่อลิตร" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="fuelTotalCost" label="จำนวนเงินรวม (บาท)">
+                  <InputNumber min={0} className="w-full" placeholder="ยอดรวมค่าน้ำมัน" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item name="fuelReceipt" label="แนบใบเสร็จน้ำมัน" valuePropName="fileList" getValueFromEvent={normFile} className="mb-0">
+              <Upload maxCount={1} beforeUpload={() => false}>
+                <Button icon={<UploadOutlined />}>อัปโหลดสลิป/ใบเสร็จน้ำมัน</Button>
+              </Upload>
+            </Form.Item>
+          </div>
+
+          <Divider titlePlacement="left" styles={{ content: { margin: 0 } }} className="text-green-600 border-green-200 mt-6">
+            <DollarCircleOutlined /> ค่าใช้จ่ายอื่นๆ (Expenses)
+          </Divider>
+          <div className="bg-slate-800 p-4 rounded-md border border-slate-700">
+            {['ค่าทางด่วน', 'ค่าที่จอดรถ'].map((item, index) => (
               <Row gutter={16} key={index} className={index !== 0 ? "mt-4" : ""}>
                 <Col span={12}>
                   <Form.Item name={['expenses', index, 'amount']} label={`${item} (บาท)`} className="mb-0">
@@ -241,8 +287,36 @@ const TripLogManagementContent = () => {
             ))}
           </div>
 
-          <Form.Item name="remark" label="หมายเหตุเพิ่มเติม" className="mt-6">
-            <Input.TextArea rows={3} placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)..." />
+          <Divider titlePlacement="left" styles={{ content: { margin: 0 } }} className="text-blue-400 border-blue-700 mt-6">
+            <BulbOutlined /> ข้อเสนอแนะและสภาพรถ
+          </Divider>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="vehicleCondition" label="สภาพรถโดยรวม" initialValue="normal">
+                <Radio.Group>
+                  <Radio value="normal">ปกติ</Radio>
+                  <Radio value="check">ควรตรวจสอบ</Radio>
+                  <Radio value="urgent">ต้องซ่อมด่วน</Radio>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="roadCondition" label="สภาพเส้นทาง">
+                <Select placeholder="เลือกสภาพเส้นทาง" options={[
+                  { value: 'normal', label: 'ปกติ' },
+                  { value: 'construction', label: 'มีการก่อสร้าง' },
+                  { value: 'flood', label: 'น้ำท่วม/ถนนเสียหาย' },
+                  { value: 'other', label: 'อื่นๆ' },
+                ]} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="suggestions" label="ข้อเสนอแนะเพิ่มเติม">
+            <Input.TextArea rows={4} placeholder="ระบุข้อเสนอแนะ เช่น สภาพยางรถ น้ำมันเบรก ปัญหาที่พบระหว่างเดินทาง..." />
+          </Form.Item>
+
+          <Form.Item name="remark" label="หมายเหตุอื่นๆ">
+            <Input.TextArea rows={2} placeholder="ระบุรายละเอียดเพิ่มเติม (ถ้ามี)..." />
           </Form.Item>
         </Form>
       </Modal>

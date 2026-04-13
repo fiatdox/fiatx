@@ -349,15 +349,23 @@ const GanttPageContent = () => {
             overflow: visible !important;
           }
 
+          /* allow task rows to overflow so short bars show their labels */
+          .wx-task-row,
+          .wx-task-wrapper,
+          .wx-chart-row,
+          .wx-bars-wrapper {
+            overflow: visible !important;
+          }
+
           .wx-task-content {
             font-weight: 600 !important;
             text-shadow: 0 1px 2px rgba(0,0,0,0.4);
             font-size: 11px !important;
-            padding: 0 12px !important;
-            overflow: visible !important;
+            padding: 0 8px !important;
             white-space: nowrap !important;
-            position: absolute;
-            z-index: 10;
+            /* let text sit in normal flow; overflow shows label outside short bars */
+            overflow: visible !important;
+            min-width: max-content;
           }
 
           .wx-task-progress {

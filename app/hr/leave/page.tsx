@@ -19,7 +19,8 @@ import {
   Upload,
   InputNumber,
   Checkbox,
-  App
+  App,
+  theme
 } from 'antd'
 import {
   HomeOutlined,
@@ -76,7 +77,7 @@ const LeavePageContent = () => {
   }
 
   return (
-    <div className="min-h-7 bg-slate-50">
+    <div className="min-h-screen bg-slate-900 text-slate-200">
       <Navbar />
       <div className="p-6 md:p-8">
         <div className="w-full">
@@ -131,7 +132,7 @@ const LeavePageContent = () => {
                   </Form.Item>
 
                   {leaveType === 4 && (
-                    <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
                       <Form.Item name="isAbroad" valuePropName="checked" noStyle>
                         <Checkbox>ลาไปต่างประเทศ</Checkbox>
                       </Form.Item>
@@ -149,7 +150,7 @@ const LeavePageContent = () => {
                   )}
 
                   {leaveType === 2 && (
-                    <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
                       <Form.Item
                         name="maternityType"
                         label="ประเภทการลาคลอด"
@@ -265,7 +266,7 @@ const LeavePageContent = () => {
                     description="คุณมีวันลาพักผ่อนคงเหลือ 10 วัน"
                     type="info"
                     showIcon
-                    className="bg-white border-blue-100 mt-4"
+                    className="mt-4"
                   />
                 </Card>
 
@@ -334,6 +335,7 @@ const LeavePage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
           colorPrimary: '#006a5a',
           borderRadius: 8,

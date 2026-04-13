@@ -20,7 +20,7 @@ const GeneralPageContent = () => {
     {
       title: 'ขอใช้รถไปราชการ',
       icon: <CarOutlined className="text-4xl text-primary" />,
-      href: '/general/vehicle-request'
+      href: '/general/vehicle/request'
     },
     {
       title: 'แจ้งซ่อมบำรุงทั่วไป',
@@ -97,9 +97,9 @@ const GeneralPage = () => {
   return (
     <ConfigProvider
       theme={{
+        algorithm: theme.darkAlgorithm,
         token: {
-          algorithm: theme.darkAlgorithm,
-        colorPrimary: '#006a5a',
+          colorPrimary: '#006a5a',
           borderRadius: 8,
           fontFamily: 'var(--font-sarabun)',
         },

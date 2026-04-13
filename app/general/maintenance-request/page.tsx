@@ -1,11 +1,13 @@
 'use client'
 import React, { useState } from 'react'
-import { 
-  Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, 
-  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload, Checkbox, theme
+import {
+  Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider,
+  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload, Checkbox,
+  Modal, Table, Tag, theme
 } from 'antd'
-import { 
-  HomeOutlined, FileTextOutlined, CheckCircleOutlined, ToolOutlined, PlusOutlined 
+import {
+  HomeOutlined, FileTextOutlined, CheckCircleOutlined, ToolOutlined, PlusOutlined,
+  SearchOutlined, QrcodeOutlined
 } from '@ant-design/icons'
 import Navbar from '../../components/Navbar'
 import dayjs from 'dayjs'
@@ -27,6 +29,30 @@ const urgencyOptions = [
   { label: 'ด่วนมาก (ฉุกเฉิน / อันตราย)', value: 'critical' },
 ];
 
+// ─── Mock asset database ──────────────────────────────────────────────────────
+const MOCK_ASSETS = [
+  { assetNo: 'ก.001-67-001', name: 'คอมพิวเตอร์ตั้งโต๊ะ Dell OptiPlex 3080', type: 'คอมพิวเตอร์',    department: 'งาน HR',            location: 'ห้อง HR ชั้น 2',        status: 'ปกติ' },
+  { assetNo: 'ก.001-67-002', name: 'เครื่องพิมพ์ HP LaserJet Pro M404dn',      type: 'เครื่องพิมพ์',  department: 'งาน HR',            location: 'ห้อง HR ชั้น 2',        status: 'ปกติ' },
+  { assetNo: 'ก.002-67-001', name: 'เครื่องปรับอากาศ Daikin 18000 BTU',        type: 'เครื่องปรับอากาศ', department: 'งานการพยาบาล OPD', location: 'ห้องตรวจโรค OPD 1',   status: 'ปกติ' },
+  { assetNo: 'ก.002-67-002', name: 'โต๊ะทำงานแพทย์ไม้สัก',                    type: 'เฟอร์นิเจอร์',  department: 'งานการพยาบาล OPD', location: 'ห้องตรวจโรค OPD 2',   status: 'ปกติ' },
+  { assetNo: 'ก.003-65-001', name: 'เครื่อง ECG 12 Leads Nihon Kohden',         type: 'เครื่องมือแพทย์', department: 'งานห้องผ่าตัด',  location: 'OR 1',                 status: 'ชำรุด' },
+  { assetNo: 'ก.003-65-002', name: 'เตียงผ่าตัดไฮดรอลิก Maquet Alpha Star',    type: 'เครื่องมือแพทย์', department: 'งานห้องผ่าตัด',  location: 'OR 2',                 status: 'ปกติ' },
+  { assetNo: 'ก.004-66-001', name: 'ตู้เย็นเก็บยา Thermo Fisher 4°C',          type: 'ตู้เย็น',        department: 'งานเภสัชกรรม',    location: 'ห้องยา ชั้น 1',        status: 'ปกติ' },
+  { assetNo: 'ก.004-66-002', name: 'คอมพิวเตอร์โน้ตบุ๊ก Lenovo ThinkPad E15',  type: 'คอมพิวเตอร์',   department: 'งานเวชระเบียน',    location: 'เคาน์เตอร์เวชระเบียน', status: 'ปกติ' },
+  { assetNo: 'ก.005-67-001', name: 'โปรเจคเตอร์ Epson EB-X49',                 type: 'โสตทัศนูปกรณ์', department: 'งาน HR',            location: 'ห้องประชุมชั้น 3',     status: 'เสื่อมสภาพ' },
+  { assetNo: 'ก.005-67-002', name: 'กล้อง CCTV Hikvision 2MP',                 type: 'กล้องวงจรปิด',  department: 'งานรักษาความปลอดภัย', location: 'ประตูทางเข้าหลัก',  status: 'ชำรุด' },
+  { assetNo: 'ก.006-66-001', name: 'เครื่องชั่งน้ำหนักดิจิทัล AND UC-321',    type: 'เครื่องมือแพทย์', department: 'งานการพยาบาล OPD', location: 'ห้องชั่งน้ำหนัก',    status: 'ปกติ' },
+  { assetNo: 'ก.006-66-002', name: 'เตียงผู้ป่วย Hill-Rom เตียงไฟฟ้า',         type: 'เฟอร์นิเจอร์',  department: 'งานผู้ป่วยใน IPD', location: 'Ward A ชั้น 3',        status: 'ปกติ' },
+  { assetNo: 'ก.007-65-001', name: 'สแกนเนอร์เอกสาร Fujitsu fi-7160',          type: 'เครื่องพิมพ์',   department: 'งานเวชระเบียน',    location: 'ห้องเวชระเบียน ชั้น 1', status: 'ปกติ' },
+  { assetNo: 'ก.007-65-002', name: 'เครื่องกระตุ้นหัวใจ Zoll AED Plus',        type: 'เครื่องมือแพทย์', department: 'งานอุบัติเหตุ ER', location: 'ER ห้องฉุกเฉิน',      status: 'ปกติ' },
+  { assetNo: 'ก.008-67-001', name: 'UPS APC Smart-UPS 1500VA',                  type: 'อุปกรณ์ไฟฟ้า',  department: 'งานคอมพิวเตอร์ IT', location: 'ห้อง Server ชั้น 2',  status: 'ปกติ' },
+  { assetNo: 'ก.008-67-002', name: 'สวิตช์เครือข่าย Cisco Catalyst 2960',      type: 'อุปกรณ์เครือข่าย', department: 'งานคอมพิวเตอร์ IT', location: 'ห้อง Server ชั้น 2', status: 'เสื่อมสภาพ' },
+]
+
+const ASSET_STATUS_COLOR: Record<string, string> = {
+  'ปกติ': 'success', 'ชำรุด': 'error', 'เสื่อมสภาพ': 'warning'
+}
+
 const buildingOptions = [
   { label: 'อาคารผู้ป่วยนอก (OPD)', value: 'opd' },
   { label: 'อาคารผู้ป่วยใน (IPD)', value: 'ipd' },
@@ -39,7 +65,24 @@ const buildingOptions = [
 const MaintenanceRequestPage = () => {
   const [form] = Form.useForm();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [assetSearch, setAssetSearch] = useState('');
   const repairCategory = Form.useWatch('repairCategory', form);
+
+  const filteredAssets = assetSearch.trim()
+    ? MOCK_ASSETS.filter(a =>
+        a.assetNo.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.name.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.department.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.type.toLowerCase().includes(assetSearch.toLowerCase())
+      )
+    : MOCK_ASSETS;
+
+  const handleSelectAsset = (assetNo: string) => {
+    form.setFieldValue('assetNumber', assetNo);
+    setAssetModalOpen(false);
+    setAssetSearch('');
+  };
 
   const onFinish = (values: any) => {
     console.log('Received values of form: ', values);
@@ -145,12 +188,26 @@ const MaintenanceRequestPage = () => {
                         </Radio.Group>
                       </Form.Item>
 
-                      <Form.Item 
-                        label="หมายเลขครุภัณฑ์ (ถ้ามี / ถ้าทราบ)" 
-                        name="assetNumber" 
+                      <Form.Item
+                        label="หมายเลขครุภัณฑ์ (ถ้ามี / ถ้าทราบ)"
+                        name="assetNumber"
                         tooltip="หากไม่แน่ใจหรือไม่มีข้อมูล ให้เว้นว่างไว้ เจ้าหน้าที่จะทำการตรวจสอบอีกครั้ง"
                       >
-                        <Input placeholder="ระบุเลขครุภัณฑ์ (เช่น 1234-567-89)" size="large" />
+                        <Input
+                          placeholder="ระบุเลขครุภัณฑ์ (เช่น ก.001-67-001)"
+                          size="large"
+                          addonAfter={
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<QrcodeOutlined />}
+                              onClick={() => { setAssetSearch(''); setAssetModalOpen(true); }}
+                              style={{ color: '#FF6500', fontWeight: 600, padding: '0 8px' }}
+                            >
+                              ค้นหาในระบบ
+                            </Button>
+                          }
+                        />
                       </Form.Item>
 
                       {/* แสดงฟิลด์ประเภทงาน เมื่อเลือก "งานซ่อมทั่วไป" */}
@@ -285,6 +342,75 @@ const MaintenanceRequestPage = () => {
           </div>
         </div>
       </div>
+      {/* ── Asset Search Modal ─────────────────────────────────────────────── */}
+      <Modal
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <QrcodeOutlined style={{ color: '#FF6500' }} />
+            ค้นหาครุภัณฑ์ในระบบ
+          </span>
+        }
+        open={assetModalOpen}
+        onCancel={() => { setAssetModalOpen(false); setAssetSearch(''); }}
+        footer={null}
+        width={820}
+        destroyOnHidden
+      >
+        <Input
+          size="large"
+          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          placeholder="ค้นหาด้วย เลขครุภัณฑ์ / ชื่อครุภัณฑ์ / ประเภท / หน่วยงาน"
+          value={assetSearch}
+          onChange={e => setAssetSearch(e.target.value)}
+          allowClear
+          autoFocus
+          style={{ marginBottom: 16 }}
+        />
+
+        <Table
+          dataSource={filteredAssets}
+          rowKey="assetNo"
+          size="small"
+          pagination={{ pageSize: 8, showTotal: t => `พบ ${t} รายการ` }}
+          scroll={{ x: 700 }}
+          locale={{ emptyText: 'ไม่พบครุภัณฑ์ที่ตรงกับคำค้นหา' }}
+          columns={[
+            {
+              title: 'เลขครุภัณฑ์', dataIndex: 'assetNo', key: 'assetNo', width: 140,
+              render: (v: string) => <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#FF6500' }}>{v}</span>
+            },
+            {
+              title: 'ชื่อครุภัณฑ์', dataIndex: 'name', key: 'name',
+              render: (v: string) => <span style={{ fontWeight: 500 }}>{v}</span>
+            },
+            {
+              title: 'ประเภท', dataIndex: 'type', key: 'type', width: 120,
+              render: (v: string) => <Tag>{v}</Tag>
+            },
+            {
+              title: 'หน่วยงาน', dataIndex: 'department', key: 'department', width: 150,
+              render: (v: string) => <span style={{ fontSize: 12, color: '#94a3b8' }}>{v}</span>
+            },
+            {
+              title: 'สภาพ', dataIndex: 'status', key: 'status', align: 'center' as const, width: 90,
+              render: (v: string) => <Tag color={ASSET_STATUS_COLOR[v]}>{v}</Tag>
+            },
+            {
+              title: '', key: 'action', width: 80, align: 'center' as const,
+              render: (_: any, r: typeof MOCK_ASSETS[0]) => (
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={() => handleSelectAsset(r.assetNo)}
+                  style={{ background: '#FF6500', borderColor: '#FF6500' }}
+                >
+                  เลือก
+                </Button>
+              )
+            },
+          ]}
+        />
+      </Modal>
     </ConfigProvider>
   )
 }

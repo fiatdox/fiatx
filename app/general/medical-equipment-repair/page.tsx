@@ -2,16 +2,42 @@
 import React, { useState } from 'react'
 import {
   Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider,
-  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload, theme
+  Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload,
+  Modal, Table, Tag, theme
 } from 'antd'
 import {
-  HomeOutlined, FileTextOutlined, CheckCircleOutlined, MedicineBoxOutlined, PlusOutlined
+  HomeOutlined, FileTextOutlined, CheckCircleOutlined, MedicineBoxOutlined,
+  PlusOutlined, SearchOutlined, QrcodeOutlined
 } from '@ant-design/icons'
 import Navbar from '../../components/Navbar'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
+
+// ─── Mock medical asset database ─────────────────────────────────────────────
+const MOCK_MEDICAL_ASSETS = [
+  { assetNo: 'MED-65-001', name: 'เครื่อง ECG 12 Leads Nihon Kohden ECG-2150',         type: 'เครื่องมือตรวจหัวใจ',    department: 'งานห้องผ่าตัด',    location: 'OR 1',                  status: 'ชำรุด' },
+  { assetNo: 'MED-65-002', name: 'เครื่องกระตุ้นหัวใจ Zoll AED Plus',                  type: 'เครื่องช่วยชีวิต',       department: 'งานอุบัติเหตุ ER', location: 'ER ห้องฉุกเฉิน',       status: 'ปกติ' },
+  { assetNo: 'MED-65-003', name: 'Patient Monitor Mindray MEC-1200',                    type: 'เครื่องมอนิเตอร์',       department: 'งานผู้ป่วยใน IPD', location: 'Ward A ชั้น 3',        status: 'ปกติ' },
+  { assetNo: 'MED-66-001', name: 'เครื่องอัลตราซาวด์ GE LOGIQ P9',                    type: 'เครื่องอัลตราซาวด์',     department: 'งานรังสีวิทยา',    location: 'ห้องอัลตราซาวด์',     status: 'ปกติ' },
+  { assetNo: 'MED-66-002', name: 'เครื่องช่วยหายใจ Maquet Servo-i',                   type: 'เครื่องช่วยหายใจ',       department: 'งาน ICU',          location: 'ICU ชั้น 4',           status: 'ปกติ' },
+  { assetNo: 'MED-66-003', name: 'Infusion Pump Baxter SIGMA Spectrum',                 type: 'ปั๊มสารน้ำ',             department: 'งานผู้ป่วยใน IPD', location: 'Ward B ชั้น 3',        status: 'เสื่อมสภาพ' },
+  { assetNo: 'MED-66-004', name: 'เครื่องดูดเสมหะ Laerdal LSU',                       type: 'เครื่องดูดเสมหะ',        department: 'งานการพยาบาล OPD', location: 'ห้องตรวจโรค OPD 3',  status: 'ปกติ' },
+  { assetNo: 'MED-66-005', name: 'เครื่องวัดความดัน Omron HEM-7600T',                 type: 'เครื่องวัดความดัน',      department: 'งานการพยาบาล OPD', location: 'ห้องชั่งน้ำหนัก',    status: 'ชำรุด' },
+  { assetNo: 'MED-67-001', name: 'Pulse Oximeter Nonin GO2',                            type: 'เครื่องวัดออกซิเจน',     department: 'งานอุบัติเหตุ ER', location: 'ER คัดกรอง',          status: 'ปกติ' },
+  { assetNo: 'MED-67-002', name: 'เครื่อง X-Ray Shimadzu MobileArt Evolution',          type: 'เครื่อง X-Ray',          department: 'งานรังสีวิทยา',    location: 'ห้อง X-Ray ชั้น 1',   status: 'ปกติ' },
+  { assetNo: 'MED-67-003', name: 'Glucometer Roche Accu-Chek Inform II',               type: 'เครื่องวัดน้ำตาล',       department: 'งานห้องปฏิบัติการ', location: 'ห้องแล็บ ชั้น 1',    status: 'ปกติ' },
+  { assetNo: 'MED-67-004', name: 'เครื่อง Centrifuge Eppendorf 5810R',                 type: 'อุปกรณ์ห้องแล็บ',        department: 'งานห้องปฏิบัติการ', location: 'ห้องแล็บ ชั้น 1',    status: 'เสื่อมสภาพ' },
+  { assetNo: 'MED-67-005', name: 'กล้องจุลทรรศน์ Olympus CX23',                       type: 'กล้องจุลทรรศน์',         department: 'งานห้องปฏิบัติการ', location: 'ห้องพยาธิวิทยา',     status: 'ปกติ' },
+  { assetNo: 'MED-67-006', name: 'เครื่องผ่าตัดด้วยไฟฟ้า Bovie A1250S',              type: 'เครื่องมือผ่าตัด',       department: 'งานห้องผ่าตัด',    location: 'OR 2',                  status: 'ปกติ' },
+  { assetNo: 'MED-67-007', name: 'Syringe Pump Fresenius Kabi Agilia SP',              type: 'ปั๊มสารน้ำ',             department: 'งาน ICU',          location: 'ICU ชั้น 4',           status: 'ชำรุด' },
+  { assetNo: 'MED-64-001', name: 'เตียงผ่าตัดไฮดรอลิก Maquet Alpha Star',             type: 'เตียงผ่าตัด',            department: 'งานห้องผ่าตัด',    location: 'OR 3',                  status: 'ปกติ' },
+]
+
+const ASSET_STATUS_COLOR: Record<string, string> = {
+  'ปกติ': 'success', 'ชำรุด': 'error', 'เสื่อมสภาพ': 'warning'
+}
 
 const equipmentTypeOptions = [
   { label: 'เครื่องมือผ่าตัด', value: 'surgical' },
@@ -40,6 +66,23 @@ const departmentOptions = [
 const MedicalEquipmentRepairPage = () => {
   const [form] = Form.useForm()
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [assetModalOpen, setAssetModalOpen] = useState(false)
+  const [assetSearch, setAssetSearch] = useState('')
+
+  const filteredAssets = assetSearch.trim()
+    ? MOCK_MEDICAL_ASSETS.filter(a =>
+        a.assetNo.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.name.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.department.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.type.toLowerCase().includes(assetSearch.toLowerCase())
+      )
+    : MOCK_MEDICAL_ASSETS
+
+  const handleSelectAsset = (assetNo: string) => {
+    form.setFieldValue('assetNumber', assetNo)
+    setAssetModalOpen(false)
+    setAssetSearch('')
+  }
 
   const onFinish = (values: any) => {
     console.log('Received values of form: ', values)
@@ -125,7 +168,21 @@ const MedicalEquipmentRepairPage = () => {
                         </Col>
                         <Col xs={24} sm={12}>
                           <Form.Item label="รหัสทรัพย์สิน / เลขครุภัณฑ์" name="assetNumber" rules={[{ required: true, message: 'กรุณาระบุรหัสทรัพย์สิน' }]}>
-                            <Input placeholder="เช่น MED-2566-0123" size="large" />
+                            <Input
+                              placeholder="เช่น MED-67-001"
+                              size="large"
+                              addonAfter={
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<QrcodeOutlined />}
+                                  onClick={() => { setAssetSearch(''); setAssetModalOpen(true) }}
+                                  style={{ color: '#FF6500', fontWeight: 600, padding: '0 8px' }}
+                                >
+                                  ค้นหาในระบบ
+                                </Button>
+                              }
+                            />
                           </Form.Item>
                         </Col>
                       </Row>
@@ -257,6 +314,54 @@ const MedicalEquipmentRepairPage = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Asset Search Modal ── */}
+      <Modal
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <QrcodeOutlined style={{ color: '#FF6500' }} />
+            ค้นหาครุภัณฑ์เครื่องมือแพทย์
+          </span>
+        }
+        open={assetModalOpen}
+        onCancel={() => { setAssetModalOpen(false); setAssetSearch('') }}
+        footer={null}
+        width={860}
+        destroyOnHidden
+      >
+        <Input
+          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          placeholder="ค้นหาจากเลขครุภัณฑ์ ชื่อเครื่องมือ ประเภท หรือหน่วยงาน..."
+          value={assetSearch}
+          onChange={e => setAssetSearch(e.target.value)}
+          allowClear
+          autoFocus
+          size="large"
+          style={{ marginBottom: 16 }}
+        />
+        <Table
+          dataSource={filteredAssets}
+          rowKey="assetNo"
+          size="small"
+          pagination={{ pageSize: 8, size: 'small' }}
+          columns={[
+            { title: 'เลขครุภัณฑ์', dataIndex: 'assetNo', key: 'assetNo', width: 130, render: (v: string) => <code style={{ color: '#FF6500' }}>{v}</code> },
+            { title: 'ชื่อเครื่องมือแพทย์', dataIndex: 'name', key: 'name' },
+            { title: 'ประเภท', dataIndex: 'type', key: 'type', width: 140 },
+            { title: 'หน่วยงาน', dataIndex: 'department', key: 'department', width: 160 },
+            {
+              title: 'สภาพ', dataIndex: 'status', key: 'status', width: 90,
+              render: (v: string) => <Tag color={ASSET_STATUS_COLOR[v] ?? 'default'}>{v}</Tag>
+            },
+            {
+              title: 'เลือก', key: 'action', width: 70, align: 'center' as const,
+              render: (_: any, record: typeof MOCK_MEDICAL_ASSETS[0]) => (
+                <Button type="primary" size="small" onClick={() => handleSelectAsset(record.assetNo)}>เลือก</Button>
+              )
+            },
+          ]}
+        />
+      </Modal>
     </ConfigProvider>
   )
 }

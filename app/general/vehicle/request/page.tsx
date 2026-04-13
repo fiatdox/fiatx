@@ -1,12 +1,25 @@
 'use client'
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import type { VehicleRequestForPDF } from '@/app/components/VehicleRequestPDF'
+
+const VehicleRequestPDFDownload = dynamic(
+  () => import('@/app/components/VehicleRequestPDF'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center" style={{ height: 560 }}>
+        <Button loading size="large">กำลังโหลดตัวอย่าง PDF...</Button>
+      </div>
+    ),
+  }
+)
 import {
   Form,
   Input,
   Button,
   DatePicker,
   Radio,
-  Select,
   Card,
   Row,
   Col,
@@ -25,6 +38,7 @@ import {
   Tooltip,
   Popover,
   Upload,
+  Modal,
   theme
 } from 'antd'
 import {
@@ -44,6 +58,7 @@ import {
   ProjectOutlined,
   UploadOutlined,
   PaperClipOutlined,
+  PrinterOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import type { Dayjs } from 'dayjs'
@@ -196,6 +211,9 @@ const VehicleRequestPageContent = () => {
   const [form] = Form.useForm()
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs())
   const [requests, setRequests] = useState<VehicleRequest[]>(mockRequests)
+  const requesterLevel = Form.useWatch('requesterLevel', form)
+  const minPassengers = requesterLevel === 'senior' ? 1 : requesterLevel === 'junior' ? 3 : 1
+  const [printRequest, setPrintRequest] = useState<VehicleRequest | null>(null)
 
   const onFinish = (values: any) => {
     const [dateFrom, dateTo] = values.dateRange ?? []
@@ -353,6 +371,21 @@ const VehicleRequestPageContent = () => {
           </Tooltip>
         ) : <Text type="secondary" className="text-xs">—</Text>,
     },
+    {
+      title: '',
+      key: 'print',
+      width: 90,
+      render: (_: any, r: VehicleRequest) =>
+        r.status === 'approved' ? (
+          <Button
+            size="small"
+            icon={<PrinterOutlined />}
+            onClick={() => setPrintRequest(r)}
+          >
+            พิมพ์ใบ
+          </Button>
+        ) : null,
+    },
   ]
 
   const tabItems = [
@@ -443,24 +476,51 @@ const VehicleRequestPageContent = () => {
 
                 <Divider className="my-4" />
 
+                {/* ระดับผู้ขอ */}
+                <Form.Item
+                  name="requesterLevel"
+                  label={<span><UserOutlined className="mr-1" />ระดับผู้ขอ</span>}
+                  rules={[{ required: true, message: 'กรุณาระบุระดับผู้ขอ' }]}
+                  extra={
+                    requesterLevel === 'senior'
+                      ? <span className="text-green-400 text-xs">ระดับชำนาญการพิเศษขึ้นไป — ขอได้ตั้งแต่ 1 คน</span>
+                      : requesterLevel === 'junior'
+                      ? <span className="text-yellow-400 text-xs">ระดับต่ำกว่าชำนาญการพิเศษ — ต้องมีผู้ร่วมเดินทางอย่างน้อย 3 คน</span>
+                      : null
+                  }
+                >
+                  <Radio.Group>
+                    <div className="flex flex-col gap-1">
+                      <Radio value="senior">ชำนาญการพิเศษขึ้นไป</Radio>
+                      <Radio value="junior">ต่ำกว่าชำนาญการพิเศษ</Radio>
+                    </div>
+                  </Radio.Group>
+                </Form.Item>
+
                 {/* ผู้ร่วมเดินทาง */}
                 <Form.Item label={<span><UserOutlined className="mr-1" />ผู้ที่จะไปด้วย</span>}>
                   <Form.List
                     name="passengers"
                     rules={[{
                       validator: async (_, items) => {
-                        if (!items || items.length < 1 || !items[0]?.name) {
-                          return Promise.reject('กรุณาระบุผู้ร่วมเดินทางอย่างน้อย 1 คน')
+                        const filled = (items ?? []).filter((p: { name: string }) => p?.name?.trim())
+                        if (filled.length < minPassengers) {
+                          return Promise.reject(
+                            minPassengers === 3
+                              ? 'ระดับต่ำกว่าชำนาญการพิเศษ ต้องมีผู้ร่วมเดินทางอย่างน้อย 3 คน'
+                              : 'กรุณาระบุผู้ร่วมเดินทางอย่างน้อย 1 คน'
+                          )
                         }
                       }
                     }]}
                   >
                     {(fields, { add, remove }, { errors }) => (
                       <div className="space-y-2">
-                        {fields.map((field, index) => (
-                          <div key={field.key} className="flex gap-2 items-center">
+                        {fields.map(({ key, ...field }, index) => (
+                          <div key={key} className="flex gap-2 items-center">
                             <span className="text-slate-400 text-sm w-6 shrink-0 text-right">{index + 1}.</span>
                             <Form.Item
+                              key={key}
                               {...field}
                               name={[field.name, 'name']}
                               validateTrigger={['onChange', 'onBlur']}
@@ -699,6 +759,21 @@ const VehicleRequestPageContent = () => {
           <Tabs items={tabItems} size="large" />
         </div>
       </div>
+
+      {/* Print Modal */}
+      <Modal
+        open={!!printRequest}
+        onCancel={() => setPrintRequest(null)}
+        footer={null}
+        width="80vw"
+        title={<span><PrinterOutlined className="mr-2" />ตัวอย่างใบอนุมัติการใช้รถราชการ — {printRequest?.id}</span>}
+        style={{ top: '5vh' }}
+        styles={{ body: { padding: '12px 0 0', height: 'calc(80vh - 57px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      >
+        {printRequest && (
+          <VehicleRequestPDFDownload req={printRequest as VehicleRequestForPDF} />
+        )}
+      </Modal>
     </div>
   )
 }
