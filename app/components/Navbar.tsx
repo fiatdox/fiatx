@@ -15,7 +15,9 @@ import {
   FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
   FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
   FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator,
-  FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired
+  FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
+  FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
+  FaWarehouse, FaExchangeAlt, FaQrcode
 } from 'react-icons/fa'
 
 const { Header } = Layout
@@ -43,6 +45,16 @@ const Navbar: React.FC = () => {
     // submenu รถราชการ
     if (segments[0] === 'general' && segments[1] === 'vehicle') {
       keys.push('general-vehicle')
+    }
+
+    // submenu ระบบซ่อมบำรุง
+    if (segments[0] === 'general' && segments[1] === 'maintenance') {
+      keys.push('general-maintenance')
+    }
+
+    // submenu ระบบครุภัณฑ์
+    if (segments[0] === 'general' && segments[1] === 'assets') {
+      keys.push('general-assets')
     }
 
     // submenu HAIT
@@ -191,8 +203,28 @@ const Navbar: React.FC = () => {
                   ]
                 },
                 { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ / จัดสถานที่' },
-                { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
-                { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
+                {
+                  key: 'general-maintenance',
+                  icon: <FaWrench />,
+                  label: 'ระบบซ่อมบำรุง',
+                  children: [
+                    { key: '/general/maintenance/dashboard',  icon: <FaTachometerAlt />,   label: 'Dashboard งานซ่อม' },
+                    { key: '/general/maintenance/work-order', icon: <FaFileAlt />,          label: 'ใบสั่งงานซ่อม' },
+                    { key: '/general/maintenance-request',    icon: <FaClipboardList />,    label: 'แจ้งซ่อมบำรุงทั่วไป' },
+                    { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
+                    { key: '/general/maintenance/reports',    icon: <FaChartBar />,         label: 'รายงานค่าซ่อมบำรุง' },
+                  ]
+                },
+                {
+                  key: 'general-assets',
+                  icon: <FaWarehouse />,
+                  label: 'ระบบครุภัณฑ์',
+                  children: [
+                    { key: '/general/assets/return',               icon: <FaExchangeAlt />,    label: 'ส่งคืนครุภัณฑ์เสีย' },
+                    { key: '/general/assets/warehouse',            icon: <FaWarehouse />,      label: 'คลังครุภัณฑ์เสื่อมสภาพ' },
+                    { key: '/general/assets/replacement-request',  icon: <FaShoppingCart />,   label: 'เสนอซื้อทดแทน' },
+                  ]
+                },
               ]
             },
             { 
@@ -240,8 +272,9 @@ const Navbar: React.FC = () => {
               icon: <FaCalculator />, 
               label: 'งานการเงินและบัญชี',
               children: [
-                { key: '/accounting/salary', icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
-                { key: '/accounting/credentials', icon: <FaLock />, label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
+                { key: '/accounting/salary',       icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
+                { key: '/accounting/credentials',  icon: <FaLock />,             label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
+                { key: '/accounting/repair-payment', icon: <FaFileAlt />,        label: 'เบิกจ่ายค่าซ่อมบำรุง' },
               ]
             },
             

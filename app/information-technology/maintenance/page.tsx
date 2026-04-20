@@ -2,12 +2,12 @@
 import { useState } from 'react'
 import {
   ConfigProvider, App, theme, Form, Input, Select, Button, Upload, Table, Tag, Tabs,
-  Typography, Breadcrumb, Statistic, Row, Col, Card, Tooltip, Badge, Divider, Radio
+  Typography, Breadcrumb, Statistic, Row, Col, Card, Tooltip, Badge, Divider, Radio, Modal, Space
 } from 'antd'
 import {
   DesktopOutlined, ToolOutlined, PaperClipOutlined, PlusOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,
-  UploadOutlined, HomeOutlined
+  UploadOutlined, HomeOutlined, SearchOutlined, QrcodeOutlined
 } from '@ant-design/icons'
 import { FaMicrochip, FaPrint, FaLaptop, FaDesktop, FaKeyboard, FaNetworkWired } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
@@ -103,6 +103,30 @@ const mockRequests: RepairRequest[] = [
   },
 ]
 
+// ─── Mock IT asset database ───────────────────────────────────────────────────
+const MOCK_IT_ASSETS = [
+  { assetNo: 'IT-67-001', name: 'DELL OptiPlex 7090 SFF',           type: 'desktop',    department: 'งานการเงินและบัญชี',   location: 'ห้องการเงิน ชั้น 2',        serialNo: 'SN-A001234', status: 'ปกติ' },
+  { assetNo: 'IT-67-002', name: 'HP LaserJet Pro M404dn',           type: 'printer',    department: 'งาน HR',               location: 'ห้อง HR ชั้น 2',            serialNo: 'SN-B005678', status: 'ปกติ' },
+  { assetNo: 'IT-67-003', name: 'Lenovo ThinkPad E14 Gen 4',        type: 'laptop',     department: 'งานทรัพยากรบุคคล',    location: 'ห้อง HR ชั้น 2',            serialNo: 'SN-C009012', status: 'ปกติ' },
+  { assetNo: 'IT-66-001', name: 'Canon DR-C225W Scanner',           type: 'scanner',    department: 'งานเวชระเบียน',        location: 'ห้องเวชระเบียน ชั้น 1',     serialNo: 'SN-D003456', status: 'เสื่อมสภาพ' },
+  { assetNo: 'IT-66-002', name: 'Cisco Catalyst 2960-X Switch',     type: 'network',    department: 'งานคอมพิวเตอร์ IT',   location: 'ห้อง Server ชั้น 2',        serialNo: 'SN-E007890', status: 'ปกติ' },
+  { assetNo: 'IT-67-004', name: 'Acer Veriton M6690G',              type: 'desktop',    department: 'งานบริหารทั่วไป',      location: 'ห้องธุรการ ชั้น 1',         serialNo: 'SN-F001122', status: 'ปกติ' },
+  { assetNo: 'IT-67-005', name: 'HP LaserJet Enterprise M507dn',    type: 'printer',    department: 'งานพัสดุ',             location: 'ห้องพัสดุ ชั้น 1',          serialNo: 'SN-G003344', status: 'ชำรุด' },
+  { assetNo: 'IT-65-001', name: 'Dell Latitude 5520',               type: 'laptop',     department: 'งานพัฒนาบุคลากร',     location: 'ห้องฝึกอบรม ชั้น 3',        serialNo: 'SN-H005566', status: 'ปกติ' },
+  { assetNo: 'IT-66-003', name: 'Fujitsu fi-7160 Scanner',          type: 'scanner',    department: 'งานเวชระเบียน',        location: 'ห้องเวชระเบียน ชั้น 1',     serialNo: 'SN-I007788', status: 'ปกติ' },
+  { assetNo: 'IT-67-006', name: 'TP-Link TL-SG108E Switch 8-Port',  type: 'network',    department: 'งานการพยาบาล OPD',     location: 'ห้องเซิร์ฟเวอร์ OPD',      serialNo: 'SN-J009900', status: 'ปกติ' },
+  { assetNo: 'IT-65-002', name: 'HP ProDesk 400 G7',                type: 'desktop',    department: 'งานอุบัติเหตุ ER',     location: 'เคาน์เตอร์ ER',             serialNo: 'SN-K001234', status: 'ปกติ' },
+  { assetNo: 'IT-67-007', name: 'APC Smart-UPS 1500VA',             type: 'peripheral', department: 'งานคอมพิวเตอร์ IT',   location: 'ห้อง Server ชั้น 2',        serialNo: 'SN-L005678', status: 'เสื่อมสภาพ' },
+  { assetNo: 'IT-66-004', name: 'Samsung 27" Curved Monitor CF396', type: 'peripheral', department: 'งานเวชระเบียน',        location: 'เคาน์เตอร์เวชระเบียน',      serialNo: 'SN-M002233', status: 'ปกติ' },
+  { assetNo: 'IT-67-008', name: 'ASUS ExpertBook B1 B1400',         type: 'laptop',     department: 'งานบริหารทั่วไป',      location: 'ห้องประชุมชั้น 3',          serialNo: 'SN-N004455', status: 'ปกติ' },
+  { assetNo: 'IT-65-003', name: 'Brother MFC-L5750DW',              type: 'printer',    department: 'งานเวชระเบียน',        location: 'ห้องเวชระเบียน ชั้น 1',     serialNo: 'SN-O006677', status: 'ชำรุด' },
+  { assetNo: 'IT-67-009', name: 'Ubiquiti UniFi AP AC Pro',         type: 'network',    department: 'งานคอมพิวเตอร์ IT',   location: 'ชั้น 2 โซน A',              serialNo: 'SN-P008899', status: 'ปกติ' },
+]
+
+const IT_ASSET_STATUS_COLOR: Record<string, string> = {
+  'ปกติ': 'success', 'ชำรุด': 'error', 'เสื่อมสภาพ': 'warning'
+}
+
 const deviceTypeOptions = [
   { value: 'desktop', label: 'คอมพิวเตอร์ตั้งโต๊ะ', icon: <FaDesktop /> },
   { value: 'laptop', label: 'โน้ตบุ๊ก / แล็ปท็อป', icon: <FaLaptop /> },
@@ -131,7 +155,28 @@ const PageContent = () => {
   const [form] = Form.useForm()
   const [requests, setRequests] = useState<RepairRequest[]>(mockRequests)
   const [activeTab, setActiveTab] = useState('form')
+  const [assetModalOpen, setAssetModalOpen] = useState(false)
+  const [assetSearch, setAssetSearch] = useState('')
   const { message } = App.useApp()
+
+  const filteredItAssets = assetSearch.trim()
+    ? MOCK_IT_ASSETS.filter(a =>
+        a.assetNo.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.name.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.department.toLowerCase().includes(assetSearch.toLowerCase()) ||
+        a.serialNo.toLowerCase().includes(assetSearch.toLowerCase())
+      )
+    : MOCK_IT_ASSETS
+
+  const handleSelectItAsset = (asset: typeof MOCK_IT_ASSETS[0]) => {
+    form.setFieldsValue({
+      deviceSerial: asset.serialNo,
+      deviceBrand:  asset.name,
+      deviceType:   asset.type,
+    })
+    setAssetModalOpen(false)
+    setAssetSearch('')
+  }
 
   const onFinish = (values: any) => {
     const newReq: RepairRequest = {
@@ -299,32 +344,53 @@ const PageContent = () => {
         {/* Summary Cards */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={8}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #92400e 0%, #1e293b 100%)',
+                border: '1px solid #b45309',
+                borderRadius: 10,
+              }}
+              styles={{ body: { padding: '12px 16px' } }}
+            >
               <Statistic
-                title={<span style={{ color: '#94a3b8' }}>รอดำเนินการ</span>}
+                title={<span style={{ color: '#fde68a', fontSize: 12 }}>รอดำเนินการ</span>}
                 value={pending}
                 prefix={<ClockCircleOutlined style={{ color: '#fbbf24' }} />}
-                styles={{ content: { color: '#fbbf24', fontSize: 28 } }}
+                styles={{ content: { color: '#fff', fontSize: 24 } }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)',
+                border: '1px solid #2563eb',
+                borderRadius: 10,
+              }}
+              styles={{ body: { padding: '12px 16px' } }}
+            >
               <Statistic
-                title={<span style={{ color: '#94a3b8' }}>กำลังซ่อม</span>}
+                title={<span style={{ color: '#bae6fd', fontSize: 12 }}>กำลังซ่อม</span>}
                 value={inProgress}
                 prefix={<ToolOutlined style={{ color: '#60a5fa' }} />}
-                styles={{ content: { color: '#60a5fa', fontSize: 28 } }}
+                styles={{ content: { color: '#fff', fontSize: 24 } }}
               />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+            <Card
+              style={{
+                background: 'linear-gradient(135deg, #065f46 0%, #1e293b 100%)',
+                border: '1px solid #059669',
+                borderRadius: 10,
+              }}
+              styles={{ body: { padding: '12px 16px' } }}
+            >
               <Statistic
-                title={<span style={{ color: '#94a3b8' }}>ซ่อมเสร็จแล้ว</span>}
+                title={<span style={{ color: '#a7f3d0', fontSize: 12 }}>ซ่อมเสร็จแล้ว</span>}
                 value={completed}
                 prefix={<CheckCircleOutlined style={{ color: '#6ee7b7' }} />}
-                styles={{ content: { color: '#6ee7b7', fontSize: 28 } }}
+                styles={{ content: { color: '#fff', fontSize: 24 } }}
               />
             </Card>
           </Col>
@@ -384,7 +450,19 @@ const PageContent = () => {
                           name="deviceSerial"
                           label={<span style={{ color: '#94a3b8' }}>Serial Number / รหัสครุภัณฑ์</span>}
                         >
-                          <Input placeholder="เช่น SN-A001234" style={{ fontFamily: 'monospace' }} />
+                          <Space.Compact style={{ width: '100%' }}>
+                            <Input
+                              placeholder="เช่น SN-A001234"
+                              style={{ fontFamily: 'monospace' }}
+                            />
+                            <Button
+                              icon={<QrcodeOutlined />}
+                              onClick={() => { setAssetSearch(''); setAssetModalOpen(true) }}
+                              style={{ color: '#a78bfa', fontWeight: 600 }}
+                            >
+                              ค้นหาในระบบ
+                            </Button>
+                          </Space.Compact>
                         </Form.Item>
                       </Col>
                     </Row>
@@ -479,6 +557,54 @@ const PageContent = () => {
           ]}
         />
       </div>
+
+      {/* ── IT Asset Search Modal ── */}
+      <Modal
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <QrcodeOutlined style={{ color: '#a78bfa' }} />
+            ค้นหาครุภัณฑ์คอมพิวเตอร์และอุปกรณ์ IT
+          </span>
+        }
+        open={assetModalOpen}
+        onCancel={() => { setAssetModalOpen(false); setAssetSearch('') }}
+        footer={null}
+        width={860}
+        destroyOnHidden
+      >
+        <Input
+          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          placeholder="ค้นหาจากเลขครุภัณฑ์ ชื่ออุปกรณ์ Serial Number หรือหน่วยงาน..."
+          value={assetSearch}
+          onChange={e => setAssetSearch(e.target.value)}
+          allowClear
+          autoFocus
+          size="large"
+          style={{ marginBottom: 16 }}
+        />
+        <Table
+          dataSource={filteredItAssets}
+          rowKey="assetNo"
+          size="small"
+          pagination={{ pageSize: 8, size: 'small' }}
+          columns={[
+            { title: 'เลขครุภัณฑ์', dataIndex: 'assetNo', key: 'assetNo', width: 110, render: (v: string) => <code style={{ color: '#a78bfa' }}>{v}</code> },
+            { title: 'ชื่ออุปกรณ์', dataIndex: 'name', key: 'name' },
+            { title: 'Serial No.', dataIndex: 'serialNo', key: 'serialNo', width: 120, render: (v: string) => <code style={{ fontSize: 11 }}>{v}</code> },
+            { title: 'หน่วยงาน', dataIndex: 'department', key: 'department', width: 160 },
+            {
+              title: 'สภาพ', dataIndex: 'status', key: 'status', width: 90,
+              render: (v: string) => <Tag color={IT_ASSET_STATUS_COLOR[v] ?? 'default'}>{v}</Tag>
+            },
+            {
+              title: 'เลือก', key: 'action', width: 70, align: 'center' as const,
+              render: (_: any, record: typeof MOCK_IT_ASSETS[0]) => (
+                <Button type="primary" size="small" onClick={() => handleSelectItAsset(record)}>เลือก</Button>
+              )
+            },
+          ]}
+        />
+      </Modal>
     </div>
   )
 }

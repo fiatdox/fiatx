@@ -39,6 +39,36 @@ const ASSET_STATUS_COLOR: Record<string, string> = {
   'ปกติ': 'success', 'ชำรุด': 'error', 'เสื่อมสภาพ': 'warning'
 }
 
+// map asset.type (Thai) → equipmentType form value
+const ASSET_TYPE_MAP: Record<string, string> = {
+  'เครื่องมือผ่าตัด':    'surgical',
+  'เตียงผ่าตัด':         'surgical',
+  'เครื่องช่วยชีวิต':    'surgical',
+  'เครื่องช่วยหายใจ':    'surgical',
+  'เครื่องมอนิเตอร์':    'vital_signs',
+  'เครื่องวัดความดัน':   'vital_signs',
+  'เครื่องวัดออกซิเจน':  'vital_signs',
+  'เครื่องวัดน้ำตาล':    'vital_signs',
+  'เครื่องมือตรวจหัวใจ': 'vital_signs',
+  'เครื่องอัลตราซาวด์':  'ultrasound',
+  'เครื่อง X-Ray':       'xray',
+  'อุปกรณ์ห้องแล็บ':     'laboratory',
+  'กล้องจุลทรรศน์':      'laboratory',
+  'ปั๊มสารน้ำ':          'other',
+  'เครื่องดูดเสมหะ':     'other',
+}
+
+// map asset.department (Thai) → department form value
+const ASSET_DEPT_MAP: Record<string, string> = {
+  'งานการพยาบาล OPD':    'opd',
+  'งานผู้ป่วยใน IPD':    'ipd',
+  'งาน ICU':             'ipd',
+  'งานอุบัติเหตุ ER':    'er',
+  'งานห้องผ่าตัด':       'or',
+  'งานรังสีวิทยา':       'lab',
+  'งานห้องปฏิบัติการ':   'lab',
+}
+
 const equipmentTypeOptions = [
   { label: 'เครื่องมือผ่าตัด', value: 'surgical' },
   { label: 'เครื่องวัดสัญญาณชีพ', value: 'vital_signs' },
@@ -78,8 +108,14 @@ const MedicalEquipmentRepairPage = () => {
       )
     : MOCK_MEDICAL_ASSETS
 
-  const handleSelectAsset = (assetNo: string) => {
-    form.setFieldValue('assetNumber', assetNo)
+  const handleSelectAsset = (asset: typeof MOCK_MEDICAL_ASSETS[0]) => {
+    form.setFieldsValue({
+      assetNumber:    asset.assetNo,
+      equipmentName:  asset.name,
+      equipmentType:  ASSET_TYPE_MAP[asset.type]  ?? 'other',
+      department:     ASSET_DEPT_MAP[asset.department] ?? 'other',
+      location:       asset.location,
+    })
     setAssetModalOpen(false)
     setAssetSearch('')
   }
@@ -356,7 +392,7 @@ const MedicalEquipmentRepairPage = () => {
             {
               title: 'เลือก', key: 'action', width: 70, align: 'center' as const,
               render: (_: any, record: typeof MOCK_MEDICAL_ASSETS[0]) => (
-                <Button type="primary" size="small" onClick={() => handleSelectAsset(record.assetNo)}>เลือก</Button>
+                <Button type="primary" size="small" onClick={() => handleSelectAsset(record)}>เลือก</Button>
               )
             },
           ]}

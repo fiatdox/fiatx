@@ -53,6 +53,18 @@ const ASSET_STATUS_COLOR: Record<string, string> = {
   'ปกติ': 'success', 'ชำรุด': 'error', 'เสื่อมสภาพ': 'warning'
 }
 
+const ASSET_BUILDING_MAP: Record<string, string> = {
+  'งาน HR':                    'admin',
+  'งานการพยาบาล OPD':          'opd',
+  'งานห้องผ่าตัด':             'ipd',
+  'งานเภสัชกรรม':              'opd',
+  'งานเวชระเบียน':             'opd',
+  'งานรักษาความปลอดภัย':       'other',
+  'งานผู้ป่วยใน IPD':          'ipd',
+  'งานคอมพิวเตอร์ IT':         'admin',
+  'งานอุบัติเหตุ ER':          'er',
+}
+
 const buildingOptions = [
   { label: 'อาคารผู้ป่วยนอก (OPD)', value: 'opd' },
   { label: 'อาคารผู้ป่วยใน (IPD)', value: 'ipd' },
@@ -78,8 +90,12 @@ const MaintenanceRequestPage = () => {
       )
     : MOCK_ASSETS;
 
-  const handleSelectAsset = (assetNo: string) => {
-    form.setFieldValue('assetNumber', assetNo);
+  const handleSelectAsset = (asset: typeof MOCK_ASSETS[0]) => {
+    form.setFieldsValue({
+      assetNumber: asset.assetNo,
+      location:    asset.location,
+      building:    ASSET_BUILDING_MAP[asset.department] ?? 'other',
+    });
     setAssetModalOpen(false);
     setAssetSearch('');
   };
@@ -401,7 +417,7 @@ const MaintenanceRequestPage = () => {
                 <Button
                   type="primary"
                   size="small"
-                  onClick={() => handleSelectAsset(r.assetNo)}
+                  onClick={() => handleSelectAsset(r)}
                   style={{ background: '#FF6500', borderColor: '#FF6500' }}
                 >
                   เลือก
