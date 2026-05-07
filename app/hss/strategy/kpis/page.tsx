@@ -11,6 +11,7 @@ import {
   ClearOutlined, RiseOutlined, FallOutlined, MinusOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import EChart from '@/app/components/EChart'
 
 const { Title, Text } = Typography
 
@@ -104,6 +105,46 @@ const KPIPageContent = () => {
   const atRisk = filtered.filter(k => { const p = getAchievePct(k); return p >= 50 && p < 75 }).length
   const missed = filtered.filter(k => getAchievePct(k) < 50).length
   const overallPct = total > 0 ? Math.round(filtered.reduce((s, k) => s + getAchievePct(k), 0) / total) : 0
+
+  // ---- Chart aggregations ----
+  const byDept = useMemo(() => {
+    const map = new Map<string, { sum: number; count: number }>()
+    filtered.forEach(k => {
+      const pct = getAchievePct(k)
+      const e = map.get(k.department) || { sum: 0, count: 0 }
+      e.sum += pct; e.count += 1
+      map.set(k.department, e)
+    })
+    return Array.from(map.entries())
+      .map(([dept, v]) => ({ dept, avg: Math.round(v.sum / v.count), count: v.count }))
+      .sort((a, b) => a.avg - b.avg)
+  }, [filtered])
+
+  const trendByQ = useMemo(() => {
+    const base = kpiData.filter(k => {
+      if (filterDept && k.department !== filterDept) return false
+      if (filterYear && k.fiscalYear !== filterYear) return false
+      if (search && !k.kpiName.toLowerCase().includes(search.toLowerCase()) && !k.department.includes(search)) return false
+      return true
+    })
+    return [1, 2, 3, 4].map(q => {
+      const items = base.filter(k => k.quarter === q)
+      const avg = items.length > 0 ? Math.round(items.reduce((s, k) => s + getAchievePct(k), 0) / items.length) : null
+      return { q, avg, count: items.length }
+    })
+  }, [filterDept, filterYear, search])
+
+  const topKpis = useMemo(() => {
+    const map = new Map<string, KPI>()
+    filtered.forEach(k => {
+      const ex = map.get(k.kpiName)
+      if (!ex || k.quarter > ex.quarter) map.set(k.kpiName, k)
+    })
+    return Array.from(map.values())
+      .map(k => ({ name: k.kpiName, short: k.kpiName.length > 28 ? k.kpiName.slice(0, 28) + '…' : k.kpiName, pct: getAchievePct(k), unit: k.unit, target: k.target, actual: k.actual }))
+      .sort((a, b) => a.pct - b.pct)
+      .slice(0, 8)
+  }, [filtered])
 
   const clearFilters = () => {
     setFilterDept('')
@@ -346,6 +387,244 @@ const KPIPageContent = () => {
               </div>
             </div>
           </Card>
+
+          {/* Charts Row 1: Status donut + Department avg bar */}
+          <Row gutter={[16, 16]} className="mb-6">
+            <Col xs={24} lg={8}>
+              <Card variant="borderless" className="shadow-sm h-full" style={{ borderRadius: 12 }}>
+                <Title level={5} style={{ color: '#34d399', margin: 0, marginBottom: 8 }}>การกระจายสถานะ KPI</Title>
+                <Text type="secondary" className="text-xs block mb-2">สัดส่วนตามระดับความสำเร็จ</Text>
+                <EChart height={280} option={{
+                  backgroundColor: 'transparent',
+                  tooltip: {
+                    trigger: 'item',
+                    backgroundColor: '#0f172a',
+                    borderColor: '#334155',
+                    textStyle: { color: '#e2e8f0' },
+                    formatter: (p: { name: string; value: number; percent: number }) =>
+                      `${p.name}<br/>${p.value} รายการ (${p.percent}%)`,
+                  },
+                  title: [
+                    { text: 'ภาพรวม', left: 'center', top: '38%', textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                    { text: overallPct + '%', left: 'center', top: '46%',
+                      textStyle: { color: overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444', fontSize: 24, fontWeight: 700 } },
+                    { text: total + ' KPI', left: 'center', top: '60%', textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                  ],
+                  legend: {
+                    bottom: 0,
+                    left: 'center',
+                    textStyle: { color: '#94a3b8', fontSize: 11 },
+                    itemWidth: 10,
+                    itemHeight: 10,
+                  },
+                  series: [{
+                    type: 'pie',
+                    radius: ['52%', '76%'],
+                    center: ['50%', '46%'],
+                    avoidLabelOverlap: true,
+                    itemStyle: { borderColor: '#1e293b', borderWidth: 2 },
+                    label: { show: false },
+                    labelLine: { show: false },
+                    data: [
+                      { name: 'บรรลุเป้า', value: achieved, itemStyle: { color: '#10b981' } },
+                      { name: 'ใกล้เป้า', value: nearTarget, itemStyle: { color: '#3b82f6' } },
+                      { name: 'เสี่ยง', value: atRisk, itemStyle: { color: '#f59e0b' } },
+                      { name: 'ไม่บรรลุ', value: missed, itemStyle: { color: '#ef4444' } },
+                    ].filter(d => d.value > 0),
+                  }],
+                }} />
+              </Card>
+            </Col>
+            <Col xs={24} lg={16}>
+              <Card variant="borderless" className="shadow-sm h-full" style={{ borderRadius: 12 }}>
+                <Title level={5} style={{ color: '#34d399', margin: 0, marginBottom: 8 }}>ความสำเร็จเฉลี่ยตามหน่วยงาน</Title>
+                <Text type="secondary" className="text-xs block mb-2">เปอร์เซ็นต์ความสำเร็จเฉลี่ยจาก KPI ในแต่ละหน่วยงาน</Text>
+                <EChart height={Math.max(220, byDept.length * 44 + 60)} option={{
+                  backgroundColor: 'transparent',
+                  grid: { left: 160, right: 80, top: 20, bottom: 30 },
+                  tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: '#0f172a',
+                    borderColor: '#334155',
+                    textStyle: { color: '#e2e8f0' },
+                    formatter: (params: { dataIndex: number }[]) => {
+                      const d = byDept[params[0].dataIndex]
+                      return `<b>${d.dept}</b><br/>เฉลี่ย: ${d.avg}%<br/>จำนวน: ${d.count} KPI`
+                    },
+                  },
+                  xAxis: {
+                    type: 'value',
+                    max: (v: { max: number }) => Math.max(120, Math.ceil(v.max / 10) * 10),
+                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: '#334155' } },
+                  },
+                  yAxis: {
+                    type: 'category',
+                    data: byDept.map(d => d.dept),
+                    axisLabel: { color: '#e2e8f0', fontSize: 12 },
+                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisTick: { show: false },
+                  },
+                  series: [{
+                    type: 'bar',
+                    barWidth: 22,
+                    data: byDept.map(d => ({
+                      value: d.avg,
+                      itemStyle: {
+                        color: d.avg >= 100 ? '#10b981' : d.avg >= 75 ? '#3b82f6' : d.avg >= 50 ? '#f59e0b' : '#ef4444',
+                        borderRadius: [0, 6, 6, 0],
+                      },
+                    })),
+                    label: {
+                      show: true,
+                      position: 'right',
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      formatter: (p: { dataIndex: number }) => `${byDept[p.dataIndex].avg}%  (${byDept[p.dataIndex].count})`,
+                    },
+                    markLine: {
+                      symbol: 'none',
+                      silent: true,
+                      lineStyle: { color: '#34d399', type: 'dashed', width: 1.5 },
+                      label: { color: '#34d399', fontSize: 10, formatter: 'เป้า 100%' },
+                      data: [{ xAxis: 100 }],
+                    },
+                  }],
+                }} />
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Charts Row 2: Quarterly trend + Top KPIs */}
+          <Row gutter={[16, 16]} className="mb-6">
+            <Col xs={24} lg={12}>
+              <Card variant="borderless" className="shadow-sm h-full" style={{ borderRadius: 12 }}>
+                <Title level={5} style={{ color: '#34d399', margin: 0, marginBottom: 8 }}>แนวโน้มความสำเร็จรายไตรมาส</Title>
+                <Text type="secondary" className="text-xs block mb-2">ความสำเร็จเฉลี่ย Q1–Q4 (ไม่รวมตัวกรองไตรมาส)</Text>
+                <EChart height={300} option={{
+                  backgroundColor: 'transparent',
+                  grid: { left: 50, right: 30, top: 30, bottom: 40 },
+                  tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: '#0f172a',
+                    borderColor: '#334155',
+                    textStyle: { color: '#e2e8f0' },
+                    formatter: (params: { dataIndex: number; value: number | null }[]) => {
+                      const i = params[0].dataIndex
+                      const d = trendByQ[i]
+                      return `<b>ไตรมาส ${d.q}</b><br/>เฉลี่ย: ${d.avg ?? '-'}%<br/>จำนวน: ${d.count} KPI`
+                    },
+                  },
+                  xAxis: {
+                    type: 'category',
+                    data: trendByQ.map(t => `Q${t.q}`),
+                    axisLabel: { color: '#94a3b8', fontSize: 12 },
+                    axisLine: { lineStyle: { color: '#334155' } },
+                  },
+                  yAxis: {
+                    type: 'value',
+                    name: '%',
+                    nameTextStyle: { color: '#94a3b8' },
+                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: '#334155' } },
+                  },
+                  series: [{
+                    type: 'line',
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 10,
+                    data: trendByQ.map(t => t.avg),
+                    connectNulls: true,
+                    itemStyle: { color: '#34d399' },
+                    lineStyle: { width: 3, color: '#34d399' },
+                    areaStyle: {
+                      color: {
+                        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                        colorStops: [
+                          { offset: 0, color: 'rgba(52,211,153,0.4)' },
+                          { offset: 1, color: 'rgba(52,211,153,0.02)' },
+                        ],
+                      },
+                    },
+                    label: {
+                      show: true,
+                      position: 'top',
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      formatter: (p: { value: number | null }) => p.value == null ? '' : p.value + '%',
+                    },
+                    markLine: {
+                      symbol: 'none',
+                      silent: true,
+                      lineStyle: { color: '#f59e0b', type: 'dashed', width: 1.5 },
+                      label: { color: '#f59e0b', fontSize: 10, formatter: 'เป้า 100%' },
+                      data: [{ yAxis: 100 }],
+                    },
+                  }],
+                }} />
+              </Card>
+            </Col>
+            <Col xs={24} lg={12}>
+              <Card variant="borderless" className="shadow-sm h-full" style={{ borderRadius: 12 }}>
+                <Title level={5} style={{ color: '#34d399', margin: 0, marginBottom: 8 }}>KPI ที่ต้องเฝ้าระวัง (Bottom 8)</Title>
+                <Text type="secondary" className="text-xs block mb-2">ตัวชี้วัดที่มีความสำเร็จต่ำสุดจากผลล่าสุดของแต่ละรายการ</Text>
+                <EChart height={Math.max(260, topKpis.length * 32 + 60)} option={{
+                  backgroundColor: 'transparent',
+                  grid: { left: 8, right: 90, top: 20, bottom: 30, containLabel: true },
+                  tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    backgroundColor: '#0f172a',
+                    borderColor: '#334155',
+                    textStyle: { color: '#e2e8f0' },
+                    formatter: (params: { dataIndex: number }[]) => {
+                      const k = topKpis[params[0].dataIndex]
+                      return `<b>${k.name}</b><br/>ผลงาน: ${k.actual} ${k.unit}<br/>เป้าหมาย: ${k.target} ${k.unit}<br/>ความสำเร็จ: <b>${k.pct}%</b>`
+                    },
+                  },
+                  xAxis: {
+                    type: 'value',
+                    max: (v: { max: number }) => Math.max(120, Math.ceil(v.max / 10) * 10),
+                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: '#334155' } },
+                  },
+                  yAxis: {
+                    type: 'category',
+                    inverse: true,
+                    data: topKpis.map(k => k.short),
+                    axisLabel: { color: '#e2e8f0', fontSize: 11, width: 200, overflow: 'truncate' },
+                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisTick: { show: false },
+                  },
+                  series: [{
+                    type: 'bar',
+                    barWidth: 16,
+                    data: topKpis.map(k => ({
+                      value: k.pct,
+                      itemStyle: {
+                        color: k.pct >= 100 ? '#10b981' : k.pct >= 75 ? '#3b82f6' : k.pct >= 50 ? '#f59e0b' : '#ef4444',
+                        borderRadius: [0, 4, 4, 0],
+                      },
+                    })),
+                    label: {
+                      show: true,
+                      position: 'right',
+                      color: '#e2e8f0',
+                      fontSize: 11,
+                      formatter: (p: { dataIndex: number }) => `${topKpis[p.dataIndex].pct}%`,
+                    },
+                    markLine: {
+                      symbol: 'none',
+                      silent: true,
+                      lineStyle: { color: '#34d399', type: 'dashed', width: 1.5 },
+                      data: [{ xAxis: 100 }],
+                    },
+                  }],
+                }} />
+              </Card>
+            </Col>
+          </Row>
 
           {/* KPI Table */}
           <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12 }}>

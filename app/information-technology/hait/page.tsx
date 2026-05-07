@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import { FaMicrochip } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
+import EChart from '../../components/EChart'
 import Link from 'next/link'
 import { message } from 'antd'
 
@@ -99,7 +100,9 @@ export default function HaitPage() {
 
   const doneCount = Object.values(statusMap).filter(s => s === 'done').length
   const partialCount = Object.values(statusMap).filter(s => s === 'partial').length
+  const noneCount = subComponents.length - doneCount - partialCount
   const progress = Math.round(((doneCount + partialCount * 0.5) / subComponents.length) * 100)
+  const statusToScore = (s: AssessStatus): number => s === 'done' ? 2 : s === 'partial' ? 1 : 0
 
   const handleSave = () => {
     console.log('Assessment saved:', { statusMap, detailMap })
@@ -146,43 +149,161 @@ export default function HaitPage() {
               </Paragraph>
             </Card>
 
-            {/* Progress Summary */}
+            {/* Progress Summary with Charts */}
             <Card variant="borderless" className="shadow-sm mb-6" style={{ borderRadius: 12 }}>
-              <Row gutter={24} align="middle">
-                <Col xs={24} md={12}>
-                  <Title level={5} className="mb-3">ความคืบหน้าการประเมิน</Title>
-                  <Progress
-                    percent={progress}
-                    strokeColor="#a855f7"
-                    railColor="#334155"
-                    format={p => `${p}%`}
-                  />
+              <Title level={5} style={{ color: '#a855f7', marginTop: 0, marginBottom: 16 }}>
+                ภาพรวมการประเมิน
+              </Title>
+              <Row gutter={[16, 16]}>
+                {/* Gauge — overall progress */}
+                <Col xs={24} md={8}>
+                  <div className="text-center mb-1">
+                    <Text type="secondary" className="text-xs">ความคืบหน้ารวม</Text>
+                  </div>
+                  <EChart height={240} option={{
+                    backgroundColor: 'transparent',
+                    series: [{
+                      type: 'gauge',
+                      startAngle: 210,
+                      endAngle: -30,
+                      min: 0,
+                      max: 100,
+                      progress: {
+                        show: true,
+                        width: 18,
+                        roundCap: true,
+                        itemStyle: {
+                          color: {
+                            type: 'linear', x: 0, y: 0, x2: 1, y2: 1,
+                            colorStops: [
+                              { offset: 0, color: '#6B21A8' },
+                              { offset: 1, color: '#a855f7' },
+                            ],
+                          },
+                        },
+                      },
+                      axisLine: { lineStyle: { width: 18, color: [[1, '#334155']] } },
+                      pointer: { show: false },
+                      axisTick: { show: false },
+                      splitLine: { show: false },
+                      axisLabel: { show: false },
+                      anchor: { show: false },
+                      detail: {
+                        valueAnimation: true,
+                        formatter: '{value}%',
+                        fontSize: 36,
+                        fontWeight: 700,
+                        color: '#a855f7',
+                        offsetCenter: [0, '0%'],
+                      },
+                      title: {
+                        offsetCenter: [0, '40%'],
+                        color: '#94a3b8',
+                        fontSize: 12,
+                      },
+                      data: [{ value: progress, name: `${doneCount}/${subComponents.length} ข้อสมบูรณ์` }],
+                    }],
+                  }} />
                 </Col>
-                <Col xs={24} md={12}>
-                  <Row gutter={16} className="mt-4 md:mt-0">
-                    <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-green-400">{doneCount}</div>
-                        <Text type="secondary">ทำแล้ว</Text>
-                      </div>
-                    </Col>
-                    <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-yellow-400">{partialCount}</div>
-                        <Text type="secondary">บางส่วน</Text>
-                      </div>
-                    </Col>
-                    <Col span={8}>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-red-400">
-                          {subComponents.length - doneCount - partialCount}
-                        </div>
-                        <Text type="secondary">ไม่ได้ทำ</Text>
-                      </div>
-                    </Col>
-                  </Row>
+
+                {/* Donut — status breakdown */}
+                <Col xs={24} md={8}>
+                  <div className="text-center mb-1">
+                    <Text type="secondary" className="text-xs">การกระจายสถานะ</Text>
+                  </div>
+                  <EChart height={240} option={{
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                      trigger: 'item',
+                      backgroundColor: '#0f172a',
+                      borderColor: '#334155',
+                      textStyle: { color: '#e2e8f0' },
+                      formatter: (p: { name: string; value: number; percent: number }) =>
+                        `${p.name}<br/>${p.value} ข้อ (${p.percent}%)`,
+                    },
+                    title: [
+                      { text: 'รวมทั้งหมด', left: 'center', top: '34%',
+                        textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                      { text: subComponents.length + ' ข้อ', left: 'center', top: '43%',
+                        textStyle: { color: '#a855f7', fontSize: 22, fontWeight: 700 } },
+                    ],
+                    legend: {
+                      bottom: 0,
+                      left: 'center',
+                      textStyle: { color: '#94a3b8', fontSize: 11 },
+                      itemWidth: 10,
+                      itemHeight: 10,
+                    },
+                    series: [{
+                      type: 'pie',
+                      radius: ['52%', '76%'],
+                      center: ['50%', '44%'],
+                      avoidLabelOverlap: true,
+                      itemStyle: { borderColor: '#1e293b', borderWidth: 2 },
+                      label: { show: false },
+                      labelLine: { show: false },
+                      data: [
+                        { name: 'ทำแล้ว', value: doneCount, itemStyle: { color: '#22c55e' } },
+                        { name: 'บางส่วน', value: partialCount, itemStyle: { color: '#f59e0b' } },
+                        { name: 'ไม่ได้ทำ', value: noneCount, itemStyle: { color: '#ef4444' } },
+                      ].filter(d => d.value > 0),
+                    }],
+                  }} />
+                </Col>
+
+                {/* Radar — sub-component completion fingerprint */}
+                <Col xs={24} md={8}>
+                  <div className="text-center mb-1">
+                    <Text type="secondary" className="text-xs">แผนภูมิเรดาร์ตามองค์ประกอบย่อย</Text>
+                  </div>
+                  <EChart height={240} option={{
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                      backgroundColor: '#0f172a',
+                      borderColor: '#334155',
+                      textStyle: { color: '#e2e8f0' },
+                      formatter: () => {
+                        const lines = subComponents.map(s => {
+                          const st = statusMap[s.key] || 'none'
+                          const lab = st === 'done' ? '<span style=\"color:#22c55e\">ทำแล้ว</span>' : st === 'partial' ? '<span style=\"color:#f59e0b\">บางส่วน</span>' : '<span style=\"color:#ef4444\">ไม่ได้ทำ</span>'
+                          return `${s.no}: ${lab}`
+                        })
+                        return lines.join('<br/>')
+                      },
+                    },
+                    radar: {
+                      indicator: subComponents.map(s => ({ name: s.no, max: 2 })),
+                      splitNumber: 2,
+                      splitLine: { lineStyle: { color: '#334155' } },
+                      splitArea: { areaStyle: { color: ['rgba(168,85,247,0.04)', 'rgba(168,85,247,0.10)'] } },
+                      axisLine: { lineStyle: { color: '#334155' } },
+                      axisName: { color: '#a855f7', fontSize: 12, fontWeight: 600 },
+                      center: ['50%', '52%'],
+                      radius: '62%',
+                    },
+                    series: [{
+                      type: 'radar',
+                      symbol: 'circle',
+                      symbolSize: 6,
+                      data: [{
+                        value: subComponents.map(s => statusToScore(statusMap[s.key] || 'none')),
+                        name: 'ผลประเมิน',
+                        areaStyle: { color: 'rgba(168,85,247,0.35)' },
+                        lineStyle: { color: '#a855f7', width: 2 },
+                        itemStyle: { color: '#a855f7' },
+                      }],
+                    }],
+                  }} />
                 </Col>
               </Row>
+
+              <Divider style={{ margin: '16px 0' }} />
+              <Progress
+                percent={progress}
+                strokeColor={{ '0%': '#6B21A8', '100%': '#a855f7' }}
+                railColor="#334155"
+                format={p => <Text strong style={{ color: '#a855f7' }}>{p}%</Text>}
+              />
             </Card>
 
             {/* Sub-components Assessment */}

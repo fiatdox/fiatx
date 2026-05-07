@@ -7,13 +7,11 @@ import {
 } from 'antd'
 import {
   EditOutlined, SearchOutlined, UserOutlined, TeamOutlined, PlusOutlined,
-  ExportOutlined, MoreOutlined, HomeOutlined, SolutionOutlined, ApartmentOutlined,
-  IdcardOutlined, PhoneOutlined, CalendarOutlined, ClockCircleOutlined,
-  CheckCircleOutlined, EnvironmentOutlined
+  MoreOutlined, HomeOutlined, SolutionOutlined, ApartmentOutlined,
+  IdcardOutlined, CalendarOutlined, ClockCircleOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons'
-import {
-  FaUsersCog, FaUsers, FaUserCheck, FaUserTimes, FaChartBar
-} from 'react-icons/fa'
+import { FaUsersCog, FaUsers } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
@@ -86,10 +84,11 @@ const STATUS_MAP: Record<string, { color: string; dotColor: string }> = {
 const PageContent = () => {
   const [employees, setEmployees] = useState<Employee[]>(initialData)
   const [searchText, setSearchText] = useState('')
+  const [filterMissionGroup, setFilterMissionGroup] = useState<string | null>(null)
   const [filterWorkGroup, setFilterWorkGroup] = useState<string | null>(null)
   const [filterDepartment, setFilterDepartment] = useState<string | null>(null)
+  const [filterStaffType, setFilterStaffType] = useState<string | null>(null)
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
-  const [showFilters, setShowFilters] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -99,15 +98,15 @@ const PageContent = () => {
   const [form] = Form.useForm()
 
   // --- Unique filter options from data ---
+  const missionGroupOptions = Array.from(new Set(employees.map(e => e.missionGroup).filter(Boolean))) as string[]
   const workGroupOptions = Array.from(new Set(employees.map(e => e.workGroup).filter(Boolean))) as string[]
   const departmentOptions = Array.from(new Set(employees.map(e => e.department).filter(Boolean))) as string[]
+  const staffTypeOptions = Array.from(new Set(employees.map(e => e.staffType).filter(Boolean))) as string[]
   const statusOptions = Array.from(new Set(employees.map(e => e.status).filter(Boolean))) as string[]
 
   // --- Stats ---
   const totalEmployees = employees.length
-  const activeEmployees = employees.filter(e => e.status === 'ปฏิบัติงาน').length
-  const onLeaveEmployees = employees.filter(e => e.status !== 'ปฏิบัติงาน').length
-  const activeFilterCount = [filterWorkGroup, filterDepartment, filterStatus].filter(Boolean).length
+  const activeFilterCount = [filterMissionGroup, filterWorkGroup, filterDepartment, filterStaffType, filterStatus].filter(Boolean).length
 
   // --- Handlers ---
   const handleAdd = () => {
@@ -154,6 +153,17 @@ const PageContent = () => {
   }
 
   const handleExportExcel = () => {
+    if (filteredEmployees.length === 0) {
+      Swal.fire({
+        title: 'ไม่มีข้อมูลส่งออก',
+        text: 'ตัวกรองปัจจุบันไม่มีรายการ กรุณาปรับตัวกรอง',
+        icon: 'info',
+        background: '#1e293b',
+        color: '#e2e8f0',
+        confirmButtonColor: '#006a5a',
+      })
+      return
+    }
     const exportData = filteredEmployees.map((emp, index) => ({
       'ลำดับ': index + 1,
       'คำนำหน้า': emp.title,
@@ -173,7 +183,6 @@ const PageContent = () => {
     }))
 
     const ws = XLSX.utils.json_to_sheet(exportData)
-    // Auto-size columns
     const colWidths = Object.keys(exportData[0] || {}).map(key => ({
       wch: Math.max(key.length * 2, ...exportData.map(row => String((row as any)[key]).length * 1.5), 10)
     }))
@@ -181,12 +190,15 @@ const PageContent = () => {
 
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'ทะเบียนบุคลากร')
-    XLSX.writeFile(wb, `ทะเบียนบุคลากร_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
+    const filterTag = activeFilterCount > 0 ? '_filtered' : ''
+    XLSX.writeFile(wb, `ทะเบียนบุคลากร${filterTag}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
   }
 
   const clearAllFilters = () => {
+    setFilterMissionGroup(null)
     setFilterWorkGroup(null)
     setFilterDepartment(null)
+    setFilterStaffType(null)
     setFilterStatus(null)
     setSearchText('')
   }
@@ -256,26 +268,39 @@ const PageContent = () => {
       sorter: (a: Employee, b: Employee) => a.position.localeCompare(b.position),
     },
     {
-      title: 'ประเภท',
+      title: 'ประเภทเจ้าหน้าที่',
       dataIndex: 'staffType',
       key: 'staffType',
-      width: 200,
-      render: (text?: string) => (
-        <span className="text-slate-300 text-[13px]">{text || '-'}</span>
+      width: 180,
+      render: (text?: string) => {
+        const colorMap: Record<string, string> = {
+          'ข้าราชการ': 'blue',
+          'พนักงานราชการ': 'purple',
+          'พนักงานกระทรวงสาธารณสุข': 'magenta',
+          'ลูกจ้างชั่วคราวรายเดือน': 'orange',
+          'ลูกจ้างชั่วคราวรายวัน': 'gold',
+        }
+        return text ? (
+          <Tag color={colorMap[text] || 'default'} style={{ borderRadius: 4, fontSize: 11 }}>{text}</Tag>
+        ) : <span className="text-slate-500">-</span>
+      },
+    },
+    {
+      title: 'กลุ่มภารกิจ / กลุ่มงาน',
+      key: 'group',
+      width: 240,
+      render: (_: any, record: Employee) => (
+        <div>
+          <div className="text-[12px] text-slate-300">{record.missionGroup || '-'}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">{record.workGroup || '-'}</div>
+        </div>
       ),
     },
     {
-      title: 'สังกัด',
+      title: 'หน่วยงาน',
       dataIndex: 'department',
       key: 'department',
-      width: 180,
-      filters: [
-        { text: 'หอผู้ป่วยอายุรกรรม', value: 'หอผู้ป่วยอายุรกรรม' },
-        { text: 'หอผู้ป่วยศัลยกรรม', value: 'หอผู้ป่วยศัลยกรรม' },
-        { text: 'IT', value: 'IT' },
-        { text: 'HR', value: 'HR' },
-      ],
-      onFilter: (value: any, record: Employee) => record.department === value,
+      width: 160,
       render: (text: string) => (
         <div className="flex items-center gap-1.5">
           <EnvironmentOutlined className="text-slate-500 text-xs" />
@@ -288,12 +313,6 @@ const PageContent = () => {
       dataIndex: 'status',
       key: 'status',
       width: 130,
-      filters: [
-        { text: 'ปฏิบัติงาน', value: 'ปฏิบัติงาน' },
-        { text: 'ย้าย', value: 'ย้าย' },
-        { text: 'ลาออก', value: 'ลาออก' },
-      ],
-      onFilter: (value: any, record: Employee) => record.status === value,
       render: (status: string) => {
         const config = STATUS_MAP[status] || { color: 'default', dotColor: '#6b7280' }
         return (
@@ -348,10 +367,12 @@ const PageContent = () => {
     const matchSearch = searchText
       ? Object.values(employee).some((value) => String(value).toLowerCase().includes(searchText.toLowerCase()))
       : true
+    const matchMissionGroup = filterMissionGroup ? employee.missionGroup === filterMissionGroup : true
     const matchWorkGroup = filterWorkGroup ? employee.workGroup === filterWorkGroup : true
     const matchDepartment = filterDepartment ? employee.department === filterDepartment : true
+    const matchStaffType = filterStaffType ? employee.staffType === filterStaffType : true
     const matchStatus = filterStatus ? employee.status === filterStatus : true
-    return matchSearch && matchWorkGroup && matchDepartment && matchStatus
+    return matchSearch && matchMissionGroup && matchWorkGroup && matchDepartment && matchStaffType && matchStatus
   })
 
   return (
@@ -418,34 +439,6 @@ const PageContent = () => {
           </Row>
         </Card>
 
-        {/* Stats Cards */}
-        <Row gutter={[16, 16]} className="mb-6">
-          {[
-            { title: 'บุคลากรทั้งหมด', value: totalEmployees, icon: <TeamOutlined />, color: '#006a5a' },
-            { title: 'ปฏิบัติงาน', value: activeEmployees, icon: <CheckCircleOutlined />, color: '#22c55e' },
-            { title: 'ไม่ได้ปฏิบัติงาน', value: onLeaveEmployees, icon: <SolutionOutlined />, color: '#f59e0b' },
-          ].map((stat, i) => (
-            <Col xs={8} key={i}>
-              <Card style={{ borderRadius: 12, border: 'none' }} styles={{ body: { padding: '20px 20px' } }}>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex items-center justify-center rounded-xl"
-                    style={{ width: 48, height: 48, backgroundColor: `${stat.color}18`, color: stat.color, fontSize: 22 }}
-                  >
-                    {stat.icon}
-                  </div>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{stat.title}</Text>
-                    <div>
-                      <Text strong style={{ fontSize: 28, lineHeight: 1.1 }}>{stat.value}</Text>
-                      <Text type="secondary" style={{ fontSize: 13, marginLeft: 4 }}>คน</Text>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-          ))}
-        </Row>
 
         {/* Main Table Card */}
         <Card
@@ -454,79 +447,124 @@ const PageContent = () => {
         >
           {/* Toolbar */}
           <div className="px-6 pt-5 pb-4">
-            <div className="flex justify-between items-center flex-wrap gap-4 mb-3">
+            <div className="flex justify-between items-center flex-wrap gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <Text strong style={{ fontSize: 16 }}>รายชื่อบุคลากร</Text>
                 <Tag color="#006a5a" style={{ borderRadius: 12, fontSize: 12, padding: '0 10px' }}>
-                  {filteredEmployees.length} รายการ
+                  {filteredEmployees.length} / {totalEmployees} รายการ
                 </Tag>
+                {activeFilterCount > 0 && (
+                  <Tag color="orange" style={{ borderRadius: 12, fontSize: 11 }}>
+                    <FaFilter className="inline mr-1" /> ใช้ตัวกรอง {activeFilterCount} ตัว
+                  </Tag>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Input
-                  placeholder="ค้นหาชื่อ, ตำแหน่ง, แผนก..."
+                  placeholder="ค้นหาชื่อ, ตำแหน่ง, เลขบัตรประชาชน..."
                   prefix={<SearchOutlined className="text-slate-400" />}
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
-                  style={{ width: 280 }}
+                  style={{ width: 300 }}
                   allowClear
                 />
-                <Tooltip title="ตัวกรอง">
+                <Tooltip title="ส่งออกข้อมูลที่กรองแล้วเป็น Excel">
                   <Button
-                    icon={<FaFilter />}
-                    onClick={() => setShowFilters(!showFilters)}
-                    type={showFilters || activeFilterCount > 0 ? 'primary' : 'default'}
+                    icon={<FaFileExcel />}
+                    onClick={handleExportExcel}
+                    type="primary"
+                    style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }}
                   >
-                    กรอง {activeFilterCount > 0 && `(${activeFilterCount})`}
+                    ส่งออก Excel
                   </Button>
                 </Tooltip>
-                <Button
-                  icon={<FaFileExcel />}
-                  onClick={handleExportExcel}
-                  style={{ color: '#22c55e', borderColor: '#22c55e33' }}
-                >
-                  Excel
-                </Button>
               </div>
             </div>
 
-            {/* Filter Row */}
-            {showFilters && (
-              <div
-                className="flex items-center gap-3 flex-wrap p-4 rounded-xl mb-2"
-                style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>กรองตาม:</Text>
-                <Select
-                  placeholder="กลุ่มงาน"
-                  value={filterWorkGroup}
-                  onChange={setFilterWorkGroup}
-                  allowClear
-                  style={{ minWidth: 220 }}
-                  options={workGroupOptions.map(v => ({ label: v, value: v }))}
-                />
-                <Select
-                  placeholder="สังกัด / หอผู้ป่วย"
-                  value={filterDepartment}
-                  onChange={setFilterDepartment}
-                  allowClear
-                  style={{ minWidth: 180 }}
-                  options={departmentOptions.map(v => ({ label: v, value: v }))}
-                />
-                <Select
-                  placeholder="สถานะ"
-                  value={filterStatus}
-                  onChange={setFilterStatus}
-                  allowClear
-                  style={{ minWidth: 140 }}
-                  options={statusOptions.map(v => ({ label: v, value: v }))}
-                />
+            {/* Filter Bar — always visible */}
+            <div
+              className="p-4 rounded-xl"
+              style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FaFilter style={{ color: '#94a3b8', fontSize: 12 }} />
+                  <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>ตัวกรองข้อมูล</Text>
+                </div>
                 {activeFilterCount > 0 && (
-                  <Button type="link" size="small" onClick={clearAllFilters} danger>
+                  <Button type="link" size="small" onClick={clearAllFilters} danger style={{ padding: 0, height: 'auto' }}>
                     ล้างตัวกรองทั้งหมด
                   </Button>
                 )}
               </div>
-            )}
+              <Row gutter={[12, 12]}>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>กลุ่มภารกิจ</Text>
+                    <Select
+                      placeholder="ทุกกลุ่มภารกิจ"
+                      value={filterMissionGroup}
+                      onChange={setFilterMissionGroup}
+                      allowClear
+                      style={{ width: '100%' }}
+                      options={missionGroupOptions.map(v => ({ label: v, value: v }))}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>กลุ่มงาน</Text>
+                    <Select
+                      placeholder="ทุกกลุ่มงาน"
+                      value={filterWorkGroup}
+                      onChange={setFilterWorkGroup}
+                      allowClear
+                      style={{ width: '100%' }}
+                      options={workGroupOptions.map(v => ({ label: v, value: v }))}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>หน่วยงาน / สังกัด</Text>
+                    <Select
+                      placeholder="ทุกหน่วยงาน"
+                      value={filterDepartment}
+                      onChange={setFilterDepartment}
+                      allowClear
+                      style={{ width: '100%' }}
+                      options={departmentOptions.map(v => ({ label: v, value: v }))}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={5}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>ประเภทเจ้าหน้าที่</Text>
+                    <Select
+                      placeholder="ทุกประเภท"
+                      value={filterStaffType}
+                      onChange={setFilterStaffType}
+                      allowClear
+                      style={{ width: '100%' }}
+                      options={staffTypeOptions.map(v => ({ label: v, value: v }))}
+                    />
+                  </div>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>สถานะ</Text>
+                    <Select
+                      placeholder="ทุกสถานะ"
+                      value={filterStatus}
+                      onChange={setFilterStatus}
+                      allowClear
+                      style={{ width: '100%' }}
+                      options={statusOptions.map(v => ({ label: v, value: v }))}
+                    />
+                  </div>
+                </Col>
+              </Row>
+            </div>
           </div>
 
           <Table

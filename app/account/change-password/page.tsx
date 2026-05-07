@@ -1,0 +1,338 @@
+'use client'
+import React, { useMemo, useState } from 'react'
+import {
+  ConfigProvider, App, theme, Card, Form, Input, Button, Breadcrumb, Typography,
+  Row, Col, Progress, Tag, Space, Avatar, Divider, Alert
+} from 'antd'
+import {
+  HomeOutlined, LockOutlined, KeyOutlined, EyeInvisibleOutlined, EyeTwoTone,
+  SafetyCertificateOutlined, CheckCircleFilled, CloseCircleFilled, UserOutlined,
+  ClockCircleOutlined, InfoCircleOutlined
+} from '@ant-design/icons'
+import Navbar from '@/app/components/Navbar'
+import Swal from 'sweetalert2'
+import dayjs from 'dayjs'
+
+const { Title, Text, Paragraph } = Typography
+
+type PasswordRule = {
+  key: string
+  label: string
+  test: (v: string) => boolean
+}
+
+const rules: PasswordRule[] = [
+  { key: 'len',     label: 'อย่างน้อย 8 ตัวอักษร',         test: (v) => v.length >= 8 },
+  { key: 'upper',   label: 'มีตัวอักษรพิมพ์ใหญ่ (A-Z)',     test: (v) => /[A-Z]/.test(v) },
+  { key: 'lower',   label: 'มีตัวอักษรพิมพ์เล็ก (a-z)',      test: (v) => /[a-z]/.test(v) },
+  { key: 'number',  label: 'มีตัวเลข (0-9)',                test: (v) => /[0-9]/.test(v) },
+  { key: 'special', label: 'มีอักขระพิเศษ (!@#$%^&*)',      test: (v) => /[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>/?]/.test(v) },
+]
+
+const ChangePasswordContent = () => {
+  const [form] = Form.useForm()
+  const [submitting, setSubmitting] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  const passedRules = useMemo(
+    () => rules.filter(r => r.test(newPassword)).map(r => r.key),
+    [newPassword]
+  )
+  const strengthPercent = (passedRules.length / rules.length) * 100
+
+  const strengthMeta = useMemo(() => {
+    if (!newPassword) return { label: 'ยังไม่ได้ป้อน', color: '#475569' }
+    if (passedRules.length <= 2) return { label: 'อ่อนแอ',   color: '#ef4444' }
+    if (passedRules.length === 3) return { label: 'ปานกลาง', color: '#f59e0b' }
+    if (passedRules.length === 4) return { label: 'แข็งแรง', color: '#22c55e' }
+    return { label: 'แข็งแรงมาก', color: '#10b981' }
+  }, [newPassword, passedRules])
+
+  const matchState = useMemo(() => {
+    if (!confirmPassword) return null
+    return confirmPassword === newPassword
+  }, [newPassword, confirmPassword])
+
+  const handleFinish = async (values: { current: string; password: string; confirm: string }) => {
+    if (values.password !== values.confirm) {
+      Swal.fire({
+        title: 'รหัสผ่านไม่ตรงกัน',
+        text: 'กรุณายืนยันรหัสผ่านใหม่อีกครั้ง',
+        icon: 'warning',
+        background: '#1e293b',
+        color: '#e2e8f0',
+        confirmButtonColor: '#006a5a',
+      })
+      return
+    }
+    if (passedRules.length < rules.length) {
+      Swal.fire({
+        title: 'รหัสผ่านยังไม่ปลอดภัยเพียงพอ',
+        text: 'กรุณาตั้งรหัสผ่านให้ครบทุกเงื่อนไข',
+        icon: 'warning',
+        background: '#1e293b',
+        color: '#e2e8f0',
+        confirmButtonColor: '#006a5a',
+      })
+      return
+    }
+
+    setSubmitting(true)
+    await new Promise((r) => setTimeout(r, 700))
+    setSubmitting(false)
+
+    Swal.fire({
+      title: 'เปลี่ยนรหัสผ่านสำเร็จ',
+      text: 'รหัสผ่านของคุณได้รับการอัปเดตเรียบร้อยแล้ว',
+      icon: 'success',
+      background: '#1e293b',
+      color: '#e2e8f0',
+      confirmButtonColor: '#006a5a',
+    })
+
+    form.resetFields()
+    setNewPassword('')
+    setConfirmPassword('')
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <Navbar />
+      <div className="p-6 md:p-8 max-w-6xl mx-auto">
+        <Breadcrumb
+          className="mb-4"
+          items={[
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
+            { title: 'บัญชีผู้ใช้' },
+            { title: 'เปลี่ยนรหัสผ่าน' },
+          ]}
+        />
+
+        {/* Header banner */}
+        <Card
+          className="mt-4 mb-6 border-0 overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(6,106,90,0.25), rgba(16,185,129,0.08) 60%, transparent)',
+            borderLeft: '4px solid #006a5a',
+          }}
+        >
+          <div className="flex items-center gap-4">
+            <div
+              className="flex items-center justify-center rounded-2xl"
+              style={{ width: 64, height: 64, background: 'rgba(6,106,90,0.25)' }}
+            >
+              <LockOutlined style={{ fontSize: 32, color: '#34d399' }} />
+            </div>
+            <div className="flex-1">
+              <Title level={3} style={{ margin: 0, color: '#e2e8f0' }}>เปลี่ยนรหัสผ่าน</Title>
+              <Text type="secondary" style={{ color: '#94a3b8' }}>
+                ตั้งรหัสผ่านใหม่ที่คาดเดายาก เพื่อความปลอดภัยของบัญชีของคุณ
+              </Text>
+            </div>
+            <div className="hidden md:flex flex-col items-end gap-1">
+              <Tag color="green" icon={<SafetyCertificateOutlined />} className="!m-0">
+                ปลอดภัยด้วยการเข้ารหัส
+              </Tag>
+              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                <ClockCircleOutlined /> เปลี่ยนล่าสุด: {dayjs().subtract(45, 'day').format('DD/MM/YYYY')}
+              </Text>
+            </div>
+          </div>
+        </Card>
+
+        <Row gutter={[20, 20]} className='mt-6'>
+          {/* Left: form */}
+          <Col xs={24} lg={15}>
+            <Card
+              title={<Space><KeyOutlined style={{ color: '#34d399' }} /><span>ฟอร์มเปลี่ยนรหัสผ่าน</span></Space>}
+              styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+            >
+              <Form
+                form={form}
+                layout="vertical"
+                onFinish={handleFinish}
+                autoComplete="off"
+                requiredMark="optional"
+              >
+                <Form.Item
+                  label={<span className="text-slate-300">รหัสผ่านปัจจุบัน</span>}
+                  name="current"
+                  rules={[{ required: true, message: 'กรุณากรอกรหัสผ่านปัจจุบัน' }]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<LockOutlined className="text-slate-500" />}
+                    placeholder="กรอกรหัสผ่านปัจจุบัน"
+                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  label={<span className="text-slate-300">รหัสผ่านใหม่</span>}
+                  name="password"
+                  rules={[{ required: true, message: 'กรุณากรอกรหัสผ่านใหม่' }]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<KeyOutlined className="text-slate-500" />}
+                    placeholder="ตั้งรหัสผ่านใหม่ที่คาดเดายาก"
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                  />
+                </Form.Item>
+
+                {/* Strength meter */}
+                <div className="mb-4 -mt-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <Text style={{ color: '#94a3b8', fontSize: 12 }}>ความแข็งแรงของรหัสผ่าน</Text>
+                    <Text style={{ color: strengthMeta.color, fontSize: 12, fontWeight: 600 }}>
+                      {strengthMeta.label}
+                    </Text>
+                  </div>
+                  <Progress
+                    percent={strengthPercent}
+                    showInfo={false}
+                    strokeColor={strengthMeta.color}
+                    railColor="#1e293b"
+                    size="small"
+                  />
+                </div>
+
+                <Form.Item
+                  label={<span className="text-slate-300">ยืนยันรหัสผ่านใหม่</span>}
+                  name="confirm"
+                  dependencies={['password']}
+                  rules={[
+                    { required: true, message: 'กรุณายืนยันรหัสผ่านใหม่' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('password') === value) return Promise.resolve()
+                        return Promise.reject(new Error('รหัสผ่านยืนยันไม่ตรงกัน'))
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password
+                    size="large"
+                    prefix={<KeyOutlined className="text-slate-500" />}
+                    placeholder="กรอกซ้ำรหัสผ่านใหม่อีกครั้ง"
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+                  />
+                </Form.Item>
+
+                {matchState !== null && (
+                  <div className="mb-4 -mt-2">
+                    {matchState ? (
+                      <Tag color="green" icon={<CheckCircleFilled />}>รหัสผ่านตรงกัน</Tag>
+                    ) : (
+                      <Tag color="red" icon={<CloseCircleFilled />}>รหัสผ่านยังไม่ตรงกัน</Tag>
+                    )}
+                  </div>
+                )}
+
+                <Divider style={{ borderColor: '#1e293b', margin: '12px 0 16px' }} />
+
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <Button
+                    size="large"
+                    onClick={() => {
+                      form.resetFields()
+                      setNewPassword('')
+                      setConfirmPassword('')
+                    }}
+                  >
+                    ล้างข้อมูล
+                  </Button>
+                  <Button
+                    type="primary"
+                    size="large"
+                    htmlType="submit"
+                    loading={submitting}
+                    icon={<SafetyCertificateOutlined />}
+                  >
+                    บันทึกรหัสผ่านใหม่
+                  </Button>
+                </div>
+              </Form>
+            </Card>
+          </Col>
+
+          {/* Right: rules + tips */}
+          <Col xs={24} lg={9}>
+            <Card
+              title={<Space><InfoCircleOutlined style={{ color: '#34d399' }} /><span>เงื่อนไขรหัสผ่าน</span></Space>}
+              styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+              className="mb-5"
+            >
+              <ul className="list-none p-0 m-0 space-y-2">
+                {rules.map((r) => {
+                  const ok = passedRules.includes(r.key)
+                  return (
+                    <li key={r.key} className="flex items-center gap-2">
+                      {ok ? (
+                        <CheckCircleFilled style={{ color: '#22c55e' }} />
+                      ) : (
+                        <CloseCircleFilled style={{ color: '#475569' }} />
+                      )}
+                      <Text style={{ color: ok ? '#86efac' : '#94a3b8' }}>{r.label}</Text>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+
+            <Card
+              styles={{ body: { padding: 16 } }}
+              className="mb-5"
+              style={{ background: 'rgba(6,106,90,0.08)', borderColor: 'rgba(6,106,90,0.35)' }}
+            >
+              <div className="flex items-start gap-3">
+                <Avatar size={40} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a' }} />
+                <div className="flex-1">
+                  <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>นายสมชาย ใจดี</Text>
+                  <div>
+                    <Text type="secondary" style={{ color: '#94a3b8', fontSize: 12 }}>
+                      นักทรัพยากรบุคคล · กลุ่มงานบริหารทั่วไป
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <Alert
+              type="info"
+              showIcon
+              message="คำแนะนำเพื่อความปลอดภัย"
+              description={
+                <Paragraph style={{ color: '#cbd5e1', marginBottom: 0, fontSize: 13 }}>
+                  • ห้ามใช้รหัสผ่านซ้ำกับระบบอื่น<br />
+                  • ไม่ควรเปิดเผยรหัสผ่านกับผู้อื่น<br />
+                  • แนะนำให้เปลี่ยนรหัสผ่านทุก ๆ 90 วัน<br />
+                  • หลีกเลี่ยงข้อมูลส่วนตัว เช่น วันเกิด เบอร์โทร
+                </Paragraph>
+              }
+              style={{ background: 'rgba(30,41,59,0.6)', borderColor: '#1e293b' }}
+            />
+          </Col>
+        </Row>
+      </div>
+    </div>
+  )
+}
+
+export default function ChangePasswordPage() {
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: { colorPrimary: '#006a5a', borderRadius: 8 },
+      }}
+    >
+      <App>
+        <ChangePasswordContent />
+      </App>
+    </ConfigProvider>
+  )
+}

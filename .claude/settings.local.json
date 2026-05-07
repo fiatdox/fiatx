@@ -6,7 +6,13 @@
       "Bash(npm install:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(npm ls:*)"
+      "Bash(npm ls:*)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npx next *)",
+      "Bash(awk '/accounts-payable\\\\\\\\page.tsx|procurement\\\\\\\\dashboard\\\\\\\\page.tsx|procurement\\\\\\\\inspection\\\\\\\\page.tsx|procurement\\\\\\\\receipt\\\\\\\\page.tsx/{flag=1; print; next} /^D:\\\\\\\\/{if\\(flag\\){flag=0}} flag{print}')",
+      "Read(//tmp/**)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npx eslint *)"
     ]
   }
 }

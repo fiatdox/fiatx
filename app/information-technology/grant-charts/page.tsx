@@ -7,11 +7,12 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
-  HomeOutlined, FundOutlined, ProjectOutlined, InfoCircleOutlined,
+  HomeOutlined, ProjectOutlined, InfoCircleOutlined,
   SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   RiseOutlined, ReloadOutlined, DollarOutlined, FlagOutlined, TeamOutlined,
   FileTextOutlined,
 } from '@ant-design/icons'
+import { FaMicrochip } from 'react-icons/fa'
 import dayjs, { Dayjs } from 'dayjs'
 import Navbar from '@/app/components/Navbar'
 import EChart from '@/app/components/EChart'
@@ -84,7 +85,6 @@ const GanttPageContent = () => {
   const [selectedMission, setSelectedMission] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
 
-  // Modal/Drawer state
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editorType, setEditorType] = useState<TaskType>('project')
@@ -108,7 +108,6 @@ const GanttPageContent = () => {
     saveTasks(next)
   }
 
-  // ── Filtered data
   const filteredTasks = useMemo(() => {
     let t = tasks
     if (selectedMission !== 'all') t = t.filter(x => x.mission === selectedMission)
@@ -129,14 +128,13 @@ const GanttPageContent = () => {
     [tasks]
   )
 
-  // ── Form handlers
   const openCreate = (type: TaskType) => {
     setEditingId(null)
     setEditorType(type)
     form.resetFields()
     form.setFieldsValue({
       type,
-      mission: 'admin',
+      mission: 'application',
       status: 'draft',
       priority: 'medium',
       progress: type === 'milestone' ? undefined : 0,
@@ -229,7 +227,6 @@ const GanttPageContent = () => {
     message.success('ลบรายการเรียบร้อย')
   }
 
-  // ── Progress quick-update
   const openProgress = (id: string) => {
     const t = tasks.find(x => x.id === id)
     if (!t) return
@@ -264,14 +261,12 @@ const GanttPageContent = () => {
     message.success('บันทึกความคืบหน้าเรียบร้อย')
   }
 
-  // ── Detail drawer
   const openDetail = (id: string) => {
     setDetailId(id)
     setDetailOpen(true)
   }
   const detailTask = tasks.find(t => t.id === detailId)
 
-  // ── Reset
   const handleReset = () => {
     Modal.confirm({
       title: 'รีเซ็ตข้อมูลทั้งหมด?',
@@ -286,9 +281,6 @@ const GanttPageContent = () => {
     })
   }
 
-  // ──────────────────────────────────────────────────────────────────────
-  // ECharts Gantt option
-  // ──────────────────────────────────────────────────────────────────────
   const ganttOption = useMemo(() => {
     const ordered = filteredTasks
     if (!ordered.length) {
@@ -464,13 +456,10 @@ const GanttPageContent = () => {
 
   const heightPx = Math.max(420, filteredTasks.length * 38 + 100)
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Table columns
-  // ──────────────────────────────────────────────────────────────────────
   const columns: ColumnsType<Task> = [
     {
       title: 'รหัส', dataIndex: 'code', width: 130,
-      render: (v?: string) => v ? <Text style={{ color: '#60a5fa', fontWeight: 600 }}>{v}</Text> : <Text type="secondary">-</Text>,
+      render: (v?: string) => v ? <Text style={{ color: '#c4b5fd', fontWeight: 600 }}>{v}</Text> : <Text type="secondary">-</Text>,
     },
     {
       title: 'รายการ', dataIndex: 'text',
@@ -515,7 +504,7 @@ const GanttPageContent = () => {
           <div>
             <div style={{ color: '#e2e8f0', fontSize: 12 }}>{formatTHB(r.budgetApproved)}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Progress percent={pct} size="small" showInfo={false} strokeColor={pct > 90 ? '#ef4444' : '#3b82f6'} style={{ flex: 1, margin: 0 }} />
+              <Progress percent={pct} size="small" showInfo={false} strokeColor={pct > 90 ? '#ef4444' : '#a855f7'} style={{ flex: 1, margin: 0 }} />
               <Text style={{ fontSize: 11, color: '#94a3b8', minWidth: 36, textAlign: 'right' }}>{pct}%</Text>
             </div>
           </div>
@@ -565,34 +554,33 @@ const GanttPageContent = () => {
       <Navbar />
 
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-[10%] left-[-8%] w-[28%] h-[28%] bg-blue-500/15 blur-[140px] rounded-full" />
-        <div className="absolute bottom-[8%] right-[-6%] w-[30%] h-[30%] bg-emerald-500/10 blur-[140px] rounded-full" />
-        <div className="absolute top-[55%] left-[40%] w-[22%] h-[22%] bg-purple-500/15 blur-[120px] rounded-full" />
+        <div className="absolute top-[10%] left-[-8%] w-[28%] h-[28%] bg-purple-500/15 blur-[140px] rounded-full" />
+        <div className="absolute bottom-[8%] right-[-6%] w-[30%] h-[30%] bg-fuchsia-500/10 blur-[140px] rounded-full" />
+        <div className="absolute top-[55%] left-[40%] w-[22%] h-[22%] bg-indigo-500/15 blur-[120px] rounded-full" />
       </div>
 
       <div className="relative z-10 p-6 md:p-10 w-full">
 
-        {/* ── Header ── */}
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { href: '/', title: <span className="text-slate-400 hover:text-blue-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-              { title: <span className="text-slate-400"><FundOutlined /> งานยุทธศาสตร์</span> },
-              { title: <span className="text-slate-100 font-bold">Project Roadmap</span> },
+              { href: '/', title: <span className="text-slate-400 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+              { title: <span className="text-slate-400"><FaMicrochip /> งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
+              { title: <span className="text-slate-100 font-bold">แผนโครงการ IT</span> },
             ]}
             className="mb-4 text-xs uppercase tracking-tighter"
           />
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl shadow-[0_0_24px_rgba(59,130,246,0.45)]">
+              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-purple-500 to-fuchsia-600 flex items-center justify-center text-white text-3xl shadow-[0_0_24px_rgba(168,85,247,0.45)]">
                 <ProjectOutlined />
               </div>
               <div>
                 <Title level={2} style={{ color: '#f8fafc', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
-                  Hospital Roadmaps 2026
+                  IT Project Roadmap 2026
                 </Title>
-                <Text className="text-slate-400 text-sm">แผนยุทธศาสตร์โครงการ ประจำปีงบประมาณ 2569 — โรงพยาบาลขนาดใหญ่</Text>
+                <Text className="text-slate-400 text-sm">แผนโครงการเทคโนโลยีสารสนเทศ ประจำปีงบประมาณ 2569 — กลุ่มงาน IT</Text>
               </div>
             </div>
 
@@ -605,7 +593,6 @@ const GanttPageContent = () => {
           </div>
         </div>
 
-        {/* ── KPI strip ── */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={12} md={6}>
             <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
@@ -630,11 +617,11 @@ const GanttPageContent = () => {
             <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
               <Statistic title={<span className="text-slate-400">เบิกจ่ายแล้ว</span>}
                 value={budget.spent} suffix="฿"
-                prefix={<DollarOutlined style={{ color: '#3b82f6' }} />}
-                styles={{ content: { color: '#3b82f6', fontWeight: 800, fontSize: 22 } }}
+                prefix={<DollarOutlined style={{ color: '#c4b5fd' }} />}
+                styles={{ content: { color: '#c4b5fd', fontWeight: 800, fontSize: 22 } }}
                 formatter={(v) => Number(v).toLocaleString('th-TH')}
               />
-              <Progress percent={budgetUtilization(budget.spent, budget.approved)} size="small" showInfo={false} strokeColor="#3b82f6" />
+              <Progress percent={budgetUtilization(budget.spent, budget.approved)} size="small" showInfo={false} strokeColor="#a855f7" />
             </Card>
           </Col>
           <Col xs={12} md={6}>
@@ -649,14 +636,13 @@ const GanttPageContent = () => {
           </Col>
         </Row>
 
-        {/* ── Filter Bar ── */}
         <div className="flex flex-wrap gap-4 mb-6 p-4 bg-slate-800/60 border border-slate-700/60 rounded-xl backdrop-blur-sm items-center shadow-lg">
-          <Tag icon={<SyncOutlined spin />} className="font-bold border-0" color="processing">ECharts Gantt</Tag>
+          <Tag icon={<SyncOutlined spin />} className="font-bold border-0" color="purple">ECharts Gantt</Tag>
           <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block" />
 
           <Select
             value={selectedMission} onChange={setSelectedMission}
-            options={[{ value: 'all', label: '🟢 ทุกกลุ่มภารกิจ' }, ...MISSION_OPTIONS.map(m => ({ value: m.value, label: m.label }))]}
+            options={[{ value: 'all', label: '🟣 ทุกกลุ่มงาน IT' }, ...MISSION_OPTIONS.map(m => ({ value: m.value, label: m.label }))]}
             className="w-full sm:w-[280px]" popupMatchSelectWidth={false}
           />
 
@@ -672,15 +658,13 @@ const GanttPageContent = () => {
           </div>
         </div>
 
-        {/* ── Gantt ── */}
         <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl mb-6"
           styles={{ body: { padding: 12 } }}>
           <EChart option={ganttOption} height={heightPx} />
         </Card>
 
-        {/* ── Table ── */}
         <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl"
-          title={<span className="text-slate-100 font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม</span>}
+          title={<span className="text-slate-100 font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม IT</span>}
           styles={{ body: { padding: 12 } }}>
           <Table<Task>
             columns={columns}
@@ -698,7 +682,6 @@ const GanttPageContent = () => {
         `}</style>
       </div>
 
-      {/* ═════════════ Modal: Create / Edit ═════════════ */}
       <Modal
         title={
           <span>
@@ -728,7 +711,7 @@ const GanttPageContent = () => {
             </Col>
             <Col span={6}>
               <Form.Item label="รหัส" name="code">
-                <Input placeholder="HOS-2026-XXX" />
+                <Input placeholder="IT-2026-XXX" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -740,7 +723,7 @@ const GanttPageContent = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="กลุ่มภารกิจ" name="mission" rules={[{ required: true }]}>
+              <Form.Item label="กลุ่มงาน IT" name="mission" rules={[{ required: true }]}>
                 <Select options={MISSION_OPTIONS.map(m => ({ value: m.value, label: m.label }))} />
               </Form.Item>
             </Col>
@@ -793,8 +776,8 @@ const GanttPageContent = () => {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="กลุ่มงาน / หน่วยงาน" name="department">
-                <Select showSearch options={DEPARTMENT_OPTIONS.map(d => ({ value: d, label: d }))} placeholder="เลือกกลุ่มงาน" />
+              <Form.Item label="งาน / หน่วยงาน" name="department">
+                <Select showSearch options={DEPARTMENT_OPTIONS.map(d => ({ value: d, label: d }))} placeholder="เลือกหน่วยงาน" />
               </Form.Item>
             </Col>
             <Col span={6}>
@@ -835,7 +818,7 @@ const GanttPageContent = () => {
                 </Col>
               </Row>
 
-              <Divider style={{ margin: '8px 0 16px' }}>ตัวชี้วัด (KPI)</Divider>
+              <Divider style={{ margin: '8px 0 16px' }}>ตัวชี้วัด IT (KPI)</Divider>
               <Row gutter={16}>
                 <Col span={24}>
                   <Form.Item label="KPI ที่เกี่ยวข้อง" name="kpiCode">
@@ -873,7 +856,6 @@ const GanttPageContent = () => {
         </Form>
       </Modal>
 
-      {/* ═════════════ Modal: Quick Progress Update ═════════════ */}
       <Modal
         title={<><RiseOutlined /> บันทึกความคืบหน้า</>}
         open={progressOpen} onCancel={() => setProgressOpen(false)} onOk={submitProgress}
@@ -895,7 +877,6 @@ const GanttPageContent = () => {
         </Form>
       </Modal>
 
-      {/* ═════════════ Drawer: Detail ═════════════ */}
       <Drawer
         title={detailTask ? <span><FileTextOutlined /> {detailTask.text}</span> : 'รายละเอียด'}
         open={detailOpen} onClose={() => setDetailOpen(false)} size={680}
@@ -911,8 +892,8 @@ const GanttPageContent = () => {
         {detailTask && (
           <>
             <Space wrap className="mb-4">
-              {detailTask.code && <Tag color="blue">{detailTask.code}</Tag>}
-              <Tag color={getMissionMeta(detailTask.mission).value === 'admin' ? 'purple' : 'cyan'}>{getMissionMeta(detailTask.mission).label}</Tag>
+              {detailTask.code && <Tag color="purple">{detailTask.code}</Tag>}
+              <Tag color="purple">{getMissionMeta(detailTask.mission).label}</Tag>
               <Tag color={getStatusMeta(detailTask.status).color}>{getStatusMeta(detailTask.status).label}</Tag>
               <Tag color={getPriorityMeta(detailTask.priority).color}>ลำดับความสำคัญ: {getPriorityMeta(detailTask.priority).label}</Tag>
             </Space>
@@ -933,7 +914,7 @@ const GanttPageContent = () => {
               <Descriptions.Item label="ผู้รับผิดชอบ">
                 {detailTask.owner ?? '-'} {detailTask.ownerPosition && <Text type="secondary">— {detailTask.ownerPosition}</Text>}
               </Descriptions.Item>
-              <Descriptions.Item label="กลุ่มงาน">{detailTask.department ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="หน่วยงาน">{detailTask.department ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="ติดต่อ">{detailTask.contact ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="ระยะเวลา">
                 {dayjs(detailTask.start).format('DD/MM/YYYY')}
@@ -952,7 +933,7 @@ const GanttPageContent = () => {
                   <Descriptions.Item label="เบิกจ่ายแล้ว">
                     <div className="flex items-center gap-2">
                       <span>{formatTHB(detailTask.budgetSpent)}</span>
-                      <Tag color={budgetUtilization(detailTask.budgetSpent, detailTask.budgetApproved) > 90 ? 'red' : 'blue'}>
+                      <Tag color={budgetUtilization(detailTask.budgetSpent, detailTask.budgetApproved) > 90 ? 'red' : 'purple'}>
                         {budgetUtilization(detailTask.budgetSpent, detailTask.budgetApproved)}%
                       </Tag>
                     </div>
@@ -1002,11 +983,11 @@ const GanttPageContent = () => {
   )
 }
 
-const ProjectGanttPage = () => (
+const ITGanttPage = () => (
   <ConfigProvider
     theme={{
       algorithm: theme.darkAlgorithm,
-      token: { colorPrimary: '#3b82f6', borderRadius: 12, fontFamily: 'var(--font-sarabun)' },
+      token: { colorPrimary: '#a855f7', borderRadius: 12, fontFamily: 'var(--font-sarabun)' },
     }}
   >
     <App>
@@ -1015,4 +996,4 @@ const ProjectGanttPage = () => (
   </ConfigProvider>
 )
 
-export default ProjectGanttPage
+export default ITGanttPage
