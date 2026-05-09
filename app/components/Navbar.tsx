@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Layout, Button, Drawer, Typography, Avatar, Menu, Space, Divider, ConfigProvider } from 'antd'
+import Cookies from 'js-cookie'
 import {
   MenuOutlined,
   UserOutlined,
@@ -431,6 +432,8 @@ const Navbar: React.FC = () => {
                 setOpenProfile(false)
                 router.push('/account/change-password')
               } else if (key === 'logout') {
+                Cookies.remove('auth_token')
+                Cookies.remove('user_data')
                 setOpenProfile(false)
                 router.push('/')
               }

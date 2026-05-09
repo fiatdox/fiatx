@@ -192,6 +192,7 @@ const PageContent = () => {
     setFilteredSubmajors([])
     form.setFieldsValue({
       ...record,
+      gender: record.gender === 'M' ? 'ชาย' : record.gender === 'F' ? 'หญิง' : record.gender,
       birthday: record.birthday ? dayjs(record.birthday) : undefined,
       hire_date: record.hire_date ? dayjs(record.hire_date) : undefined,
     })
@@ -218,23 +219,43 @@ const PageContent = () => {
     // format dates
     if (values.birthday) values.birthday = dayjs(values.birthday as dayjs.Dayjs).format('YYYY-MM-DD')
     if (values.hire_date) values.hire_date = dayjs(values.hire_date as dayjs.Dayjs).format('YYYY-MM-DD')
-    // auto-set username/password = id_card for new users
-    if (!editing) {
-      const idCard = values.id_card as string
-      values.username = idCard
-      values.password = idCard
-    }
+    // map Thai gender display back to API value
+    if (values.gender === 'ชาย') values.gender = 'M'
+    else if (values.gender === 'หญิง') values.gender = 'F'
 
     setSaving(true)
     try {
       if (editing) {
+        // Merge existing record so all required PUT fields are present
+        const body: Record<string, unknown> = {
+          pname: editing.pname ?? '',
+          fname: editing.fname,
+          lname: editing.lname,
+          id_card: editing.id_card ?? '',
+          gender: editing.gender ?? '',
+          birthday: editing.birthday ?? '',
+          hire_date: editing.hire_date ?? '',
+          user_type_id: editing.user_type_id ?? '',
+          user_position_id: editing.user_position_id ?? '',
+          user_level_id: editing.user_level_id ?? '',
+          user_status_id: editing.user_status_id ?? '',
+          mission_id: editing.mission_id ?? '',
+          major_id: editing.major_id ?? '',
+          submajor_id: editing.submajor_id ?? '',
+          ...values,
+        }
+        console.log('[PUT] /api/v1/users/' + editing.id, body)
         await apiFetch(`/api/users/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
+          body: JSON.stringify(body),
         })
         message.success('แก้ไขข้อมูลสำเร็จ')
       } else {
+        // auto-set username/password = id_card for new users
+        const idCard = values.id_card as string
+        values.username = idCard
+        values.password = idCard
         await apiFetch('/api/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
