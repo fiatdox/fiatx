@@ -1,6 +1,8 @@
 'use client'
-import React, { useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import Cookies from 'js-cookie'
 import {
   FaUser,
   FaLock,
@@ -12,7 +14,37 @@ import {
 } from 'react-icons/fa'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleLogin = async (e: { preventDefault: () => void }) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setError(json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
+        return
+      }
+      Cookies.set('auth_token', json.token, { expires: 7, sameSite: 'Lax' })
+      Cookies.set('user_data', JSON.stringify(json.data), { expires: 7, sameSite: 'Lax' })
+      router.push('/home')
+    } catch {
+      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-slate-950 text-slate-200 selection:bg-emerald-500/30">
@@ -122,7 +154,7 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <form className="space-y-5" action="#" method="POST">
+              <form className="space-y-5" onSubmit={handleLogin}>
                 {/* Username */}
                 <div>
                   <label htmlFor="username" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -138,6 +170,8 @@ export default function LoginPage() {
                       type="text"
                       required
                       placeholder="เช่น somchai.j"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       className="block w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-3 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-all focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/30"
                     />
                   </div>
@@ -158,6 +192,8 @@ export default function LoginPage() {
                       type={showPassword ? 'text' : 'password'}
                       required
                       placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       className="block w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 pl-10 pr-12 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition-all focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/30"
                     />
                     <button
@@ -190,14 +226,22 @@ export default function LoginPage() {
                   </Link>
                 </div>
 
+                {/* Error message */}
+                {error && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
+                    {error}
+                  </div>
+                )}
+
                 {/* Submit */}
-                <Link
-                  href="/home"
-                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition-all hover:shadow-emerald-700/40 hover:brightness-110 active:scale-[0.99]"
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition-all hover:shadow-emerald-700/40 hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  เข้าสู่ระบบ
-                  <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />
-                </Link>
+                  {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+                  {!loading && <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />}
+                </button>
               </form>
 
               {/* Divider */}

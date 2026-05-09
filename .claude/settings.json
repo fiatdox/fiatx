@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr -i \"cookie\")",
+      "WebFetch(domain:192.168.1.53)",
+      "Bash(curl -s http://127.0.0.1:5000/openapi.json)",
+      "Bash(curl -s http://127.0.0.1:5000/swagger.json)",
+      "Bash(curl -s http://127.0.0.1:5000/api-docs)",
+      "Bash(curl -s http://127.0.0.1:5000/ -v)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :5000)",
+      "Bash(curl -s http://127.0.0.1:5000/docs)",
+      "Bash(curl -s http://127.0.0.1:5000/redoc)",
+      "Bash(curl -s http://127.0.0.1:5000/v1/openapi.json)"
+    ]
+  }
+}

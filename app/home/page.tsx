@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
+import Cookies from 'js-cookie'
 import {
   Typography, Card, Row, Col, ConfigProvider, theme, Statistic, Badge, Tag, Avatar,
   Timeline, Progress, Divider, Button, App
@@ -24,12 +25,6 @@ dayjs.locale('th')
 const { Title, Text, Paragraph } = Typography
 
 // ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const mockUser = {
-  name: 'นายสมชาย ใจดี',
-  position: 'นักทรัพยากรบุคคล',
-  department: 'กลุ่มงานบริหารทั่วไป',
-}
 
 const quickActions = [
   { key: '/general/maintenance-request', icon: <FaWrench className="text-2xl" />, label: 'แจ้งซ่อมบำรุง', color: '#006a5a' },
@@ -109,6 +104,18 @@ const notifications = [
 const PageContent = () => {
   const router = useRouter()
   const [currentTime, setCurrentTime] = useState(dayjs())
+  const [user, setUser] = useState({ name: '', position: '', department: '' })
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (!raw) { router.replace('/'); return }
+    const data = JSON.parse(raw)
+    setUser({
+      name: data.name ?? '',
+      position: data.position_name ?? '',
+      department: data.major_name ?? '',
+    })
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(dayjs()), 60000)
@@ -142,10 +149,10 @@ const PageContent = () => {
                   <Avatar size={56} icon={<UserOutlined />} style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.4)' }} />
                   <div>
                     <Title level={3} style={{ color: '#fff', margin: 0 }}>
-                      {greeting}, {mockUser.name}
+                      {greeting}, {user.name}
                     </Title>
                     <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15 }}>
-                      {mockUser.position} | {mockUser.department}
+                      {user.position} | {user.department}
                     </Text>
                   </div>
                 </div>

@@ -1,324 +1,395 @@
 'use client'
-import React, { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  Table, Input, Button, Space, ConfigProvider, Card, Statistic, Row, Col, Tag,
-  Avatar, Drawer, Form, Select, Breadcrumb, Dropdown, Tooltip, theme, DatePicker,
-  Upload, Descriptions, Timeline, Segmented, App, Divider, Typography
+  Table, Input, Button, Space, ConfigProvider, Card, Row, Col, Tag,
+  Avatar, Drawer, Form, Select, Breadcrumb, Tooltip, theme,
+  App, Typography, Popconfirm, Badge, Spin, DatePicker,
 } from 'antd'
 import {
-  EditOutlined, SearchOutlined, UserOutlined, TeamOutlined, PlusOutlined,
-  MoreOutlined, HomeOutlined, SolutionOutlined, ApartmentOutlined,
-  IdcardOutlined, CalendarOutlined, ClockCircleOutlined,
-  EnvironmentOutlined
+  EditOutlined, SearchOutlined, UserOutlined, PlusOutlined,
+  HomeOutlined, IdcardOutlined, CheckCircleOutlined, StopOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons'
-import { FaUsersCog, FaUsers } from 'react-icons/fa'
+import { FaUsersCog, FaUsers, FaFilter, FaFileExcel } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
-import { FaFileExcel, FaFilter } from 'react-icons/fa'
 
 const { Text, Title } = Typography
 
-// --- Type Definitions ---
-interface Employee {
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface User {
   id: number
-  title: string
-  firstName: string
-  lastName: string
-  position: string
-  idCardNumber?: string
-  avatar?: string
-  status: string
-  department: string
-  missionGroup?: string
-  workGroup?: string
-  level?: string
-  staffType?: string
-  birthDate?: any
-  startDate?: any
-  attendanceId?: string
+  pname?: string
+  fname: string
+  lname: string
+  username: string
+  id_card?: string
+  gender?: string
+  birthday?: string
+  hire_date?: string
+  mission_id?: number
+  mission_name?: string
+  major_id?: number
+  major_name?: string
+  submajor_id?: number
+  submajor_name?: string
+  user_position_id?: number
+  position_name?: string
+  user_level_id?: number
+  level_name?: string
+  user_type_id?: number
+  type_name?: string
+  user_status_id?: number
+  status_name?: string
+  attendance_id?: number
+  salary_id?: number
+  is_active?: string | boolean
+  hospital_lc_pid?: number
 }
 
-type EmployeeFormData = Omit<Employee, 'id'>
+interface SystemOption { id: number; name: string; [k: string]: unknown }
 
-// --- Mock Data ---
-const initialData: Employee[] = [
-  {
-    id: 1, title: 'นาย', firstName: 'สมชาย', lastName: 'ใจดี', position: 'นายแพทย์', status: 'ปฏิบัติงาน', department: 'หอผู้ป่วยอายุรกรรม',
-    missionGroup: 'กลุ่มภารกิจด้านบริการปฐมภูมิ', workGroup: 'กลุ่มงานการพยาบาลผู้ป่วยนอก', level: 'ชำนาญการ', staffType: 'ข้าราชการ',
-    idCardNumber: '1100200300405', attendanceId: 'EMP001', birthDate: dayjs('1985-10-15'), startDate: dayjs('2015-06-01')
-  },
-  {
-    id: 2, title: 'นางสาว', firstName: 'สมหญิง', lastName: 'รักเรียน', position: 'พยาบาลวิชาชีพ', status: 'ปฏิบัติงาน', department: 'หอผู้ป่วยศัลยกรรม',
-    missionGroup: 'กลุ่มภารกิจด้านการพยาบาล', workGroup: 'กลุ่มงานการพยาบาลผู้ป่วยใน', level: 'ปฏิบัติการ', staffType: 'พนักงานราชการ',
-    idCardNumber: '1100200300406', attendanceId: 'EMP002', birthDate: dayjs('1990-05-20'), startDate: dayjs('2018-03-12')
-  },
-  {
-    id: 3, title: 'นาย', firstName: 'วิชัย', lastName: 'กล้าหาญ', position: 'เภสัชกร', status: 'ย้าย', department: 'IT',
-    missionGroup: 'กลุ่มภารกิจด้านพัฒนาระบบบริการ', workGroup: 'กลุ่มงานเภสัชกรรม', level: 'ชำนาญการพิเศษ', staffType: 'พนักงานกระทรวงสาธารณสุข',
-    idCardNumber: '1100200300407', attendanceId: 'EMP003', birthDate: dayjs('1982-11-04'), startDate: dayjs('2010-09-01')
-  },
-  {
-    id: 4, title: 'นาง', firstName: 'มานี', lastName: 'มีตา', position: 'นักจัดการงานทั่วไป', status: 'ลาออก', department: 'HR',
-    missionGroup: 'กลุ่มภารกิจด้านอำนวยการ', workGroup: 'กลุ่มงานเทคนิคการแพทย์', level: 'ปฏิบัติงาน', staffType: 'ลูกจ้างชั่วคราวรายเดือน',
-    idCardNumber: '1100200300408', attendanceId: 'EMP004', birthDate: dayjs('1995-02-14'), startDate: dayjs('2021-01-15')
-  },
-  {
-    id: 5, title: 'นาย', firstName: 'ปิติ', lastName: 'ยินดี', position: 'นักวิชาการสาธารณสุข', status: 'ปฏิบัติงาน', department: 'HR',
-    missionGroup: 'กลุ่มภารกิจด้านบริการปฐมภูมิ', workGroup: 'กลุ่มงานการพยาบาลผู้ป่วยนอก', level: 'ชำนาญการ', staffType: 'ข้าราชการ',
-    idCardNumber: '1100200300409', attendanceId: 'EMP005', birthDate: dayjs('1988-08-08'), startDate: dayjs('2016-04-01')
-  },
-]
+// ── Helpers ────────────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<string, { color: string; dotColor: string }> = {
-  'ปฏิบัติงาน': { color: 'success', dotColor: '#22c55e' },
-  'ลาออก': { color: 'error', dotColor: '#ef4444' },
-  'เกษียณอายุ': { color: 'default', dotColor: '#6b7280' },
-  'ย้าย': { color: 'warning', dotColor: '#f59e0b' },
-  'เสียชีวิต': { color: 'default', dotColor: '#374151' },
+async function apiFetch(path: string, opts?: RequestInit) {
+  const res = await fetch(path, opts)
+  return res.json()
 }
 
-// ─── Page Content ────────────────────────────────────────────────────────────
+// API returns varying field names e.g. mission_id/mission_name, major_id/major_name
+// Normalize to { id, name } so toOpts works uniformly
+function normalizeOption(item: Record<string, unknown>): SystemOption {
+  if (typeof item.id === 'number' && typeof item.name === 'string') return item as SystemOption
+  const SKIP = ['supervisor_id', 'acting_supervisor_id']
+  const idKey = Object.keys(item).find((k) => k.endsWith('_id') && !SKIP.includes(k))
+  const nameKey = Object.keys(item).find((k) => k.endsWith('_name'))
+  return { id: Number(idKey ? item[idKey] : 0), name: String(nameKey ? item[nameKey] : ''), ...item }
+}
+
+function extractList(d: unknown): SystemOption[] {
+  let arr: unknown[]
+  if (Array.isArray(d)) arr = d
+  else {
+    const obj = d as Record<string, unknown>
+    const found = obj.data ?? obj.result ?? obj.items
+    arr = Array.isArray(found) ? found : []
+  }
+  return arr.map((item) => normalizeOption(item as Record<string, unknown>))
+}
+
+const toOpts = (arr: SystemOption[]) =>
+  arr.map((o) => ({ label: o.name, value: o.id }))
+
+const isActive = (u: User) =>
+  u.is_active === true || u.is_active === 'true' || u.is_active === '1' || u.is_active === 'Y'
+
+// ── Page ───────────────────────────────────────────────────────────────────
 
 const PageContent = () => {
-  const [employees, setEmployees] = useState<Employee[]>(initialData)
-  const [searchText, setSearchText] = useState('')
-  const [filterMissionGroup, setFilterMissionGroup] = useState<string | null>(null)
-  const [filterWorkGroup, setFilterWorkGroup] = useState<string | null>(null)
-  const [filterDepartment, setFilterDepartment] = useState<string | null>(null)
-  const [filterStaffType, setFilterStaffType] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string | null>(null)
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [viewDrawerOpen, setViewDrawerOpen] = useState(false)
-  const [viewRecord, setViewRecord] = useState<Employee | null>(null)
-  const [viewType, setViewType] = useState<string>('1')
+  const { message } = App.useApp()
+
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [filterMission, setFilterMission] = useState<number | null>(null)
+  const [filterStatus, setFilterStatus] = useState<number | null>(null)
+  const [filterActive, setFilterActive] = useState<string | null>(null)
+
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [editing, setEditing] = useState<User | null>(null)
+  const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
 
-  // --- Unique filter options from data ---
-  const missionGroupOptions = Array.from(new Set(employees.map(e => e.missionGroup).filter(Boolean))) as string[]
-  const workGroupOptions = Array.from(new Set(employees.map(e => e.workGroup).filter(Boolean))) as string[]
-  const departmentOptions = Array.from(new Set(employees.map(e => e.department).filter(Boolean))) as string[]
-  const staffTypeOptions = Array.from(new Set(employees.map(e => e.staffType).filter(Boolean))) as string[]
-  const statusOptions = Array.from(new Set(employees.map(e => e.status).filter(Boolean))) as string[]
+  // system dropdowns
+  const [missions, setMissions] = useState<SystemOption[]>([])
+  const [positions, setPositions] = useState<SystemOption[]>([])
+  const [levels, setLevels] = useState<SystemOption[]>([])
+  const [userTypes, setUserTypes] = useState<SystemOption[]>([])
+  const [userStatuses, setUserStatuses] = useState<SystemOption[]>([])
 
-  // --- Stats ---
-  const totalEmployees = employees.length
-  const activeFilterCount = [filterMissionGroup, filterWorkGroup, filterDepartment, filterStaffType, filterStatus].filter(Boolean).length
+  // cascade sub-lists (populated on parent selection)
+  const [filteredMajors, setFilteredMajors] = useState<SystemOption[]>([])
+  const [filteredSubmajors, setFilteredSubmajors] = useState<SystemOption[]>([])
+  // all majors cache — built up as cascade calls are made, used for table display
+  const [allMajors, setAllMajors] = useState<SystemOption[]>([])
 
-  // --- Handlers ---
+  // ID → name lookup helpers
+  const byId = (arr: SystemOption[], id?: number) => arr.find((o) => o.id === id)?.name ?? '-'
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await apiFetch('/api/users')
+      const list: User[] = Array.isArray(data) ? data : data.data ?? []
+      setUsers(list)
+      // fetch majors for every unique mission found in the list for table display
+      const missionIds = [...new Set(list.map((u) => u.mission_id).filter(Boolean))] as number[]
+      if (missionIds.length) {
+        Promise.all(missionIds.map((mid) => apiFetch(`/api/system/missions/${mid}/majors`))).then((results) => {
+          const merged = results.flatMap((d) => extractList(d))
+          setAllMajors((prev) => {
+            const map = new Map(prev.map((o) => [o.id, o]))
+            merged.forEach((o) => map.set(o.id, o))
+            return [...map.values()]
+          })
+        })
+      }
+    } catch {
+      message.error('โหลดข้อมูลผู้ใช้ไม่สำเร็จ')
+    } finally {
+      setLoading(false)
+    }
+  }, [message])
+
+  useEffect(() => {
+    loadUsers()
+    Promise.all([
+      apiFetch('/api/system/missions'),
+      apiFetch('/api/system/positions'),
+      apiFetch('/api/system/levels'),
+      apiFetch('/api/system/user-types'),
+      apiFetch('/api/system/user-statuses'),
+    ]).then(([m, p, l, ut, us]) => {
+      setMissions(extractList(m))
+      setPositions(extractList(p))
+      setLevels(extractList(l))
+      setUserTypes(extractList(ut))
+      setUserStatuses(extractList(us))
+    })
+  }, [loadUsers])
+
+  // cascade: mission → majors
+  const handleMissionChange = async (missionId: number) => {
+    form.setFieldsValue({ major_id: undefined, submajor_id: undefined })
+    setFilteredSubmajors([])
+    if (!missionId) { setFilteredMajors([]); return }
+    const data = await apiFetch(`/api/system/missions/${missionId}/majors`)
+    setFilteredMajors(extractList(data))
+  }
+
+  // cascade: major → submajors
+  const handleMajorChange = async (majorId: number) => {
+    form.setFieldsValue({ submajor_id: undefined })
+    if (!majorId) { setFilteredSubmajors([]); return }
+    const data = await apiFetch(`/api/system/majors/${majorId}/submajors`)
+    setFilteredSubmajors(extractList(data))
+  }
+
   const handleAdd = () => {
-    setEditingEmployee(null)
-    setImageUrl(null)
+    setEditing(null)
     form.resetFields()
-    setIsDrawerOpen(true)
+    setFilteredMajors([])
+    setFilteredSubmajors([])
+    setDrawerOpen(true)
   }
 
-  const handleEdit = (record: Employee) => {
-    setEditingEmployee(record)
-    setImageUrl(record.avatar || null)
-    form.setFieldsValue(record)
-    setIsDrawerOpen(true)
-  }
-
-  const handleAvatarChange = (info: any) => {
-    const file = info.fileList[info.fileList.length - 1]?.originFileObj || info.file
-    if (file) {
-      if (!file.type?.startsWith('image/')) return
-      const reader = new FileReader()
-      reader.onload = () => setImageUrl(reader.result as string)
-      reader.readAsDataURL(file)
-    } else {
-      setImageUrl(null)
-    }
-  }
-
-  const handleMenuClick = (key: string, record: Employee) => {
-    setViewRecord(record)
-    setViewType(key)
-    setViewDrawerOpen(true)
-  }
-
-  const onFinish = (values: EmployeeFormData) => {
-    const finalValues = { ...values, avatar: imageUrl || undefined }
-    if (editingEmployee) {
-      setEmployees(employees.map(emp => emp.id === editingEmployee.id ? { ...finalValues, id: editingEmployee.id } : emp))
-    } else {
-      const newId = employees.length > 0 ? Math.max(...employees.map(e => e.id)) + 1 : 1
-      setEmployees([...employees, { ...finalValues, id: newId }])
-    }
-    setIsDrawerOpen(false)
-  }
-
-  const handleExportExcel = () => {
-    if (filteredEmployees.length === 0) {
-      Swal.fire({
-        title: 'ไม่มีข้อมูลส่งออก',
-        text: 'ตัวกรองปัจจุบันไม่มีรายการ กรุณาปรับตัวกรอง',
-        icon: 'info',
-        background: '#1e293b',
-        color: '#e2e8f0',
-        confirmButtonColor: '#006a5a',
+  const handleEdit = (record: User) => {
+    setEditing(record)
+    setFilteredMajors([])
+    setFilteredSubmajors([])
+    form.setFieldsValue({
+      ...record,
+      birthday: record.birthday ? dayjs(record.birthday) : undefined,
+      hire_date: record.hire_date ? dayjs(record.hire_date) : undefined,
+    })
+    if (record.mission_id) {
+      apiFetch(`/api/system/missions/${record.mission_id}/majors`).then((d) => {
+        setFilteredMajors(extractList(d))
       })
+    }
+    if (record.major_id) {
+      apiFetch(`/api/system/majors/${record.major_id}/submajors`).then((d) => {
+        setFilteredSubmajors(extractList(d))
+      })
+    }
+    setDrawerOpen(true)
+  }
+
+  const handleSave = async () => {
+    let values: Record<string, unknown>
+    try {
+      values = await form.validateFields()
+    } catch {
       return
     }
-    const exportData = filteredEmployees.map((emp, index) => ({
-      'ลำดับ': index + 1,
-      'คำนำหน้า': emp.title,
-      'ชื่อ': emp.firstName,
-      'นามสกุล': emp.lastName,
-      'เลขบัตรประชาชน': emp.idCardNumber || '-',
-      'ตำแหน่ง': emp.position,
-      'ระดับ': emp.level || '-',
-      'ประเภทเจ้าหน้าที่': emp.staffType || '-',
-      'กลุ่มภารกิจ': emp.missionGroup || '-',
-      'กลุ่มงาน': emp.workGroup || '-',
-      'สังกัด/หอผู้ป่วย': emp.department || '-',
-      'สถานะ': emp.status,
-      'รหัสเข้าออกงาน': emp.attendanceId || '-',
-      'วันเกิด': emp.birthDate ? dayjs(emp.birthDate).format('DD/MM/YYYY') : '-',
-      'วันที่เริ่มงาน': emp.startDate ? dayjs(emp.startDate).format('DD/MM/YYYY') : '-',
-    }))
+    // format dates
+    if (values.birthday) values.birthday = dayjs(values.birthday as dayjs.Dayjs).format('YYYY-MM-DD')
+    if (values.hire_date) values.hire_date = dayjs(values.hire_date as dayjs.Dayjs).format('YYYY-MM-DD')
+    // auto-set username/password = id_card for new users
+    if (!editing) {
+      const idCard = values.id_card as string
+      values.username = idCard
+      values.password = idCard
+    }
 
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    const colWidths = Object.keys(exportData[0] || {}).map(key => ({
-      wch: Math.max(key.length * 2, ...exportData.map(row => String((row as any)[key]).length * 1.5), 10)
-    }))
-    ws['!cols'] = colWidths
-
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'ทะเบียนบุคลากร')
-    const filterTag = activeFilterCount > 0 ? '_filtered' : ''
-    XLSX.writeFile(wb, `ทะเบียนบุคลากร${filterTag}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
+    setSaving(true)
+    try {
+      if (editing) {
+        await apiFetch(`/api/users/${editing.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        })
+        message.success('แก้ไขข้อมูลสำเร็จ')
+      } else {
+        await apiFetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        })
+        message.success('เพิ่มผู้ใช้งานสำเร็จ')
+      }
+      setDrawerOpen(false)
+      loadUsers()
+    } catch {
+      message.error('บันทึกข้อมูลไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const clearAllFilters = () => {
-    setFilterMissionGroup(null)
-    setFilterWorkGroup(null)
-    setFilterDepartment(null)
-    setFilterStaffType(null)
-    setFilterStatus(null)
-    setSearchText('')
-  }
-
-  const handleDelete = (record: Employee) => {
-    Swal.fire({
-      title: 'ยืนยันการลบ?',
-      text: `ลบข้อมูล ${record.title}${record.firstName} ${record.lastName}`,
-      icon: 'warning',
+  const handleToggleActive = async (user: User) => {
+    const action = isActive(user) ? 'deactivate' : 'activate'
+    const label = isActive(user) ? 'ระงับการใช้งาน' : 'เปิดใช้งาน'
+    const result = await Swal.fire({
+      title: `${label}?`,
+      text: `${user.pname ?? ''}${user.fname} ${user.lname}`,
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
+      confirmButtonColor: isActive(user) ? '#ef4444' : '#006a5a',
       cancelButtonText: 'ยกเลิก',
-      confirmButtonText: 'ลบ',
+      confirmButtonText: label,
       background: '#1e293b',
       color: '#e2e8f0',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        setEmployees(employees.filter(e => e.id !== record.id))
-      }
     })
+    if (!result.isConfirmed) return
+    try {
+      await apiFetch(`/api/users/${user.id}/${action}`, { method: 'PATCH' })
+      message.success(`${label}สำเร็จ`)
+      loadUsers()
+    } catch {
+      message.error('ดำเนินการไม่สำเร็จ')
+    }
   }
 
-  // --- Table Columns ---
+  const filtered = users.filter((u) => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || [u.fname, u.lname, u.pname, u.username, u.id_card, u.position_name]
+      .some((v) => v?.toLowerCase().includes(q))
+    const matchMission = !filterMission || u.mission_id === filterMission
+    const matchStatus = !filterStatus || u.user_status_id === filterStatus
+    const matchActive = filterActive === null || (filterActive === 'active' ? isActive(u) : !isActive(u))
+    return matchSearch && matchMission && matchStatus && matchActive
+  })
+
+  const activeFilterCount = [filterMission, filterStatus, filterActive].filter(Boolean).length
+
+  const handleExportExcel = () => {
+    if (!filtered.length) { message.warning('ไม่มีข้อมูลสำหรับส่งออก'); return }
+    const rows = filtered.map((u, i) => ({
+      'ลำดับ': i + 1,
+      'คำนำหน้า': u.pname ?? '',
+      'ชื่อ': u.fname,
+      'นามสกุล': u.lname,
+      'ชื่อผู้ใช้งาน': u.username,
+      'เลขบัตรประชาชน': u.id_card ?? '',
+      'เพศ': u.gender ?? '',
+      'ด้าน': u.mission_name ?? '',
+      'กลุ่มงาน': u.major_name ?? '',
+      'กลุ่มงานย่อย': u.submajor_name ?? '',
+      'ตำแหน่ง': u.position_name ?? '',
+      'ระดับ': u.level_name ?? '',
+      'ประเภท': u.type_name ?? '',
+      'สถานะ': u.status_name ?? '',
+      'วันเกิด': u.birthday ? dayjs(u.birthday).format('DD/MM/YYYY') : '',
+      'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format('DD/MM/YYYY') : '',
+      'สถานะการใช้งาน': isActive(u) ? 'ใช้งาน' : 'ระงับ',
+    }))
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'บุคลากร')
+    XLSX.writeFile(wb, `บุคลากร_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
+  }
+
+  // ── Columns ─────────────────────────────────────────────────────────────
+
   const columns = [
     {
       title: 'บุคลากร',
       key: 'name',
-      width: 300,
-      render: (_: any, record: Employee) => (
+      width: 280,
+      render: (_: unknown, u: User) => (
         <div className="flex items-center gap-3 py-1">
-          <Avatar
-            src={record.avatar}
-            size={44}
-            style={{
-              backgroundColor: '#006a5a',
-              border: '2px solid rgba(0,106,90,0.3)',
-              flexShrink: 0,
-            }}
-            icon={<UserOutlined />}
-          />
+          <Avatar size={44} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
           <div>
             <div className="font-semibold text-slate-100 text-[14px]">
-              {record.title}{record.firstName} {record.lastName}
+              {u.pname}{u.fname} {u.lname}
             </div>
             <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-              <IdcardOutlined /> {record.idCardNumber || '-'}
+              <IdcardOutlined /> {u.id_card || u.username}
             </div>
           </div>
         </div>
       ),
-      sorter: (a: Employee, b: Employee) => `${a.firstName}`.localeCompare(`${b.firstName}`),
+      sorter: (a: User, b: User) => a.fname.localeCompare(b.fname),
+    },
+    {
+      title: 'ชื่อผู้ใช้งาน',
+      dataIndex: 'username',
+      key: 'username',
+      width: 150,
+      render: (v: string) => <Text style={{ fontSize: 13, color: '#94a3b8' }}>{v}</Text>,
+    },
+    {
+      title: 'ด้าน / กลุ่มงาน',
+      key: 'mission',
+      width: 220,
+      render: (_: unknown, u: User) => (
+        <div>
+          <div className="text-[13px] text-slate-200">{byId(missions, u.mission_id)}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">{u.major_id ? byId(allMajors, u.major_id) : '-'}</div>
+        </div>
+      ),
     },
     {
       title: 'ตำแหน่ง / ระดับ',
       key: 'position',
-      width: 220,
-      render: (_: any, record: Employee) => (
-        <div>
-          <div className="text-slate-200 text-[13px] font-medium">{record.position}</div>
-          {record.level && (
-            <Tag color="cyan" style={{ marginTop: 4, fontSize: 11, borderRadius: 4 }}>
-              {record.level}
-            </Tag>
-          )}
-        </div>
-      ),
-      sorter: (a: Employee, b: Employee) => a.position.localeCompare(b.position),
-    },
-    {
-      title: 'ประเภทเจ้าหน้าที่',
-      dataIndex: 'staffType',
-      key: 'staffType',
-      width: 180,
-      render: (text?: string) => {
-        const colorMap: Record<string, string> = {
-          'ข้าราชการ': 'blue',
-          'พนักงานราชการ': 'purple',
-          'พนักงานกระทรวงสาธารณสุข': 'magenta',
-          'ลูกจ้างชั่วคราวรายเดือน': 'orange',
-          'ลูกจ้างชั่วคราวรายวัน': 'gold',
-        }
-        return text ? (
-          <Tag color={colorMap[text] || 'default'} style={{ borderRadius: 4, fontSize: 11 }}>{text}</Tag>
-        ) : <span className="text-slate-500">-</span>
+      width: 200,
+      render: (_: unknown, u: User) => {
+        const levelName = byId(levels, u.user_level_id)
+        return (
+          <div>
+            <div className="text-[13px] text-slate-200">{byId(positions, u.user_position_id)}</div>
+            {levelName !== '-' && <Tag color="cyan" style={{ marginTop: 4, fontSize: 11, borderRadius: 4 }}>{levelName}</Tag>}
+          </div>
+        )
       },
     },
     {
-      title: 'กลุ่มภารกิจ / กลุ่มงาน',
-      key: 'group',
-      width: 240,
-      render: (_: any, record: Employee) => (
-        <div>
-          <div className="text-[12px] text-slate-300">{record.missionGroup || '-'}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">{record.workGroup || '-'}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'หน่วยงาน',
-      dataIndex: 'department',
-      key: 'department',
+      title: 'ประเภท',
+      key: 'type',
       width: 160,
-      render: (text: string) => (
-        <div className="flex items-center gap-1.5">
-          <EnvironmentOutlined className="text-slate-500 text-xs" />
-          <span className="text-slate-300 text-[13px]">{text}</span>
-        </div>
-      ),
+      render: (_: unknown, u: User) => {
+        const name = byId(userTypes, u.user_type_id)
+        return name !== '-' ? <Tag style={{ borderRadius: 4, fontSize: 11 }}>{name}</Tag> : <span className="text-slate-500">-</span>
+      },
     },
     {
       title: 'สถานะ',
-      dataIndex: 'status',
       key: 'status',
-      width: 130,
-      render: (status: string) => {
-        const config = STATUS_MAP[status] || { color: 'default', dotColor: '#6b7280' }
+      width: 140,
+      render: (_: unknown, u: User) => {
+        const statusName = byId(userStatuses, u.user_status_id)
         return (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.dotColor }} />
-            <span className="text-[13px]">{status}</span>
+          <div className="flex flex-col gap-1">
+            {statusName !== '-' && <Tag color="blue" style={{ borderRadius: 4, fontSize: 11, width: 'fit-content' }}>{statusName}</Tag>}
+            <Badge
+              status={isActive(u) ? 'success' : 'error'}
+              text={<span style={{ fontSize: 11, color: isActive(u) ? '#22c55e' : '#ef4444' }}>{isActive(u) ? 'ใช้งาน' : 'ระงับ'}</span>}
+            />
           </div>
         )
       },
@@ -327,111 +398,67 @@ const PageContent = () => {
       title: '',
       key: 'actions',
       width: 100,
-      render: (_: any, record: Employee) => (
-        <Space size="small">
+      render: (_: unknown, u: User) => (
+        <Space size={4}>
           <Tooltip title="แก้ไข">
+            <Button type="text" shape="circle" size="small" icon={<EditOutlined style={{ color: '#60a5fa' }} />} onClick={() => handleEdit(u)} />
+          </Tooltip>
+          <Tooltip title={isActive(u) ? 'ระงับการใช้งาน' : 'เปิดใช้งาน'}>
             <Button
               type="text"
               shape="circle"
               size="small"
-              icon={<EditOutlined style={{ color: '#60a5fa' }} />}
-              onClick={() => handleEdit(record)}
+              icon={isActive(u)
+                ? <StopOutlined style={{ color: '#ef4444' }} />
+                : <CheckCircleOutlined style={{ color: '#22c55e' }} />}
+              onClick={() => handleToggleActive(u)}
             />
           </Tooltip>
-          <Dropdown
-            menu={{
-              items: [
-                { key: '1', icon: <UserOutlined />, label: 'ดูรายละเอียด' },
-                { key: '2', icon: <ClockCircleOutlined />, label: 'ประวัติการทำงาน' },
-                { key: '3', icon: <CalendarOutlined />, label: 'ประวัติเข้าออกงาน' },
-                { type: 'divider' },
-                { key: 'delete', icon: <SolutionOutlined />, label: 'ลบข้อมูล', danger: true },
-              ],
-              onClick: ({ key }) => {
-                if (key === 'delete') {
-                  handleDelete(record)
-                } else {
-                  handleMenuClick(key, record)
-                }
-              }
-            }}
-          >
-            <Button type="text" shape="circle" size="small" icon={<MoreOutlined />} />
-          </Dropdown>
         </Space>
       ),
     },
   ]
 
-  const filteredEmployees = employees.filter((employee) => {
-    const matchSearch = searchText
-      ? Object.values(employee).some((value) => String(value).toLowerCase().includes(searchText.toLowerCase()))
-      : true
-    const matchMissionGroup = filterMissionGroup ? employee.missionGroup === filterMissionGroup : true
-    const matchWorkGroup = filterWorkGroup ? employee.workGroup === filterWorkGroup : true
-    const matchDepartment = filterDepartment ? employee.department === filterDepartment : true
-    const matchStaffType = filterStaffType ? employee.staffType === filterStaffType : true
-    const matchStatus = filterStatus ? employee.status === filterStatus : true
-    return matchSearch && matchMissionGroup && matchWorkGroup && matchDepartment && matchStaffType && matchStatus
-  })
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-dvh bg-slate-900 text-slate-200" style={{ minHeight: '100dvh' }}>
       <Navbar />
-      <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+      <div className="p-4 md:p-8 max-w-350 mx-auto">
 
-        {/* Breadcrumb */}
         <Breadcrumb
+          className="mb-4"
           items={[
             { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FaUsersCog className="inline mr-1" /> งานทรัพยากรบุคคล</> },
             { title: 'ทะเบียนบุคลากร' },
           ]}
-          className="mb-4"
         />
 
-        {/* Header Banner */}
+        {/* Header */}
         <Card
-          style={{
-            background: 'linear-gradient(135deg, #006a5a 0%, #059669 50%, #0d9488 100%)',
-            border: 'none',
-            borderRadius: 16,
-            marginBottom: 24,
-          }}
+          style={{ background: 'linear-gradient(135deg, #006a5a 0%, #059669 50%, #0d9488 100%)', border: 'none', borderRadius: 16, marginBottom: 24 }}
         >
           <Row gutter={[24, 16]} align="middle">
             <Col xs={24} md={14}>
               <div className="flex items-center gap-4">
-                <div
-                  className="flex items-center justify-center rounded-2xl"
-                  style={{ width: 56, height: 56, backgroundColor: 'rgba(255,255,255,0.15)' }}
-                >
+                <div className="flex items-center justify-center rounded-2xl" style={{ width: 56, height: 56, backgroundColor: 'rgba(255,255,255,0.15)' }}>
                   <FaUsers className="text-2xl text-white" />
                 </div>
                 <div>
                   <Title level={3} style={{ color: '#fff', margin: 0 }}>ระบบทะเบียนบุคลากร</Title>
-                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>
-                    จัดการข้อมูลบุคลากร ตำแหน่ง ประเภทเจ้าหน้าที่ และประวัติการทำงาน
-                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>จัดการข้อมูลบุคลากร ตำแหน่ง และสิทธิ์การใช้งาน</Text>
                 </div>
               </div>
             </Col>
             <Col xs={24} md={10}>
               <div className="flex gap-3 md:justify-end flex-wrap">
-                <Button
-                  icon={<ApartmentOutlined />}
-                  onClick={() => window.location.href = '/hr/settings/supervisor'}
-                  size="large"
-                  style={{ backgroundColor: '#fff', color: '#006a5a', border: 'none', fontWeight: 600 }}
-                >
-                  ผังผู้บริหาร
+                <Button icon={<ReloadOutlined />} onClick={loadUsers} size="large"
+                  style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>
+                  รีเฟรช
                 </Button>
-                <Button
-                  icon={<PlusOutlined />}
-                  onClick={handleAdd}
-                  size="large"
-                  style={{ backgroundColor: '#facc15', color: '#1e293b', border: 'none', fontWeight: 600 }}
-                >
+                <Button icon={<PlusOutlined />} onClick={handleAdd} size="large"
+                  style={{ backgroundColor: '#facc15', color: '#1e293b', border: 'none', fontWeight: 600 }}>
                   เพิ่มบุคลากร
                 </Button>
               </div>
@@ -439,514 +466,196 @@ const PageContent = () => {
           </Row>
         </Card>
 
-
-        {/* Main Table Card */}
-        <Card
-          style={{ borderRadius: 12, border: 'none' }}
-          styles={{ body: { padding: 0 } }}
-        >
-          {/* Toolbar */}
+        {/* Table Card */}
+        <Card style={{ borderRadius: 12, border: 'none' }} styles={{ body: { padding: 0 } }}>
           <div className="px-6 pt-5 pb-4">
             <div className="flex justify-between items-center flex-wrap gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <Text strong style={{ fontSize: 16 }}>รายชื่อบุคลากร</Text>
                 <Tag color="#006a5a" style={{ borderRadius: 12, fontSize: 12, padding: '0 10px' }}>
-                  {filteredEmployees.length} / {totalEmployees} รายการ
+                  {filtered.length} / {users.length} รายการ
                 </Tag>
                 {activeFilterCount > 0 && (
                   <Tag color="orange" style={{ borderRadius: 12, fontSize: 11 }}>
-                    <FaFilter className="inline mr-1" /> ใช้ตัวกรอง {activeFilterCount} ตัว
+                    <FaFilter className="inline mr-1" />ใช้ตัวกรอง {activeFilterCount} ตัว
                   </Tag>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Input
-                  placeholder="ค้นหาชื่อ, ตำแหน่ง, เลขบัตรประชาชน..."
+                  placeholder="ค้นหาชื่อ, username, เลขบัตร..."
                   prefix={<SearchOutlined className="text-slate-400" />}
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  style={{ width: 300 }}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ width: 280 }}
                   allowClear
                 />
-                <Tooltip title="ส่งออกข้อมูลที่กรองแล้วเป็น Excel">
-                  <Button
-                    icon={<FaFileExcel />}
-                    onClick={handleExportExcel}
-                    type="primary"
-                    style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }}
-                  >
-                    ส่งออก Excel
+                <Tooltip title="ส่งออก Excel">
+                  <Button icon={<FaFileExcel />} onClick={handleExportExcel}
+                    style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', color: '#fff' }}>
+                    Excel
                   </Button>
                 </Tooltip>
               </div>
             </div>
 
-            {/* Filter Bar — always visible */}
-            <div
-              className="p-4 rounded-xl"
-              style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-            >
+            {/* Filter Bar */}
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <FaFilter style={{ color: '#94a3b8', fontSize: 12 }} />
-                  <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>ตัวกรองข้อมูล</Text>
+                  <Text type="secondary" style={{ fontSize: 13 }}>ตัวกรองข้อมูล</Text>
                 </div>
                 {activeFilterCount > 0 && (
-                  <Button type="link" size="small" onClick={clearAllFilters} danger style={{ padding: 0, height: 'auto' }}>
-                    ล้างตัวกรองทั้งหมด
+                  <Button type="link" size="small" danger style={{ padding: 0, height: 'auto' }}
+                    onClick={() => { setFilterMission(null); setFilterStatus(null); setFilterActive(null) }}>
+                    ล้างตัวกรอง
                   </Button>
                 )}
               </div>
               <Row gutter={[12, 12]}>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>กลุ่มภารกิจ</Text>
-                    <Select
-                      placeholder="ทุกกลุ่มภารกิจ"
-                      value={filterMissionGroup}
-                      onChange={setFilterMissionGroup}
-                      allowClear
-                      style={{ width: '100%' }}
-                      options={missionGroupOptions.map(v => ({ label: v, value: v }))}
-                    />
-                  </div>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>ด้าน/ภารกิจ</Text>
+                  <Select placeholder="ทั้งหมด" value={filterMission} onChange={setFilterMission} allowClear style={{ width: '100%' }}
+                    options={missions.map((m) => ({ label: m.name, value: m.id }))} />
                 </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>กลุ่มงาน</Text>
-                    <Select
-                      placeholder="ทุกกลุ่มงาน"
-                      value={filterWorkGroup}
-                      onChange={setFilterWorkGroup}
-                      allowClear
-                      style={{ width: '100%' }}
-                      options={workGroupOptions.map(v => ({ label: v, value: v }))}
-                    />
-                  </div>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>สถานะ</Text>
+                  <Select placeholder="ทั้งหมด" value={filterStatus} onChange={setFilterStatus} allowClear style={{ width: '100%' }}
+                    options={userStatuses.map((s) => ({ label: s.name, value: s.id }))} />
                 </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>หน่วยงาน / สังกัด</Text>
-                    <Select
-                      placeholder="ทุกหน่วยงาน"
-                      value={filterDepartment}
-                      onChange={setFilterDepartment}
-                      allowClear
-                      style={{ width: '100%' }}
-                      options={departmentOptions.map(v => ({ label: v, value: v }))}
-                    />
-                  </div>
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={5}>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>ประเภทเจ้าหน้าที่</Text>
-                    <Select
-                      placeholder="ทุกประเภท"
-                      value={filterStaffType}
-                      onChange={setFilterStaffType}
-                      allowClear
-                      style={{ width: '100%' }}
-                      options={staffTypeOptions.map(v => ({ label: v, value: v }))}
-                    />
-                  </div>
-                </Col>
-                <Col xs={24} sm={12} md={8} lg={4}>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>สถานะ</Text>
-                    <Select
-                      placeholder="ทุกสถานะ"
-                      value={filterStatus}
-                      onChange={setFilterStatus}
-                      allowClear
-                      style={{ width: '100%' }}
-                      options={statusOptions.map(v => ({ label: v, value: v }))}
-                    />
-                  </div>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>การใช้งาน</Text>
+                  <Select placeholder="ทั้งหมด" value={filterActive} onChange={setFilterActive} allowClear style={{ width: '100%' }}
+                    options={[{ label: 'ใช้งาน', value: 'active' }, { label: 'ระงับ', value: 'inactive' }]} />
                 </Col>
               </Row>
             </div>
           </div>
 
-          <Table
-            columns={columns}
-            dataSource={filteredEmployees}
-            rowKey="id"
-            pagination={{
-              pageSize: 10,
-              showTotal: (total, range) => `แสดง ${range[0]}-${range[1]} จาก ${total} รายการ`,
-              style: { padding: '0 24px' }
-            }}
-            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
-          />
+          <Spin spinning={loading}>
+            <Table
+              columns={columns}
+              dataSource={filtered}
+              rowKey="id"
+              pagination={{ pageSize: 10, showTotal: (total, range) => `แสดง ${range[0]}-${range[1]} จาก ${total} รายการ`, style: { padding: '0 24px' } }}
+              style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+            />
+          </Spin>
         </Card>
 
-        {/* ── Add / Edit Drawer ── */}
+        {/* ── Add/Edit Drawer ── */}
         <Drawer
           title={
             <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center rounded-lg"
-                style={{ width: 36, height: 36, backgroundColor: '#006a5a20', color: '#006a5a' }}
-              >
-                {editingEmployee ? <EditOutlined /> : <PlusOutlined />}
+              <div className="flex items-center justify-center rounded-lg"
+                style={{ width: 36, height: 36, backgroundColor: '#006a5a20', color: '#006a5a' }}>
+                {editing ? <EditOutlined /> : <PlusOutlined />}
               </div>
-              <span>{editingEmployee ? 'แก้ไขข้อมูลบุคลากร' : 'เพิ่มบุคลากรใหม่'}</span>
+              <span>{editing ? 'แก้ไขข้อมูลบุคลากร' : 'เพิ่มบุคลากรใหม่'}</span>
             </div>
           }
           size="large"
-          onClose={() => setIsDrawerOpen(false)}
-          open={isDrawerOpen}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
           styles={{ body: { paddingBottom: 80 } }}
           extra={
             <Space>
-              <Button onClick={() => setIsDrawerOpen(false)}>ยกเลิก</Button>
-              <Button onClick={() => form.submit()} type="primary">บันทึก</Button>
+              <Button onClick={() => setDrawerOpen(false)}>ยกเลิก</Button>
+              <Button type="primary" onClick={handleSave} loading={saving} style={{ backgroundColor: '#006a5a', borderColor: '#006a5a' }}>
+                บันทึก
+              </Button>
             </Space>
           }
         >
-          <Form layout="vertical" form={form} onFinish={onFinish} requiredMark="optional">
-            {/* Avatar Upload */}
-            <Row gutter={16} justify="center" className="mb-6">
-              <Col>
-                <Form.Item
-                  name="avatar"
-                  valuePropName="fileList"
-                  getValueFromEvent={(e: any) => {
-                    handleAvatarChange(e)
-                    return Array.isArray(e) ? e : e?.fileList
-                  }}
-                >
-                  <Upload name="avatar" listType="picture-circle" showUploadList={false} beforeUpload={() => false}>
-                    {imageUrl ? (
-                      <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-1">
-                        <img src={imageUrl} alt="avatar" className="w-full h-full object-cover rounded-full" />
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-slate-400 hover:text-emerald-400 transition-colors mt-2">
-                        <PlusOutlined className="text-2xl mb-1" />
-                        <div className="text-xs">อัปโหลดรูป</div>
-                      </div>
-                    )}
-                  </Upload>
-                </Form.Item>
-              </Col>
-            </Row>
+          <Form form={form} layout="vertical" requiredMark="optional">
 
-            <Divider titlePlacement="left" style={{ fontSize: 13, fontWeight: 600 }}>ข้อมูลส่วนตัว</Divider>
-            <Row gutter={16}>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">ข้อมูลส่วนตัว</div>
+            <Row gutter={12}>
               <Col span={6}>
-                <Form.Item name="title" label="คำนำหน้า" rules={[{ required: true, message: 'กรุณาเลือก' }]}>
-                  <Select placeholder="เลือก">
-                    <Select.Option value="นาย">นาย</Select.Option>
-                    <Select.Option value="นาง">นาง</Select.Option>
-                    <Select.Option value="นางสาว">นางสาว</Select.Option>
-                  </Select>
+                <Form.Item name="pname" label="คำนำหน้า">
+                  <Select placeholder="เลือก" options={[{ label: 'นาย', value: 'นาย' }, { label: 'นาง', value: 'นาง' }, { label: 'นางสาว', value: 'นางสาว' }]} allowClear />
                 </Form.Item>
               </Col>
               <Col span={9}>
-                <Form.Item name="firstName" label="ชื่อ" rules={[{ required: true, message: 'กรุณากรอกชื่อ' }]}>
+                <Form.Item name="fname" label="ชื่อ" rules={[{ required: true, message: 'กรุณาระบุชื่อ' }]}>
                   <Input placeholder="ชื่อ" />
                 </Form.Item>
               </Col>
               <Col span={9}>
-                <Form.Item name="lastName" label="นามสกุล" rules={[{ required: true, message: 'กรุณากรอกนามสกุล' }]}>
+                <Form.Item name="lname" label="นามสกุล" rules={[{ required: true, message: 'กรุณาระบุนามสกุล' }]}>
                   <Input placeholder="นามสกุล" />
                 </Form.Item>
               </Col>
             </Row>
-            <Row gutter={16}>
+
+            <Row gutter={12}>
               <Col span={12}>
-                <Form.Item name="idCardNumber" label="เลขที่บัตรประชาชน" rules={[{ pattern: /^\d{13}$/, message: 'กรอก 13 หลัก' }]}>
-                  <Input placeholder="กรอกเลขบัตรประชาชน 13 หลัก" maxLength={13} />
+                <Form.Item name="id_card" label="เลขบัตรประชาชน">
+                  <Input placeholder="1 0000 00000 00 0" maxLength={13} />
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="attendanceId" label="รหัสเข้าออกงาน">
-                  <Input placeholder="กรอกรหัสเข้าออกงาน" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="birthDate" label="วันเกิด">
-                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} placeholder="เลือกวันเกิด" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="startDate" label="วันที่เริ่มงาน">
-                  <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} placeholder="เลือกวันที่เริ่มงาน" />
+                <Form.Item name="gender" label="เพศ">
+                  <Select placeholder="เลือก" allowClear options={[{ label: 'ชาย', value: 'ชาย' }, { label: 'หญิง', value: 'หญิง' }]} />
                 </Form.Item>
               </Col>
             </Row>
 
-            <Divider titlePlacement="left" style={{ fontSize: 13, fontWeight: 600 }}>ข้อมูลตำแหน่ง</Divider>
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item name="missionGroup" label="กลุ่มภารกิจ">
-                  <Select placeholder="เลือกกลุ่มภารกิจ">
-                    <Select.Option value="กลุ่มภารกิจด้านการพยาบาล">กลุ่มภารกิจด้านการพยาบาล</Select.Option>
-                    <Select.Option value="กลุ่มภารกิจด้านบริการปฐมภูมิ">กลุ่มภารกิจด้านบริการปฐมภูมิ</Select.Option>
-                    <Select.Option value="กลุ่มภารกิจด้านอำนวยการ">กลุ่มภารกิจด้านอำนวยการ</Select.Option>
-                    <Select.Option value="กลุ่มภารกิจด้านพัฒนาระบบบริการ">กลุ่มภารกิจด้านพัฒนาระบบบริการ</Select.Option>
-                  </Select>
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item name="birthday" label="วันเกิด">
+                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันเกิด" />
                 </Form.Item>
               </Col>
-              <Col span={8}>
-                <Form.Item name="workGroup" label="กลุ่มงาน">
-                  <Select placeholder="เลือกกลุ่มงาน">
-                    <Select.Option value="กลุ่มงานการพยาบาลผู้ป่วยนอก">กลุ่มงานการพยาบาลผู้ป่วยนอก</Select.Option>
-                    <Select.Option value="กลุ่มงานการพยาบาลผู้ป่วยใน">กลุ่มงานการพยาบาลผู้ป่วยใน</Select.Option>
-                    <Select.Option value="กลุ่มงานเภสัชกรรม">กลุ่มงานเภสัชกรรม</Select.Option>
-                    <Select.Option value="กลุ่มงานเทคนิคการแพทย์">กลุ่มงานเทคนิคการแพทย์</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="department" label="หอผู้ป่วย / สังกัด">
-                  <Select placeholder="เลือก">
-                    <Select.Option value="หอผู้ป่วยอายุรกรรม">หอผู้ป่วยอายุรกรรม</Select.Option>
-                    <Select.Option value="หอผู้ป่วยศัลยกรรม">หอผู้ป่วยศัลยกรรม</Select.Option>
-                    <Select.Option value="IT">IT</Select.Option>
-                    <Select.Option value="HR">HR</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item name="position" label="ตำแหน่ง" rules={[{ required: true, message: 'กรุณาเลือก' }]}>
-                  <Select placeholder="เลือกตำแหน่ง">
-                    <Select.Option value="นายแพทย์">นายแพทย์</Select.Option>
-                    <Select.Option value="พยาบาลวิชาชีพ">พยาบาลวิชาชีพ</Select.Option>
-                    <Select.Option value="เภสัชกร">เภสัชกร</Select.Option>
-                    <Select.Option value="นักเทคนิคการแพทย์">นักเทคนิคการแพทย์</Select.Option>
-                    <Select.Option value="นักวิชาการสาธารณสุข">นักวิชาการสาธารณสุข</Select.Option>
-                    <Select.Option value="เจ้าพนักงานสาธารณสุข">เจ้าพนักงานสาธารณสุข</Select.Option>
-                    <Select.Option value="นักจัดการงานทั่วไป">นักจัดการงานทั่วไป</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="level" label="ระดับ">
-                  <Select placeholder="เลือกระดับ">
-                    <Select.Option value="ปฏิบัติการ">ปฏิบัติการ</Select.Option>
-                    <Select.Option value="ชำนาญการ">ชำนาญการ</Select.Option>
-                    <Select.Option value="ชำนาญการพิเศษ">ชำนาญการพิเศษ</Select.Option>
-                    <Select.Option value="เชี่ยวชาญ">เชี่ยวชาญ</Select.Option>
-                    <Select.Option value="ทรงคุณวุฒิ">ทรงคุณวุฒิ</Select.Option>
-                    <Select.Option value="ปฏิบัติงาน">ปฏิบัติงาน</Select.Option>
-                    <Select.Option value="ชำนาญงาน">ชำนาญงาน</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item name="staffType" label="ประเภทเจ้าหน้าที่">
-                  <Select placeholder="เลือกประเภท">
-                    <Select.Option value="ข้าราชการ">ข้าราชการ</Select.Option>
-                    <Select.Option value="พนักงานราชการ">พนักงานราชการ</Select.Option>
-                    <Select.Option value="พนักงานกระทรวงสาธารณสุข">พนักงานกระทรวงสาธารณสุข</Select.Option>
-                    <Select.Option value="ลูกจ้างชั่วคราวรายเดือน">ลูกจ้างชั่วคราวรายเดือน</Select.Option>
-                    <Select.Option value="ลูกจ้างชั่วคราวรายวัน">ลูกจ้างชั่วคราวรายวัน</Select.Option>
-                  </Select>
+              <Col span={12}>
+                <Form.Item name="hire_date" label="วันที่บรรจุ">
+                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่บรรจุ" />
                 </Form.Item>
               </Col>
             </Row>
 
-            <Divider titlePlacement="left" style={{ fontSize: 13, fontWeight: 600 }}>สถานะ</Divider>
-            <Row gutter={16}>
-              <Col span={24}>
-                <Form.Item name="status" label="สถานะการปฏิบัติงาน" initialValue="ปฏิบัติงาน">
-                  <Select>
-                    <Select.Option value="ปฏิบัติงาน"><Tag color="green">ปฏิบัติงาน</Tag></Select.Option>
-                    <Select.Option value="ลาออก"><Tag color="red">ลาออก</Tag></Select.Option>
-                    <Select.Option value="เกษียณอายุ"><Tag color="gray">เกษียณอายุ</Tag></Select.Option>
-                    <Select.Option value="ย้าย"><Tag color="orange">ย้าย</Tag></Select.Option>
-                    <Select.Option value="เสียชีวิต"><Tag color="default">เสียชีวิต</Tag></Select.Option>
-                  </Select>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 mt-2">สังกัด / ตำแหน่ง</div>
+            <Form.Item name="mission_id" label="ด้าน/ภารกิจ">
+              <Select placeholder="เลือกด้าน" options={toOpts(missions)} onChange={handleMissionChange} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} />
+            </Form.Item>
+            <Form.Item name="major_id" label="กลุ่มงาน">
+              <Select placeholder="เลือกกลุ่มงาน (กรุณาเลือกด้าน/ภารกิจก่อน)" options={toOpts(filteredMajors)} onChange={handleMajorChange} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} disabled={filteredMajors.length === 0} />
+            </Form.Item>
+            <Form.Item name="submajor_id" label="กลุ่มงานย่อย">
+              <Select placeholder="เลือกกลุ่มงานย่อย (กรุณาเลือกกลุ่มงานก่อน)" options={toOpts(filteredSubmajors)} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} disabled={filteredSubmajors.length === 0} />
+            </Form.Item>
+
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item name="user_position_id" label="ตำแหน่ง">
+                  <Select placeholder="เลือกตำแหน่ง" options={toOpts(positions)} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="user_level_id" label="ระดับ">
+                  <Select placeholder="เลือกระดับ" options={toOpts(levels)} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} />
                 </Form.Item>
               </Col>
             </Row>
+
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item name="user_type_id" label="ประเภทบุคลากร">
+                  <Select placeholder="เลือกประเภท" options={toOpts(userTypes)} allowClear />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="user_status_id" label="สถานะ">
+                  <Select placeholder="เลือกสถานะ" options={toOpts(userStatuses)} allowClear />
+                </Form.Item>
+              </Col>
+            </Row>
+
+
           </Form>
         </Drawer>
 
-        {/* ── View Drawer ── */}
-        <Drawer
-          title={null}
-          size="large"
-          onClose={() => setViewDrawerOpen(false)}
-          open={viewDrawerOpen}
-          styles={{
-            body: { padding: 0 },
-          }}
-        >
-          {viewRecord && (
-            <>
-              {/* Profile Header */}
-              <div
-                style={{
-                  background: 'linear-gradient(135deg, #006a5a 0%, #059669 100%)',
-                  padding: '32px 24px 24px',
-                }}
-              >
-                <div className="flex items-center gap-4">
-                  <Avatar
-                    src={viewRecord.avatar}
-                    size={72}
-                    icon={<UserOutlined />}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.2)', border: '3px solid rgba(255,255,255,0.3)' }}
-                  />
-                  <div>
-                    <Title level={4} style={{ color: '#fff', margin: 0 }}>
-                      {viewRecord.title}{viewRecord.firstName} {viewRecord.lastName}
-                    </Title>
-                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>
-                      {viewRecord.position} {viewRecord.level ? `(${viewRecord.level})` : ''}
-                    </Text>
-                    <div className="mt-2">
-                      <Tag color={STATUS_MAP[viewRecord.status]?.color || 'default'} style={{ borderRadius: 12 }}>
-                        {viewRecord.status}
-                      </Tag>
-                      {viewRecord.staffType && (
-                        <Tag style={{ borderRadius: 12 }}>{viewRecord.staffType}</Tag>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tab Navigation */}
-              <div className="px-6 pt-4">
-                <Segmented
-                  block
-                  value={viewType}
-                  onChange={(val) => setViewType(val as string)}
-                  options={[
-                    { label: 'รายละเอียด', value: '1' },
-                    { label: 'ประวัติการทำงาน', value: '2' },
-                    { label: 'เข้า-ออกงาน', value: '3' },
-                  ]}
-                  style={{ marginBottom: 20 }}
-                />
-              </div>
-
-              <div className="px-6 pb-6">
-                {/* Tab 1: Details */}
-                {viewType === '1' && (
-                  <Descriptions
-                    column={1}
-                    size="small"
-                    styles={{
-                      label: { width: 180, fontWeight: 500 },
-                    }}
-                  >
-                    <Descriptions.Item label="เลขบัตรประชาชน">{viewRecord.idCardNumber || '-'}</Descriptions.Item>
-                    <Descriptions.Item label="รหัสเข้าออกงาน">{viewRecord.attendanceId || '-'}</Descriptions.Item>
-                    <Descriptions.Item label="วันเกิด">
-                      {viewRecord.birthDate ? dayjs(viewRecord.birthDate).format('DD/MM/YYYY') : '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="วันที่เริ่มงาน">
-                      {viewRecord.startDate ? dayjs(viewRecord.startDate).format('DD/MM/YYYY') : '-'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="กลุ่มภารกิจ">{viewRecord.missionGroup || '-'}</Descriptions.Item>
-                    <Descriptions.Item label="กลุ่มงาน">{viewRecord.workGroup || '-'}</Descriptions.Item>
-                    <Descriptions.Item label="สังกัด / หอผู้ป่วย">{viewRecord.department || '-'}</Descriptions.Item>
-                  </Descriptions>
-                )}
-
-                {/* Tab 2: Work History */}
-                {viewType === '2' && (
-                  <Timeline
-                    items={[
-                      {
-                        color: 'green',
-                        content: (
-                          <div>
-                            <Text strong>ปัจจุบัน</Text>
-                            <br />
-                            <Text type="secondary">เลื่อนระดับเป็น {viewRecord.level || 'ชำนาญการ'} ({viewRecord.position})</Text>
-                          </div>
-                        ),
-                      },
-                      {
-                        color: 'blue',
-                        content: (
-                          <div>
-                            <Text strong>พ.ศ. 2562</Text>
-                            <br />
-                            <Text type="secondary">เริ่มปฏิบัติงานตำแหน่ง {viewRecord.position} สังกัด {viewRecord.department}</Text>
-                          </div>
-                        ),
-                      },
-                      {
-                        color: 'gray',
-                        content: (
-                          <div>
-                            <Text strong>พ.ศ. 2560</Text>
-                            <br />
-                            <Text type="secondary">จบการศึกษาและได้ใบประกอบวิชาชีพ</Text>
-                          </div>
-                        ),
-                      },
-                    ]}
-                  />
-                )}
-
-                {/* Tab 3: Attendance */}
-                {viewType === '3' && (
-                  <div className="flex flex-col gap-4">
-                    <Row gutter={[12, 12]}>
-                      {[
-                        { label: 'มาปกติ', value: 145, color: '#22c55e' },
-                        { label: 'มาสาย', value: 12, color: '#f59e0b' },
-                        { label: 'ลากิจ/ป่วย', value: 5, color: '#3b82f6' },
-                        { label: 'ขาดสแกน', value: 2, color: '#ef4444' },
-                      ].map((s, i) => (
-                        <Col span={6} key={i}>
-                          <Card size="small" style={{ borderRadius: 10, border: 'none', textAlign: 'center' }} styles={{ body: { padding: 12 } }}>
-                            <div style={{ color: s.color, fontSize: 28, fontWeight: 700, lineHeight: 1.2 }}>{s.value}</div>
-                            <Text type="secondary" style={{ fontSize: 11 }}>{s.label} (ครั้ง)</Text>
-                          </Card>
-                        </Col>
-                      ))}
-                    </Row>
-
-                    <Text strong style={{ fontSize: 14, marginTop: 8 }}>รายการเข้า-ออกงานล่าสุด</Text>
-                    <div className="flex flex-col rounded-lg overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
-                      {[
-                        { date: '30 มี.ค. 2569', in: '07:45', out: '16:10', status: 'ปกติ' },
-                        { date: '29 มี.ค. 2569', in: '07:50', out: '16:05', status: 'ปกติ' },
-                        { date: '28 มี.ค. 2569', in: '08:45', out: '16:00', status: 'สาย' },
-                        { date: '27 มี.ค. 2569', in: '-', out: '-', status: 'ขาดสแกน' },
-                        { date: '26 มี.ค. 2569', in: '08:20', out: '16:15', status: 'สาย' },
-                      ].map((item, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between items-center p-4"
-                          style={{ borderBottom: index < 4 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
-                        >
-                          <div>
-                            <Text style={{ fontSize: 14 }}>{item.date}</Text>
-                            <div className="text-xs mt-1" style={{ color: '#94a3b8' }}>
-                              เข้า: <span style={{ color: item.status === 'สาย' || item.status === 'ขาดสแกน' ? '#ef4444' : '#22c55e' }}>{item.in}</span>
-                              {' | '}
-                              ออก: <span style={{ color: item.status === 'ขาดสแกน' ? '#ef4444' : '#94a3b8' }}>{item.out}</span>
-                            </div>
-                          </div>
-                          <Tag
-                            color={item.status === 'ปกติ' ? 'green' : item.status === 'สาย' ? 'orange' : 'red'}
-                            style={{ borderRadius: 12, margin: 0 }}
-                          >
-                            {item.status}
-                          </Tag>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </Drawer>
       </div>
     </div>
   )
@@ -955,18 +664,10 @@ const PageContent = () => {
 export default function Page() {
   return (
     <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#006a5a',
-          borderRadius: 8,
-        },
-        components: {
-          App: { colorBgBase: 'transparent' },
-        },
-      }}
+      theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#006a5a', borderRadius: 8 } }}
+      getPopupContainer={(triggerNode) => triggerNode?.parentElement ?? document.body}
     >
-      <App style={{ background: 'transparent' }}>
+      <App>
         <PageContent />
       </App>
     </ConfigProvider>
