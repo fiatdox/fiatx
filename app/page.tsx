@@ -38,6 +38,7 @@ export default function LoginPage() {
       }
       Cookies.set('auth_token', json.token, { expires: 7, sameSite: 'Lax' })
       Cookies.set('user_data', JSON.stringify(json.data), { expires: 7, sameSite: 'Lax' })
+      Cookies.set('user_type_id', String(json.data.user_type_id), { expires: 7, sameSite: 'Lax' })
       router.push('/home')
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')

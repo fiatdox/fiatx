@@ -353,7 +353,7 @@ const PageContent = () => {
               }
               extra={<Tag color="#006a5a">{staffTypeData.reduce((s, d) => s + d.value, 0)} คน</Tag>}
             >
-              <EChart option={staffTypeOption} height={340} />
+              <EChart option={staffTypeOption} height={340} showToolbar />
             </Card>
           </Col>
           <Col xs={24} lg={14}>
@@ -368,7 +368,7 @@ const PageContent = () => {
               }
               extra={<Tag color="#14b8a6">{positionData.length} ตำแหน่ง</Tag>}
             >
-              <EChart option={positionOption} height={340} />
+              <EChart option={positionOption} height={340} showToolbar />
             </Card>
           </Col>
         </Row>
@@ -390,7 +390,7 @@ const PageContent = () => {
               }
               extra={<Tag color="error">{exitYTD} คน</Tag>}
             >
-              <EChart option={exitReasonOption} height={340} />
+              <EChart option={exitReasonOption} height={340} showToolbar />
               <Divider style={{ margin: '12px 0' }} />
               <Row gutter={[8, 8]}>
                 {exitReasonData.map((d) => (
@@ -419,7 +419,7 @@ const PageContent = () => {
               }
               extra={<Tag color="warning">เฉลี่ย {(exitYTD / 12).toFixed(1)} คน/เดือน</Tag>}
             >
-              <EChart option={exitMonthOption} height={340} />
+              <EChart option={exitMonthOption} height={340} showToolbar />
             </Card>
           </Col>
         </Row>
@@ -440,7 +440,7 @@ const PageContent = () => {
                 </Space>
               }
             >
-              <EChart option={ageOption} height={300} />
+              <EChart option={ageOption} height={300} showToolbar />
             </Card>
           </Col>
           <Col xs={24} md={6}>
@@ -454,7 +454,7 @@ const PageContent = () => {
                 </Space>
               }
             >
-              <EChart option={genderOption} height={300} />
+              <EChart option={genderOption} height={300} showToolbar />
             </Card>
           </Col>
           <Col xs={24} md={8}>
@@ -468,7 +468,7 @@ const PageContent = () => {
                 </Space>
               }
             >
-              <EChart option={missionGroupOption} height={300} />
+              <EChart option={missionGroupOption} height={300} showToolbar />
             </Card>
           </Col>
         </Row>
