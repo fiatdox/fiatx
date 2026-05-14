@@ -391,7 +391,7 @@ const PageContent = () => {
                       title={<Text type="secondary" style={{ fontSize: 12 }}>รายได้รวม</Text>}
                       value={latest.data.totalEarnings}
                       precision={2}
-                      valueStyle={{ color: '#22c55e', fontSize: 18 }}
+                      styles={{ content: { color: '#22c55e', fontSize: 18 } }}
                       prefix="฿"
                     />
                   </Col>
@@ -400,7 +400,7 @@ const PageContent = () => {
                       title={<Text type="secondary" style={{ fontSize: 12 }}>รายการหัก</Text>}
                       value={latest.data.totalDeductions}
                       precision={2}
-                      valueStyle={{ color: '#ef4444', fontSize: 18 }}
+                      styles={{ content: { color: '#ef4444', fontSize: 18 } }}
                       prefix="฿"
                     />
                   </Col>
@@ -409,7 +409,7 @@ const PageContent = () => {
                       title={<Text type="secondary" style={{ fontSize: 12 }}>เงินสุทธิ</Text>}
                       value={latest.data.netSalary}
                       precision={2}
-                      valueStyle={{ color: '#0ea5e9', fontSize: 20, fontWeight: 700 }}
+                      styles={{ content: { color: '#0ea5e9', fontSize: 20, fontWeight: 700 } }}
                       prefix="฿"
                     />
                   </Col>

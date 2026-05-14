@@ -200,7 +200,7 @@ const Navbar: React.FC = () => {
             setOpenMenu(false) // เลือกเมนูเสร็จให้ปิด Drawer
           }}
           items={[
-            { key: '/', icon: <HomeOutlined />, label: 'หน้าหลัก' },
+            { key: '/home', icon: <HomeOutlined />, label: 'หน้าหลัก' },
             { 
               key: 'hr', 
               icon: <FaUsersCog />, 

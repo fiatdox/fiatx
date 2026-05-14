@@ -245,7 +245,7 @@ const PageContent = () => {
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดรอจ่ายทั้งหมด</span>}
                 value={summary.totalUnpaid} precision={0} prefix="฿"
-                valueStyle={{ color: '#a78bfa' }}
+                styles={{ content: { color: '#a78bfa' } }}
                 formatter={v => Number(v).toLocaleString()} />
               <Text style={{ color: '#94a3b8', fontSize: 12 }}>{summary.unpaid.length} รายการ</Text>
             </Card>
@@ -254,7 +254,7 @@ const PageContent = () => {
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>เกินกำหนด</span>}
                 value={summary.overdue.length}
-                valueStyle={{ color: '#ef4444' }} prefix={<WarningOutlined />} />
+                styles={{ content: { color: '#ef4444' } }} prefix={<WarningOutlined />} />
               <Text style={{ color: '#ef4444', fontSize: 12 }}>
                 ฿{summary.overdue.reduce((s, r) => s + r.totalAmount, 0).toLocaleString()}
               </Text>
@@ -264,7 +264,7 @@ const PageContent = () => {
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>ใกล้ครบกำหนด (≤3 วัน)</span>}
                 value={summary.danger.length}
-                valueStyle={{ color: '#fb923c' }} prefix={<FieldTimeOutlined />} />
+                styles={{ content: { color: '#fb923c' } }} prefix={<FieldTimeOutlined />} />
             </Card>
           </Col>
           <Col span={6}>

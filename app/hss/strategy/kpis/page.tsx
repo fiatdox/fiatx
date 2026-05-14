@@ -321,7 +321,7 @@ const KPIPageContent = () => {
                   title="บรรลุเป้า"
                   value={achieved}
                   suffix={<Text style={{ fontSize: 12, color: '#10b981' }}>รายการ</Text>}
-                  valueStyle={{ color: '#10b981' }}
+                  styles={{ content: { color: '#10b981' } }}
                 />
               </Card>
             </Col>
@@ -331,7 +331,7 @@ const KPIPageContent = () => {
                   title="ใกล้เป้า"
                   value={nearTarget}
                   suffix={<Text style={{ fontSize: 12, color: '#3b82f6' }}>รายการ</Text>}
-                  valueStyle={{ color: '#3b82f6' }}
+                  styles={{ content: { color: '#3b82f6' } }}
                 />
               </Card>
             </Col>
@@ -341,7 +341,7 @@ const KPIPageContent = () => {
                   title="เสี่ยง"
                   value={atRisk}
                   suffix={<Text style={{ fontSize: 12, color: '#f59e0b' }}>รายการ</Text>}
-                  valueStyle={{ color: '#f59e0b' }}
+                  styles={{ content: { color: '#f59e0b' } }}
                 />
               </Card>
             </Col>
@@ -351,7 +351,7 @@ const KPIPageContent = () => {
                   title="ไม่บรรลุ"
                   value={missed}
                   suffix={<Text style={{ fontSize: 12, color: '#ef4444' }}>รายการ</Text>}
-                  valueStyle={{ color: '#ef4444' }}
+                  styles={{ content: { color: '#ef4444' } }}
                 />
               </Card>
             </Col>
@@ -361,7 +361,7 @@ const KPIPageContent = () => {
                   title="ภาพรวม"
                   value={overallPct}
                   suffix="%"
-                  valueStyle={{ color: overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444' }}
+                  styles={{ content: { color: overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444' } }}
                 />
               </Card>
             </Col>

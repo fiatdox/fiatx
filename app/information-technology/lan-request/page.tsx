@@ -553,7 +553,7 @@ const LanRequestContent = () => {
                 showIcon
                 className="mb-0"
                 action={
-                  <Space direction="vertical">
+                  <Space orientation="vertical">
                     <Button block type="primary" icon={<CheckCircleOutlined />} onClick={handleApprove}>
                       อนุมัติ
                     </Button>

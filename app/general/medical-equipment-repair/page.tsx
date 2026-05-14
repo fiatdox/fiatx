@@ -3,7 +3,7 @@ import React, { useState } from 'react'
 import {
   Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider,
   Result, Breadcrumb, Row, Col, Alert, Divider, Steps, Radio, Upload,
-  Modal, Table, Tag, theme
+  Modal, Table, Tag, Space, theme
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, CheckCircleOutlined, MedicineBoxOutlined,
@@ -204,21 +204,17 @@ const MedicalEquipmentRepairPage = () => {
                         </Col>
                         <Col xs={24} sm={12}>
                           <Form.Item label="รหัสทรัพย์สิน / เลขครุภัณฑ์" name="assetNumber" rules={[{ required: true, message: 'กรุณาระบุรหัสทรัพย์สิน' }]}>
-                            <Input
-                              placeholder="เช่น MED-67-001"
-                              size="large"
-                              addonAfter={
-                                <Button
-                                  type="text"
-                                  size="small"
-                                  icon={<QrcodeOutlined />}
-                                  onClick={() => { setAssetSearch(''); setAssetModalOpen(true) }}
-                                  style={{ color: '#FF6500', fontWeight: 600, padding: '0 8px' }}
-                                >
-                                  ค้นหาในระบบ
-                                </Button>
-                              }
-                            />
+                            <Space.Compact style={{ width: '100%' }}>
+                              <Input placeholder="เช่น MED-67-001" size="large" />
+                              <Button
+                                size="large"
+                                icon={<QrcodeOutlined />}
+                                onClick={() => { setAssetSearch(''); setAssetModalOpen(true) }}
+                                style={{ color: '#FF6500', fontWeight: 600 }}
+                              >
+                                ค้นหาในระบบ
+                              </Button>
+                            </Space.Compact>
                           </Form.Item>
                         </Col>
                       </Row>

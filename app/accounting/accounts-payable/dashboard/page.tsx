@@ -249,7 +249,7 @@ const PageContent = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดจ่ายแล้วสะสม</span>}
                   value={stats.totalPaid} precision={0} prefix="฿"
-                  valueStyle={{ color: '#10b981', fontSize: 22 }}
+                  styles={{ content: { color: '#10b981', fontSize: 22 } }}
                   formatter={v => Number(v).toLocaleString()} />
                 <BankOutlined style={{ fontSize: 32, color: '#10b981', opacity: 0.5 }} />
               </div>
@@ -261,7 +261,7 @@ const PageContent = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดค้างจ่าย</span>}
                   value={stats.totalUnpaid} precision={0} prefix="฿"
-                  valueStyle={{ color: '#a78bfa', fontSize: 22 }}
+                  styles={{ content: { color: '#a78bfa', fontSize: 22 } }}
                   formatter={v => Number(v).toLocaleString()} />
                 <DollarCircleOutlined style={{ fontSize: 32, color: '#a78bfa', opacity: 0.5 }} />
               </div>
@@ -273,7 +273,7 @@ const PageContent = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Statistic title={<span style={{ color: '#94a3b8' }}>DPO เฉลี่ย (Invoice→จ่าย)</span>}
                   value={stats.dpo} suffix="วัน"
-                  valueStyle={{ color: '#60a5fa', fontSize: 22 }} />
+                  styles={{ content: { color: '#60a5fa', fontSize: 22 } }} />
                 <ClockCircleOutlined style={{ fontSize: 32, color: '#60a5fa', opacity: 0.5 }} />
               </div>
               <Text style={{ color: '#94a3b8', fontSize: 12 }}>

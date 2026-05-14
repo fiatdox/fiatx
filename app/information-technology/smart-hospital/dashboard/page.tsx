@@ -355,7 +355,7 @@ const PageContent = () => {
                 value={overall.pct}
                 suffix="%"
                 prefix={<TrophyOutlined style={{ color: statusColor(overall.pct) }} />}
-                valueStyle={{ color: statusColor(overall.pct), fontSize: 32 }}
+                styles={{ content: { color: statusColor(overall.pct), fontSize: 32 } }}
               />
               <Progress percent={overall.pct} strokeColor={statusColor(overall.pct)} showInfo={false} className="mt-2" />
               <Text type="secondary" className="text-xs">{overall.earned} / {overall.max} คะแนน</Text>
@@ -368,7 +368,7 @@ const PageContent = () => {
                 value={overall.reqPct}
                 suffix="%"
                 prefix={<CheckCircleOutlined style={{ color: '#22c55e' }} />}
-                valueStyle={{ color: '#22c55e', fontSize: 32 }}
+                styles={{ content: { color: '#22c55e', fontSize: 32 } }}
               />
               <Progress percent={overall.reqPct} strokeColor="#22c55e" showInfo={false} className="mt-2" />
               <Text type="secondary" className="text-xs">{overall.reqEarned} / {overall.reqMax} คะแนน</Text>
@@ -381,7 +381,7 @@ const PageContent = () => {
                 value={goodCount}
                 suffix={`/ ${itemCount}`}
                 prefix={<CheckCircleOutlined style={{ color: '#3b82f6' }} />}
-                valueStyle={{ color: '#3b82f6', fontSize: 32 }}
+                styles={{ content: { color: '#3b82f6', fontSize: 32 } }}
               />
               <Progress percent={Math.round((goodCount / itemCount) * 100)} strokeColor="#3b82f6" showInfo={false} className="mt-2" />
             </Card>
@@ -393,7 +393,7 @@ const PageContent = () => {
                 value={riskCount}
                 suffix={`/ ${itemCount}`}
                 prefix={<WarningOutlined style={{ color: '#ef4444' }} />}
-                valueStyle={{ color: '#ef4444', fontSize: 32 }}
+                styles={{ content: { color: '#ef4444', fontSize: 32 } }}
               />
               <Progress percent={Math.round((riskCount / itemCount) * 100)} strokeColor="#ef4444" showInfo={false} className="mt-2" />
             </Card>
@@ -462,7 +462,7 @@ const PageContent = () => {
             <Card variant="borderless" style={{ borderRadius: 12 }}>
               <Title level={5} style={{ margin: 0, color: '#a855f7' }}>สรุปคะแนนแต่ละด้าน</Title>
               <Divider style={{ margin: '12px 0' }} />
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                 {dims.map((d, i) => {
                   const t = totals[i]
                   const tag = statusTag(t.pct)

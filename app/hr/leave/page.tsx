@@ -61,6 +61,7 @@ const LeavePageContent = () => {
   const [entitlements, setEntitlements] = useState<Entitlement[]>([])
   const [missionSupervisors, setMissionSupervisors] = useState<{ id: number; mission_name: string; mission_supervisor: string }[]>([])
   const [majorSupervisors, setMajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string }[]>([])
+  const [submajorSupervisors, setSubmajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string }[]>([])
 
   useEffect(() => {
     setLeaveTypesLoading(true)
@@ -114,6 +115,24 @@ const LeavePageContent = () => {
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มงานได้'))
+  }, [message, form])
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (!raw) return
+    const id = JSON.parse(raw)?.id
+    if (!id) return
+    fetch(`/api/v1/hr/submajor-supervisor/${id}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.success) {
+          setSubmajorSupervisors(json.data)
+          if (json.data.length === 1) {
+            form.setFieldsValue({ approver1: String(json.data[0].id) })
+          }
+        }
+      })
+      .catch(() => message.error('ไม่สามารถโหลดหัวหน้าหน่วยงาน/ตึกได้'))
   }, [message, form])
 
   const currentLeaveTypeInfo = leaveTypes.find(t => t.id === leaveType) ?? null
@@ -396,9 +415,10 @@ const LeavePageContent = () => {
                       label="1. หัวหน้าหน่วยงาน/ตึก"
                       rules={[{ required: true, message: 'กรุณาเลือกผู้อนุมัติ' }]}
                     >
-                      <Select placeholder="เลือกผู้อนุมัติ">
-                        <Select.Option value="a1">นางวิไลพร หัวหน้าตึก</Select.Option>
-                      </Select>
+                      <Select
+                        placeholder="เลือกผู้อนุมัติ"
+                        options={submajorSupervisors.map(s => ({ value: String(s.id), label: `${s.major_supervisor} — ${s.major_name}` }))}
+                      />
                     </Form.Item>
 
                     <Form.Item

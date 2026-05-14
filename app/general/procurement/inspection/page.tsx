@@ -298,19 +298,19 @@ const PageContent = () => {
           <Col span={8}>
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>รอตรวจรับ</span>} value={pending.length}
-                valueStyle={{ color: '#fbbf24' }} prefix={<ClockCircleOutlined />} />
+                styles={{ content: { color: '#fbbf24' } }} prefix={<ClockCircleOutlined />} />
             </Card>
           </Col>
           <Col span={8}>
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>ตรวจผ่าน → ส่งบัญชี</span>} value={passed.length}
-                valueStyle={{ color: '#6ee7b7' }} prefix={<CheckCircleOutlined />} />
+                styles={{ content: { color: '#6ee7b7' } }} prefix={<CheckCircleOutlined />} />
             </Card>
           </Col>
           <Col span={8}>
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>ไม่ผ่าน / รอแก้ไข</span>} value={rejected.length}
-                valueStyle={{ color: '#ef4444' }} prefix={<CloseCircleOutlined />} />
+                styles={{ content: { color: '#ef4444' } }} prefix={<CloseCircleOutlined />} />
             </Card>
           </Col>
         </Row>

@@ -239,7 +239,7 @@ function ReplacementRequestPageInner() {
           window.location.href = `/general/assets/return?rrId=${r.id}&woId=${r.woId}&assetNo=${r.assetNo}`
         }
         return (
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
             {r.status === 'pending_approval' && (
               <Button type="primary" size="small" block
                 onClick={() => { setSelectedId(r.id); setApproveOpen(true) }}>

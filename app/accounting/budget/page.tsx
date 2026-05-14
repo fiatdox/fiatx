@@ -254,7 +254,7 @@ const PageContent = () => {
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>งบทั้งหมดที่ตั้ง</span>}
                 value={summary.allocated} prefix="฿"
-                valueStyle={{ color: '#a78bfa' }}
+                styles={{ content: { color: '#a78bfa' } }}
                 formatter={v => Number(v).toLocaleString()} />
               <Text style={{ color: '#94a3b8', fontSize: 12 }}>{filtered.length} รายการ</Text>
             </Card>
@@ -263,7 +263,7 @@ const PageContent = () => {
             <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
               <Statistic title={<span style={{ color: '#94a3b8' }}>เบิกจ่ายแล้ว</span>}
                 value={summary.actual} prefix="฿"
-                valueStyle={{ color: '#10b981' }}
+                styles={{ content: { color: '#10b981' } }}
                 formatter={v => Number(v).toLocaleString()} />
               <Text style={{ color: '#94a3b8', fontSize: 12 }}>
                 ผูกพันอีก ฿{summary.reserved.toLocaleString()}
@@ -275,7 +275,7 @@ const PageContent = () => {
               <Statistic title={<span style={{ color: '#94a3b8' }}>คงเหลือ</span>}
                 value={summary.remain}
                 prefix={<>{summary.remain < 0 ? <FallOutlined /> : <RiseOutlined />} ฿</>}
-                valueStyle={{ color: summary.remain < 0 ? '#ef4444' : '#22d3ee' }}
+                styles={{ content: { color: summary.remain < 0 ? '#ef4444' : '#22d3ee' } }}
                 formatter={v => Number(v).toLocaleString()} />
               <Text style={{ color: '#94a3b8', fontSize: 12 }}>
                 ใช้ไป {summary.pct}% ของงบ

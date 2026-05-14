@@ -3,14 +3,15 @@ import { useState } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, ConfigProvider, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
-  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, theme
+  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, Tabs, theme
 } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
   HomeOutlined, FileTextOutlined, CheckCircleOutlined,
   CloseCircleOutlined, ClockCircleOutlined, AuditOutlined,
-  EyeOutlined, UserOutlined, CalendarOutlined, UnorderedListOutlined
+  EyeOutlined, UserOutlined, CalendarOutlined, UnorderedListOutlined,
+  RollbackOutlined, CheckSquareOutlined
 } from '@ant-design/icons'
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby, FaCheckDouble } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
@@ -30,15 +31,28 @@ interface ApprovalStep {
 interface LeaveApprovalRequest {
   id: string
   employeeName: string
-  shortName: string      // ชื่อสั้นสำหรับแสดงบนปฏิทิน
+  shortName: string
   department: string
   position: string
   leaveType: string
-  startISO: string       // YYYY-MM-DD
+  startISO: string
   endISO: string
   totalDays: number
   reason: string
-  color: string          // สีประจำตัวบนปฏิทิน
+  color: string
+  approvalChain: ApprovalStep[]
+}
+
+interface LeaveCancelRequest {
+  id: string
+  refLeaveId: string
+  employeeName: string
+  department: string
+  leaveType: string
+  startISO: string
+  endISO: string
+  totalDays: number
+  cancelReason: string
   approvalChain: ApprovalStep[]
 }
 
@@ -195,6 +209,42 @@ const mockData: LeaveApprovalRequest[] = [
   },
 ]
 
+const mockCancelData: LeaveCancelRequest[] = [
+  {
+    id: 'CL-202604001', refLeaveId: 'LV-202604002',
+    employeeName: 'นายวิชัย กล้าดี', department: 'งานเวชระเบียน',
+    leaveType: 'ลาพักผ่อน', startISO: '2026-04-20', endISO: '2026-04-24', totalDays: 5,
+    cancelReason: 'มีงานด่วนเข้ามา ขอยกเลิกวันลาดังกล่าว',
+    approvalChain: [
+      { level: 'หัวหน้าหน่วยงาน', actor: 'นางสาวสุดา หัวหน้าเวชระเบียน', status: 'approved', timestamp: '12/04/2569 10:00' },
+      { level: 'หัวหน้ากลุ่มงาน',  actor: 'นายสมศักดิ์ ผู้จัดการฝ่ายบริหาร', status: 'pending' },
+      { level: 'หัวหน้าภารกิจ',    actor: 'นพ.สมชาย ผู้อำนวยการโรงพยาบาล', status: 'waiting' },
+    ],
+  },
+  {
+    id: 'CL-202604002', refLeaveId: 'LV-202604004',
+    employeeName: 'นายอนุชา สุขใจ', department: 'งานการพยาบาล OPD',
+    leaveType: 'ลาพักผ่อน', startISO: '2026-04-21', endISO: '2026-04-23', totalDays: 3,
+    cancelReason: 'แผนการเดินทางเปลี่ยนแปลง ขอยกเลิกลาพักผ่อน',
+    approvalChain: [
+      { level: 'หัวหน้าหน่วยงาน', actor: 'นางมณีรัตน์ หัวหน้าพยาบาล', status: 'approved', timestamp: '13/04/2569 09:00' },
+      { level: 'หัวหน้ากลุ่มงาน',  actor: 'นพ.วิสุทธิ์ ผู้อำนวยการด้านการแพทย์', status: 'approved', timestamp: '13/04/2569 11:00' },
+      { level: 'หัวหน้าภารกิจ',    actor: 'นพ.สมชาย ผู้อำนวยการโรงพยาบาล', status: 'approved', timestamp: '14/04/2569 08:30' },
+    ],
+  },
+  {
+    id: 'CL-202604003', refLeaveId: 'LV-202604006',
+    employeeName: 'นายธนกร มั่นคง', department: 'งานการเงิน',
+    leaveType: 'ลากิจ', startISO: '2026-04-17', endISO: '2026-04-18', totalDays: 2,
+    cancelReason: 'ธุระส่วนตัวยกเลิก ขอกลับมาทำงานตามปกติ',
+    approvalChain: [
+      { level: 'หัวหน้าหน่วยงาน', actor: 'นายสมบัติ หัวหน้าการเงิน', status: 'rejected', timestamp: '14/04/2569 14:00', note: 'ลาไปแล้ว ไม่สามารถยกเลิกย้อนหลังได้' },
+      { level: 'หัวหน้ากลุ่มงาน',  actor: 'นายสมศักดิ์ ผู้จัดการฝ่ายบริหาร', status: 'waiting' },
+      { level: 'หัวหน้าภารกิจ',    actor: 'นพ.สมชาย ผู้อำนวยการโรงพยาบาล', status: 'waiting' },
+    ],
+  },
+]
+
 // ─── Tag Helpers ──────────────────────────────────────────────────────────────
 const leaveTypeColor: Record<string, string> = {
   'ลาป่วย': 'volcano', 'ลาพักผ่อน': 'green', 'ลากิจ': 'blue', 'ลาคลอด': 'magenta',
@@ -222,6 +272,9 @@ const overallTag = (s: ApprovalStatus) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 const LeaveApprovalContent = () => {
   const { message } = App.useApp()
+  const [activeMainTab, setActiveMainTab] = useState<string>('approve')
+
+  // ── อนุมัติลา ──
   const [requests, setRequests] = useState<LeaveApprovalRequest[]>(mockData)
   const [selected, setSelected] = useState<LeaveApprovalRequest | null>(null)
   const [rejectMode, setRejectMode] = useState(false)
@@ -229,6 +282,12 @@ const LeaveApprovalContent = () => {
   const [view, setView] = useState<string>('list')
   const [calMonth, setCalMonth] = useState<Dayjs>(dayjs('2026-04-01'))
   const [rejectForm] = Form.useForm()
+
+  // ── ยกเลิกลา ──
+  const [cancelRequests, setCancelRequests] = useState<LeaveCancelRequest[]>(mockCancelData)
+  const [selectedCancel, setSelectedCancel] = useState<LeaveCancelRequest | null>(null)
+  const [cancelRejectMode, setCancelRejectMode] = useState(false)
+  const [cancelRejectForm] = Form.useForm()
 
   const nowStr = () =>
     new Date().toLocaleString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -348,10 +407,27 @@ const LeaveApprovalContent = () => {
         <span>{fmtThai(r.startISO)} – {fmtThai(r.endISO)} <Badge count={`${r.totalDays} วัน`} color="#006a5a" /></span>
       ),
     },
-    { title: 'หน.หน่วยงาน', key: 's1', align: 'center' as const, render: (_: any, r: LeaveApprovalRequest) => statusTag(r.approvalChain[0].status) },
-    { title: 'หน.กลุ่มงาน', key: 's2', align: 'center' as const, render: (_: any, r: LeaveApprovalRequest) => statusTag(r.approvalChain[1].status) },
-    { title: 'หน.ภารกิจ',  key: 's3', align: 'center' as const, render: (_: any, r: LeaveApprovalRequest) => statusTag(r.approvalChain[2].status) },
-    { title: 'ภาพรวม', key: 'overall', render: (_: any, r: LeaveApprovalRequest) => overallTag(getOverall(r.approvalChain)) },
+    {
+      title: 'สถานะการอนุมัติ', key: 'chain', width: 340,
+      render: (_: any, r: LeaveApprovalRequest) => (
+        <Steps
+          size="small"
+          current={getCurrentStep(r.approvalChain)}
+          status={
+            getOverall(r.approvalChain) === 'rejected' ? 'error'
+            : getOverall(r.approvalChain) === 'approved' ? 'finish'
+            : 'process'
+          }
+          items={r.approvalChain.map(s => ({
+            title: <span style={{ fontSize: 11 }}>{s.level.replace('หัวหน้า', 'หน.')}</span>,
+            status: s.status === 'approved' ? 'finish'
+              : s.status === 'rejected' ? 'error'
+              : s.status === 'pending' ? 'process'
+              : 'wait',
+          }))}
+        />
+      ),
+    },
     {
       title: 'จัดการ', key: 'action', align: 'center' as const, width: 100,
       render: (_: any, record: LeaveApprovalRequest) => (
@@ -359,6 +435,96 @@ const LeaveApprovalContent = () => {
       ),
     },
   ]
+
+  // ─── Cancel columns ────────────────────────────────────────────────────────
+  const cancelColumns = [
+    {
+      title: 'เลขที่คำขอ', dataIndex: 'id', key: 'id',
+      render: (v: string, r: LeaveCancelRequest) => (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <RollbackOutlined style={{ color: '#f59e0b' }} />
+          <Text style={{ color: '#fcd34d', fontWeight: 600 }}>{v}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>({r.refLeaveId})</Text>
+        </span>
+      ),
+    },
+    { title: 'ผู้ขอยกเลิก', dataIndex: 'employeeName', key: 'employeeName' },
+    { title: 'หน่วยงาน', dataIndex: 'department', key: 'department' },
+    {
+      title: 'ประเภทการลา', dataIndex: 'leaveType', key: 'leaveType',
+      render: (v: string) => <Tag color={leaveTypeColor[v] ?? 'default'}>{leaveTypeIcon[v]}{v}</Tag>,
+    },
+    {
+      title: 'ช่วงวันที่ที่ขอยกเลิก', key: 'date',
+      render: (_: any, r: LeaveCancelRequest) => (
+        <span>{fmtThai(r.startISO)} – {fmtThai(r.endISO)} <Badge count={`${r.totalDays} วัน`} color="#b45309" /></span>
+      ),
+    },
+    { title: 'เหตุผลการยกเลิก', dataIndex: 'cancelReason', key: 'cancelReason', ellipsis: true },
+    {
+      title: 'สถานะการอนุมัติ', key: 'chain', width: 340,
+      render: (_: any, r: LeaveCancelRequest) => (
+        <Steps
+          size="small"
+          current={getCurrentStep(r.approvalChain)}
+          status={
+            getOverall(r.approvalChain) === 'rejected' ? 'error'
+            : getOverall(r.approvalChain) === 'approved' ? 'finish'
+            : 'process'
+          }
+          items={r.approvalChain.map(s => ({
+            title: <span style={{ fontSize: 11 }}>{s.level.replace('หัวหน้า', 'หน.')}</span>,
+            status: s.status === 'approved' ? 'finish'
+              : s.status === 'rejected' ? 'error'
+              : s.status === 'pending' ? 'process'
+              : 'wait',
+          }))}
+        />
+      ),
+    },
+    {
+      title: 'จัดการ', key: 'action', align: 'center' as const, width: 100,
+      render: (_: any, record: LeaveCancelRequest) => (
+        <Button size="small" type="primary" icon={<EyeOutlined />}
+          style={{ background: '#b45309', borderColor: '#b45309' }}
+          onClick={() => { setSelectedCancel(record); setCancelRejectMode(false); cancelRejectForm.resetFields() }}
+        >พิจารณา</Button>
+      ),
+    },
+  ]
+
+  const handleCancelApprove = () => {
+    if (!selectedCancel) return
+    const idx = selectedCancel.approvalChain.findIndex(s => s.status === 'pending')
+    if (idx === -1) return
+    const newChain = selectedCancel.approvalChain.map((s, i) => {
+      if (i === idx) return { ...s, status: 'approved' as ApprovalStatus, timestamp: nowStr() }
+      if (i === idx + 1 && s.status === 'waiting') return { ...s, status: 'pending' as ApprovalStatus }
+      return s
+    })
+    const next = { ...selectedCancel, approvalChain: newChain }
+    setCancelRequests(prev => prev.map(r => r.id === next.id ? next : r))
+    setSelectedCancel(next)
+    message.success(`อนุมัติยกเลิกลาในระดับ "${selectedCancel.approvalChain[idx].level}" เรียบร้อยแล้ว`)
+    setCancelRejectMode(false)
+  }
+
+  const handleCancelReject = () => {
+    cancelRejectForm.validateFields().then(values => {
+      if (!selectedCancel) return
+      const idx = selectedCancel.approvalChain.findIndex(s => s.status === 'pending')
+      if (idx === -1) return
+      const newChain = selectedCancel.approvalChain.map((s, i) =>
+        i === idx ? { ...s, status: 'rejected' as ApprovalStatus, timestamp: nowStr(), note: values.reason } : s
+      )
+      const next = { ...selectedCancel, approvalChain: newChain }
+      setCancelRequests(prev => prev.map(r => r.id === next.id ? next : r))
+      setSelectedCancel(next)
+      cancelRejectForm.resetFields()
+      setCancelRejectMode(false)
+      message.error('ปฏิเสธคำขอยกเลิกลาเรียบร้อยแล้ว')
+    })
+  }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -374,10 +540,37 @@ const LeaveApprovalContent = () => {
           className="mb-6"
         />
 
-        <div className="mb-6">
+        <div className="mb-4">
           <Title level={2} className="text-primary m-0">สถานะอนุมัติการลา</Title>
           <Text type="secondary">ตรวจสอบและดำเนินการอนุมัติใบลาบุคลากรตามลำดับชั้น</Text>
         </div>
+
+        <Tabs
+          activeKey={activeMainTab}
+          onChange={setActiveMainTab}
+          type="card"
+          className="mb-4"
+          items={[
+            { key: 'approve', label: <span><CheckSquareOutlined className="mr-1" />อนุมัติลา</span> },
+            { key: 'cancel',  label: <span><RollbackOutlined className="mr-1" />ยกเลิกลา <Badge count={cancelRequests.filter(r => getOverall(r.approvalChain) === 'pending').length} size="small" /></span> },
+          ]}
+        />
+
+        {/* ══ TAB: ยกเลิกลา ══ */}
+        {activeMainTab === 'cancel' && (
+          <Card variant="borderless" className="rounded-xl">
+            <Table
+              columns={cancelColumns}
+              dataSource={cancelRequests}
+              rowKey="id"
+              pagination={{ pageSize: 10, showTotal: t => `ทั้งหมด ${t} รายการ` }}
+              scroll={{ x: 1400 }}
+            />
+          </Card>
+        )}
+
+        {/* ══ TAB: อนุมัติลา ══ */}
+        {activeMainTab === 'approve' && <>
 
         {/* Summary cards */}
         <Row gutter={[12, 12]} className="mb-6">
@@ -499,9 +692,11 @@ const LeaveApprovalContent = () => {
             </Col>
           </Row>
         )}
+        </>}
+
       </div>
 
-      {/* ─── Modal พิจารณา ─── */}
+      {/* ─── Modal พิจารณา (อนุมัติลา) ─── */}
       <Modal
         title={<span style={{ color: '#6ee7b7' }}><AuditOutlined className="mr-2" />พิจารณาใบลา: {selected?.id}</span>}
         open={!!selected}
@@ -522,7 +717,7 @@ const LeaveApprovalContent = () => {
               <Steps
                 current={step}
                 status={overall === 'rejected' ? 'error' : overall === 'approved' ? 'finish' : 'process'}
-                items={selected.approvalChain.map(s => ({ title: s.level, description: s.actor }))}
+                items={selected.approvalChain.map(s => ({ title: s.level, content: s.actor }))}
                 className="mb-6"
               />
 
@@ -659,7 +854,7 @@ const LeaveApprovalContent = () => {
                   description={`ผู้อนุมัติ: ${selected.approvalChain[pendingIdx].actor}`}
                   type="warning" showIcon className="mb-0"
                   action={
-                    <Space direction="vertical">
+                    <Space orientation="vertical">
                       <Button block type="primary" icon={<CheckCircleOutlined />} onClick={handleApprove}>อนุมัติ</Button>
                       <Button block danger icon={<CloseCircleOutlined />} onClick={() => setRejectMode(true)}>ไม่อนุมัติ</Button>
                     </Space>
@@ -684,6 +879,99 @@ const LeaveApprovalContent = () => {
                 <Alert
                   title="คำขอนี้ถูกปฏิเสธ"
                   description={selected.approvalChain.find(s => s.status === 'rejected')?.note}
+                  type="error" showIcon
+                />
+              )}
+            </div>
+          )
+        })()}
+      </Modal>
+
+      {/* ─── Modal พิจารณา (ยกเลิกลา) ─── */}
+      <Modal
+        title={<span style={{ color: '#fcd34d' }}><RollbackOutlined className="mr-2" />พิจารณายกเลิกลา: {selectedCancel?.id}</span>}
+        open={!!selectedCancel}
+        onCancel={() => { setSelectedCancel(null); setCancelRejectMode(false) }}
+        width="60%"
+        footer={null}
+      >
+        {selectedCancel && (() => {
+          const overall    = getOverall(selectedCancel.approvalChain)
+          const step       = getCurrentStep(selectedCancel.approvalChain)
+          const pendingIdx = selectedCancel.approvalChain.findIndex(s => s.status === 'pending')
+          const canAct     = pendingIdx !== -1
+
+          return (
+            <div className="mt-4">
+              <Steps
+                current={step}
+                status={overall === 'rejected' ? 'error' : overall === 'approved' ? 'finish' : 'process'}
+                items={selectedCancel.approvalChain.map(s => ({ title: s.level, content: s.actor }))}
+                className="mb-6"
+              />
+
+              <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small" className="mb-4">
+                <Descriptions.Item label="ผู้ขอยกเลิก"><UserOutlined className="mr-1" />{selectedCancel.employeeName}</Descriptions.Item>
+                <Descriptions.Item label="หน่วยงาน">{selectedCancel.department}</Descriptions.Item>
+                <Descriptions.Item label="อ้างอิงใบลา"><Text style={{ color: '#fcd34d' }}>{selectedCancel.refLeaveId}</Text></Descriptions.Item>
+                <Descriptions.Item label="ประเภทการลา">
+                  <Tag color={leaveTypeColor[selectedCancel.leaveType] ?? 'default'}>{leaveTypeIcon[selectedCancel.leaveType]}{selectedCancel.leaveType}</Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="วันที่ขอยกเลิก">{fmtThai(selectedCancel.startISO)} – {fmtThai(selectedCancel.endISO)}</Descriptions.Item>
+                <Descriptions.Item label="จำนวนวัน">
+                  <Text style={{ color: '#fcd34d', fontWeight: 700 }}>{selectedCancel.totalDays} วัน</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="เหตุผลการยกเลิก" span={2}>{selectedCancel.cancelReason}</Descriptions.Item>
+              </Descriptions>
+
+              <Divider style={{ borderColor: '#334155' }}>ประวัติการอนุมัติ</Divider>
+              <Timeline
+                items={selectedCancel.approvalChain.map(s => ({
+                  color: s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : s.status === 'pending' ? 'blue' : 'gray',
+                  children: (
+                    <div>
+                      <Text strong>{s.level}</Text>
+                      <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{s.timestamp}</Text>
+                      <div><Text type="secondary">{s.actor}</Text><span className="mx-2">—</span>{statusTag(s.status)}</div>
+                      {s.note && <div style={{ color: '#fbbf24', fontSize: 12, marginTop: 2 }}>{s.note}</div>}
+                    </div>
+                  ),
+                }))}
+              />
+
+              <Divider style={{ borderColor: '#334155' }}>การดำเนินการ</Divider>
+
+              {canAct && !cancelRejectMode && (
+                <Alert
+                  title={`รอการพิจารณา: ${selectedCancel.approvalChain[pendingIdx].level}`}
+                  description={`ผู้อนุมัติ: ${selectedCancel.approvalChain[pendingIdx].actor}`}
+                  type="warning" showIcon className="mb-0"
+                  action={
+                    <Space orientation="vertical">
+                      <Button block type="primary" icon={<CheckCircleOutlined />} onClick={handleCancelApprove}>อนุมัติยกเลิก</Button>
+                      <Button block danger icon={<CloseCircleOutlined />} onClick={() => setCancelRejectMode(true)}>ไม่อนุมัติ</Button>
+                    </Space>
+                  }
+                />
+              )}
+
+              {canAct && cancelRejectMode && (
+                <Form form={cancelRejectForm} layout="vertical">
+                  <Form.Item name="reason" label="เหตุผลที่ไม่อนุมัติยกเลิก" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
+                    <Input.TextArea rows={3} placeholder="ระบุเหตุผล..." />
+                  </Form.Item>
+                  <Space>
+                    <Button danger icon={<CloseCircleOutlined />} onClick={handleCancelReject}>ยืนยันการปฏิเสธ</Button>
+                    <Button onClick={() => setCancelRejectMode(false)}>ยกเลิก</Button>
+                  </Space>
+                </Form>
+              )}
+
+              {!canAct && overall === 'approved' && <Alert title="อนุมัติยกเลิกลาครบทุกระดับแล้ว" type="success" showIcon />}
+              {!canAct && overall === 'rejected' && (
+                <Alert
+                  title="คำขอยกเลิกลาถูกปฏิเสธ"
+                  description={selectedCancel.approvalChain.find(s => s.status === 'rejected')?.note}
                   type="error" showIcon
                 />
               )}

@@ -161,7 +161,7 @@ const EChart: React.FC<Props> = ({ option, height = 280, style, className, showT
         style={{ top: 16 }}
         styles={{ body: { padding: 8, height: '78vh' } }}
         closeIcon={<FullscreenExitOutlined />}
-        destroyOnClose
+        destroyOnHidden
       >
         <InnerChart option={option} height="76vh" />
       </Modal>
