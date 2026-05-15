@@ -565,47 +565,6 @@ const LanRequestContent = () => {
               />
             )}
 
-            {selected.status === 'pending' && rejectMode && (
-              <Form form={rejectForm} layout="vertical">
-                <Form.Item name="rejectReason" label="เหตุผลที่ไม่อนุมัติ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
-                  <Input.TextArea rows={3} placeholder="ระบุเหตุผลที่ไม่อนุมัติ..." />
-                </Form.Item>
-                <Space>
-                  <Button danger icon={<CloseCircleOutlined />} onClick={handleReject}>ยืนยันการปฏิเสธ</Button>
-                  <Button onClick={() => setRejectMode(false)}>ยกเลิก</Button>
-                </Space>
-              </Form>
-            )}
-
-            {/* approved: assign staff */}
-            {selected.status === 'approved' && (
-              <>
-                <Alert title="อนุมัติแล้ว — รอมอบหมายผู้ดำเนินการ" type="info" showIcon className="mb-4" />
-                <Form form={assignForm} layout="vertical">
-                  <Row gutter={16}>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="assignedTo" label="มอบหมายให้เจ้าหน้าที่" rules={[{ required: true, message: 'กรุณาเลือกเจ้าหน้าที่' }]}>
-                        <Select
-                          placeholder="เลือกเจ้าหน้าที่ IT"
-                          options={itStaff.map(s => ({
-                            value: s.name,
-                            label: `${s.name}  (${s.status})`,
-                            disabled: s.status === 'ติดภารกิจ',
-                          }))}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="assignNote" label="หมายเหตุการมอบหมาย">
-                        <Input placeholder="เช่น ให้ดำเนินการภายใน 3 วัน" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Button type="primary" icon={<TeamOutlined />} onClick={handleAssign}>จ่ายงาน</Button>
-                </Form>
-              </>
-            )}
-
             {(selected.status === 'assigned' || selected.status === 'in_progress') && (
               <Alert
                 title={`จ่ายงานให้ ${selected.assignedTo} แล้ว`}
@@ -629,6 +588,44 @@ const LanRequestContent = () => {
             )}
           </div>
         )}
+
+        <div style={{ display: selected?.status === 'pending' && rejectMode ? undefined : 'none' }}>
+          <Form form={rejectForm} layout="vertical">
+            <Form.Item name="rejectReason" label="เหตุผลที่ไม่อนุมัติ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
+              <Input.TextArea rows={3} placeholder="ระบุเหตุผลที่ไม่อนุมัติ..." />
+            </Form.Item>
+            <Space>
+              <Button danger icon={<CloseCircleOutlined />} onClick={handleReject}>ยืนยันการปฏิเสธ</Button>
+              <Button onClick={() => setRejectMode(false)}>ยกเลิก</Button>
+            </Space>
+          </Form>
+        </div>
+
+        <div style={{ display: selected?.status === 'approved' ? undefined : 'none' }}>
+          <Alert title="อนุมัติแล้ว — รอมอบหมายผู้ดำเนินการ" type="info" showIcon className="mb-4" />
+          <Form form={assignForm} layout="vertical">
+            <Row gutter={16}>
+              <Col xs={24} md={12}>
+                <Form.Item name="assignedTo" label="มอบหมายให้เจ้าหน้าที่" rules={[{ required: true, message: 'กรุณาเลือกเจ้าหน้าที่' }]}>
+                  <Select
+                    placeholder="เลือกเจ้าหน้าที่ IT"
+                    options={itStaff.map(s => ({
+                      value: s.name,
+                      label: `${s.name}  (${s.status})`,
+                      disabled: s.status === 'ติดภารกิจ',
+                    }))}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item name="assignNote" label="หมายเหตุการมอบหมาย">
+                  <Input placeholder="เช่น ให้ดำเนินการภายใน 3 วัน" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Button type="primary" icon={<TeamOutlined />} onClick={handleAssign}>จ่ายงาน</Button>
+          </Form>
+        </div>
       </Modal>
     </div>
   )

@@ -1,5 +1,7 @@
 'use client'
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Cookies from 'js-cookie'
 import {
   ConfigProvider, App, theme, Card, Form, Input, Button, Breadcrumb, Typography,
   Row, Col, Progress, Tag, Space, Avatar, Divider, Alert
@@ -30,10 +32,17 @@ const rules: PasswordRule[] = [
 ]
 
 const ChangePasswordContent = () => {
+  const router = useRouter()
   const [form] = Form.useForm()
   const [submitting, setSubmitting] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [userData, setUserData] = useState<{ name?: string; position_name?: string; major_name?: string }>({})
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (raw) { try { setUserData(JSON.parse(raw)) } catch { /* ignore */ } }
+  }, [])
 
   const passedRules = useMemo(
     () => rules.filter(r => r.test(newPassword)).map(r => r.key),
@@ -55,17 +64,6 @@ const ChangePasswordContent = () => {
   }, [newPassword, confirmPassword])
 
   const handleFinish = async (values: { current: string; password: string; confirm: string }) => {
-    if (values.password !== values.confirm) {
-      Swal.fire({
-        title: 'รหัสผ่านไม่ตรงกัน',
-        text: 'กรุณายืนยันรหัสผ่านใหม่อีกครั้ง',
-        icon: 'warning',
-        background: '#1e293b',
-        color: '#e2e8f0',
-        confirmButtonColor: '#006a5a',
-      })
-      return
-    }
     if (passedRules.length < rules.length) {
       Swal.fire({
         title: 'รหัสผ่านยังไม่ปลอดภัยเพียงพอ',
@@ -78,22 +76,49 @@ const ChangePasswordContent = () => {
       return
     }
 
+    const raw = Cookies.get('user_data')
+    const userId = raw ? JSON.parse(raw)?.id : null
+    if (!userId) {
+      Swal.fire({ title: 'ไม่พบข้อมูลผู้ใช้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#006a5a' })
+      return
+    }
+
     setSubmitting(true)
-    await new Promise((r) => setTimeout(r, 700))
-    setSubmitting(false)
-
-    Swal.fire({
-      title: 'เปลี่ยนรหัสผ่านสำเร็จ',
-      text: 'รหัสผ่านของคุณได้รับการอัปเดตเรียบร้อยแล้ว',
-      icon: 'success',
-      background: '#1e293b',
-      color: '#e2e8f0',
-      confirmButtonColor: '#006a5a',
-    })
-
-    form.resetFields()
-    setNewPassword('')
-    setConfirmPassword('')
+    try {
+      const res = await fetch(`/api/users/${userId}/change-password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password: values.current, new_password: values.password }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        Swal.fire({
+          title: 'เปลี่ยนรหัสผ่านไม่สำเร็จ',
+          text: json.message || 'กรุณาตรวจสอบรหัสผ่านปัจจุบันอีกครั้ง',
+          icon: 'error',
+          background: '#1e293b',
+          color: '#e2e8f0',
+          confirmButtonColor: '#006a5a',
+        })
+        return
+      }
+      await Swal.fire({
+        title: 'เปลี่ยนรหัสผ่านสำเร็จ',
+        text: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
+        icon: 'success',
+        background: '#1e293b',
+        color: '#e2e8f0',
+        confirmButtonColor: '#006a5a',
+      })
+      Cookies.remove('auth_token')
+      Cookies.remove('user_data')
+      Cookies.remove('user_type_id')
+      router.push('/')
+    } catch {
+      Swal.fire({ title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#006a5a' })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -291,10 +316,10 @@ const ChangePasswordContent = () => {
               <div className="flex items-start gap-3">
                 <Avatar size={40} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a' }} />
                 <div className="flex-1">
-                  <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>นายสมชาย ใจดี</Text>
+                  <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{userData.name || '—'}</Text>
                   <div>
                     <Text type="secondary" style={{ color: '#94a3b8', fontSize: 12 }}>
-                      นักทรัพยากรบุคคล · กลุ่มงานบริหารทั่วไป
+                      {[userData.position_name, userData.major_name].filter(Boolean).join(' · ')}
                     </Text>
                   </div>
                 </div>
@@ -304,7 +329,7 @@ const ChangePasswordContent = () => {
             <Alert
               type="info"
               showIcon
-              message="คำแนะนำเพื่อความปลอดภัย"
+              title="คำแนะนำเพื่อความปลอดภัย"
               description={
                 <Paragraph style={{ color: '#cbd5e1', marginBottom: 0, fontSize: 13 }}>
                   • ห้ามใช้รหัสผ่านซ้ำกับระบบอื่น<br />

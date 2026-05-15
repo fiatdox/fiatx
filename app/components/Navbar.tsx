@@ -25,12 +25,26 @@ import {
 const { Header } = Layout
 const { Title, Text } = Typography
 
+interface UserData {
+  name?: string
+  position_name?: string
+  major_name?: string
+}
+
 const Navbar: React.FC = () => {
   const [openMenu, setOpenMenu] = useState(false)
   const [openProfile, setOpenProfile] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const [openKeys, setOpenKeys] = useState<string[]>([])
+  const [userData, setUserData] = useState<UserData>({})
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (raw) {
+      try { setUserData(JSON.parse(raw)) } catch { /* ignore */ }
+    }
+  }, [])
 
   // กางเมนูหลักและ submenu ที่ซ้อนอยู่อัตโนมัติตาม URL ปัจจุบัน
   useEffect(() => {
@@ -314,6 +328,7 @@ const Navbar: React.FC = () => {
                   children: [
                     { key: '/information-technology/maintenance/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard งานซ่อม' },
                     { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
+                    { key: '/information-technology/maintenance/manage', icon: <FaWrench />, label: 'จัดการงานซ่อม' },
                   ]
                 },
                 { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
@@ -416,8 +431,11 @@ const Navbar: React.FC = () => {
                 }}
               />
             </div>
-            <Title level={4} style={{ margin: 0, color: '#fff' }}>นายสมชาย ใจดี</Title>
-            <Text style={{ color: 'rgba(226, 232, 240, 0.65)' }}>นักทรัพยากรบุคคล</Text>
+            <Title level={4} style={{ margin: 0, color: '#fff' }}>{userData.name || '—'}</Title>
+            <Text style={{ color: 'rgba(226, 232, 240, 0.65)' }}>{userData.position_name || ''}</Text>
+            {userData.major_name && (
+              <Text style={{ color: 'rgba(226, 232, 240, 0.45)', fontSize: 12 }}>{userData.major_name}</Text>
+            )}
           </div>
           <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
           <Menu
