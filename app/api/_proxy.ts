@@ -25,3 +25,19 @@ export async function proxy(
   console.log(`[proxy] response ${res.status}`, JSON.stringify(data).slice(0, 120))
   return NextResponse.json(data, { status: res.status })
 }
+
+export async function proxyForm(req: NextRequest, path: string) {
+  const token = req.cookies.get('auth_token')?.value
+  const url = `${BASE}${path}`
+  const contentType = req.headers.get('content-type') ?? ''
+  console.log(`[proxy] POST ${url} | multipart | token: ${token ? token.slice(0, 20) + '…' : 'MISSING'}`)
+  const bodyBlob = await req.blob()
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': contentType, ...authHeader(req) },
+    body: bodyBlob,
+  })
+  const data = await res.json().catch(() => ({}))
+  console.log(`[proxy] response ${res.status}`, JSON.stringify(data).slice(0, 120))
+  return NextResponse.json(data, { status: res.status })
+}
