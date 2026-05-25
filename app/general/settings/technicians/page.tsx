@@ -255,7 +255,7 @@ export default function TechniciansPage() {
         title={editingTech ? 'แก้ไขข้อมูลช่างซ่อม' : 'เพิ่มช่างซ่อมใหม่'}
         open={isDrawerOpen}
         onClose={() => { setIsDrawerOpen(false); form.resetFields() }}
-        width={480}
+        styles={{ wrapper: { width: 480 } }}
         footer={
           <Space className="float-right">
             <Button onClick={() => { setIsDrawerOpen(false); form.resetFields() }}>ยกเลิก</Button>

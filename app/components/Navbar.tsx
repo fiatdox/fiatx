@@ -331,8 +331,6 @@ const Navbar: React.FC = () => {
                     { key: '/information-technology/maintenance/manage', icon: <FaWrench />, label: 'จัดการงานซ่อม' },
                   ]
                 },
-                { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
-                { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
                 {
                   key: 'it-hait',
                   icon: <FaMicrochip />,
@@ -342,6 +340,7 @@ const Navbar: React.FC = () => {
                     { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
                     { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์' },
                     { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT' },
+                    { key: '/information-technology/hait/risk-management', icon: <FaUserShield />, label: 'ประเมินความเสี่ยง IT' },
                   ]
                 },
                 {
@@ -354,6 +353,9 @@ const Navbar: React.FC = () => {
                   ]
                 },
                 { key: '/information-technology/grant-charts', icon: <FaTasks />, label: 'แผนโครงการ IT (Gantt)' },
+                 { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+                { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
+                { key: '/information-technology/his-users-session', icon: <FaUserClock />, label: 'ขอเคลียร์เซสชัน HIS ผู้ใช้ระบบ' },
               ]
             },
             { 

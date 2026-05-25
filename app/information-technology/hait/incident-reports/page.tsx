@@ -330,7 +330,7 @@ export default function IncidentReportsPage() {
         title={editingIncident ? 'แก้ไขอุบัติการณ์' : 'บันทึกอุบัติการณ์ใหม่'}
         open={isDrawerOpen}
         onClose={() => { setIsDrawerOpen(false); form.resetFields() }}
-        width={540}
+        styles={{ wrapper: { width: 540 } }}
         footer={
           <Space className="float-right">
             <Button onClick={() => { setIsDrawerOpen(false); form.resetFields() }}>ยกเลิก</Button>

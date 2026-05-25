@@ -25,13 +25,13 @@ const { Title, Text } = Typography
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const quickActions = [
-  { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุง', color: '#006a5a', bg: '#006a5a20' },
-  { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'ซ่อมเครื่องมือแพทย์', color: '#0891b2', bg: '#0891b220' },
+  { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669', bg: '#05966920' },
   { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed', bg: '#7c3aed20' },
+  { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมทั่วไป', color: '#006a5a', bg: '#006a5a20' },
+  { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'เครื่องมือแพทย์', color: '#0891b2', bg: '#0891b220' },
+  { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ/จัดสถานที่', color: '#9333ea', bg: '#9333ea20' },
   { key: '/general/room-booking', icon: <FaBed />, label: 'จองห้องพัก', color: '#d97706', bg: '#d9770620' },
   { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626', bg: '#dc262620' },
-  { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ', color: '#9333ea', bg: '#9333ea20' },
-  { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669', bg: '#05966920' },
   { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งาน', color: '#2563eb', bg: '#2563eb20' },
 ]
 

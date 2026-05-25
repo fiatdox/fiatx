@@ -243,7 +243,7 @@ export default function MaintenanceChefsPage() {
         title={editingChief ? 'แก้ไขข้อมูลหัวหน้าช่าง' : 'เพิ่มหัวหน้าช่างใหม่'}
         open={isDrawerOpen}
         onClose={() => { setIsDrawerOpen(false); form.resetFields() }}
-        width={480}
+        styles={{ wrapper: { width: 480 } }}
         footer={
           <Space className="float-right">
             <Button onClick={() => { setIsDrawerOpen(false); form.resetFields() }}>ยกเลิก</Button>
