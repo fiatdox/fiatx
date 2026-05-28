@@ -321,7 +321,7 @@ function ActivityPageContent() {
   // ----- Schedule tab -----
   const logsForDate = useMemo(() => {
     const ymd = scheduleDate.format('YYYY-MM-DD')
-    return logs.filter(l => l.log_date === ymd)
+    return logs.filter(l => dayjs(l.log_date).format('YYYY-MM-DD') === ymd)
   }, [logs, scheduleDate])
 
   const staffInDate = useMemo(() => {
@@ -1189,16 +1189,14 @@ function ActivityPageContent() {
                       </div>
                     </div>
 
-                    {logsForDate.length === 0 ? (
-                      <Empty description="ไม่มีข้อมูลกิจกรรมในวันที่เลือก" />
-                    ) : (
-                      <Table
+                    <Table
                         pagination={false}
                         bordered
                         size="middle"
                         scroll={{ x: 'max-content' }}
                         rowKey="key"
-                        dataSource={staffInDate.map(s => ({ key: s.staff_id, staffName: s.full_name_th }))}
+                        locale={{ emptyText: <Empty description="ไม่มีข้อมูลกิจกรรมในวันที่เลือก" /> }}
+                        dataSource={(master?.staff ?? []).map(s => ({ key: s.staff_id, staffName: s.full_name_th }))}
                         columns={[
                           {
                             title: <span className="text-sm font-semibold">เจ้าหน้าที่</span>,
@@ -1321,7 +1319,6 @@ function ActivityPageContent() {
                           })),
                         ]}
                       />
-                    )}
                   </Card>
                 ),
               },
