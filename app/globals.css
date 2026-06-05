@@ -1,7 +1,49 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f0fdf4;
+/* ─── Semantic theme tokens ─────────────────────────────────────────────
+   ใช้ผ่าน var(--app-*) ในสไตล์ของแต่ละหน้า เพื่อให้สลับ light/dark ได้
+   ค่า default = dark (กันจอกระพริบเพราะ default ของระบบคือ dark)        */
+:root,
+[data-theme="dark"] {
+  /* พื้นหลังหลักของหน้า */
+  --app-bg: #0f172a;
+  /* พื้นผิว card / panel */
+  --app-surface: #1e293b;
+  /* พื้นผิวยกระดับ (popover/elevated) */
+  --app-elevated: #1e293b;
+  /* ข้อความหลัก */
+  --app-text: #e2e8f0;
+  /* ข้อความรอง */
+  --app-text-2: #94a3b8;
+  /* ข้อความจาง / muted */
+  --app-text-3: #64748b;
+  /* เส้นขอบ */
+  --app-border: rgba(255, 255, 255, 0.06);
+  /* เส้นขอบเข้มขึ้นเล็กน้อย */
+  --app-border-strong: rgba(255, 255, 255, 0.12);
+
+  /* legacy vars (เดิม) */
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --card: #1e293b;
+  --input: #1e293b;
+  --border: #006a5a;
+  --primary: #006a5a;
+  --secondary: #047857;
+  --danger: #ef4444;
+}
+
+[data-theme="light"] {
+  --app-bg: #f1f5f9;
+  --app-surface: #ffffff;
+  --app-elevated: #ffffff;
+  --app-text: #1e293b;
+  --app-text-2: #64748b;
+  --app-text-3: #94a3b8;
+  --app-border: rgba(15, 23, 42, 0.08);
+  --app-border-strong: rgba(15, 23, 42, 0.14);
+
+  --background: #f1f5f9;
   --foreground: #1e293b;
   --card: #ffffff;
   --input: #ffffff;
@@ -21,11 +63,30 @@
   --color-secondary: var(--secondary);
   --color-danger: var(--danger);
   --font-sans: var(--font-sarabun);
+
+  /* expose semantic tokens เป็น Tailwind color utilities ด้วย
+     เช่น bg-app-surface, text-app-text ฯลฯ */
+  --color-app-bg: var(--app-bg);
+  --color-app-surface: var(--app-surface);
+  --color-app-text: var(--app-text);
+  --color-app-text-2: var(--app-text-2);
+  --color-app-text-3: var(--app-text-3);
+  --color-app-border: var(--app-border);
 }
 
 body {
-  background: var(--background);
+  background: var(--app-bg);
   min-height: 100vh;
-  color: var(--foreground);
+  color: var(--app-text);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* โหมดสว่าง: การ์ดสีขาวบนพื้นอ่อนมักจะกลืนกัน (ดูซีด/แบน)
+   เพิ่มเงา + เส้นขอบบาง ๆ ให้การ์ดมีมิติ โดยไม่ต้องแก้ทีละหน้า */
+[data-theme="light"] .ant-card {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+[data-theme="light"] .ant-card-bordered {
+  border-color: var(--app-border);
 }

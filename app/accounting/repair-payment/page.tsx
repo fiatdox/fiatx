@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
+  Typography, Breadcrumb, Card, Tag, Button, Table,
   Modal, Form, Input, Select, Divider, Row, Col, Alert, Descriptions, Space, Badge
 } from 'antd'
 import {
@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import { FaFileAlt, FaFileInvoiceDollar } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -110,7 +111,7 @@ export default function RepairPaymentPage() {
       </div>
     )},
     { title: 'อุปกรณ์ / หน่วยงาน', key: 'asset', render: (_: any, r: typeof MOCK_PAYMENTS[0]) => (
-      <div><div style={{ fontSize: 13 }}>{r.assetName}</div><Text style={{ fontSize: 11, color: '#94a3b8' }}>{r.department}</Text></div>
+      <div><div style={{ fontSize: 13 }}>{r.assetName}</div><Text style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{r.department}</Text></div>
     )},
     { title: 'ค่าแรง',   dataIndex: 'laborCost', key: 'labor', width: 100, align: 'right' as const,
       render: (v: number) => <Text style={{ color: '#60a5fa' }}>฿{v.toLocaleString()}</Text> },
@@ -119,7 +120,7 @@ export default function RepairPaymentPage() {
     { title: 'รวม',       dataIndex: 'totalCost', key: 'total', width: 120, align: 'right' as const,
       render: (v: number) => <Text style={{ color: '#a78bfa', fontWeight: 700 }}>฿{v.toLocaleString()}</Text> },
     { title: 'รหัสงบ',   dataIndex: 'budgetCode', key: 'budget', width: 120,
-      render: (v: string) => <Text style={{ color: '#94a3b8', fontSize: 11 }}>{v}</Text> },
+      render: (v: string) => <Text style={{ color: 'var(--app-text-2)', fontSize: 11 }}>{v}</Text> },
     { title: 'สถานะ',    dataIndex: 'status',     key: 'status', width: 130,
       render: (v: PayStatus) => <Tag color={STATUS_TAG[v].color}>{STATUS_TAG[v].label}</Tag> },
     { title: '', key: 'act', width: 90, render: (_: any, r: typeof MOCK_PAYMENTS[0]) => (
@@ -130,8 +131,8 @@ export default function RepairPaymentPage() {
   ]
 
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#006a5a', borderRadius: 8 } }}>
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+    <AppThemeProvider colorPrimary="#006a5a">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb className="mb-6" items={[
@@ -142,7 +143,7 @@ export default function RepairPaymentPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <FaFileInvoiceDollar style={{ fontSize: 24, color: '#006a5a' }} />
-            <Title level={3} style={{ margin: 0, color: '#f1f5f9' }}>เบิกจ่ายค่าซ่อมบำรุง</Title>
+            <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>เบิกจ่ายค่าซ่อมบำรุง</Title>
           </div>
 
           {/* Summary Cards */}
@@ -150,13 +151,13 @@ export default function RepairPaymentPage() {
             {[
               { label: 'รออนุมัติจ่าย', value: `฿${totalPending.toLocaleString()}`, count: pending.length, color: '#d97706' },
               { label: 'จ่ายแล้วเดือนนี้', value: `฿${totalPaid.toLocaleString()}`,    count: paid.length,    color: '#006a5a' },
-              { label: 'รายการทั้งหมด',  value: payments.length,                       count: undefined,      color: '#475569' },
+              { label: 'รายการทั้งหมด',  value: payments.length,                       count: undefined,      color: 'var(--app-text-3)' },
             ].map(c => (
               <Col key={c.label} xs={24} sm={8}>
-                <Card size="small" style={{ background: '#1e293b', borderTop: `3px solid ${c.color}`, border: `1px solid ${c.color}33` }}>
-                  <Text style={{ color: '#94a3b8', fontSize: 12 }}>{c.label}</Text>
+                <Card size="small" style={{ background: 'var(--app-surface)', borderTop: `3px solid ${c.color}`, border: `1px solid ${c.color}33` }}>
+                  <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{c.label}</Text>
                   <div style={{ fontSize: 22, fontWeight: 700, color: c.color, marginTop: 4 }}>{c.value}</div>
-                  {c.count !== undefined && <Text style={{ color: '#64748b', fontSize: 12 }}>{c.count} รายการ</Text>}
+                  {c.count !== undefined && <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>{c.count} รายการ</Text>}
                 </Card>
               </Col>
             ))}
@@ -167,7 +168,7 @@ export default function RepairPaymentPage() {
               message={`มีรายการรออนุมัติจ่าย ${pending.length} รายการ รวม ฿${totalPending.toLocaleString()}`} />
           )}
 
-          <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
+          <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
             <Table dataSource={payments} columns={columns} rowKey="id" size="small"
               scroll={{ x: 1000 }}
               pagination={{ pageSize: 10 }}
@@ -199,7 +200,7 @@ export default function RepairPaymentPage() {
       >
         {selected && (
           <div style={{ marginTop: 8 }}>
-            <Descriptions size="small" column={2} labelStyle={{ color: '#94a3b8' }} contentStyle={{ color: '#e2e8f0' }}>
+            <Descriptions size="small" column={2} labelStyle={{ color: 'var(--app-text-2)' }} contentStyle={{ color: 'var(--app-text)' }}>
               <Descriptions.Item label="ใบงานซ่อม">{selected.woId}</Descriptions.Item>
               <Descriptions.Item label="อุปกรณ์">{selected.assetName}</Descriptions.Item>
               <Descriptions.Item label="ค่าแรง">
@@ -213,7 +214,7 @@ export default function RepairPaymentPage() {
               </Descriptions.Item>
             </Descriptions>
 
-            <Divider style={{ borderColor: '#334155' }} />
+            <Divider style={{ borderColor: 'var(--app-border-strong)' }} />
             <Form form={form} layout="vertical">
               <Form.Item label="รหัสงบประมาณที่ตัดจ่าย" name="budgetCode" initialValue={selected.budgetCode} rules={[{ required: true }]}>
                 <Select options={BUDGET_CODES} />
@@ -225,6 +226,6 @@ export default function RepairPaymentPage() {
           </div>
         )}
       </Modal>
-    </ConfigProvider>
+    </AppThemeProvider>
   )
 }

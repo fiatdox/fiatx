@@ -1,6 +1,6 @@
-# PYHOS-ERP
+# PYHOS-EXP
 
-ระบบบริหารโรงพยาบาลอัจฉริยะ (Ministry Hospital Portal) — Next.js App Router + Ant Design v6 + Tailwind CSS v4
+**PYHOS-EXP** (PYHOS **EX**perience Platform) — ระบบบริหารโรงพยาบาลอัจฉริยะ (Ministry Hospital Portal) — Next.js App Router + Ant Design v6 + Tailwind CSS v4
 UI ทั้งหมดเป็นภาษาไทย ใช้สำหรับเจ้าหน้าที่และผู้บริหารโรงพยาบาล
 
 ## Tech Stack

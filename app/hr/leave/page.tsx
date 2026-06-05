@@ -13,14 +13,12 @@ import {
   Typography,
   Space,
   Breadcrumb,
-  ConfigProvider,
   Divider,
   Alert,
   Upload,
   InputNumber,
   Checkbox,
-  App,
-  theme
+  App
 } from 'antd'
 import {
   HomeOutlined,
@@ -33,6 +31,7 @@ import {
 import dayjs from 'dayjs'
 import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -181,7 +180,7 @@ const LeavePageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <div className="w-full">
@@ -228,7 +227,7 @@ const LeavePageContent = () => {
                   </Form.Item>
 
                   {leaveType === 4 && (
-                    <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
+                    <div className="mb-6 p-4 bg-app-surface rounded-lg border border-app-border">
                       <Form.Item name="isAbroad" valuePropName="checked" noStyle>
                         <Checkbox>ลาไปต่างประเทศ</Checkbox>
                       </Form.Item>
@@ -246,7 +245,7 @@ const LeavePageContent = () => {
                   )}
 
                   {leaveType === 2 && (
-                    <div className="mb-6 p-4 bg-slate-800 rounded-lg border border-slate-700">
+                    <div className="mb-6 p-4 bg-app-surface rounded-lg border border-app-border">
                       <Form.Item
                         name="maternityType"
                         label="ประเภทการลาคลอด"
@@ -328,7 +327,7 @@ const LeavePageContent = () => {
                     <Select
                       showSearch
                       placeholder="ค้นหาชื่อผู้ปฏิบัติงานแทน"
-                      prefix={<UserOutlined className="text-slate-400" />}
+                      prefix={<UserOutlined className="text-app-text-2" />}
                       options={[
                         { value: '1', label: 'นายสมชาย ใจดี' },
                         { value: '2', label: 'นางสาวสมหญิง รักเรียน' },
@@ -455,7 +454,7 @@ const LeavePageContent = () => {
                   >
                     ส่งคำขออนุมัติลา
                   </Button>
-                  <Button type="link" block className="mt-2 text-slate-400">
+                  <Button type="link" block className="mt-2 text-app-text-2">
                     ยกเลิก
                   </Button>
                 </Card>
@@ -470,20 +469,9 @@ const LeavePageContent = () => {
 
 const LeavePage = () => {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#006a5a',
-          borderRadius: 8,
-          fontFamily: 'var(--font-sarabun)',
-        },
-      }}
-    >
-      <App>
-        <LeavePageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <LeavePageContent />
+    </AppThemeProvider>
   )
 }
 

@@ -15,7 +15,7 @@ No test suite is configured.
 
 ## Architecture
 
-This is **PYHOS-ERP** — a Thai hospital ministry portal built with Next.js App Router. The UI is entirely in Thai (ภาษาไทย).
+This is **PYHOS-EXP** (PYHOS EXperience Platform) — a Thai hospital ministry portal built with Next.js App Router. The UI is entirely in Thai (ภาษาไทย).
 
 ### Tech Stack
 - **Next.js 16** with App Router (Turbopack enabled in dev)

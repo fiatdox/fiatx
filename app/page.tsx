@@ -85,7 +85,7 @@ export default function LoginPage() {
                 <FaHospital className="text-xl text-white" />
               </div>
               <div className="leading-tight">
-                <div className="text-lg font-bold tracking-wide text-white">PYHOS-ERP</div>
+                <div className="text-lg font-bold tracking-wide text-white">PYHOS-EXP</div>
                 <div className="text-xs text-emerald-300/70">Ministry Hospital Portal</div>
               </div>
             </div>
@@ -136,7 +136,7 @@ export default function LoginPage() {
                 <FaHospital className="text-lg text-white" />
               </div>
               <div className="leading-tight">
-                <div className="text-base font-bold tracking-wide text-white">PYHOS-ERP</div>
+                <div className="text-base font-bold tracking-wide text-white">PYHOS-EXP</div>
                 <div className="text-[11px] text-emerald-300/70">Ministry Hospital Portal</div>
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function LoginPage() {
 
             {/* Bottom legal */}
             <div className="mt-6 text-center text-[11px] text-slate-500">
-              © {new Date().getFullYear()} PYHOS-ERP · กระทรวงสาธารณสุข
+              © {new Date().getFullYear()} PYHOS-EXP · กระทรวงสาธารณสุข
               <span className="mx-2">·</span>
               <a href="#" className="hover:text-slate-300">นโยบายความเป็นส่วนตัว</a>
             </div>

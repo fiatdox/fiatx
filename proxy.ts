@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// ถอดรหัส cookie ที่ js-cookie เขียนไว้ (percent-encoded) — เผื่อกรณีไม่ได้ encode ด้วย
+function safeDecode(v: string): string {
+  try {
+    return decodeURIComponent(v)
+  } catch {
+    return v
+  }
+}
+
+// อ่าน roles ของผู้ใช้จาก cookie `user_data`
+function getRoles(req: NextRequest): string[] {
+  const raw = req.cookies.get('user_data')?.value
+  if (!raw) return []
+  for (const candidate of [raw, safeDecode(raw)]) {
+    try {
+      const data = JSON.parse(candidate)
+      if (Array.isArray(data?.roles)) return data.roles.map(String)
+    } catch {
+      /* ลองค่าถัดไป */
+    }
+  }
+  return []
+}
+
 function isTokenExpired(token: string): boolean {
   try {
     const payload = token.split('.')[1]
@@ -34,6 +58,17 @@ export function proxy(req: NextRequest) {
     res.cookies.delete('auth_token')
     res.cookies.delete('user_data')
     return res
+  }
+
+  // กั้นหน้าจัดการสิทธิ์การใช้งาน — ต้องมีสิทธิ์ IT_STAFF หรือ ADMIN เท่านั้น
+  if (pathname === '/account/roles' || pathname.startsWith('/account/roles/')) {
+    const roles = getRoles(req)
+    if (!roles.includes('IT_STAFF') && !roles.includes('ADMIN')) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
   }
 
   return NextResponse.next()

@@ -315,7 +315,7 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
         </View>
 
         <Text style={s.footNote}>
-          เอกสารนี้จัดทำโดยระบบอัตโนมัติ · พิมพ์เมื่อ {printDate} · PYHOS-ERP ระบบการเงินและบัญชี
+          เอกสารนี้จัดทำโดยระบบอัตโนมัติ · พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบการเงินและบัญชี
         </Text>
       </Page>
     </Document>

@@ -3,7 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import {
-  ConfigProvider, App, theme, Card, Form, Input, Button, Breadcrumb, Typography,
+  Card, Form, Input, Button, Breadcrumb, Typography,
   Row, Col, Progress, Tag, Space, Avatar, Divider, Alert
 } from 'antd'
 import {
@@ -12,6 +12,7 @@ import {
   ClockCircleOutlined, InfoCircleOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 
@@ -51,7 +52,7 @@ const ChangePasswordContent = () => {
   const strengthPercent = (passedRules.length / rules.length) * 100
 
   const strengthMeta = useMemo(() => {
-    if (!newPassword) return { label: 'ยังไม่ได้ป้อน', color: '#475569' }
+    if (!newPassword) return { label: 'ยังไม่ได้ป้อน', color: 'var(--app-text-3)' }
     if (passedRules.length <= 2) return { label: 'อ่อนแอ',   color: '#ef4444' }
     if (passedRules.length === 3) return { label: 'ปานกลาง', color: '#f59e0b' }
     if (passedRules.length === 4) return { label: 'แข็งแรง', color: '#22c55e' }
@@ -69,8 +70,8 @@ const ChangePasswordContent = () => {
         title: 'รหัสผ่านยังไม่ปลอดภัยเพียงพอ',
         text: 'กรุณาตั้งรหัสผ่านให้ครบทุกเงื่อนไข',
         icon: 'warning',
-        background: '#1e293b',
-        color: '#e2e8f0',
+        background: 'var(--app-surface)',
+        color: 'var(--app-text)',
         confirmButtonColor: '#006a5a',
       })
       return
@@ -79,7 +80,7 @@ const ChangePasswordContent = () => {
     const raw = Cookies.get('user_data')
     const userId = raw ? JSON.parse(raw)?.id : null
     if (!userId) {
-      Swal.fire({ title: 'ไม่พบข้อมูลผู้ใช้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#006a5a' })
+      Swal.fire({ title: 'ไม่พบข้อมูลผู้ใช้', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#006a5a' })
       return
     }
 
@@ -96,8 +97,8 @@ const ChangePasswordContent = () => {
           title: 'เปลี่ยนรหัสผ่านไม่สำเร็จ',
           text: json.message || 'กรุณาตรวจสอบรหัสผ่านปัจจุบันอีกครั้ง',
           icon: 'error',
-          background: '#1e293b',
-          color: '#e2e8f0',
+          background: 'var(--app-surface)',
+          color: 'var(--app-text)',
           confirmButtonColor: '#006a5a',
         })
         return
@@ -106,8 +107,8 @@ const ChangePasswordContent = () => {
         title: 'เปลี่ยนรหัสผ่านสำเร็จ',
         text: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง',
         icon: 'success',
-        background: '#1e293b',
-        color: '#e2e8f0',
+        background: 'var(--app-surface)',
+        color: 'var(--app-text)',
         confirmButtonColor: '#006a5a',
       })
       Cookies.remove('auth_token')
@@ -115,14 +116,14 @@ const ChangePasswordContent = () => {
       Cookies.remove('user_type_id')
       router.push('/')
     } catch {
-      Swal.fire({ title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#006a5a' })
+      Swal.fire({ title: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#006a5a' })
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8 max-w-6xl mx-auto">
         <Breadcrumb
@@ -150,8 +151,8 @@ const ChangePasswordContent = () => {
               <LockOutlined style={{ fontSize: 32, color: '#34d399' }} />
             </div>
             <div className="flex-1">
-              <Title level={3} style={{ margin: 0, color: '#e2e8f0' }}>เปลี่ยนรหัสผ่าน</Title>
-              <Text type="secondary" style={{ color: '#94a3b8' }}>
+              <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>เปลี่ยนรหัสผ่าน</Title>
+              <Text type="secondary" style={{ color: 'var(--app-text-2)' }}>
                 ตั้งรหัสผ่านใหม่ที่คาดเดายาก เพื่อความปลอดภัยของบัญชีของคุณ
               </Text>
             </div>
@@ -159,7 +160,7 @@ const ChangePasswordContent = () => {
               <Tag color="green" icon={<SafetyCertificateOutlined />} className="!m-0">
                 ปลอดภัยด้วยการเข้ารหัส
               </Tag>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                 <ClockCircleOutlined /> เปลี่ยนล่าสุด: {dayjs().subtract(45, 'day').format('DD/MM/YYYY')}
               </Text>
             </div>
@@ -171,7 +172,7 @@ const ChangePasswordContent = () => {
           <Col xs={24} lg={15}>
             <Card
               title={<Space><KeyOutlined style={{ color: '#34d399' }} /><span>ฟอร์มเปลี่ยนรหัสผ่าน</span></Space>}
-              styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}
             >
               <Form
                 form={form}
@@ -181,26 +182,26 @@ const ChangePasswordContent = () => {
                 requiredMark="optional"
               >
                 <Form.Item
-                  label={<span className="text-slate-300">รหัสผ่านปัจจุบัน</span>}
+                  label={<span className="text-app-text-2">รหัสผ่านปัจจุบัน</span>}
                   name="current"
                   rules={[{ required: true, message: 'กรุณากรอกรหัสผ่านปัจจุบัน' }]}
                 >
                   <Input.Password
                     size="large"
-                    prefix={<LockOutlined className="text-slate-500" />}
+                    prefix={<LockOutlined className="text-app-text-3" />}
                     placeholder="กรอกรหัสผ่านปัจจุบัน"
                     iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
                   />
                 </Form.Item>
 
                 <Form.Item
-                  label={<span className="text-slate-300">รหัสผ่านใหม่</span>}
+                  label={<span className="text-app-text-2">รหัสผ่านใหม่</span>}
                   name="password"
                   rules={[{ required: true, message: 'กรุณากรอกรหัสผ่านใหม่' }]}
                 >
                   <Input.Password
                     size="large"
-                    prefix={<KeyOutlined className="text-slate-500" />}
+                    prefix={<KeyOutlined className="text-app-text-3" />}
                     placeholder="ตั้งรหัสผ่านใหม่ที่คาดเดายาก"
                     onChange={(e) => setNewPassword(e.target.value)}
                     iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
@@ -210,7 +211,7 @@ const ChangePasswordContent = () => {
                 {/* Strength meter */}
                 <div className="mb-4 -mt-2">
                   <div className="flex items-center justify-between mb-1">
-                    <Text style={{ color: '#94a3b8', fontSize: 12 }}>ความแข็งแรงของรหัสผ่าน</Text>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>ความแข็งแรงของรหัสผ่าน</Text>
                     <Text style={{ color: strengthMeta.color, fontSize: 12, fontWeight: 600 }}>
                       {strengthMeta.label}
                     </Text>
@@ -219,13 +220,13 @@ const ChangePasswordContent = () => {
                     percent={strengthPercent}
                     showInfo={false}
                     strokeColor={strengthMeta.color}
-                    railColor="#1e293b"
+                    railColor="var(--app-border-strong)"
                     size="small"
                   />
                 </div>
 
                 <Form.Item
-                  label={<span className="text-slate-300">ยืนยันรหัสผ่านใหม่</span>}
+                  label={<span className="text-app-text-2">ยืนยันรหัสผ่านใหม่</span>}
                   name="confirm"
                   dependencies={['password']}
                   rules={[
@@ -240,7 +241,7 @@ const ChangePasswordContent = () => {
                 >
                   <Input.Password
                     size="large"
-                    prefix={<KeyOutlined className="text-slate-500" />}
+                    prefix={<KeyOutlined className="text-app-text-3" />}
                     placeholder="กรอกซ้ำรหัสผ่านใหม่อีกครั้ง"
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
@@ -257,7 +258,7 @@ const ChangePasswordContent = () => {
                   </div>
                 )}
 
-                <Divider style={{ borderColor: '#1e293b', margin: '12px 0 16px' }} />
+                <Divider style={{ borderColor: 'var(--app-surface)', margin: '12px 0 16px' }} />
 
                 <div className="flex flex-wrap gap-2 justify-end">
                   <Button
@@ -288,7 +289,7 @@ const ChangePasswordContent = () => {
           <Col xs={24} lg={9}>
             <Card
               title={<Space><InfoCircleOutlined style={{ color: '#34d399' }} /><span>เงื่อนไขรหัสผ่าน</span></Space>}
-              styles={{ header: { borderBottom: '1px solid #1e293b' } }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}
               className="mb-5"
             >
               <ul className="list-none p-0 m-0 space-y-2">
@@ -299,9 +300,9 @@ const ChangePasswordContent = () => {
                       {ok ? (
                         <CheckCircleFilled style={{ color: '#22c55e' }} />
                       ) : (
-                        <CloseCircleFilled style={{ color: '#475569' }} />
+                        <CloseCircleFilled style={{ color: 'var(--app-text-3)' }} />
                       )}
-                      <Text style={{ color: ok ? '#86efac' : '#94a3b8' }}>{r.label}</Text>
+                      <Text style={{ color: ok ? '#86efac' : 'var(--app-text-2)' }}>{r.label}</Text>
                     </li>
                   )
                 })}
@@ -316,9 +317,9 @@ const ChangePasswordContent = () => {
               <div className="flex items-start gap-3">
                 <Avatar size={40} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a' }} />
                 <div className="flex-1">
-                  <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{userData.name || '—'}</Text>
+                  <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>{userData.name || '—'}</Text>
                   <div>
-                    <Text type="secondary" style={{ color: '#94a3b8', fontSize: 12 }}>
+                    <Text type="secondary" style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                       {[userData.position_name, userData.major_name].filter(Boolean).join(' · ')}
                     </Text>
                   </div>
@@ -331,14 +332,14 @@ const ChangePasswordContent = () => {
               showIcon
               title="คำแนะนำเพื่อความปลอดภัย"
               description={
-                <Paragraph style={{ color: '#cbd5e1', marginBottom: 0, fontSize: 13 }}>
+                <Paragraph style={{ color: 'var(--app-text-2)', marginBottom: 0, fontSize: 13 }}>
                   • ห้ามใช้รหัสผ่านซ้ำกับระบบอื่น<br />
                   • ไม่ควรเปิดเผยรหัสผ่านกับผู้อื่น<br />
                   • แนะนำให้เปลี่ยนรหัสผ่านทุก ๆ 90 วัน<br />
                   • หลีกเลี่ยงข้อมูลส่วนตัว เช่น วันเกิด เบอร์โทร
                 </Paragraph>
               }
-              style={{ background: 'rgba(30,41,59,0.6)', borderColor: '#1e293b' }}
+              style={{ background: 'rgba(30,41,59,0.6)', borderColor: 'var(--app-surface)' }}
             />
           </Col>
         </Row>
@@ -349,15 +350,8 @@ const ChangePasswordContent = () => {
 
 export default function ChangePasswordPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: { colorPrimary: '#006a5a', borderRadius: 8 },
-      }}
-    >
-      <App>
-        <ChangePasswordContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <ChangePasswordContent />
+    </AppThemeProvider>
   )
 }

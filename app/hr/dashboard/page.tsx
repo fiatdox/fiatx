@@ -1,7 +1,7 @@
 'use client'
 import React, { useMemo } from 'react'
 import {
-  Card, Typography, ConfigProvider, Breadcrumb, Row, Col, theme, App,
+  Card, Typography, Breadcrumb, Row, Col,
   Tag, Progress, Space, Statistic, Divider
 } from 'antd'
 import {
@@ -13,6 +13,7 @@ import {
   FaSignOutAlt, FaBriefcase
 } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '../../components/EChart'
 
 const { Title, Text } = Typography
@@ -89,13 +90,13 @@ const PageContent = () => {
     xAxis: {
       type: 'category',
       data: staffTypeData.map(d => d.name),
-      axisLabel: { color: '#cbd5e1', fontSize: 11, interval: 0, rotate: 18 }
+      axisLabel: { color: 'var(--app-text-2)', fontSize: 11, interval: 0, rotate: 18 }
     },
-    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     series: [{
       type: 'bar',
       data: staffTypeData.map(d => ({ value: d.value, itemStyle: { color: d.color, borderRadius: [6, 6, 0, 0] } })),
-      label: { show: true, position: 'top', color: '#e2e8f0', fontWeight: 600 },
+      label: { show: true, position: 'top', color: 'var(--app-text)', fontWeight: 600 },
       barMaxWidth: 56,
     }]
   }), [staffTypeData])
@@ -106,11 +107,11 @@ const PageContent = () => {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: 8, right: 32, bottom: 8, top: 8, containLabel: true },
-      xAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
       yAxis: {
         type: 'category',
         data: sorted.map(d => d.name),
-        axisLabel: { color: '#cbd5e1', fontSize: 12 }
+        axisLabel: { color: 'var(--app-text-2)', fontSize: 12 }
       },
       series: [{
         type: 'bar',
@@ -125,7 +126,7 @@ const PageContent = () => {
             ]
           }
         },
-        label: { show: true, position: 'right', color: '#e2e8f0', fontWeight: 600 },
+        label: { show: true, position: 'right', color: 'var(--app-text)', fontWeight: 600 },
         barMaxWidth: 22,
       }]
     }
@@ -136,7 +137,7 @@ const PageContent = () => {
     tooltip: { trigger: 'item', formatter: '{b}: <b>{c}</b> คน ({d}%)' },
     legend: {
       bottom: 0,
-      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
       itemWidth: 10, itemHeight: 10
     },
     series: [{
@@ -144,11 +145,11 @@ const PageContent = () => {
       radius: ['52%', '78%'],
       center: ['50%', '42%'],
       avoidLabelOverlap: true,
-      itemStyle: { borderColor: '#0f172a', borderWidth: 2 },
+      itemStyle: { borderColor: 'var(--app-bg)', borderWidth: 2 },
       label: {
         show: true,
         formatter: '{b}\n{c} คน',
-        color: '#e2e8f0',
+        color: 'var(--app-text)',
         fontSize: 11
       },
       labelLine: { length: 8, length2: 6 },
@@ -163,9 +164,9 @@ const PageContent = () => {
     xAxis: {
       type: 'category',
       data: exitMonthData.map(d => d.m),
-      axisLabel: { color: '#cbd5e1' }
+      axisLabel: { color: 'var(--app-text-2)' }
     },
-    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     series: [{
       type: 'bar',
       data: exitMonthData.map(d => d.value),
@@ -179,7 +180,7 @@ const PageContent = () => {
           ]
         }
       },
-      label: { show: true, position: 'top', color: '#e2e8f0' },
+      label: { show: true, position: 'top', color: 'var(--app-text)' },
       barMaxWidth: 28,
     }]
   }), [exitMonthData])
@@ -191,9 +192,9 @@ const PageContent = () => {
     xAxis: {
       type: 'category',
       data: ageData.map(d => d.name),
-      axisLabel: { color: '#cbd5e1', fontSize: 12 }
+      axisLabel: { color: 'var(--app-text-2)', fontSize: 12 }
     },
-    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     series: [{
       type: 'bar',
       data: ageData.map(d => d.value),
@@ -207,7 +208,7 @@ const PageContent = () => {
           ]
         }
       },
-      label: { show: true, position: 'top', color: '#e2e8f0', fontWeight: 600 },
+      label: { show: true, position: 'top', color: 'var(--app-text)', fontWeight: 600 },
       barMaxWidth: 56,
     }]
   }), [ageData])
@@ -217,14 +218,14 @@ const PageContent = () => {
     tooltip: { trigger: 'item', formatter: '{b}: <b>{c}</b> คน ({d}%)' },
     legend: {
       bottom: 0,
-      textStyle: { color: '#cbd5e1', fontSize: 12 }
+      textStyle: { color: 'var(--app-text-2)', fontSize: 12 }
     },
     series: [{
       type: 'pie',
       radius: ['58%', '82%'],
       center: ['50%', '42%'],
-      itemStyle: { borderColor: '#0f172a', borderWidth: 3 },
-      label: { show: true, color: '#e2e8f0', formatter: '{b}\n{d}%', fontSize: 12 },
+      itemStyle: { borderColor: 'var(--app-bg)', borderWidth: 3 },
+      label: { show: true, color: 'var(--app-text)', formatter: '{b}\n{d}%', fontSize: 12 },
       data: genderData.map(d => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })),
     }]
   }), [genderData])
@@ -234,7 +235,7 @@ const PageContent = () => {
     tooltip: { trigger: 'item', formatter: '{b}: <b>{c}</b> คน ({d}%)' },
     legend: {
       bottom: 0,
-      textStyle: { color: '#cbd5e1', fontSize: 11 },
+      textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
       itemWidth: 10, itemHeight: 10,
       type: 'scroll'
     },
@@ -243,8 +244,8 @@ const PageContent = () => {
       radius: ['0%', '70%'],
       center: ['50%', '42%'],
       roseType: 'radius',
-      itemStyle: { borderColor: '#0f172a', borderWidth: 2 },
-      label: { color: '#e2e8f0', fontSize: 11, formatter: '{c}' },
+      itemStyle: { borderColor: 'var(--app-bg)', borderWidth: 2 },
+      label: { color: 'var(--app-text)', fontSize: 11, formatter: '{c}' },
       data: missionGroupData.map((d, i) => ({
         name: d.name, value: d.value,
         itemStyle: { color: ['#006a5a', '#0d9488', '#14b8a6', '#22c55e'][i % 4] }
@@ -255,7 +256,7 @@ const PageContent = () => {
   const totalExitPct = ((exitYTD / totalStaff) * 100).toFixed(1)
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
@@ -398,7 +399,7 @@ const PageContent = () => {
                     <div className="flex items-center justify-between px-2 py-1 rounded" style={{ background: 'rgba(255,255,255,0.03)' }}>
                       <div className="flex items-center gap-2">
                         <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: d.color }} />
-                        <Text style={{ fontSize: 12, color: '#cbd5e1' }}>{d.name}</Text>
+                        <Text style={{ fontSize: 12, color: 'var(--app-text-2)' }}>{d.name}</Text>
                       </div>
                       <Text strong style={{ color: d.color, fontSize: 13 }}>{d.value}</Text>
                     </div>
@@ -484,7 +485,7 @@ const PageContent = () => {
             return (
               <div key={d.name} className="mb-3">
                 <div className="flex items-center justify-between mb-1">
-                  <Text style={{ color: '#e2e8f0' }}>{d.name}</Text>
+                  <Text style={{ color: 'var(--app-text)' }}>{d.name}</Text>
                   <Text strong style={{ color }}>{d.value} คน ({pct}%)</Text>
                 </div>
                 <Progress percent={pct} strokeColor={color} showInfo={false} size="small" />
@@ -499,10 +500,8 @@ const PageContent = () => {
 
 export default function HrDashboardPage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#006a5a', borderRadius: 8 } }}>
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

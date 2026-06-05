@@ -1,9 +1,9 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
+  App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
   Input, Select, Modal, Form, Space, Statistic, Progress, Popconfirm, Drawer,
-  Descriptions, theme, InputNumber
+  Descriptions, InputNumber
 } from 'antd'
 import {
   HomeOutlined, FundOutlined, PlusOutlined, EyeOutlined, EditOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { FaGraduationCap } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 import {
   loadStrategies, saveStrategies, loadGoals, DEFAULT_STRATEGIES,
@@ -136,7 +137,7 @@ const StrategyPageContent = () => {
         const pm = getPillarMeta(r.pillar)
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontWeight: 600, marginBottom: 4 }}>{v}</div>
+            <div style={{ color: 'var(--app-text)', fontWeight: 600, marginBottom: 4 }}>{v}</div>
             <Tag color={pm.color} style={{ borderColor: pm.color, color: '#fff', background: pm.color + 'aa' }}>{pm.label}</Tag>
           </div>
         )
@@ -146,15 +147,15 @@ const StrategyPageContent = () => {
       title: 'ผู้รับผิดชอบ', dataIndex: 'owner', width: 200,
       render: (v: string, r: Strategy) => (
         <div>
-          <div style={{ color: '#e2e8f0' }}>{v}</div>
-          <Text className="text-xs text-slate-500">{r.ownerPosition}</Text>
+          <div style={{ color: 'var(--app-text)' }}>{v}</div>
+          <Text className="text-xs text-app-text-3">{r.ownerPosition}</Text>
         </div>
       )
     },
     {
       title: 'ระยะเวลา', width: 130,
       render: (_: unknown, r: Strategy) => (
-        <Text style={{ color: '#94a3b8' }}>พ.ศ. {r.startYear} – {r.endYear}</Text>
+        <Text style={{ color: 'var(--app-text-2)' }}>พ.ศ. {r.startYear} – {r.endYear}</Text>
       )
     },
     {
@@ -194,7 +195,7 @@ const StrategyPageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-[#020617] text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" />
       </div>
@@ -202,7 +203,7 @@ const StrategyPageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
 
       <div className="fixed inset-0 pointer-events-none">
@@ -222,7 +223,7 @@ const StrategyPageContent = () => {
           <div className="flex items-center gap-3">
             <CompassOutlined style={{ fontSize: 28, color: '#a855f7' }} />
             <div>
-              <Title level={3} style={{ color: '#f1f5f9', margin: 0 }}>ยุทธศาสตร์การพัฒนาบุคลากร</Title>
+              <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>ยุทธศาสตร์การพัฒนาบุคลากร</Title>
               <Text type="secondary">5-Year HR Development Strategic Plan · กรอบยุทธศาสตร์ระยะ 5 ปี</Text>
             </div>
           </div>
@@ -238,26 +239,26 @@ const StrategyPageContent = () => {
         {/* KPI Strip */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="ยุทธศาสตร์ทั้งหมด" value={rows.length} suffix="เรื่อง"
                 styles={{ content: { color: '#a855f7', fontWeight: 800 } }} />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="กำลังดำเนินการ" value={activeCount} suffix="เรื่อง"
                 styles={{ content: { color: '#10b981', fontWeight: 800 } }} />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="งบประมาณกรอบรวม" value={totalBudget} formatter={(v) => formatTHB(Number(v))}
                 styles={{ content: { color: '#3b82f6', fontWeight: 800, fontSize: 22 } }} />
             </Card>
           </Col>
         </Row>
 
-        <Card className="bg-slate-900/40 border-slate-800/50">
+        <Card className="bg-app-surface/40 border-app-border">
           <Space wrap className="mb-4">
             <Input
               prefix={<SearchOutlined />}
@@ -396,9 +397,9 @@ const StrategyPageContent = () => {
               <Tag color={getStatusMeta(detail.status).color}>{getStatusMeta(detail.status).label}</Tag>
             </div>
 
-            <Card className="mb-4 bg-slate-900/40 border-slate-800/50" styles={{ body: { padding: 16 } }}>
-              <Text className="text-slate-400 text-xs uppercase tracking-widest">วิสัยทัศน์ / ผลลัพธ์ที่คาดหวัง</Text>
-              <div className="text-slate-100 mt-1">{detail.vision}</div>
+            <Card className="mb-4 bg-app-surface/40 border-app-border" styles={{ body: { padding: 16 } }}>
+              <Text className="text-app-text-2 text-xs uppercase tracking-widest">วิสัยทัศน์ / ผลลัพธ์ที่คาดหวัง</Text>
+              <div className="text-app-text mt-1">{detail.vision}</div>
             </Card>
 
             <Descriptions column={1} bordered size="small" labelStyle={{ width: 160 }}>
@@ -409,14 +410,14 @@ const StrategyPageContent = () => {
               <Descriptions.Item label="หมายเหตุ">{detail.notes || '—'}</Descriptions.Item>
             </Descriptions>
 
-            <Title level={5} className="mt-5 mb-3 text-slate-200">เป้าหมายภายใต้ยุทธศาสตร์นี้ ({detailGoals.length})</Title>
+            <Title level={5} className="mt-5 mb-3 text-app-text">เป้าหมายภายใต้ยุทธศาสตร์นี้ ({detailGoals.length})</Title>
             {detailGoals.length === 0 ? (
               <Text type="secondary">ยังไม่มีเป้าหมายภายใต้ยุทธศาสตร์นี้</Text>
             ) : (
               detailGoals.map(g => (
-                <Card key={g.id} size="small" className="mb-2 bg-slate-900/40 border-slate-800/50" styles={{ body: { padding: 12 } }}>
+                <Card key={g.id} size="small" className="mb-2 bg-app-surface/40 border-app-border" styles={{ body: { padding: 12 } }}>
                   <div className="flex items-center justify-between mb-2">
-                    <Text strong style={{ color: '#cbd5e1' }}>{g.code} · {g.name}</Text>
+                    <Text strong style={{ color: 'var(--app-text-2)' }}>{g.code} · {g.name}</Text>
                     <Tag color={getStatusMeta(g.status).color}>{getStatusMeta(g.status).label}</Tag>
                   </div>
                   <Text type="secondary" className="text-xs">
@@ -439,21 +440,8 @@ const StrategyPageContent = () => {
 
 export default function StrategyPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#a855f7',
-          borderRadius: 10,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.08)'
-        }
-      }}
-    >
-      <App>
-        <StrategyPageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#a855f7">
+      <StrategyPageContent />
+    </AppThemeProvider>
   )
 }

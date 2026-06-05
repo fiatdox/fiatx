@@ -10,8 +10,11 @@ import {
   FileTextOutlined,
   SettingOutlined,
   LogoutOutlined,
-  BellOutlined
+  BellOutlined,
+  SunOutlined,
+  MoonOutlined
 } from '@ant-design/icons'
+import { useThemeMode } from './ThemeProvider'
 import {
   FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
   FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
@@ -29,6 +32,7 @@ interface UserData {
   name?: string
   position_name?: string
   major_name?: string
+  roles?: string[]
 }
 
 const Navbar: React.FC = () => {
@@ -38,6 +42,7 @@ const Navbar: React.FC = () => {
   const router = useRouter()
   const [openKeys, setOpenKeys] = useState<string[]>([])
   const [userData, setUserData] = useState<UserData>({})
+  const { mode, toggle } = useThemeMode()
 
   useEffect(() => {
     const raw = Cookies.get('user_data')
@@ -151,12 +156,22 @@ const Navbar: React.FC = () => {
               textShadow: '0 0 12px rgba(16, 185, 129, 0.45)'
             }}
           >
-            PYHOS-ERP
+            PYHOS-EXP
           </Typography.Text>
         </div>
 
-        {/* Right Side: User Icon */}
+        {/* Right Side: Theme toggle & User Icon */}
         <Space size="middle">
+          <Button
+            type="text"
+            aria-label={mode === 'dark' ? 'สลับเป็นโหมดสว่าง' : 'สลับเป็นโหมดมืด'}
+            title={mode === 'dark' ? 'โหมดสว่าง' : 'โหมดมืด'}
+            icon={mode === 'dark'
+              ? <SunOutlined style={{ fontSize: '20px', color: '#fde68a' }} />
+              : <MoonOutlined style={{ fontSize: '20px', color: '#fff' }} />}
+            onClick={toggle}
+            style={{ width: 40, height: 40 }}
+          />
           <Button
             type="text"
             icon={<UserOutlined style={{ fontSize: '20px', color: '#fff' }} />}
@@ -451,6 +466,9 @@ const Navbar: React.FC = () => {
               } else if (key === 'change-password') {
                 setOpenProfile(false)
                 router.push('/account/change-password')
+              } else if (key === 'roles') {
+                setOpenProfile(false)
+                router.push('/account/roles')
               } else if (key === 'logout') {
                 Cookies.remove('auth_token')
                 Cookies.remove('user_data')
@@ -461,6 +479,10 @@ const Navbar: React.FC = () => {
             items={[
               { key: 'settings', icon: <SettingOutlined />, label: 'ตั้งค่าบัญชี' },
               { key: 'change-password', icon: <FaLock />, label: 'เปลี่ยนรหัสผ่าน' },
+              // แสดงเฉพาะผู้มีสิทธิ์ IT_STAFF หรือ ADMIN
+              ...(userData.roles?.some((r) => r === 'IT_STAFF' || r === 'ADMIN')
+                ? [{ key: 'roles', icon: <SettingOutlined />, label: 'จัดการสิทธิ์การใช้งาน' }]
+                : []),
               { key: 'logout', icon: <LogoutOutlined />, label: 'ออกจากระบบ', danger: true },
             ]}
           />

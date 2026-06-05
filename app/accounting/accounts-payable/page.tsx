@@ -1,8 +1,8 @@
 'use client'
 import React, { useState, useMemo } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
-  Modal, Form, Input, Select, Divider, Row, Col, Alert, Descriptions, DatePicker, Space, App, message,
+  Typography, Breadcrumb, Card, Tag, Button, Table,
+  Modal, Form, Input, Select, Divider, Row, Col, Alert, Descriptions, DatePicker, Space, message,
   Statistic, Progress, Tabs, Steps
 } from 'antd'
 import {
@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { FaMoneyCheckAlt, FaFileInvoiceDollar } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import { MOCK_RECEIPTS, ReceiptRecord, PaymentStatus, STATUS_LABEL, TODAY } from '../../general/procurement/_data'
 import dayjs, { Dayjs } from 'dayjs'
 
@@ -119,7 +120,7 @@ const PageContent = () => {
       render: (v: string) => <Text style={{ color: '#fbbf24' }}>{v}</Text> },
     { title: 'ผู้จำหน่าย', dataIndex: 'supplier', key: 'sup' },
     { title: 'วันที่รับ', dataIndex: 'receivedDate', key: 'rd', width: 105,
-      render: (v: string) => <Text style={{ color: '#94a3b8' }}>{v}</Text> },
+      render: (v: string) => <Text style={{ color: 'var(--app-text-2)' }}>{v}</Text> },
     { title: 'ครบกำหนด', dataIndex: 'dueDate', key: 'dd', width: 110,
       render: (v: string) => <Text style={{ color: '#60a5fa' }}>{v}</Text> },
     { title: 'KPI (วันคงเหลือ)', key: 'kpi', width: 180,
@@ -188,7 +189,7 @@ const PageContent = () => {
   )
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
@@ -199,13 +200,13 @@ const PageContent = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <FaMoneyCheckAlt style={{ fontSize: 24, color: '#10b981' }} />
-          <Title level={3} style={{ margin: 0, color: '#f1f5f9' }}>เจ้าหนี้การค้า — กำหนดจ่าย (KPI)</Title>
+          <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>เจ้าหนี้การค้า — กำหนดจ่าย (KPI)</Title>
         </div>
 
-        <Card style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 16 }}
+        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginBottom: 16 }}
           styles={{ body: { padding: 12 } }}>
           <Space wrap size={12} align="center">
-            <Text style={{ color: '#94a3b8' }}><CalendarOutlined /> ค้นหาช่วงวันที่</Text>
+            <Text style={{ color: 'var(--app-text-2)' }}><CalendarOutlined /> ค้นหาช่วงวันที่</Text>
             <Select
               size="middle"
               value={dateField}
@@ -242,17 +243,17 @@ const PageContent = () => {
 
         <Row gutter={12} style={{ marginBottom: 16 }}>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดรอจ่ายทั้งหมด</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ยอดรอจ่ายทั้งหมด</span>}
                 value={summary.totalUnpaid} precision={0} prefix="฿"
                 styles={{ content: { color: '#a78bfa' } }}
                 formatter={v => Number(v).toLocaleString()} />
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>{summary.unpaid.length} รายการ</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{summary.unpaid.length} รายการ</Text>
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>เกินกำหนด</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>เกินกำหนด</span>}
                 value={summary.overdue.length}
                 styles={{ content: { color: '#ef4444' } }} prefix={<WarningOutlined />} />
               <Text style={{ color: '#ef4444', fontSize: 12 }}>
@@ -261,18 +262,18 @@ const PageContent = () => {
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>ใกล้ครบกำหนด (≤3 วัน)</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ใกล้ครบกำหนด (≤3 วัน)</span>}
                 value={summary.danger.length}
                 styles={{ content: { color: '#fb923c' } }} prefix={<FieldTimeOutlined />} />
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Text style={{ color: '#94a3b8', fontSize: 13 }}>KPI จ่ายตรงเวลา</Text>
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 13 }}>KPI จ่ายตรงเวลา</Text>
               <Progress percent={kpiOnTimePct} strokeColor={kpiOnTimePct >= 90 ? '#10b981' : kpiOnTimePct >= 70 ? '#fbbf24' : '#ef4444'}
-                trailColor="#334155" />
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>จ่ายแล้ว {paidList.length} รายการ • ฿{summary.paid.toLocaleString()}</Text>
+                trailColor="var(--app-border-strong)" />
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>จ่ายแล้ว {paidList.length} รายการ • ฿{summary.paid.toLocaleString()}</Text>
             </Card>
           </Col>
         </Row>
@@ -283,7 +284,7 @@ const PageContent = () => {
             description="โปรดดำเนินการจ่ายโดยด่วน หรือบันทึกเหตุผลที่จ่ายช้า" />
         )}
 
-        <Card style={{ background: '#1e293b', border: '1px solid #334155' }}
+        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
           styles={{ body: { padding: 0 } }}>
           <Tabs defaultActiveKey="due" style={{ padding: '0 16px' }}
             items={[
@@ -319,7 +320,7 @@ const PageContent = () => {
       >
         {active && (
           <div style={{ marginTop: 8 }}>
-            <Card style={{ background: '#0f172a', border: '1px solid #334155', marginBottom: 16 }}
+            <Card style={{ background: 'var(--app-bg)', border: '1px solid var(--app-border-strong)', marginBottom: 16 }}
               styles={{ body: { padding: '16px 12px' } }}>
               <Steps
                 size="small"
@@ -359,15 +360,15 @@ const PageContent = () => {
             </Card>
 
             <Descriptions size="small" column={2} bordered
-              labelStyle={{ background: '#0f172a', color: '#94a3b8', width: 130 }}
-              contentStyle={{ background: '#1e293b', color: '#e2e8f0' }}>
+              labelStyle={{ background: 'var(--app-bg)', color: 'var(--app-text-2)', width: 130 }}
+              contentStyle={{ background: 'var(--app-surface)', color: 'var(--app-text)' }}>
               <Descriptions.Item label="ผู้จำหน่าย" span={2}>{active.supplier}</Descriptions.Item>
               <Descriptions.Item label="เลขผู้เสียภาษี">{active.supplierTaxId}</Descriptions.Item>
               <Descriptions.Item label="Invoice">{active.invoiceNo}</Descriptions.Item>
               <Descriptions.Item label="วันที่ Invoice">{active.invoiceDate}</Descriptions.Item>
               <Descriptions.Item label="ครบกำหนด">
                 <Text style={{ color: '#60a5fa' }}>{active.dueDate}</Text>
-                <Text style={{ color: '#94a3b8', fontSize: 11, marginLeft: 6 }}>(เครดิต {active.creditDays} วัน)</Text>
+                <Text style={{ color: 'var(--app-text-2)', fontSize: 11, marginLeft: 6 }}>(เครดิต {active.creditDays} วัน)</Text>
               </Descriptions.Item>
               <Descriptions.Item label="ตรวจรับโดย" span={2}>
                 {active.inspectionBy} • {active.inspectionDate}
@@ -382,7 +383,7 @@ const PageContent = () => {
               </Descriptions.Item>
             </Descriptions>
 
-            <Divider style={{ borderColor: '#334155' }}>บันทึกการจ่ายโดยการเงิน</Divider>
+            <Divider style={{ borderColor: 'var(--app-border-strong)' }}>บันทึกการจ่ายโดยการเงิน</Divider>
 
             <Form form={form} layout="vertical">
               <Form.Item label="สถานะการจ่าย" name="paymentStatus" rules={[{ required: true }]}>
@@ -417,10 +418,8 @@ const PageContent = () => {
 
 export default function AccountsPayablePage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#10b981', borderRadius: 8 } }}>
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#10b981">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

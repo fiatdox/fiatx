@@ -1,7 +1,7 @@
 'use client'
 import React, { useMemo, useState } from 'react'
 import {
-  Card, Typography, ConfigProvider, Breadcrumb, Row, Col, theme, App,
+  Card, Typography, Breadcrumb, Row, Col,
   Tag, Space, Select, Tabs, Table, Empty, Divider, Segmented, Progress
 } from 'antd'
 import {
@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa'
 import dayjs from 'dayjs'
 import Navbar from '../../../components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '../../../components/EChart'
 
 const { Title, Text } = Typography
@@ -228,14 +229,14 @@ const PageContent = () => {
   const pieOption = useMemo(() => ({
     backgroundColor: 'transparent',
     tooltip: { trigger: 'item', formatter: '{b}: <b>{c}</b> วัน ({d}%)' },
-    legend: { bottom: 0, textStyle: { color: '#cbd5e1', fontSize: 11 }, type: 'scroll' },
+    legend: { bottom: 0, textStyle: { color: 'var(--app-text-2)', fontSize: 11 }, type: 'scroll' },
     series: [{
       type: 'pie',
       radius: ['50%', '78%'],
       center: ['50%', '44%'],
       avoidLabelOverlap: true,
-      itemStyle: { borderColor: '#0f172a', borderWidth: 2 },
-      label: { color: '#e2e8f0', formatter: '{b}\n{c} วัน', fontSize: 11 },
+      itemStyle: { borderColor: 'var(--app-bg)', borderWidth: 2 },
+      label: { color: 'var(--app-text)', formatter: '{b}\n{c} วัน', fontSize: 11 },
       data: typeAgg.filter(x => x.days > 0).map(x => ({
         name: x.type, value: x.days,
         itemStyle: { color: TYPE_META[x.type].color }
@@ -256,10 +257,10 @@ const PageContent = () => {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: '#cbd5e1', fontSize: 11 } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text-2)', fontSize: 11 } },
       grid: { left: 8, right: 16, top: 16, bottom: 40, containLabel: true },
-      xAxis: { type: 'category', data: FISCAL_MONTH_LABELS, axisLabel: { color: '#cbd5e1' } },
-      yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'category', data: FISCAL_MONTH_LABELS, axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
       series,
     }
   }, [filtered])
@@ -275,8 +276,8 @@ const PageContent = () => {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: any) => `${p[0].name}<br/><b>${p[0].value}</b> วัน` },
       grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
-      xAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
-      yAxis: { type: 'category', data: entries.map(e => e[0]), axisLabel: { color: '#cbd5e1', fontSize: 11 } },
+      xAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'category', data: entries.map(e => e[0]), axisLabel: { color: 'var(--app-text-2)', fontSize: 11 } },
       series: [{
         type: 'bar',
         data: entries.map(e => e[1]),
@@ -285,7 +286,7 @@ const PageContent = () => {
           color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
             colorStops: [{ offset: 0, color: '#0d9488' }, { offset: 1, color: '#22c55e' }] },
         },
-        label: { show: true, position: 'right', color: '#e2e8f0', fontWeight: 600 },
+        label: { show: true, position: 'right', color: 'var(--app-text)', fontWeight: 600 },
         barMaxWidth: 22,
       }],
     }
@@ -315,7 +316,7 @@ const PageContent = () => {
     {
       title: 'ลำดับ', key: 'rank', width: 70, align: 'center' as const,
       render: (_: any, __: any, idx: number) => {
-        const medals = ['#fbbf24', '#cbd5e1', '#f97316']
+        const medals = ['#fbbf24', 'var(--app-text-2)', '#f97316']
         if (idx < 3) return <Tag color={medals[idx]} style={{ fontWeight: 700 }}>#{idx + 1}</Tag>
         return <Text type="secondary">#{idx + 1}</Text>
       }
@@ -354,7 +355,7 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
@@ -585,10 +586,8 @@ const PageContent = () => {
 
 export default function LeaveDashboardPage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#006a5a', borderRadius: 8 } }}>
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

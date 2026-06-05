@@ -2,7 +2,7 @@
 
 'use client'
 import React from 'react'
-import { Card, Typography, Breadcrumb, ConfigProvider, App, Row, Col, theme } from 'antd'
+import { Card, Typography, Breadcrumb, Row, Col } from 'antd'
 import {
   HomeOutlined,
   SettingOutlined,
@@ -15,12 +15,12 @@ import {
   FileTextOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 
 const { Title, Text } = Typography
 
 const SettingsPageContent = () => {
-  const { token } = theme.useToken();
 
   const menuItems = [
     {
@@ -75,7 +75,7 @@ const SettingsPageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 selection:bg-purple-500/30">
+    <div className="min-h-screen bg-app-bg text-app-text selection:bg-purple-500/30">
       <Navbar />
       
       {/* Abstract Background Glow */}
@@ -87,9 +87,9 @@ const SettingsPageContent = () => {
       <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
-            { href: '/', title: <span className="text-slate-400 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-            { href: '/hr/users', title: <span className="text-slate-400 hover:text-purple-400 transition-colors"><FileTextOutlined /> ทรัพยากรบุคคล</span> },
-            { title: <span className="text-slate-200 font-medium"><SettingOutlined /> ตั้งค่าระบบ</span> },
+            { href: '/', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+            { href: '/hr/users', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><FileTextOutlined /> ทรัพยากรบุคคล</span> },
+            { title: <span className="text-app-text font-medium"><SettingOutlined /> ตั้งค่าระบบ</span> },
           ]}
           className="mb-10 text-xs uppercase tracking-widest"
         />
@@ -97,11 +97,11 @@ const SettingsPageContent = () => {
         <div className="mb-12">
           <div className="flex items-center gap-4 mb-2">
              <div className="w-1 h-8 bg-purple-600 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
-             <Title level={2} className="text-slate-100 m-0 font-black! tracking-tight uppercase">
+             <Title level={2} className="text-app-text m-0 font-black! tracking-tight uppercase">
                System Configurations
              </Title>
           </div>
-          <Text className="text-slate-400 ml-5 text-sm max-w-2xl block border-l border-slate-800 pl-4">
+          <Text className="text-app-text-2 ml-5 text-sm max-w-2xl block border-l border-app-border pl-4">
              ปรับแต่งโครงสร้างองค์กร สิทธิ์การลา และระบบบริหารจัดการบุคลากรทั้งหมดผ่านศูนยกลางการตั้งค่าพรีเมียม
           </Text>
         </div>
@@ -112,7 +112,7 @@ const SettingsPageContent = () => {
               <Link href={item.href}>
                 <Card
                   hoverable
-                  className="h-full bg-slate-900/40 backdrop-blur-xl border-slate-800/50 hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-xl"
+                  className="h-full bg-app-surface/70 backdrop-blur-xl border-app-border hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-xl"
                   styles={{ 
                     body: { 
                       height: '100%', 
@@ -127,19 +127,19 @@ const SettingsPageContent = () => {
                   <div className={`absolute inset-0 bg-linear-to-br ${item.color} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
                   
                   <div className="relative z-10 w-full">
-                    <div className="mb-6 p-4 bg-slate-800/50 rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 shadow-inner">
+                    <div className="mb-6 p-4 bg-app-bg rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 shadow-inner">
                       {item.icon}
                     </div>
-                    <Title level={4} className="mb-3 text-slate-100 group-hover:text-white transition-colors font-bold! tracking-tight">
+                    <Title level={4} className="mb-3 text-app-text group-hover:text-purple-500 transition-colors font-bold! tracking-tight">
                       {item.title}
                     </Title>
-                    <Text className="text-slate-500 group-hover:text-slate-300 text-xs leading-relaxed transition-colors block">
+                    <Text className="text-app-text-3 group-hover:text-app-text-2 text-xs leading-relaxed transition-colors block">
                       {item.description}
                     </Text>
                   </div>
 
                   {/* Corner Accent */}
-                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-slate-800 rounded-full group-hover:bg-purple-500 transition-colors shadow-[0_0_8px_rgba(168,85,247,0)] group-hover:shadow-[0_0_8px_rgba(168,85,247,1)]" />
+                  <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-app-surface rounded-full group-hover:bg-purple-500 transition-colors shadow-[0_0_8px_rgba(168,85,247,0)] group-hover:shadow-[0_0_8px_rgba(168,85,247,1)]" />
                 </Card>
               </Link>
             </Col>
@@ -148,7 +148,7 @@ const SettingsPageContent = () => {
       </div>
 
       <style jsx global>{`
-        .ant-breadcrumb-separator { color: #334155 !important; margin: 0 12px; }
+        .ant-breadcrumb-separator { color: var(--app-text-3) !important; margin: 0 12px; }
         .ant-typography { color: inherit !important; }
       `}</style>
     </div>
@@ -157,27 +157,9 @@ const SettingsPageContent = () => {
 
 const SettingsPage = () => {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#6B21A8',
-          borderRadius: 16,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.1)'
-        },
-        components: {
-          Card: {
-            colorBgContainer: 'rgba(15, 23, 42, 0.4)',
-          }
-        }
-      }}
-    >
-      <App>
-        <SettingsPageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#6B21A8">
+      <SettingsPageContent />
+    </AppThemeProvider>
   )
 }
 

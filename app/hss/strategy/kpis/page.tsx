@@ -1,9 +1,9 @@
 'use client'
 import React, { useState, useMemo } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Row, Col, Table,
+  Typography, Breadcrumb, Card, Row, Col, Table,
   Tag, Select, Button, Progress, Statistic, Tooltip, Divider, Badge,
-  theme, Space, Input
+  Space, Input
 } from 'antd'
 import {
   HomeOutlined, FundOutlined, DotChartOutlined, CheckCircleOutlined,
@@ -11,6 +11,7 @@ import {
   ClearOutlined, RiseOutlined, FallOutlined, MinusOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
 
 const { Title, Text } = Typography
@@ -81,7 +82,7 @@ const getStatus = (pct: number): { label: string; color: string; tagColor: strin
 const getTrendIcon = (trend: KPI['trend']) => {
   if (trend === 'up')     return <RiseOutlined style={{ color: '#10b981' }} />
   if (trend === 'down')   return <FallOutlined style={{ color: '#ef4444' }} />
-  return <MinusOutlined style={{ color: '#94a3b8' }} />
+  return <MinusOutlined style={{ color: 'var(--app-text-2)' }} />
 }
 
 // ---- Page Component ----
@@ -210,7 +211,7 @@ const KPIPageContent = () => {
               percent={Math.min(pct, 100)}
               showInfo={false}
               strokeColor={st.color}
-              railColor="#334155"
+              railColor="var(--app-border-strong)"
               size="small"
             />
           </div>
@@ -230,7 +231,7 @@ const KPIPageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -375,7 +376,7 @@ const KPIPageContent = () => {
                 <Progress
                   percent={overallPct}
                   strokeColor={overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444'}
-                  railColor="#334155"
+                  railColor="var(--app-border-strong)"
                   format={p => <Text strong style={{ color: overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444' }}>{p}%</Text>}
                 />
               </div>
@@ -398,22 +399,22 @@ const KPIPageContent = () => {
                   backgroundColor: 'transparent',
                   tooltip: {
                     trigger: 'item',
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)',
+                    borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     formatter: (p: { name: string; value: number; percent: number }) =>
                       `${p.name}<br/>${p.value} รายการ (${p.percent}%)`,
                   },
                   title: [
-                    { text: 'ภาพรวม', left: 'center', top: '38%', textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                    { text: 'ภาพรวม', left: 'center', top: '38%', textStyle: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400 } },
                     { text: overallPct + '%', left: 'center', top: '46%',
                       textStyle: { color: overallPct >= 80 ? '#10b981' : overallPct >= 60 ? '#f59e0b' : '#ef4444', fontSize: 24, fontWeight: 700 } },
-                    { text: total + ' KPI', left: 'center', top: '60%', textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                    { text: total + ' KPI', left: 'center', top: '60%', textStyle: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400 } },
                   ],
                   legend: {
                     bottom: 0,
                     left: 'center',
-                    textStyle: { color: '#94a3b8', fontSize: 11 },
+                    textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
                     itemWidth: 10,
                     itemHeight: 10,
                   },
@@ -422,7 +423,7 @@ const KPIPageContent = () => {
                     radius: ['52%', '76%'],
                     center: ['50%', '46%'],
                     avoidLabelOverlap: true,
-                    itemStyle: { borderColor: '#1e293b', borderWidth: 2 },
+                    itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 },
                     label: { show: false },
                     labelLine: { show: false },
                     data: [
@@ -445,9 +446,9 @@ const KPIPageContent = () => {
                   tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' },
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)',
+                    borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number }[]) => {
                       const d = byDept[params[0].dataIndex]
                       return `<b>${d.dept}</b><br/>เฉลี่ย: ${d.avg}%<br/>จำนวน: ${d.count} KPI`
@@ -456,14 +457,14 @@ const KPIPageContent = () => {
                   xAxis: {
                     type: 'value',
                     max: (v: { max: number }) => Math.max(120, Math.ceil(v.max / 10) * 10),
-                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-                    splitLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   yAxis: {
                     type: 'category',
                     data: byDept.map(d => d.dept),
-                    axisLabel: { color: '#e2e8f0', fontSize: 12 },
-                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text)', fontSize: 12 },
+                    axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                     axisTick: { show: false },
                   },
                   series: [{
@@ -479,7 +480,7 @@ const KPIPageContent = () => {
                     label: {
                       show: true,
                       position: 'right',
-                      color: '#e2e8f0',
+                      color: 'var(--app-text)',
                       fontSize: 11,
                       formatter: (p: { dataIndex: number }) => `${byDept[p.dataIndex].avg}%  (${byDept[p.dataIndex].count})`,
                     },
@@ -507,9 +508,9 @@ const KPIPageContent = () => {
                   grid: { left: 50, right: 30, top: 30, bottom: 40 },
                   tooltip: {
                     trigger: 'axis',
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)',
+                    borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number; value: number | null }[]) => {
                       const i = params[0].dataIndex
                       const d = trendByQ[i]
@@ -519,15 +520,15 @@ const KPIPageContent = () => {
                   xAxis: {
                     type: 'category',
                     data: trendByQ.map(t => `Q${t.q}`),
-                    axisLabel: { color: '#94a3b8', fontSize: 12 },
-                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text-2)', fontSize: 12 },
+                    axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   yAxis: {
                     type: 'value',
                     name: '%',
-                    nameTextStyle: { color: '#94a3b8' },
-                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-                    splitLine: { lineStyle: { color: '#334155' } },
+                    nameTextStyle: { color: 'var(--app-text-2)' },
+                    axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   series: [{
                     type: 'line',
@@ -550,7 +551,7 @@ const KPIPageContent = () => {
                     label: {
                       show: true,
                       position: 'top',
-                      color: '#e2e8f0',
+                      color: 'var(--app-text)',
                       fontSize: 11,
                       formatter: (p: { value: number | null }) => p.value == null ? '' : p.value + '%',
                     },
@@ -575,9 +576,9 @@ const KPIPageContent = () => {
                   tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' },
-                    backgroundColor: '#0f172a',
-                    borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)',
+                    borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number }[]) => {
                       const k = topKpis[params[0].dataIndex]
                       return `<b>${k.name}</b><br/>ผลงาน: ${k.actual} ${k.unit}<br/>เป้าหมาย: ${k.target} ${k.unit}<br/>ความสำเร็จ: <b>${k.pct}%</b>`
@@ -586,15 +587,15 @@ const KPIPageContent = () => {
                   xAxis: {
                     type: 'value',
                     max: (v: { max: number }) => Math.max(120, Math.ceil(v.max / 10) * 10),
-                    axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-                    splitLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+                    splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   yAxis: {
                     type: 'category',
                     inverse: true,
                     data: topKpis.map(k => k.short),
-                    axisLabel: { color: '#e2e8f0', fontSize: 11, width: 200, overflow: 'truncate' },
-                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text)', fontSize: 11, width: 200, overflow: 'truncate' },
+                    axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                     axisTick: { show: false },
                   },
                   series: [{
@@ -610,7 +611,7 @@ const KPIPageContent = () => {
                     label: {
                       show: true,
                       position: 'right',
-                      color: '#e2e8f0',
+                      color: 'var(--app-text)',
                       fontSize: 11,
                       formatter: (p: { dataIndex: number }) => `${topKpis[p.dataIndex].pct}%`,
                     },
@@ -656,10 +657,8 @@ const KPIPageContent = () => {
 
 export default function KPIPage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#10b981', borderRadius: 8 } }}>
-      <App>
-        <KPIPageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#10b981">
+      <KPIPageContent />
+    </AppThemeProvider>
   )
 }

@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, ConfigProvider, App,
+  Table, Tag, Card, Typography, Breadcrumb, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
-  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, Tabs, theme
+  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, Tabs
 } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons'
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby, FaCheckDouble } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
 
@@ -528,7 +529,7 @@ const LeaveApprovalContent = () => {
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -673,7 +674,7 @@ const LeaveApprovalContent = () => {
                       <span style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: r.color, flexShrink: 0, marginTop: 3 }} />
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600 }}>{r.employeeName}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                        <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>
                           {r.leaveType} · {fmtThai(r.startISO)}–{fmtThai(r.endISO)}
                         </div>
                         <div style={{ marginTop: 2 }}>{overallTag(getOverall(r.approvalChain))}</div>
@@ -737,7 +738,7 @@ const LeaveApprovalContent = () => {
               </Descriptions>
 
               {/* ── ปฏิทินช่วงวันลา + เพื่อนร่วมงาน ── */}
-              <Divider style={{ borderColor: '#334155' }}>
+              <Divider style={{ borderColor: 'var(--app-border-strong)' }}>
                 <CalendarOutlined className="mr-2" />เปรียบเทียบวันลากับเพื่อนร่วมงาน
               </Divider>
 
@@ -766,11 +767,11 @@ const LeaveApprovalContent = () => {
                           <table style={{ borderCollapse: 'collapse', minWidth: days.length * 44 }}>
                             <thead>
                               <tr>
-                                <td style={{ width: 120, fontSize: 11, color: '#94a3b8', paddingRight: 8, whiteSpace: 'nowrap' }}>ชื่อเจ้าหน้าที่</td>
+                                <td style={{ width: 120, fontSize: 11, color: 'var(--app-text-2)', paddingRight: 8, whiteSpace: 'nowrap' }}>ชื่อเจ้าหน้าที่</td>
                                 {days.map(d => (
-                                  <td key={d.format('YYYYMMDD')} style={{ width: 40, textAlign: 'center', fontSize: 10, color: '#94a3b8', padding: '2px 2px 6px' }}>
+                                  <td key={d.format('YYYYMMDD')} style={{ width: 40, textAlign: 'center', fontSize: 10, color: 'var(--app-text-2)', padding: '2px 2px 6px' }}>
                                     <div style={{ fontWeight: d.isSame(dayjs(), 'day') ? 700 : 400 }}>{d.format('D')}</div>
-                                    <div style={{ color: '#475569', fontSize: 9 }}>{['อา','จ','อ','พ','พฤ','ศ','ส'][d.day()]}</div>
+                                    <div style={{ color: 'var(--app-text-3)', fontSize: 9 }}>{['อา','จ','อ','พ','พฤ','ศ','ส'][d.day()]}</div>
                                   </td>
                                 ))}
                               </tr>
@@ -778,7 +779,7 @@ const LeaveApprovalContent = () => {
                             <tbody>
                               {allPeople.map(p => (
                                 <tr key={p.id}>
-                                  <td style={{ fontSize: 11, color: p.id === selected.id ? '#fff' : '#cbd5e1', paddingRight: 8, fontWeight: p.id === selected.id ? 700 : 400, whiteSpace: 'nowrap' }}>
+                                  <td style={{ fontSize: 11, color: p.id === selected.id ? '#fff' : 'var(--app-text-2)', paddingRight: 8, fontWeight: p.id === selected.id ? 700 : 400, whiteSpace: 'nowrap' }}>
                                     <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, backgroundColor: p.color, marginRight: 5 }} />
                                     {p.shortName}
                                   </td>
@@ -812,7 +813,7 @@ const LeaveApprovalContent = () => {
                   {/* รายชื่อที่ทับ */}
                   <div className="flex flex-col gap-2">
                     {overlapping.map(r => (
-                      <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderRadius: 8, background: '#1e293b', border: '1px solid #334155' }}>
+                      <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', borderRadius: 8, background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
                         <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: r.color, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <Text strong style={{ fontSize: 13 }}>{r.employeeName}</Text>
@@ -830,7 +831,7 @@ const LeaveApprovalContent = () => {
               )}
 
               {/* Timeline */}
-              <Divider style={{ borderColor: '#334155' }}>ประวัติการอนุมัติ</Divider>
+              <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการอนุมัติ</Divider>
               <Timeline
                 items={selected.approvalChain.map(s => ({
                   color: s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : s.status === 'pending' ? 'blue' : 'gray',
@@ -846,7 +847,7 @@ const LeaveApprovalContent = () => {
               />
 
               {/* Action Zone */}
-              <Divider style={{ borderColor: '#334155' }}>การดำเนินการ</Divider>
+              <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !rejectMode && (
                 <Alert
@@ -924,7 +925,7 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="เหตุผลการยกเลิก" span={2}>{selectedCancel.cancelReason}</Descriptions.Item>
               </Descriptions>
 
-              <Divider style={{ borderColor: '#334155' }}>ประวัติการอนุมัติ</Divider>
+              <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการอนุมัติ</Divider>
               <Timeline
                 items={selectedCancel.approvalChain.map(s => ({
                   color: s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : s.status === 'pending' ? 'blue' : 'gray',
@@ -939,7 +940,7 @@ const LeaveApprovalContent = () => {
                 }))}
               />
 
-              <Divider style={{ borderColor: '#334155' }}>การดำเนินการ</Divider>
+              <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !cancelRejectMode && (
                 <Alert
@@ -984,16 +985,9 @@ const LeaveApprovalContent = () => {
 }
 
 const LeaveApprovalPage = () => (
-  <ConfigProvider
-    theme={{
-      algorithm: theme.darkAlgorithm,
-      token: { colorPrimary: '#006a5a', borderRadius: 8, fontFamily: 'var(--font-sarabun)' },
-    }}
-  >
-    <App>
+  <AppThemeProvider colorPrimary="#006a5a">
       <LeaveApprovalContent />
-    </App>
-  </ConfigProvider>
+    </AppThemeProvider>
 )
 
 export default LeaveApprovalPage

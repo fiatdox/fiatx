@@ -1,8 +1,8 @@
 'use client'
 import { useState, useMemo } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, ConfigProvider, App,
-  DatePicker, Select, Button, Modal, Space, Spin, theme, Row, Col, Tooltip
+  Table, Tag, Card, Typography, Breadcrumb,
+  DatePicker, Select, Button, Modal, Space, Spin, Row, Col, Tooltip
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, FilePdfOutlined,
@@ -15,6 +15,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import isBetween from 'dayjs/plugin/isBetween'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { AttendanceDayRecord, AttendanceEmployee, AttendanceReportData } from '@/app/components/AttendancePDF'
 
 dayjs.extend(isBetween)
@@ -217,8 +218,8 @@ const TimeAttendanceContent = () => {
     {
       title: 'วันที่', key: 'date', width: 90,
       render: (_: any, r: AttendanceDayRecord) => (
-        <span style={{ color: r.status === 'holiday' ? '#64748b' : undefined }}>
-          {r.dayNum} · <span style={{ fontSize: 11, color: '#94a3b8' }}>{r.dayShort}</span>
+        <span style={{ color: r.status === 'holiday' ? 'var(--app-text-3)' : undefined }}>
+          {r.dayNum} · <span style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{r.dayShort}</span>
         </span>
       ),
     },
@@ -253,7 +254,7 @@ const TimeAttendanceContent = () => {
   ]
 
   return (
-    <div className="min-h-dvh bg-slate-900 text-slate-200" style={{ minHeight: '100dvh' }}>
+    <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>
       <Navbar />
       <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
 
@@ -498,21 +499,8 @@ const TimeAttendanceContent = () => {
 // ─── Page Wrapper ─────────────────────────────────────────────────────────────
 export default function TimeAttendancePage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#006a5a',
-          borderRadius: 8,
-        },
-        components: {
-          App: { colorBgBase: 'transparent' },
-        },
-      }}
-    >
-      <App style={{ background: 'transparent' }}>
-        <TimeAttendanceContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <TimeAttendanceContent />
+    </AppThemeProvider>
   )
 }

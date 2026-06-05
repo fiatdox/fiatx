@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Select,
+  App, Typography, Breadcrumb, Card, Tag, Select,
   Button, Modal, Form, Input, InputNumber, DatePicker, Space, Table, Drawer,
   Descriptions, Progress, Divider, Popconfirm, Timeline, Empty, Statistic, Row, Col,
 } from 'antd'
@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons'
 import dayjs, { Dayjs } from 'dayjs'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
 import {
   loadTasks, saveTasks, loadLinks, resetAll,
@@ -292,7 +293,7 @@ const GanttPageContent = () => {
   const ganttOption = useMemo(() => {
     const ordered = filteredTasks
     if (!ordered.length) {
-      return { backgroundColor: 'transparent', title: { text: 'ไม่มีข้อมูล', textStyle: { color: '#94a3b8' }, left: 'center', top: 'middle' } }
+      return { backgroundColor: 'transparent', title: { text: 'ไม่มีข้อมูล', textStyle: { color: 'var(--app-text-2)' }, left: 'center', top: 'middle' } }
     }
     const categories = ordered.map(t => t.text)
     const idToIdx = new Map(ordered.map((t, i) => [t.id, i]))
@@ -334,7 +335,7 @@ const GanttPageContent = () => {
         backgroundColor: 'rgba(15,23,42,0.96)',
         borderColor: 'rgba(148,163,184,0.3)',
         borderWidth: 1,
-        textStyle: { color: '#e2e8f0' },
+        textStyle: { color: 'var(--app-text)' },
         formatter: (p: { seriesName: string; value?: (string | number)[] }) => {
           if (p.seriesName !== 'tasks' || !p.value) return ''
           const [, s, e, prog, type, text] = p.value as [number, number, number, number, TaskType, string, string]
@@ -359,15 +360,15 @@ const GanttPageContent = () => {
         type: 'time', position: 'top',
         min: minTime - DAY * 7, max: maxTime + DAY * 7,
         splitLine: { show: true, lineStyle: { color: 'rgba(148,163,184,0.12)' } },
-        axisLine: { lineStyle: { color: '#475569' } },
-        axisLabel: { color: '#cbd5e1', fontSize: 11, fontWeight: 600 },
+        axisLine: { lineStyle: { color: 'var(--app-text-3)' } },
+        axisLabel: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 600 },
       },
       yAxis: {
         type: 'category', data: categories, inverse: true,
         axisLine: { show: false }, axisTick: { show: false },
         splitLine: { show: true, lineStyle: { color: 'rgba(148,163,184,0.06)' } },
         axisLabel: {
-          color: '#e2e8f0', fontSize: 12, width: 300, overflow: 'truncate',
+          color: 'var(--app-text)', fontSize: 12, width: 300, overflow: 'truncate',
           formatter: (v: string, i: number) => {
             const t = ordered[i]
             if (t.type === 'project')   return `{p|■} ${v}`
@@ -377,7 +378,7 @@ const GanttPageContent = () => {
           rich: {
             p: { color: '#a855f7', fontSize: 14, fontWeight: 700 },
             m: { color: '#ef4444', fontSize: 14, fontWeight: 700 },
-            s: { color: '#64748b', fontSize: 12 },
+            s: { color: 'var(--app-text-3)', fontSize: 12 },
           },
         },
       },
@@ -480,7 +481,7 @@ const GanttPageContent = () => {
             <Tag color={r.type === 'project' ? 'purple' : r.type === 'milestone' ? 'red' : 'blue'} style={{ margin: 0 }}>
               {r.type === 'project' ? 'โครงการ' : r.type === 'milestone' ? 'Milestone' : 'กิจกรรม'}
             </Tag>
-            <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{r.text}</Text>
+            <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>{r.text}</Text>
           </div>
           {r.kpiCode && (
             <Text type="secondary" style={{ fontSize: 11 }}>
@@ -494,7 +495,7 @@ const GanttPageContent = () => {
       title: 'ผู้รับผิดชอบ', width: 200,
       render: (_, r) => (
         <div>
-          <div style={{ color: '#e2e8f0' }}>{r.owner ?? '-'}</div>
+          <div style={{ color: 'var(--app-text)' }}>{r.owner ?? '-'}</div>
           <Text type="secondary" style={{ fontSize: 11 }}>{r.department ?? ''}</Text>
         </div>
       ),
@@ -513,10 +514,10 @@ const GanttPageContent = () => {
         const pct = budgetUtilization(r.budgetSpent, r.budgetApproved)
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontSize: 12 }}>{formatTHB(r.budgetApproved)}</div>
+            <div style={{ color: 'var(--app-text)', fontSize: 12 }}>{formatTHB(r.budgetApproved)}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Progress percent={pct} size="small" showInfo={false} strokeColor={pct > 90 ? '#ef4444' : '#3b82f6'} style={{ flex: 1, margin: 0 }} />
-              <Text style={{ fontSize: 11, color: '#94a3b8', minWidth: 36, textAlign: 'right' }}>{pct}%</Text>
+              <Text style={{ fontSize: 11, color: 'var(--app-text-2)', minWidth: 36, textAlign: 'right' }}>{pct}%</Text>
             </div>
           </div>
         )
@@ -553,7 +554,7 @@ const GanttPageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" />
       </div>
@@ -561,7 +562,7 @@ const GanttPageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-app-bg text-app-text pb-12 relative overflow-hidden">
       <Navbar />
 
       <div className="pointer-events-none absolute inset-0">
@@ -576,9 +577,9 @@ const GanttPageContent = () => {
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { href: '/', title: <span className="text-slate-400 hover:text-blue-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-              { title: <span className="text-slate-400"><FundOutlined /> งานยุทธศาสตร์</span> },
-              { title: <span className="text-slate-100 font-bold">Project Roadmap</span> },
+              { href: '/', title: <span className="text-app-text-2 hover:text-blue-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+              { title: <span className="text-app-text-2"><FundOutlined /> งานยุทธศาสตร์</span> },
+              { title: <span className="text-app-text font-bold">Project Roadmap</span> },
             ]}
             className="mb-4 text-xs uppercase tracking-tighter"
           />
@@ -589,10 +590,10 @@ const GanttPageContent = () => {
                 <ProjectOutlined />
               </div>
               <div>
-                <Title level={2} style={{ color: '#f8fafc', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
+                <Title level={2} style={{ color: 'var(--app-text)', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
                   Hospital Roadmaps 2026
                 </Title>
-                <Text className="text-slate-400 text-sm">แผนยุทธศาสตร์โครงการ ประจำปีงบประมาณ 2569 — โรงพยาบาลขนาดใหญ่</Text>
+                <Text className="text-app-text-2 text-sm">แผนยุทธศาสตร์โครงการ ประจำปีงบประมาณ 2569 — โรงพยาบาลขนาดใหญ่</Text>
               </div>
             </div>
 
@@ -608,8 +609,8 @@ const GanttPageContent = () => {
         {/* ── KPI strip ── */}
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">โครงการทั้งหมด</span>}
+            <Card variant="borderless" className="bg-app-surface/60 border border-app-border">
+              <Statistic title={<span className="text-app-text-2">โครงการทั้งหมด</span>}
                 value={filteredTasks.filter(t => t.type === 'project').length}
                 prefix={<ProjectOutlined style={{ color: '#a855f7' }} />}
                 styles={{ content: { color: '#a855f7', fontWeight: 800 } }}
@@ -617,8 +618,8 @@ const GanttPageContent = () => {
             </Card>
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">งบที่อนุมัติ (รวม)</span>}
+            <Card variant="borderless" className="bg-app-surface/60 border border-app-border">
+              <Statistic title={<span className="text-app-text-2">งบที่อนุมัติ (รวม)</span>}
                 value={budget.approved} suffix="฿"
                 prefix={<DollarOutlined style={{ color: '#22c55e' }} />}
                 styles={{ content: { color: '#22c55e', fontWeight: 800, fontSize: 22 } }}
@@ -627,8 +628,8 @@ const GanttPageContent = () => {
             </Card>
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">เบิกจ่ายแล้ว</span>}
+            <Card variant="borderless" className="bg-app-surface/60 border border-app-border">
+              <Statistic title={<span className="text-app-text-2">เบิกจ่ายแล้ว</span>}
                 value={budget.spent} suffix="฿"
                 prefix={<DollarOutlined style={{ color: '#3b82f6' }} />}
                 styles={{ content: { color: '#3b82f6', fontWeight: 800, fontSize: 22 } }}
@@ -638,8 +639,8 @@ const GanttPageContent = () => {
             </Card>
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">% เสร็จสิ้น</span>}
+            <Card variant="borderless" className="bg-app-surface/60 border border-app-border">
+              <Statistic title={<span className="text-app-text-2">% เสร็จสิ้น</span>}
                 value={stats.total ? Math.round((stats.done / stats.total) * 100) : 0} suffix="%"
                 prefix={<RiseOutlined style={{ color: '#10b981' }} />}
                 styles={{ content: { color: '#10b981', fontWeight: 800 } }}
@@ -650,9 +651,9 @@ const GanttPageContent = () => {
         </Row>
 
         {/* ── Filter Bar ── */}
-        <div className="flex flex-wrap gap-4 mb-6 p-4 bg-slate-800/60 border border-slate-700/60 rounded-xl backdrop-blur-sm items-center shadow-lg">
+        <div className="flex flex-wrap gap-4 mb-6 p-4 bg-app-surface/60 border border-app-border rounded-xl backdrop-blur-sm items-center shadow-lg">
           <Tag icon={<SyncOutlined spin />} className="font-bold border-0" color="processing">ECharts Gantt</Tag>
-          <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-app-surface mx-1 hidden sm:block" />
 
           <Select
             value={selectedMission} onChange={setSelectedMission}
@@ -666,21 +667,21 @@ const GanttPageContent = () => {
             className="w-full sm:w-[180px]" popupMatchSelectWidth={false}
           />
 
-          <div className="ml-auto flex items-center gap-2 text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-full text-[10px] border border-slate-700/60">
+          <div className="ml-auto flex items-center gap-2 text-app-text-2 bg-app-surface/60 px-3 py-1.5 rounded-full text-[10px] border border-app-border">
             <InfoCircleOutlined />
             <span>ใช้ตารางด้านล่างเพื่อแก้ไข / อัปเดตความคืบหน้า / ดูรายละเอียดเต็ม</span>
           </div>
         </div>
 
         {/* ── Gantt ── */}
-        <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl mb-6"
+        <Card variant="borderless" className="bg-app-surface/50 border border-app-border backdrop-blur-md rounded-2xl shadow-2xl mb-6"
           styles={{ body: { padding: 12 } }}>
           <EChart option={ganttOption} height={heightPx} />
         </Card>
 
         {/* ── Table ── */}
-        <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl"
-          title={<span className="text-slate-100 font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม</span>}
+        <Card variant="borderless" className="bg-app-surface/50 border border-app-border backdrop-blur-md rounded-2xl shadow-2xl"
+          title={<span className="text-app-text font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม</span>}
           styles={{ body: { padding: 12 } }}>
           <Table<Task>
             columns={columns}
@@ -694,7 +695,7 @@ const GanttPageContent = () => {
         </Card>
 
         <style jsx global>{`
-          .ant-breadcrumb-separator { color: #475569 !important; margin: 0 12px; }
+          .ant-breadcrumb-separator { color: var(--app-text-3) !important; margin: 0 12px; }
         `}</style>
       </div>
 
@@ -918,7 +919,7 @@ const GanttPageContent = () => {
             </Space>
 
             {detailTask.type !== 'milestone' && (
-              <Card variant="borderless" className="mb-4 bg-slate-800/40">
+              <Card variant="borderless" className="mb-4 bg-app-surface/40">
                 <div className="flex items-center justify-between mb-2">
                   <Text strong>ความคืบหน้าโดยรวม</Text>
                   <Text strong style={{ color: getProgressColor(detailTask.progress ?? 0).fill, fontSize: 22 }}>
@@ -984,7 +985,7 @@ const GanttPageContent = () => {
                           <Text strong>{dayjs(log.date).format('DD MMM YYYY')}</Text>
                           <Tag color={getProgressColor(log.progress).tagColor}>{log.progress}%</Tag>
                         </div>
-                        <div style={{ color: '#cbd5e1' }}>{log.note}</div>
+                        <div style={{ color: 'var(--app-text-2)' }}>{log.note}</div>
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           โดย {log.reportedBy}
                           {log.budgetSpentDelta ? ` · เบิก ${formatTHB(log.budgetSpentDelta)}` : ''}
@@ -1003,16 +1004,9 @@ const GanttPageContent = () => {
 }
 
 const ProjectGanttPage = () => (
-  <ConfigProvider
-    theme={{
-      algorithm: theme.darkAlgorithm,
-      token: { colorPrimary: '#3b82f6', borderRadius: 12, fontFamily: 'var(--font-sarabun)' },
-    }}
-  >
-    <App>
+  <AppThemeProvider colorPrimary="#3b82f6">
       <GanttPageContent />
-    </App>
-  </ConfigProvider>
+    </AppThemeProvider>
 )
 
 export default ProjectGanttPage

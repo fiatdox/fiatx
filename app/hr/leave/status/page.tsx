@@ -1,8 +1,8 @@
 'use client'
 import { useState, useMemo } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, ConfigProvider, App,
-  Select, Row, Col, Space, theme, Tabs, Button, Empty, Segmented
+  Table, Tag, Card, Typography, Breadcrumb,
+  Select, Row, Col, Space, Tabs, Button, Empty, Segmented
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, PrinterOutlined,
@@ -11,6 +11,7 @@ import {
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby, FaChartBar, FaUsers, FaMedal } from 'react-icons/fa'
 import dayjs from 'dayjs'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
 
@@ -210,7 +211,7 @@ const LeaveSummaryPageContent = () => {
     ...LEAVE_TYPES.map(lt => ({
       title: <Tag color={leaveTypeColor[lt]}>{lt}</Tag>,
       dataIndex: lt, key: lt, align: 'center' as const,
-      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-slate-500">—</span>
+      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-app-text-3">—</span>
     })),
     {
       title: 'รวมทั้งสิ้น', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
@@ -252,7 +253,7 @@ const LeaveSummaryPageContent = () => {
     ...LEAVE_TYPES.map(lt => ({
       title: <Tag color={leaveTypeColor[lt]}>{lt}</Tag>,
       dataIndex: lt, key: lt, align: 'center' as const,
-      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-slate-500">—</span>
+      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-app-text-3">—</span>
     })),
     {
       title: 'รวม', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
@@ -303,7 +304,7 @@ const LeaveSummaryPageContent = () => {
       : `${ROLE_LABELS[role]}: (ทั้งหมด)`
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
 
@@ -332,7 +333,7 @@ const LeaveSummaryPageContent = () => {
         <Card variant="borderless" className="mb-6 shadow-sm">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end' }}>
             <div>
-              <Text style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>ปีงบประมาณ</Text>
+              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>ปีงบประมาณ</Text>
               <Select
                 value={fiscalYear}
                 onChange={setFiscalYear}
@@ -344,7 +345,7 @@ const LeaveSummaryPageContent = () => {
               />
             </div>
             <div>
-              <Text style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>ช่วงเดือน</Text>
+              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>ช่วงเดือน</Text>
               <Select
                 value={fiscalMonth}
                 onChange={setFiscalMonth}
@@ -353,7 +354,7 @@ const LeaveSummaryPageContent = () => {
               />
             </div>
             <div>
-              <Text style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>มุมมอง / บทบาท</Text>
+              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>มุมมอง / บทบาท</Text>
               <Select
                 value={role}
                 onChange={handleRoleChange}
@@ -363,7 +364,7 @@ const LeaveSummaryPageContent = () => {
             </div>
             {role !== 'hr' && (
               <div>
-                <Text style={{ display: 'block', fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>
+                <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>
                   {role === 'mission' ? 'ภารกิจ' : role === 'group' ? 'กลุ่มงาน' : 'หน่วยงาน'}
                 </Text>
                 <Select
@@ -418,7 +419,7 @@ const LeaveSummaryPageContent = () => {
               key: 'pivot',
               label: <span style={{ color: '#34d399' }}><FaChartBar className="inline mr-2" />สรุปรายหน่วยงาน</span>,
               children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'linear-gradient(135deg, #082820 0%, #0d1f1c 100%)', borderTop: '3px solid #006a5a' }}>
+                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #006a5a' }}>
                   <Title level={5} className="mb-4">
                     จำนวนวันลา (เฉพาะที่อนุมัติแล้ว) จำแนกตามหน่วยงานและประเภท
                   </Title>
@@ -445,7 +446,7 @@ const LeaveSummaryPageContent = () => {
                         rowKey="key"
                         pagination={false}
                         scroll={{ x: 700 }}
-                        rowClassName={(r) => r.key === '__total' ? 'font-bold bg-slate-700' : ''}
+                        rowClassName={(r) => r.key === '__total' ? 'font-bold bg-app-surface' : ''}
                       />
                     )
                   }
@@ -456,7 +457,7 @@ const LeaveSummaryPageContent = () => {
               key: 'person',
               label: <span style={{ color: '#60a5fa' }}><FaUsers className="inline mr-2" />สรุปรายบุคคล</span>,
               children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'linear-gradient(135deg, #0a1628 0%, #0d1a30 100%)', borderTop: '3px solid #2563eb' }}>
+                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #2563eb' }}>
                   <Title level={5} className="mb-4">
                     จำนวนวันลา (เฉพาะที่อนุมัติแล้ว) จำแนกตามบุคลากร
                   </Title>
@@ -477,9 +478,9 @@ const LeaveSummaryPageContent = () => {
             },
             {
               key: 'detail',
-              label: <span style={{ color: '#94a3b8' }}><FileTextOutlined className="mr-2" />รายการทั้งหมด</span>,
+              label: <span style={{ color: 'var(--app-text-2)' }}><FileTextOutlined className="mr-2" />รายการทั้งหมด</span>,
               children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'linear-gradient(135deg, #131b2a 0%, #161e2c 100%)', borderTop: '3px solid #475569' }}>
+                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid var(--app-text-3)' }}>
                   <div className="flex justify-between items-center mb-4">
                     <Title level={5} className="m-0">รายการขอลาทั้งหมด ({filtered.length} รายการ)</Title>
                     <Space>
@@ -532,7 +533,7 @@ const LeaveSummaryPageContent = () => {
                       <span style={{
                         fontWeight: 700,
                         fontSize: rank <= 3 ? 16 : 13,
-                        color: MEDAL_COLORS[rank] ?? '#94a3b8',
+                        color: MEDAL_COLORS[rank] ?? 'var(--app-text-2)',
                       }}>
                         {rank <= 3 ? '🏅' : ''}{rank}
                       </span>
@@ -543,7 +544,7 @@ const LeaveSummaryPageContent = () => {
                     render: (t: string, r: any) => (
                       <div>
                         <div style={{ fontWeight: 600 }}>{t}</div>
-                        <div style={{ fontSize: 11, color: '#94a3b8' }}>{r.department}</div>
+                        <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{r.department}</div>
                       </div>
                     )
                   },
@@ -552,28 +553,28 @@ const LeaveSummaryPageContent = () => {
                     dataIndex: 'ลากิจ', key: 'ลากิจ', align: 'center' as const,
                     render: (v: number) => v > 0
                       ? <Tag color="blue">{v} วัน</Tag>
-                      : <span className="text-slate-500">—</span>
+                      : <span className="text-app-text-3">—</span>
                   },
                   {
                     title: <Tag color="green">ลาพักผ่อน</Tag>,
                     dataIndex: 'ลาพักผ่อน', key: 'ลาพักผ่อน', align: 'center' as const,
                     render: (v: number) => v > 0
                       ? <Tag color="green">{v} วัน</Tag>
-                      : <span className="text-slate-500">—</span>
+                      : <span className="text-app-text-3">—</span>
                   },
                   {
                     title: <Tag color="volcano">ลาป่วย</Tag>,
                     dataIndex: 'ลาป่วย', key: 'ลาป่วย', align: 'center' as const,
                     render: (v: number) => v > 0
                       ? <Tag color="volcano">{v} วัน</Tag>
-                      : <span className="text-slate-500">—</span>
+                      : <span className="text-app-text-3">—</span>
                   },
                   {
                     title: <Tag color="magenta">ลาคลอด</Tag>,
                     dataIndex: 'ลาคลอด', key: 'ลาคลอด', align: 'center' as const,
                     render: (v: number) => v > 0
                       ? <Tag color="magenta">{v} วัน</Tag>
-                      : <span className="text-slate-500">—</span>
+                      : <span className="text-app-text-3">—</span>
                   },
                   {
                     title: 'รวม', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
@@ -582,7 +583,7 @@ const LeaveSummaryPageContent = () => {
                 ]
 
                 return (
-                  <Card variant="borderless" className="rounded-xl" style={{ background: 'linear-gradient(135deg, #1e1408 0%, #1a1208 100%)', borderTop: '3px solid #d97706' }}>
+                  <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #d97706' }}>
                     <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
                       <div>
                         <Title level={5} className="m-0">Top 100 บุคลากรที่ลามากที่สุด</Title>
@@ -591,7 +592,7 @@ const LeaveSummaryPageContent = () => {
                         </Text>
                       </div>
                       <div>
-                        <Text style={{ fontSize: 12, color: '#94a3b8', marginRight: 8 }}>เรียงตาม:</Text>
+                        <Text style={{ fontSize: 12, color: 'var(--app-text-2)', marginRight: 8 }}>เรียงตาม:</Text>
                         <Segmented
                           value={topType}
                           onChange={v => setTopType(v as string)}
@@ -626,20 +627,9 @@ const LeaveSummaryPageContent = () => {
 
 // ─── Page Wrapper ─────────────────────────────────────────────────────────────
 const LeaveSummaryPage = () => (
-  <ConfigProvider
-    theme={{
-      algorithm: theme.darkAlgorithm,
-      token: {
-        colorPrimary: '#006a5a',
-        borderRadius: 8,
-        fontFamily: 'var(--font-sarabun)',
-      },
-    }}
-  >
-    <App>
+  <AppThemeProvider colorPrimary="#006a5a">
       <LeaveSummaryPageContent />
-    </App>
-  </ConfigProvider>
+    </AppThemeProvider>
 )
 
 export default LeaveSummaryPage

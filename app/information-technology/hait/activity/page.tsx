@@ -1542,6 +1542,7 @@ function ActivityPageContent() {
       <Drawer
         title={editingLog ? 'แก้ไขกิจกรรม' : 'บันทึกกิจกรรมใหม่'}
         open={isDrawerOpen}
+        forceRender
         onClose={() => { setIsDrawerOpen(false); form.resetFields() }}
         size="large"
         footer={

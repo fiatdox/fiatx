@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 import {
-  Typography, Card, Row, Col, ConfigProvider, theme, Badge, Tag, Avatar,
-  Timeline, Button, App
+  Typography, Card, Row, Col, Badge, Tag, Avatar,
+  Timeline, Button
 } from 'antd'
+import { AppThemeProvider } from '../components/ThemeProvider'
 import {
   BellOutlined, CalendarOutlined,
   ClockCircleOutlined, UserOutlined, ArrowRightOutlined
@@ -89,7 +90,7 @@ const PageContent = () => {
   const unread = notifications.filter(n => !n.read).length
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#0f172a' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--app-bg)' }}>
       <Navbar />
       <div style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 20px 48px' }}>
 
@@ -150,7 +151,7 @@ const PageContent = () => {
         {/* ── Quick Actions ── */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={{ color: '#94a3b8', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
               เข้าถึงด่วน
             </Text>
           </div>
@@ -160,7 +161,7 @@ const PageContent = () => {
                 <Card
                   hoverable
                   onClick={() => router.push(a.key)}
-                  style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)', background: '#1e293b', cursor: 'pointer', textAlign: 'center' }}
+                  style={{ borderRadius: 14, border: '1px solid var(--app-border)', background: 'var(--app-surface)', cursor: 'pointer', textAlign: 'center' }}
                   styles={{ body: { padding: '18px 8px' } }}
                 >
                   <div
@@ -172,7 +173,7 @@ const PageContent = () => {
                   >
                     {a.icon}
                   </div>
-                  <Text style={{ fontSize: 12, fontWeight: 500, color: '#cbd5e1', lineHeight: 1.3 }}>{a.label}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: 500, color: 'var(--app-text-2)', lineHeight: 1.3 }}>{a.label}</Text>
                 </Card>
               </Col>
             ))}
@@ -185,25 +186,25 @@ const PageContent = () => {
           <Col xs={24} lg={14}>
             <Card
               title={
-                <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}>
+                <span style={{ color: 'var(--app-text)', fontSize: 14, fontWeight: 600 }}>
                   <ClockCircleOutlined style={{ marginRight: 8, color: '#006a5a' }} />รายการล่าสุดของฉัน
                 </span>
               }
-              extra={<Button type="link" size="small" icon={<ArrowRightOutlined />} style={{ color: '#64748b', fontSize: 12 }}>ดูทั้งหมด</Button>}
-              style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: '#1e293b', height: '100%' }}
-              styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.06)' }, body: { padding: 0 } }}
+              extra={<Button type="link" size="small" icon={<ArrowRightOutlined />} style={{ color: 'var(--app-text-3)', fontSize: 12 }}>ดูทั้งหมด</Button>}
+              style={{ borderRadius: 16, border: '1px solid var(--app-border)', background: 'var(--app-surface)', height: '100%' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border)' }, body: { padding: 0 } }}
             >
               {recentActivities.map((item, idx) => (
                 <div
                   key={item.id}
                   style={{
                     padding: '14px 20px',
-                    borderBottom: idx < recentActivities.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    borderBottom: idx < recentActivities.length - 1 ? '1px solid var(--app-border)' : 'none',
                     transition: 'background 0.15s',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <Text style={{ fontSize: 13, color: '#e2e8f0', flex: 1 }}>{item.title}</Text>
+                    <Text style={{ fontSize: 13, color: 'var(--app-text)', flex: 1 }}>{item.title}</Text>
                     <Tag color={item.statusColor} style={{ margin: 0, borderRadius: 6, fontSize: 11, flexShrink: 0 }}>
                       {item.status}
                     </Tag>
@@ -224,12 +225,12 @@ const PageContent = () => {
             {/* Schedule */}
             <Card
               title={
-                <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}>
+                <span style={{ color: 'var(--app-text)', fontSize: 14, fontWeight: 600 }}>
                   <CalendarOutlined style={{ marginRight: 8, color: '#d97706' }} />กำหนดการวันนี้
                 </span>
               }
-              style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: '#1e293b', marginBottom: 16 }}
-              styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.06)' } }}
+              style={{ borderRadius: 16, border: '1px solid var(--app-border)', background: 'var(--app-surface)', marginBottom: 16 }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border)' } }}
             >
               {todaySchedule.length > 0 ? (
                 <Timeline
@@ -238,12 +239,12 @@ const PageContent = () => {
                     content: (
                       <div style={{ paddingBottom: 4 }}>
                         <Tag
-                          style={{ borderRadius: 6, fontSize: 12, fontWeight: 700, background: i === 0 ? '#06443520' : 'transparent', borderColor: i === 0 ? '#059669' : '#334155', color: i === 0 ? '#34d399' : '#64748b', marginBottom: 4 }}
+                          style={{ borderRadius: 6, fontSize: 12, fontWeight: 700, background: i === 0 ? '#06443520' : 'transparent', borderColor: i === 0 ? '#059669' : '#334155', color: i === 0 ? '#34d399' : 'var(--app-text-3)', marginBottom: 4 }}
                         >
                           {s.time}
                         </Tag>
                         <div>
-                          <Text style={{ fontSize: 13, color: '#e2e8f0' }}>{s.title}</Text>
+                          <Text style={{ fontSize: 13, color: 'var(--app-text)' }}>{s.title}</Text>
                         </div>
                         <Text type="secondary" style={{ fontSize: 12 }}>{s.location}</Text>
                       </div>
@@ -260,13 +261,13 @@ const PageContent = () => {
             {/* Notifications */}
             <Card
               title={
-                <span style={{ color: '#e2e8f0', fontSize: 14, fontWeight: 600 }}>
+                <span style={{ color: 'var(--app-text)', fontSize: 14, fontWeight: 600 }}>
                   <BellOutlined style={{ marginRight: 8, color: '#7c3aed' }} />การแจ้งเตือน
                 </span>
               }
               extra={unread > 0 && <Badge count={unread} style={{ background: '#7c3aed' }} />}
-              style={{ borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', background: '#1e293b' }}
-              styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.06)' }, body: { padding: 0 } }}
+              style={{ borderRadius: 16, border: '1px solid var(--app-border)', background: 'var(--app-surface)' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border)' }, body: { padding: 0 } }}
             >
               {notifications.map((n, idx) => (
                 <div
@@ -276,7 +277,7 @@ const PageContent = () => {
                     alignItems: 'flex-start',
                     gap: 12,
                     padding: '12px 20px',
-                    borderBottom: idx < notifications.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                    borderBottom: idx < notifications.length - 1 ? '1px solid var(--app-border)' : 'none',
                     background: !n.read ? 'rgba(124,58,237,0.06)' : 'transparent',
                   }}
                 >
@@ -287,8 +288,8 @@ const PageContent = () => {
                     }
                   </div>
                   <div style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13, color: n.read ? '#64748b' : '#e2e8f0' }}>{n.message}</Text>
-                    <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{n.time}</div>
+                    <Text style={{ fontSize: 13, color: n.read ? 'var(--app-text-3)' : 'var(--app-text)' }}>{n.message}</Text>
+                    <div style={{ fontSize: 11, color: 'var(--app-text-3)', marginTop: 2 }}>{n.time}</div>
                   </div>
                 </div>
               ))}
@@ -302,15 +303,8 @@ const PageContent = () => {
 
 export default function Page() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: { colorPrimary: '#006a5a', borderRadius: 8, colorBgContainer: '#1e293b', colorBgElevated: '#1e293b' },
-      }}
-    >
-      <App style={{ background: 'transparent' }}>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

@@ -1,9 +1,9 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
+  App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
   Input, Select, Modal, Form, Space, Statistic, Progress, Popconfirm, Drawer,
-  Descriptions, Timeline, theme, InputNumber, DatePicker
+  Descriptions, Timeline, InputNumber, DatePicker
 } from 'antd'
 import {
   HomeOutlined, FundOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
@@ -13,6 +13,7 @@ import {
 import { FaGraduationCap } from 'react-icons/fa'
 import dayjs from 'dayjs'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 import {
   loadTrainings, saveTrainings, loadGoals, DEFAULT_TRAININGS,
@@ -169,7 +170,7 @@ const TrainingPlanContent = () => {
         const cm = getCompetencyMeta(r.competencyType)
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontWeight: 600 }}>{v}</div>
+            <div style={{ color: 'var(--app-text)', fontWeight: 600 }}>{v}</div>
             <Space size={4} style={{ marginTop: 4 }} wrap>
               <Tag color={cm.color} style={{ borderColor: cm.color, color: '#fff', background: cm.color + 'aa', fontSize: 11 }}>{cm.label.split(' (')[0]}</Tag>
               <Tag style={{ fontSize: 11 }}>{getTargetGroupLabel(r.targetGroup)}</Tag>
@@ -184,10 +185,10 @@ const TrainingPlanContent = () => {
       render: (_: unknown, r: TrainingCourse) => (
         <div>
           <Tag>{r.fiscalYear + 543}</Tag>
-          <div className="text-xs text-slate-400 mt-1">
+          <div className="text-xs text-app-text-2 mt-1">
             {dayjs(r.startDate).format('DD MMM')} – {dayjs(r.endDate).format('DD MMM YY')}
           </div>
-          <Text className="text-xs text-slate-500">{r.hours} ชม.</Text>
+          <Text className="text-xs text-app-text-3">{r.hours} ชม.</Text>
         </div>
       )
     },
@@ -197,7 +198,7 @@ const TrainingPlanContent = () => {
         const pct = trainingProgressPct(r)
         return (
           <div>
-            <Text style={{ color: '#cbd5e1', fontWeight: 600 }}>{r.seatsActual}/{r.seatsPlanned}</Text>
+            <Text style={{ color: 'var(--app-text-2)', fontWeight: 600 }}>{r.seatsActual}/{r.seatsPlanned}</Text>
             <Progress percent={pct} size="small" strokeColor="#f59e0b" showInfo={false} />
           </div>
         )
@@ -210,7 +211,7 @@ const TrainingPlanContent = () => {
         const color = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : '#3b82f6'
         return (
           <div>
-            <Text style={{ color: '#cbd5e1', fontSize: 12 }}>
+            <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
               {formatCompactTHB(r.budgetSpent)} / {formatCompactTHB(r.budgetPlanned)}
             </Text>
             <Progress percent={pct} size="small" strokeColor={color} showInfo={false} />
@@ -223,8 +224,8 @@ const TrainingPlanContent = () => {
       title: 'ผู้ประสานงาน', dataIndex: 'responsible', width: 180,
       render: (v: string, r: TrainingCourse) => (
         <div>
-          <div style={{ color: '#e2e8f0', fontSize: 13 }}>{v}</div>
-          <Text className="text-xs text-slate-500">{r.department}</Text>
+          <div style={{ color: 'var(--app-text)', fontSize: 13 }}>{v}</div>
+          <Text className="text-xs text-app-text-3">{r.department}</Text>
         </div>
       )
     },
@@ -254,7 +255,7 @@ const TrainingPlanContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-[#020617] text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" />
       </div>
@@ -262,7 +263,7 @@ const TrainingPlanContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
 
       <div className="fixed inset-0 pointer-events-none">
@@ -282,7 +283,7 @@ const TrainingPlanContent = () => {
           <div className="flex items-center gap-3">
             <ReadOutlined style={{ fontSize: 28, color: '#f59e0b' }} />
             <div>
-              <Title level={3} style={{ color: '#f1f5f9', margin: 0 }}>แผนพัฒนาอบรมสมรรถนะบุคลากร</Title>
+              <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>แผนพัฒนาอบรมสมรรถนะบุคลากร</Title>
               <Text type="secondary">Competency Training Plan · แผนหลักสูตรอบรมประจำปีงบประมาณ</Text>
             </div>
           </div>
@@ -295,34 +296,34 @@ const TrainingPlanContent = () => {
 
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="หลักสูตรทั้งหมด" value={totalCourses} suffix="หลักสูตร"
                 styles={{ content: { color: '#f59e0b', fontWeight: 800 } }} prefix={<ReadOutlined />} />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="ที่นั่งแผน" value={totalSeatsPlanned} suffix="ที่นั่ง"
                 styles={{ content: { color: '#a855f7', fontWeight: 800 } }} prefix={<TeamOutlined />} />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="ลงทะเบียนจริง" value={totalSeatsActual} suffix={`(${seatsPct}%)`}
                 styles={{ content: { color: '#10b981', fontWeight: 800 } }} />
               <Progress percent={seatsPct} size="small" strokeColor="#10b981" showInfo={false} />
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="งบเบิกจ่าย" value={budgetPct} suffix="%"
                 styles={{ content: { color: '#3b82f6', fontWeight: 800 } }} prefix={<DollarCircleOutlined />} />
-              <Text className="text-xs text-slate-500">{formatCompactTHB(totalSpent)} / {formatCompactTHB(totalBudget)}</Text>
+              <Text className="text-xs text-app-text-3">{formatCompactTHB(totalSpent)} / {formatCompactTHB(totalBudget)}</Text>
             </Card>
           </Col>
         </Row>
 
-        <Card className="bg-slate-900/40 border-slate-800/50">
+        <Card className="bg-app-surface/40 border-app-border">
           <Space wrap className="mb-4">
             <Input
               prefix={<SearchOutlined />}
@@ -550,18 +551,18 @@ const TrainingPlanContent = () => {
 
             <Row gutter={12} className="mb-4">
               <Col span={12}>
-                <Card className="bg-slate-900/40 border-slate-800/50" styles={{ body: { padding: 14 } }}>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">ผู้เข้าอบรม</Text>
+                <Card className="bg-app-surface/40 border-app-border" styles={{ body: { padding: 14 } }}>
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">ผู้เข้าอบรม</Text>
                   <div className="text-2xl font-bold text-amber-400">{detail.seatsActual} / {detail.seatsPlanned}</div>
                   <Progress percent={trainingProgressPct(detail)} size="small" strokeColor="#f59e0b" />
                 </Card>
               </Col>
               <Col span={12}>
-                <Card className="bg-slate-900/40 border-slate-800/50" styles={{ body: { padding: 14 } }}>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">งบประมาณ</Text>
+                <Card className="bg-app-surface/40 border-app-border" styles={{ body: { padding: 14 } }}>
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">งบประมาณ</Text>
                   <div className="text-2xl font-bold text-blue-400">{formatCompactTHB(detail.budgetSpent)}</div>
                   <Progress percent={budgetUtilization(detail.budgetPlanned, detail.budgetSpent)} size="small" strokeColor="#3b82f6" />
-                  <Text className="text-xs text-slate-500">จาก {formatTHB(detail.budgetPlanned)}</Text>
+                  <Text className="text-xs text-app-text-3">จาก {formatTHB(detail.budgetPlanned)}</Text>
                 </Card>
               </Col>
             </Row>
@@ -599,17 +600,17 @@ const TrainingPlanContent = () => {
 
             {detail.progress.length > 0 && (
               <>
-                <Title level={5} className="mt-5 mb-3 text-slate-200">บันทึกความคืบหน้า</Title>
+                <Title level={5} className="mt-5 mb-3 text-app-text">บันทึกความคืบหน้า</Title>
                 <Timeline
                   items={detail.progress.map(p => ({
                     color: '#a855f7',
                     children: (
                       <div>
-                        <Text strong style={{ color: '#cbd5e1' }}>
+                        <Text strong style={{ color: 'var(--app-text-2)' }}>
                           {dayjs(p.date).format('DD MMM YYYY')}
                         </Text>
-                        <div className="text-slate-300 mt-1">{p.note}</div>
-                        <Text className="text-xs text-slate-500">
+                        <div className="text-app-text-2 mt-1">{p.note}</div>
+                        <Text className="text-xs text-app-text-3">
                           โดย {p.reportedBy}
                           {p.attendees !== undefined && ` · ผู้เข้าอบรม ${p.attendees} คน`}
                           {p.spent !== undefined && ` · เบิก ${formatCompactTHB(p.spent)}`}
@@ -629,21 +630,8 @@ const TrainingPlanContent = () => {
 
 export default function TrainingPlanPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#f59e0b',
-          borderRadius: 10,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.08)'
-        }
-      }}
-    >
-      <App>
-        <TrainingPlanContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#f59e0b">
+      <TrainingPlanContent />
+    </AppThemeProvider>
   )
 }

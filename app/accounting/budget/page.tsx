@@ -1,8 +1,8 @@
 'use client'
 import React, { useState, useMemo } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
-  Modal, Form, Input, Select, Row, Col, Alert, Progress, Space, App, message,
+  Typography, Breadcrumb, Card, Tag, Button, Table,
+  Modal, Form, Input, Select, Row, Col, Alert, Progress, Space, message,
   Statistic, Tabs, InputNumber
 } from 'antd'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { FaCoins, FaChartPie } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
 
 const { Title, Text } = Typography
@@ -30,7 +31,7 @@ const CATEGORY_COLOR: Record<BudgetCategory, string> = {
   asset: '#fb923c',
   service: '#10b981',
   utility: '#fbbf24',
-  misc: '#94a3b8',
+  misc: 'var(--app-text-2)',
 }
 
 type BudgetItem = {
@@ -161,7 +162,7 @@ const PageContent = () => {
       render: (v: string) => <Text style={{ color: '#22d3ee', fontWeight: 600 }}>{v}</Text> },
     { title: 'หน่วยงาน', dataIndex: 'department', key: 'dept', width: 180 },
     { title: 'หมวดงบ', dataIndex: 'category', key: 'cat', width: 150,
-      render: (v: BudgetCategory) => <Tag color={CATEGORY_COLOR[v]} style={{ color: '#0f172a', border: 'none' }}>
+      render: (v: BudgetCategory) => <Tag color={CATEGORY_COLOR[v]} style={{ color: '#fff', border: 'none' }}>
         {CATEGORY_LABEL[v]}
       </Tag> },
     { title: 'งบที่ตั้ง', dataIndex: 'allocated', key: 'al', width: 130, align: 'right' as const,
@@ -173,7 +174,7 @@ const PageContent = () => {
     { title: 'คงเหลือ', key: 'rm', width: 130, align: 'right' as const,
       render: (_: any, b: BudgetItem) => {
         const r = remaining(b)
-        return <Text style={{ color: r < 0 ? '#ef4444' : '#94a3b8', fontWeight: 600 }}>
+        return <Text style={{ color: r < 0 ? '#ef4444' : 'var(--app-text-2)', fontWeight: 600 }}>
           ฿{r.toLocaleString()}
         </Text>
       }
@@ -185,7 +186,7 @@ const PageContent = () => {
         return (
           <div>
             <Progress percent={Math.min(pct, 100)} size="small"
-              strokeColor={LEVEL_COLOR[lv]} railColor="#334155"
+              strokeColor={LEVEL_COLOR[lv]} railColor="var(--app-border-strong)"
               format={() => <span style={{ color: LEVEL_COLOR[lv], fontSize: 11 }}>{pct}%</span>} />
             <Tag color={lv === 'over' ? 'error' : lv === 'danger' ? 'orange' : lv === 'warn' ? 'warning' : 'success'}
               style={{ fontSize: 10, marginTop: 2 }}>
@@ -196,7 +197,7 @@ const PageContent = () => {
       }
     },
     { title: 'ผู้รับผิดชอบ', dataIndex: 'owner', key: 'ow', width: 140,
-      render: (v: string) => <Text style={{ color: '#94a3b8', fontSize: 12 }}>{v}</Text> },
+      render: (v: string) => <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{v}</Text> },
     { title: '', key: 'act', width: 80,
       render: (_: any, b: BudgetItem) => (
         <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(b.id)}>แก้</Button>
@@ -205,7 +206,7 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
@@ -216,15 +217,15 @@ const PageContent = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <FaCoins style={{ fontSize: 24, color: '#fbbf24' }} />
-          <Title level={3} style={{ margin: 0, color: '#f1f5f9' }}>
+          <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>
             งบประมาณรายหน่วยงาน — ปีงบ {FY}
           </Title>
         </div>
 
-        <Card style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 16 }}
+        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginBottom: 16 }}
           styles={{ body: { padding: 12 } }}>
           <Space wrap size={12} align="center">
-            <Text style={{ color: '#94a3b8' }}><FilterOutlined /> ตัวกรอง</Text>
+            <Text style={{ color: 'var(--app-text-2)' }}><FilterOutlined /> ตัวกรอง</Text>
             <Select
               placeholder="หน่วยงาน"
               allowClear
@@ -251,44 +252,44 @@ const PageContent = () => {
 
         <Row gutter={12} style={{ marginBottom: 16 }}>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>งบทั้งหมดที่ตั้ง</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>งบทั้งหมดที่ตั้ง</span>}
                 value={summary.allocated} prefix="฿"
                 styles={{ content: { color: '#a78bfa' } }}
                 formatter={v => Number(v).toLocaleString()} />
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>{filtered.length} รายการ</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{filtered.length} รายการ</Text>
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>เบิกจ่ายแล้ว</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>เบิกจ่ายแล้ว</span>}
                 value={summary.actual} prefix="฿"
                 styles={{ content: { color: '#10b981' } }}
                 formatter={v => Number(v).toLocaleString()} />
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                 ผูกพันอีก ฿{summary.reserved.toLocaleString()}
               </Text>
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Statistic title={<span style={{ color: '#94a3b8' }}>คงเหลือ</span>}
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>คงเหลือ</span>}
                 value={summary.remain}
                 prefix={<>{summary.remain < 0 ? <FallOutlined /> : <RiseOutlined />} ฿</>}
                 styles={{ content: { color: summary.remain < 0 ? '#ef4444' : '#22d3ee' } }}
                 formatter={v => Number(v).toLocaleString()} />
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                 ใช้ไป {summary.pct}% ของงบ
               </Text>
             </Card>
           </Col>
           <Col span={6}>
-            <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
-              <Text style={{ color: '#94a3b8', fontSize: 13 }}>การใช้งบรวม</Text>
+            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 13 }}>การใช้งบรวม</Text>
               <Progress percent={Math.min(summary.pct, 100)} size={8}
                 strokeColor={summary.pct > 100 ? '#ef4444' : summary.pct >= 90 ? '#fb923c'
                   : summary.pct >= 75 ? '#fbbf24' : '#10b981'}
-                railColor="#334155" />
+                railColor="var(--app-border-strong)" />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
                 <Text style={{ color: '#fb923c', fontSize: 12 }}>
                   <WarningOutlined /> ใกล้เต็ม {summary.dangerItems.length}
@@ -309,37 +310,37 @@ const PageContent = () => {
 
         <Row gutter={12} style={{ marginBottom: 16 }}>
           <Col span={16}>
-            <Card title={<span style={{ color: '#f1f5f9' }}>
+            <Card title={<span style={{ color: 'var(--app-text)' }}>
               <FundOutlined /> เปรียบเทียบงบ vs เบิกจ่าย vs ผูกพัน รายหน่วยงาน
             </span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
               styles={{ body: { padding: 12 } }}>
               <EChart height={360} option={{
                 backgroundColor: 'transparent',
                 grid: { left: 16, right: 16, top: 36, bottom: 80, containLabel: true },
                 tooltip: {
                   trigger: 'axis', axisPointer: { type: 'shadow' },
-                  backgroundColor: '#0f172a', borderColor: '#334155',
-                  textStyle: { color: '#e2e8f0' },
+                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                  textStyle: { color: 'var(--app-text)' },
                   valueFormatter: (v: any) => '฿' + Number(v).toLocaleString(),
                 },
                 legend: {
                   data: ['งบที่ตั้ง', 'เบิกจ่าย', 'ผูกพัน'],
-                  textStyle: { color: '#cbd5e1' }, top: 4,
+                  textStyle: { color: 'var(--app-text-2)' }, top: 4,
                 },
                 xAxis: {
                   type: 'category', data: byDept.map(([d]) => d),
-                  axisLabel: { color: '#94a3b8', interval: 0, rotate: 22, fontSize: 11 },
-                  axisLine: { lineStyle: { color: '#475569' } },
+                  axisLabel: { color: 'var(--app-text-2)', interval: 0, rotate: 22, fontSize: 11 },
+                  axisLine: { lineStyle: { color: 'var(--app-text-3)' } },
                 },
                 yAxis: {
                   type: 'value',
                   axisLabel: {
-                    color: '#94a3b8',
+                    color: 'var(--app-text-2)',
                     formatter: (v: number) => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M'
                       : v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v),
                   },
-                  splitLine: { lineStyle: { color: '#334155' } },
+                  splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                 },
                 series: [
                   {
@@ -374,28 +375,28 @@ const PageContent = () => {
             </Card>
           </Col>
           <Col span={8}>
-            <Card title={<span style={{ color: '#f1f5f9' }}>
+            <Card title={<span style={{ color: 'var(--app-text)' }}>
               <FaChartPie style={{ marginRight: 6 }} /> สัดส่วนงบตามหมวด
             </span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
               styles={{ body: { padding: 12 } }}>
               <EChart height={360} option={{
                 backgroundColor: 'transparent',
                 tooltip: {
-                  trigger: 'item', backgroundColor: '#0f172a', borderColor: '#334155',
-                  textStyle: { color: '#e2e8f0' },
+                  trigger: 'item', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                  textStyle: { color: 'var(--app-text)' },
                   formatter: (p: any) => `${p.name}<br/>฿${Number(p.value).toLocaleString()} (${p.percent}%)`,
                 },
                 legend: {
                   orient: 'vertical', right: 4, top: 'center',
-                  textStyle: { color: '#cbd5e1', fontSize: 11 },
+                  textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
                 },
                 series: [{
                   type: 'pie', radius: ['52%', '76%'], center: ['36%', '50%'],
                   avoidLabelOverlap: true,
                   label: { show: false },
                   labelLine: { show: false },
-                  itemStyle: { borderColor: '#1e293b', borderWidth: 2 },
+                  itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 },
                   data: byCategory.map(([k, v]) => ({
                     name: CATEGORY_LABEL[k], value: v,
                     itemStyle: { color: CATEGORY_COLOR[k] },
@@ -403,7 +404,7 @@ const PageContent = () => {
                 }],
                 graphic: [{
                   type: 'text', left: '36%', top: '44%',
-                  style: { text: 'รวม', textAlign: 'center', fill: '#94a3b8', fontSize: 12 },
+                  style: { text: 'รวม', textAlign: 'center', fill: 'var(--app-text-2)', fontSize: 12 },
                 }, {
                   type: 'text', left: '36%', top: '52%',
                   style: {
@@ -416,43 +417,43 @@ const PageContent = () => {
           </Col>
         </Row>
 
-        <Card title={<span style={{ color: '#f1f5f9' }}>
+        <Card title={<span style={{ color: 'var(--app-text)' }}>
           แนวโน้มการใช้งบรายเดือน — ปีงบ {FY}
         </span>}
-          style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 16 }}
+          style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginBottom: 16 }}
           styles={{ body: { padding: 12 } }}>
           <EChart height={260} option={{
             backgroundColor: 'transparent',
             grid: { left: 16, right: 16, top: 36, bottom: 36, containLabel: true },
             tooltip: {
-              trigger: 'axis', backgroundColor: '#0f172a', borderColor: '#334155',
-              textStyle: { color: '#e2e8f0' },
+              trigger: 'axis', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+              textStyle: { color: 'var(--app-text)' },
               valueFormatter: (v: any) => '฿' + Number(v).toLocaleString(),
             },
-            legend: { data: ['ใช้จ่ายรายเดือน', 'สะสม'], textStyle: { color: '#cbd5e1' }, top: 4 },
+            legend: { data: ['ใช้จ่ายรายเดือน', 'สะสม'], textStyle: { color: 'var(--app-text-2)' }, top: 4 },
             xAxis: {
               type: 'category', data: MONTHS_TH,
-              axisLabel: { color: '#94a3b8' },
-              axisLine: { lineStyle: { color: '#475569' } },
+              axisLabel: { color: 'var(--app-text-2)' },
+              axisLine: { lineStyle: { color: 'var(--app-text-3)' } },
             },
             yAxis: [
               {
                 type: 'value', name: 'รายเดือน',
                 axisLabel: {
-                  color: '#94a3b8',
+                  color: 'var(--app-text-2)',
                   formatter: (v: number) => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'k',
                 },
-                splitLine: { lineStyle: { color: '#334155' } },
-                nameTextStyle: { color: '#94a3b8' },
+                splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+                nameTextStyle: { color: 'var(--app-text-2)' },
               },
               {
                 type: 'value', name: 'สะสม',
                 axisLabel: {
-                  color: '#94a3b8',
+                  color: 'var(--app-text-2)',
                   formatter: (v: number) => v >= 1_000_000 ? (v / 1_000_000).toFixed(1) + 'M' : (v / 1000).toFixed(0) + 'k',
                 },
                 splitLine: { show: false },
-                nameTextStyle: { color: '#94a3b8' },
+                nameTextStyle: { color: 'var(--app-text-2)' },
               },
             ],
             series: [
@@ -481,7 +482,7 @@ const PageContent = () => {
           }} />
         </Card>
 
-        <Card style={{ background: '#1e293b', border: '1px solid #334155' }}
+        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
           styles={{ body: { padding: 0 } }}>
           <Tabs defaultActiveKey="all" style={{ padding: '0 16px' }}
             items={[
@@ -569,10 +570,8 @@ const PageContent = () => {
 
 export default function BudgetPage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#10b981', borderRadius: 8 } }}>
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#10b981">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

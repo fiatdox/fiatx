@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import {
-  ConfigProvider, App, theme, Card, Form, Input, Button, Breadcrumb, Typography,
+  Card, Form, Input, Button, Breadcrumb, Typography,
   Row, Col, Tag, Space, Avatar, Divider, Tabs, Select, DatePicker, Switch, Alert,
   Descriptions, Upload, Tooltip, Badge
 } from 'antd'
@@ -14,6 +14,7 @@ import {
   CalendarOutlined, GlobalOutlined, ApartmentOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 
@@ -93,8 +94,8 @@ const SettingsContent = () => {
       title: 'บันทึกข้อมูลสำเร็จ',
       text: `${label} ถูกส่งให้งานทรัพยากรบุคคลตรวจสอบแล้ว`,
       icon: 'success',
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
       confirmButtonColor: '#006a5a',
     })
   }
@@ -106,7 +107,7 @@ const SettingsContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8 max-w-6xl mx-auto">
         <Breadcrumb
@@ -152,17 +153,17 @@ const SettingsContent = () => {
             </div>
             <div className="flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <Title level={3} style={{ margin: 0, color: '#e2e8f0' }}>
+                <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>
                   {profileLocked.fullName}
                 </Title>
                 <Tag color="green">{profileLocked.staffType}</Tag>
                 <Tag color="cyan">{profileLocked.employeeNo}</Tag>
               </div>
-              <Text type="secondary" style={{ color: '#94a3b8' }}>
+              <Text type="secondary" style={{ color: 'var(--app-text-2)' }}>
                 {profileLocked.position} · {profileLocked.workGroup}
               </Text>
               <div className="mt-1">
-                <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+                <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                   <ClockCircleOutlined /> เริ่มงาน: {dayjs(profileLocked.startDate).format('DD/MM/YYYY')} ·
                   อายุงาน: {dayjs().diff(profileLocked.startDate, 'year')} ปี
                 </Text>
@@ -183,10 +184,10 @@ const SettingsContent = () => {
           className="mb-5"
           message="หมายเหตุการแก้ไขข้อมูล"
           description="ข้อมูลที่ผู้ใช้แก้ไขในหน้านี้ถือเป็นการแจ้งให้งานทรัพยากรบุคคลทราบ ระบบจะแสดงสถานะ 'รอ HR ยืนยัน' จนกว่าจะได้รับอนุมัติ ส่วนข้อมูลที่ HR กำหนด (สีเทา) จะไม่สามารถแก้ไขเองได้"
-          style={{ background: 'rgba(30,41,59,0.6)', borderColor: '#1e293b' }}
+          style={{ background: 'rgba(30,41,59,0.6)', borderColor: 'var(--app-surface)' }}
         />
 
-        <Card styles={{ header: { borderBottom: '1px solid #1e293b' } }}>
+        <Card styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
           <Tabs
             activeKey={tab}
             onChange={setTab}
@@ -202,10 +203,10 @@ const SettingsContent = () => {
                       bordered
                       className="mb-5"
                       styles={{
-                        label: { color: '#94a3b8', background: 'rgba(15,23,42,0.5)', width: 160 },
-                        content: { color: '#e2e8f0', background: 'rgba(15,23,42,0.3)' },
+                        label: { color: 'var(--app-text-2)', background: 'var(--app-surface)', width: 160 },
+                        content: { color: 'var(--app-text)', background: 'transparent' },
                       }}
-                      title={<span className="text-slate-300 text-sm">ข้อมูลที่ HR กำหนด · แก้ไขเองไม่ได้</span>}
+                      title={<span className="text-app-text-2 text-sm">ข้อมูลที่ HR กำหนด · แก้ไขเองไม่ได้</span>}
                     >
                       <Descriptions.Item label="รหัสบุคลากร">{profileLocked.employeeNo}</Descriptions.Item>
                       <Descriptions.Item label="ชื่อ-นามสกุล">{profileLocked.fullName}</Descriptions.Item>
@@ -224,7 +225,7 @@ const SettingsContent = () => {
                       <Row gutter={[16, 0]}>
                         <Col xs={24} sm={12} md={8}>
                           <Form.Item label="ชื่อเล่น" name="nickname">
-                            <Input placeholder="ชื่อเล่น" prefix={<UserOutlined className="text-slate-500" />} />
+                            <Input placeholder="ชื่อเล่น" prefix={<UserOutlined className="text-app-text-3" />} />
                           </Form.Item>
                         </Col>
                         <Col xs={24} sm={12} md={8}>
@@ -249,7 +250,7 @@ const SettingsContent = () => {
                         </Col>
                         <Col xs={24} sm={12} md={8}>
                           <Form.Item label="สัญชาติ" name="nationality">
-                            <Input prefix={<GlobalOutlined className="text-slate-500" />} />
+                            <Input prefix={<GlobalOutlined className="text-app-text-3" />} />
                           </Form.Item>
                         </Col>
                         <Col xs={24} sm={12} md={8}>
@@ -279,7 +280,7 @@ const SettingsContent = () => {
                           </Form.Item>
                         </Col>
                       </Row>
-                      <Divider style={{ borderColor: '#1e293b' }} />
+                      <Divider style={{ borderColor: 'var(--app-surface)' }} />
                       <div className="flex justify-end gap-2">
                         <Button icon={<ReloadOutlined />} onClick={() => profileForm.resetFields()}>
                           คืนค่าเดิม
@@ -302,31 +303,31 @@ const SettingsContent = () => {
                     initialValues={initialCodes}
                     onFinish={() => handleSave('รหัสและบัญชีธนาคาร')}
                   >
-                    <Title level={5} style={{ color: '#cbd5e1', marginTop: 0 }}>
+                    <Title level={5} style={{ color: 'var(--app-text-2)', marginTop: 0 }}>
                       <NumberOutlined /> รหัสประจำตัวระบบ
                     </Title>
                     <Row gutter={[16, 0]}>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item
-                          label={<span>รหัสเลขที่เงินเดือน <Tooltip title="ใช้สำหรับออกสลิปเงินเดือน"><InfoCircleOutlined className="text-slate-500" /></Tooltip></span>}
+                          label={<span>รหัสเลขที่เงินเดือน <Tooltip title="ใช้สำหรับออกสลิปเงินเดือน"><InfoCircleOutlined className="text-app-text-3" /></Tooltip></span>}
                           name="salaryCode"
                           rules={[{ required: true, message: 'กรุณาระบุรหัสเลขที่เงินเดือน' }]}
                         >
-                          <Input prefix={<SolutionOutlined className="text-slate-500" />} placeholder="เช่น PAY-44091" />
+                          <Input prefix={<SolutionOutlined className="text-app-text-3" />} placeholder="เช่น PAY-44091" />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item
-                          label={<span>รหัสเข้าออกงาน <Tooltip title="ใช้กับเครื่องสแกนนิ้ว/บัตร"><InfoCircleOutlined className="text-slate-500" /></Tooltip></span>}
+                          label={<span>รหัสเข้าออกงาน <Tooltip title="ใช้กับเครื่องสแกนนิ้ว/บัตร"><InfoCircleOutlined className="text-app-text-3" /></Tooltip></span>}
                           name="attendanceCode"
                           rules={[{ required: true, message: 'กรุณาระบุรหัสเข้าออกงาน' }]}
                         >
-                          <Input prefix={<ClockCircleOutlined className="text-slate-500" />} placeholder="เช่น ATT-0428" />
+                          <Input prefix={<ClockCircleOutlined className="text-app-text-3" />} placeholder="เช่น ATT-0428" />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item label="เลขที่บัตรพนักงาน" name="cardNo">
-                          <Input prefix={<IdcardOutlined className="text-slate-500" />} placeholder="เช่น IC-100428" />
+                          <Input prefix={<IdcardOutlined className="text-app-text-3" />} placeholder="เช่น IC-100428" />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
@@ -345,9 +346,9 @@ const SettingsContent = () => {
                       </Col>
                     </Row>
 
-                    <Divider style={{ borderColor: '#1e293b' }} />
+                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
 
-                    <Title level={5} style={{ color: '#cbd5e1' }}>
+                    <Title level={5} style={{ color: 'var(--app-text-2)' }}>
                       <BankOutlined /> บัญชีธนาคารรับเงินเดือน
                     </Title>
                     <Row gutter={[16, 0]}>
@@ -411,7 +412,7 @@ const SettingsContent = () => {
                           name="email"
                           rules={[{ type: 'email', message: 'รูปแบบอีเมลไม่ถูกต้อง' }]}
                         >
-                          <Input prefix={<MailOutlined className="text-slate-500" />} />
+                          <Input prefix={<MailOutlined className="text-app-text-3" />} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12}>
@@ -420,12 +421,12 @@ const SettingsContent = () => {
                           name="mobile"
                           rules={[{ required: true, message: 'กรุณากรอกเบอร์มือถือ' }]}
                         >
-                          <Input prefix={<PhoneOutlined className="text-slate-500" />} />
+                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12}>
                         <Form.Item label="โทรศัพท์ภายใน" name="phone">
-                          <Input prefix={<PhoneOutlined className="text-slate-500" />} />
+                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12}>
@@ -443,7 +444,7 @@ const SettingsContent = () => {
                       </Col>
                     </Row>
 
-                    <Divider style={{ borderColor: '#1e293b' }} />
+                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
 
                     <div className="flex justify-end gap-2">
                       <Button icon={<ReloadOutlined />} onClick={() => contactForm.resetFields()}>
@@ -473,7 +474,7 @@ const SettingsContent = () => {
                           name="contactName"
                           rules={[{ required: true, message: 'กรุณากรอกชื่อ' }]}
                         >
-                          <Input prefix={<UserOutlined className="text-slate-500" />} />
+                          <Input prefix={<UserOutlined className="text-app-text-3" />} />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
@@ -489,7 +490,7 @@ const SettingsContent = () => {
                           name="contactPhone"
                           rules={[{ required: true, message: 'กรุณากรอกเบอร์โทร' }]}
                         >
-                          <Input prefix={<PhoneOutlined className="text-slate-500" />} />
+                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
                         </Form.Item>
                       </Col>
                       <Col xs={24}>
@@ -502,7 +503,7 @@ const SettingsContent = () => {
                       </Col>
                     </Row>
 
-                    <Divider style={{ borderColor: '#1e293b' }} />
+                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
 
                     <div className="flex justify-end gap-2">
                       <Button icon={<ReloadOutlined />} onClick={() => emergencyForm.resetFields()}>
@@ -529,11 +530,11 @@ const SettingsContent = () => {
                       <div
                         key={item.key}
                         className="flex items-center justify-between p-4 rounded-lg"
-                        style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid #1e293b' }}
+                        style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
                       >
                         <div>
-                          <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{item.title}</Text>
-                          <div><Text type="secondary" style={{ color: '#94a3b8', fontSize: 12 }}>{item.desc}</Text></div>
+                          <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>{item.title}</Text>
+                          <div><Text type="secondary" style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{item.desc}</Text></div>
                         </div>
                         <Switch
                           checked={(notify as any)[item.key]}
@@ -541,7 +542,7 @@ const SettingsContent = () => {
                         />
                       </div>
                     ))}
-                    <Divider style={{ borderColor: '#1e293b' }} />
+                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
                     <div className="flex justify-end">
                       <Button
                         type="primary"
@@ -565,15 +566,8 @@ const SettingsContent = () => {
 
 export default function AccountSettingsPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: { colorPrimary: '#006a5a', borderRadius: 8 },
-      }}
-    >
-      <App>
-        <SettingsContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <SettingsContent />
+    </AppThemeProvider>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
 import React, { useMemo } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
-  Row, Col, Alert, Progress, App, Statistic, Divider
+  Typography, Breadcrumb, Card, Tag, Button, Table,
+  Row, Col, Alert, Progress, Statistic, Divider
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, DollarCircleOutlined, FieldTimeOutlined,
@@ -17,6 +17,7 @@ import {
 } from 'react-icons/fa'
 import Link from 'next/link'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
 import { MOCK_RECEIPTS, ReceiptRecord, TODAY, KPI_PAY_AFTER_INSPECTION_DAYS } from '../../../general/procurement/_data'
 import dayjs from 'dayjs'
@@ -32,7 +33,7 @@ const CATEGORY_META: Record<Category, { label: string; color: string; icon: Reac
   equipment: { label: 'ครุภัณฑ์การแพทย์',  color: '#f97316', icon: <FaBed /> },
   it:        { label: 'อุปกรณ์ IT',         color: '#3b82f6', icon: <FaDesktop /> },
   office:    { label: 'วัสดุสำนักงาน',     color: '#fbbf24', icon: <FaPrint /> },
-  other:     { label: 'อื่นๆ',              color: '#94a3b8', icon: <FaBoxes /> },
+  other:     { label: 'อื่นๆ',              color: 'var(--app-text-2)', icon: <FaBoxes /> },
 }
 const categorize = (r: ReceiptRecord): Category => {
   const text = (r.supplier + ' ' + r.items.map(i => i.name).join(' ')).toLowerCase()
@@ -52,7 +53,7 @@ const BUDGET_META: Record<BudgetType, { label: string; color: string; icon: Reac
   capital:     { label: 'งบลงทุน',          color: '#f97316', icon: <FaWallet /> },
   maintenance: { label: 'เงินบำรุง',        color: '#10b981', icon: <FaPiggyBank /> },
   subsidy:     { label: 'งบอุดหนุน / UC',   color: '#a78bfa', icon: <FaHandHoldingUsd /> },
-  other:       { label: 'งบอื่นๆ',           color: '#94a3b8', icon: <FaBoxes /> },
+  other:       { label: 'งบอื่นๆ',           color: 'var(--app-text-2)', icon: <FaBoxes /> },
 }
 const budgetType = (r: ReceiptRecord): BudgetType => {
   const c = categorize(r)
@@ -209,7 +210,7 @@ const PageContent = () => {
     { title: 'ใบรับ', dataIndex: 'id', key: 'id', width: 110,
       render: (v: string) => <Text style={{ color: '#22d3ee', fontWeight: 600 }}>{v}</Text> },
     { title: 'ผู้จำหน่าย', dataIndex: 'supplier', key: 'sup', ellipsis: true,
-      render: (v: string) => <Text style={{ color: '#e2e8f0' }}>{v}</Text> },
+      render: (v: string) => <Text style={{ color: 'var(--app-text)' }}>{v}</Text> },
     { title: 'ครบกำหนด', dataIndex: 'dueDate', key: 'dd', width: 100,
       render: (v: string) => <Text style={{ color: '#60a5fa' }}>{v}</Text> },
     { title: 'มูลค่า', dataIndex: 'totalAmount', key: 'amt', width: 110, align: 'right' as const,
@@ -224,7 +225,7 @@ const PageContent = () => {
     : { color: '#ef4444', label: 'หลุดเป้า KPI' }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
@@ -236,9 +237,9 @@ const PageContent = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <FaMoneyCheckAlt style={{ fontSize: 26, color: '#10b981' }} />
-          <Title level={3} style={{ margin: 0, color: '#f1f5f9' }}>เจ้าหนี้การค้า — Dashboard ภาพรวม</Title>
+          <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>เจ้าหนี้การค้า — Dashboard ภาพรวม</Title>
         </div>
-        <Text style={{ color: '#94a3b8' }}>
+        <Text style={{ color: 'var(--app-text-2)' }}>
           ข้อมูล ณ วันที่ {TODAY} • เป้า KPI: จ่ายภายใน {KPI_PAY_AFTER_INSPECTION_DAYS} วันหลังตรวจรับผ่าน • อัตราจ่ายตรงเวลา ≥ 90%
         </Text>
 
@@ -247,52 +248,52 @@ const PageContent = () => {
           <Col span={6}>
             <Card style={{ background: 'linear-gradient(135deg,#064e3b,#0f172a)', border: '1px solid #10b981' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดจ่ายแล้วสะสม</span>}
+                <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ยอดจ่ายแล้วสะสม</span>}
                   value={stats.totalPaid} precision={0} prefix="฿"
                   styles={{ content: { color: '#10b981', fontSize: 22 } }}
                   formatter={v => Number(v).toLocaleString()} />
                 <BankOutlined style={{ fontSize: 32, color: '#10b981', opacity: 0.5 }} />
               </div>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>{stats.paid.length} รายการ</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{stats.paid.length} รายการ</Text>
             </Card>
           </Col>
           <Col span={6}>
             <Card style={{ background: 'linear-gradient(135deg,#3b0764,#0f172a)', border: '1px solid #a78bfa' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Statistic title={<span style={{ color: '#94a3b8' }}>ยอดค้างจ่าย</span>}
+                <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ยอดค้างจ่าย</span>}
                   value={stats.totalUnpaid} precision={0} prefix="฿"
                   styles={{ content: { color: '#a78bfa', fontSize: 22 } }}
                   formatter={v => Number(v).toLocaleString()} />
                 <DollarCircleOutlined style={{ fontSize: 32, color: '#a78bfa', opacity: 0.5 }} />
               </div>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>{stats.unpaid.length} รายการ</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{stats.unpaid.length} รายการ</Text>
             </Card>
           </Col>
           <Col span={6}>
             <Card style={{ background: 'linear-gradient(135deg,#1e3a8a,#0f172a)', border: '1px solid #60a5fa' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Statistic title={<span style={{ color: '#94a3b8' }}>DPO เฉลี่ย (Invoice→จ่าย)</span>}
+                <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>DPO เฉลี่ย (Invoice→จ่าย)</span>}
                   value={stats.dpo} suffix="วัน"
                   styles={{ content: { color: '#60a5fa', fontSize: 22 } }} />
                 <ClockCircleOutlined style={{ fontSize: 32, color: '#60a5fa', opacity: 0.5 }} />
               </div>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                 ตรวจรับ→จ่าย เฉลี่ย {stats.insp2pay} วัน (เป้า ≤ {KPI_PAY_AFTER_INSPECTION_DAYS})
               </Text>
             </Card>
           </Col>
           <Col span={6}>
             <Card style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', border: `1px solid ${kpiVerdict.color}` }}>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>KPI จ่ายตรงเวลา</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>KPI จ่ายตรงเวลา</Text>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
                 <Progress type="circle" size={56} percent={stats.onTimePct}
-                  strokeColor={kpiVerdict.color} trailColor="#334155"
+                  strokeColor={kpiVerdict.color} trailColor="var(--app-border-strong)"
                   format={p => <Text style={{ color: kpiVerdict.color, fontSize: 13, fontWeight: 700 }}>{p}%</Text>} />
                 <div>
                   <Tag color={stats.onTimePct >= 90 ? 'success' : stats.onTimePct >= 70 ? 'warning' : 'error'}>
                     {kpiVerdict.label}
                   </Tag>
-                  <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
+                  <div style={{ color: 'var(--app-text-2)', fontSize: 11, marginTop: 4 }}>
                     เป้าหมาย ≥ 90%
                   </div>
                 </div>
@@ -316,28 +317,28 @@ const PageContent = () => {
           {/* ───── หมวดเงินที่จ่ายไป ───── */}
           <Col span={14}>
             <Card title={<span style={{ color: '#22d3ee' }}><PieChartOutlined /> หมวดเงินที่จ่ายไป (แยกตามประเภทพัสดุ)</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               <EChart height={340} option={{
                 backgroundColor: 'transparent',
                 grid: { left: 110, right: 80, top: 30, bottom: 24 },
                 tooltip: {
                   trigger: 'axis', axisPointer: { type: 'shadow' },
-                  backgroundColor: '#0f172a', borderColor: '#334155',
-                  textStyle: { color: '#e2e8f0' },
+                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                  textStyle: { color: 'var(--app-text)' },
                   valueFormatter: (v: unknown) => '฿' + Number(v).toLocaleString(),
                 },
-                legend: { textStyle: { color: '#94a3b8' }, top: 0, right: 0, icon: 'roundRect' },
+                legend: { textStyle: { color: 'var(--app-text-2)' }, top: 0, right: 0, icon: 'roundRect' },
                 xAxis: {
-                  type: 'value', axisLabel: { color: '#94a3b8',
+                  type: 'value', axisLabel: { color: 'var(--app-text-2)',
                     formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                  splitLine: { lineStyle: { color: '#334155' } },
+                  splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                 },
                 yAxis: {
                   type: 'category', inverse: true,
                   data: byCategory.map(c => CATEGORY_META[c.cat].label),
-                  axisLabel: { color: '#e2e8f0', fontSize: 12 },
-                  axisLine: { lineStyle: { color: '#334155' } },
+                  axisLabel: { color: 'var(--app-text)', fontSize: 12 },
+                  axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                 },
                 series: [
                   { name: 'จ่ายแล้ว', type: 'bar', stack: 'a',
@@ -349,12 +350,12 @@ const PageContent = () => {
                     data: byCategory.map(c => ({ value: c.unpaid,
                       itemStyle: { color: CATEGORY_META[c.cat].color + '55', borderRadius: [0,4,4,0] } })),
                     barWidth: 18,
-                    label: { show: true, position: 'right', color: '#e2e8f0', fontSize: 11,
+                    label: { show: true, position: 'right', color: 'var(--app-text)', fontSize: 11,
                       formatter: (p: { dataIndex: number }) => '฿' + byCategory[p.dataIndex].total.toLocaleString() },
                   },
                 ],
               }} />
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--app-text-2)', marginTop: 4 }}>
                 <span>รวมทั้งหมด {byCategory.length} หมวด • {byCategory.reduce((s,c)=>s+c.count,0)} ใบ</span>
                 <span style={{ marginLeft: 'auto' }}>เข้ม = จ่ายแล้ว • อ่อน = ค้างจ่าย</span>
               </div>
@@ -364,49 +365,49 @@ const PageContent = () => {
           {/* ───── KPI ความรวดเร็วในการจ่าย ───── */}
           <Col span={10}>
             <Card title={<span style={{ color: '#fbbf24' }}><ThunderboltOutlined /> KPI ความรวดเร็วในการจ่าย</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155', height: '100%' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               <Row gutter={8} style={{ marginBottom: 12 }}>
                 <Col span={12}>
-                  <Card size="small" style={{ background: '#0f172a', border: '1px solid #334155', textAlign: 'center' }}>
-                    <Text style={{ color: '#94a3b8', fontSize: 11 }}>ตรวจรับ → จ่าย</Text>
+                  <Card size="small" style={{ background: 'var(--app-bg)', border: '1px solid var(--app-border-strong)', textAlign: 'center' }}>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 11 }}>ตรวจรับ → จ่าย</Text>
                     <div style={{ color: stats.insp2pay <= KPI_PAY_AFTER_INSPECTION_DAYS ? '#10b981' : '#ef4444',
                       fontSize: 22, fontWeight: 700 }}>
-                      {stats.insp2pay} <Text style={{ fontSize: 11, color: '#94a3b8' }}>วัน</Text>
+                      {stats.insp2pay} <Text style={{ fontSize: 11, color: 'var(--app-text-2)' }}>วัน</Text>
                     </div>
-                    <Text style={{ color: '#94a3b8', fontSize: 10 }}>เป้า ≤ {KPI_PAY_AFTER_INSPECTION_DAYS} วัน</Text>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 10 }}>เป้า ≤ {KPI_PAY_AFTER_INSPECTION_DAYS} วัน</Text>
                   </Card>
                 </Col>
                 <Col span={12}>
-                  <Card size="small" style={{ background: '#0f172a', border: '1px solid #334155', textAlign: 'center' }}>
-                    <Text style={{ color: '#94a3b8', fontSize: 11 }}>Invoice → จ่าย</Text>
+                  <Card size="small" style={{ background: 'var(--app-bg)', border: '1px solid var(--app-border-strong)', textAlign: 'center' }}>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 11 }}>Invoice → จ่าย</Text>
                     <div style={{ color: '#60a5fa', fontSize: 22, fontWeight: 700 }}>
-                      {stats.dpo} <Text style={{ fontSize: 11, color: '#94a3b8' }}>วัน</Text>
+                      {stats.dpo} <Text style={{ fontSize: 11, color: 'var(--app-text-2)' }}>วัน</Text>
                     </div>
-                    <Text style={{ color: '#94a3b8', fontSize: 10 }}>DPO (Days Payable Outstanding)</Text>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 10 }}>DPO (Days Payable Outstanding)</Text>
                   </Card>
                 </Col>
               </Row>
 
-              <Text style={{ color: '#e2e8f0', fontSize: 12, fontWeight: 600 }}>การกระจายเวลาจ่าย เทียบครบกำหนด</Text>
+              <Text style={{ color: 'var(--app-text)', fontSize: 12, fontWeight: 600 }}>การกระจายเวลาจ่าย เทียบครบกำหนด</Text>
               <EChart height={220} option={{
                 backgroundColor: 'transparent',
                 tooltip: {
                   trigger: 'item',
-                  backgroundColor: '#0f172a', borderColor: '#334155',
-                  textStyle: { color: '#e2e8f0' },
+                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                  textStyle: { color: 'var(--app-text)' },
                   formatter: (p: { name: string; value: number; percent: number }) =>
                     `${p.name}<br/>${p.value} ใบ (${p.percent}%)`,
                 },
                 legend: {
                   orient: 'vertical', right: 0, top: 'middle',
-                  textStyle: { color: '#94a3b8', fontSize: 11 },
+                  textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
                   itemWidth: 10, itemHeight: 10,
                 },
                 series: [{
                   type: 'pie', radius: ['45%', '72%'], center: ['32%', '50%'],
                   avoidLabelOverlap: true,
-                  itemStyle: { borderColor: '#1e293b', borderWidth: 2 },
+                  itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 },
                   label: { show: false }, labelLine: { show: false },
                   data: [
                     { name: 'จ่ายก่อนกำหนด',  value: stats.buckets.early,    itemStyle: { color: '#10b981' } },
@@ -425,30 +426,30 @@ const PageContent = () => {
         <Row gutter={16} style={{ marginTop: 16 }}>
           <Col span={14}>
             <Card title={<span style={{ color: '#22d3ee' }}><BarChartOutlined /> ยอดจ่ายรายเดือน</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               {monthly.length === 0 ? (
-                <Text style={{ color: '#94a3b8' }}>ยังไม่มีข้อมูลการจ่าย</Text>
+                <Text style={{ color: 'var(--app-text-2)' }}>ยังไม่มีข้อมูลการจ่าย</Text>
               ) : (
                 <EChart height={300} option={{
                   backgroundColor: 'transparent',
                   grid: { left: 56, right: 16, top: 28, bottom: 32 },
                   tooltip: {
                     trigger: 'axis', axisPointer: { type: 'shadow' },
-                    backgroundColor: '#0f172a', borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     valueFormatter: (v: unknown) => '฿' + Number(v).toLocaleString(),
                   },
                   xAxis: {
                     type: 'category', data: monthly.map(([m]) => m),
-                    axisLabel: { color: '#94a3b8' },
-                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text-2)' },
+                    axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   yAxis: {
                     type: 'value',
-                    axisLabel: { color: '#94a3b8',
+                    axisLabel: { color: 'var(--app-text-2)',
                       formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                    splitLine: { lineStyle: { color: '#334155' } },
+                    splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   series: [{
                     type: 'bar',
@@ -464,7 +465,7 @@ const PageContent = () => {
                         ],
                       },
                     },
-                    label: { show: true, position: 'top', color: '#e2e8f0', fontSize: 11,
+                    label: { show: true, position: 'top', color: 'var(--app-text)', fontSize: 11,
                       formatter: (p: { value: number }) => '฿' + (p.value/1000).toFixed(1) + 'k' },
                   }],
                 }} />
@@ -473,18 +474,18 @@ const PageContent = () => {
           </Col>
           <Col span={10}>
             <Card title={<span style={{ color: '#f97316' }}><FaTrophy style={{ marginRight: 6 }} /> Top 5 ผู้จำหน่าย (ตามมูลค่ารวม)</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155', height: '100%' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               {topSuppliers.length === 0 ? (
-                <Text style={{ color: '#94a3b8' }}>ยังไม่มีข้อมูล</Text>
+                <Text style={{ color: 'var(--app-text-2)' }}>ยังไม่มีข้อมูล</Text>
               ) : (
                 <EChart height={300} option={{
                   backgroundColor: 'transparent',
                   grid: { left: 8, right: 80, top: 30, bottom: 8, containLabel: true },
                   tooltip: {
                     trigger: 'axis', axisPointer: { type: 'shadow' },
-                    backgroundColor: '#0f172a', borderColor: '#334155',
-                    textStyle: { color: '#e2e8f0' },
+                    backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                    textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number }[]) => {
                       const s = topSuppliers[params[0].dataIndex]
                       return `<b>${s.supplier}</b><br/>` +
@@ -494,18 +495,18 @@ const PageContent = () => {
                         `${s.count} ใบ`
                     },
                   },
-                  legend: { textStyle: { color: '#94a3b8' }, top: 0, right: 0, icon: 'roundRect' },
+                  legend: { textStyle: { color: 'var(--app-text-2)' }, top: 0, right: 0, icon: 'roundRect' },
                   xAxis: {
                     type: 'value',
-                    axisLabel: { color: '#94a3b8',
+                    axisLabel: { color: 'var(--app-text-2)',
                       formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                    splitLine: { lineStyle: { color: '#334155' } },
+                    splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   yAxis: {
                     type: 'category', inverse: true,
                     data: topSuppliers.map((s, i) => `#${i+1} ${s.supplier.length > 18 ? s.supplier.slice(0,18)+'…' : s.supplier}`),
-                    axisLabel: { color: '#e2e8f0', fontSize: 11 },
-                    axisLine: { lineStyle: { color: '#334155' } },
+                    axisLabel: { color: 'var(--app-text)', fontSize: 11 },
+                    axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                   },
                   series: [
                     { name: 'จ่ายแล้ว', type: 'bar', stack: 's',
@@ -529,8 +530,8 @@ const PageContent = () => {
         <Row gutter={16} style={{ marginTop: 16 }}>
           <Col span={12}>
             <Card title={<span style={{ color: '#ef4444' }}><WarningOutlined /> Aging — รายการค้างจ่าย</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               {(() => {
                 const buckets = [
                   { key: 'current', label: 'ยังไม่ครบกำหนด',      val: aging.current.val, cnt: aging.current.cnt, color: '#10b981' },
@@ -549,8 +550,8 @@ const PageContent = () => {
                       grid: { left: 8, right: 90, top: 12, bottom: 8, containLabel: true },
                       tooltip: {
                         trigger: 'axis', axisPointer: { type: 'shadow' },
-                        backgroundColor: '#0f172a', borderColor: '#334155',
-                        textStyle: { color: '#e2e8f0' },
+                        backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                        textStyle: { color: 'var(--app-text)' },
                         formatter: (params: { dataIndex: number }[]) => {
                           const b = buckets[params[0].dataIndex]
                           return `<b style="color:${b.color}">${b.label}</b><br/>฿${b.val.toLocaleString()} • ${b.cnt} ใบ`
@@ -558,15 +559,15 @@ const PageContent = () => {
                       },
                       xAxis: {
                         type: 'value',
-                        axisLabel: { color: '#94a3b8',
+                        axisLabel: { color: 'var(--app-text-2)',
                           formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                        splitLine: { lineStyle: { color: '#334155' } },
+                        splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                       },
                       yAxis: {
                         type: 'category', inverse: true,
                         data: buckets.map(b => b.label),
-                        axisLabel: { color: '#e2e8f0', fontSize: 11 },
-                        axisLine: { lineStyle: { color: '#334155' } },
+                        axisLabel: { color: 'var(--app-text)', fontSize: 11 },
+                        axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                       },
                       series: [{
                         type: 'bar', barWidth: 16,
@@ -574,25 +575,25 @@ const PageContent = () => {
                           value: b.val,
                           itemStyle: { color: b.color, borderRadius: [0,4,4,0] },
                         })),
-                        label: { show: true, position: 'right', color: '#e2e8f0', fontSize: 11,
+                        label: { show: true, position: 'right', color: 'var(--app-text)', fontSize: 11,
                           formatter: (p: { dataIndex: number; value: number }) =>
                             '฿' + (p.value).toLocaleString() + ` (${buckets[p.dataIndex].cnt})` },
                       }],
                     }} />
-                    <Divider style={{ borderColor: '#334155', margin: '10px 0 8px' }} />
+                    <Divider style={{ borderColor: 'var(--app-border-strong)', margin: '10px 0 8px' }} />
                     <Row gutter={8}>
                       <Col span={12}>
-                        <div style={{ background: '#0f172a', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #ef4444' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 11, display: 'block' }}>เกินกำหนดทั้งหมด</Text>
+                        <div style={{ background: 'var(--app-bg)', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #ef4444' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 11, display: 'block' }}>เกินกำหนดทั้งหมด</Text>
                           <Text style={{ color: '#ef4444', fontWeight: 700, fontSize: 14 }}>฿{overdueVal.toLocaleString()}</Text>
-                          <Text style={{ color: '#94a3b8', fontSize: 10, display: 'block' }}>{overdueCnt} ใบ</Text>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 10, display: 'block' }}>{overdueCnt} ใบ</Text>
                         </div>
                       </Col>
                       <Col span={12}>
-                        <div style={{ background: '#0f172a', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #a78bfa' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 11, display: 'block' }}>ยอดค้างทั้งหมด</Text>
+                        <div style={{ background: 'var(--app-bg)', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #a78bfa' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 11, display: 'block' }}>ยอดค้างทั้งหมด</Text>
                           <Text style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14 }}>฿{totalVal.toLocaleString()}</Text>
-                          <Text style={{ color: '#94a3b8', fontSize: 10, display: 'block' }}>{stats.unpaid.length} ใบ</Text>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 10, display: 'block' }}>{stats.unpaid.length} ใบ</Text>
                         </div>
                       </Col>
                     </Row>
@@ -603,8 +604,8 @@ const PageContent = () => {
           </Col>
           <Col span={12}>
             <Card title={<span style={{ color: '#a78bfa' }}><RiseOutlined /> Cash Forecast — กระแสเงินที่ต้องจ่ายล่วงหน้า (ถึง 180 วัน)</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155' }}
-              styles={{ header: { borderBottom: '1px solid #334155' } }}>
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}
+              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
               {(() => {
                 const buckets = [
                   { key: 'd7',       label: 'ภายใน 7 วัน',  val: forecast.d7,       color: '#ef4444' },
@@ -628,27 +629,27 @@ const PageContent = () => {
                       backgroundColor: 'transparent',
                       grid: { left: 8, right: 24, top: 30, bottom: 8, containLabel: true },
                       tooltip: {
-                        trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: '#475569' } },
-                        backgroundColor: '#0f172a', borderColor: '#334155',
-                        textStyle: { color: '#e2e8f0' },
+                        trigger: 'axis', axisPointer: { type: 'cross', crossStyle: { color: 'var(--app-text-3)' } },
+                        backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                        textStyle: { color: 'var(--app-text)' },
                         valueFormatter: (v: unknown) => '฿' + Number(v).toLocaleString(),
                       },
-                      legend: { textStyle: { color: '#94a3b8' }, top: 0, right: 0, icon: 'roundRect' },
+                      legend: { textStyle: { color: 'var(--app-text-2)' }, top: 0, right: 0, icon: 'roundRect' },
                       xAxis: {
                         type: 'category', data: buckets.map(b => b.label),
-                        axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 25 },
-                        axisLine: { lineStyle: { color: '#334155' } },
+                        axisLabel: { color: 'var(--app-text-2)', fontSize: 10, rotate: 25 },
+                        axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                       },
                       yAxis: [
                         { type: 'value', name: 'มูลค่า',
-                          nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-                          axisLabel: { color: '#94a3b8',
+                          nameTextStyle: { color: 'var(--app-text-2)', fontSize: 10 },
+                          axisLabel: { color: 'var(--app-text-2)',
                             formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                          splitLine: { lineStyle: { color: '#334155' } },
+                          splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                         },
                         { type: 'value', name: 'สะสม', position: 'right',
-                          nameTextStyle: { color: '#94a3b8', fontSize: 10 },
-                          axisLabel: { color: '#94a3b8',
+                          nameTextStyle: { color: 'var(--app-text-2)', fontSize: 10 },
+                          axisLabel: { color: 'var(--app-text-2)',
                             formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
                           splitLine: { show: false },
                         },
@@ -666,28 +667,28 @@ const PageContent = () => {
                         },
                       ],
                     }} />
-                    <Divider style={{ borderColor: '#334155', margin: '10px 0 8px' }} />
+                    <Divider style={{ borderColor: 'var(--app-border-strong)', margin: '10px 0 8px' }} />
                     <Row gutter={8}>
                       <Col span={8}>
-                        <div style={{ background: '#0f172a', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #fbbf24' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 11, display: 'block' }}>รวม ≤ 30 วัน</Text>
+                        <div style={{ background: 'var(--app-bg)', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #fbbf24' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 11, display: 'block' }}>รวม ≤ 30 วัน</Text>
                           <Text style={{ color: '#fbbf24', fontWeight: 700, fontSize: 14 }}>฿{cum30.toLocaleString()}</Text>
                         </div>
                       </Col>
                       <Col span={8}>
-                        <div style={{ background: '#0f172a', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #22d3ee' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 11, display: 'block' }}>รวม ≤ 90 วัน</Text>
+                        <div style={{ background: 'var(--app-bg)', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #22d3ee' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 11, display: 'block' }}>รวม ≤ 90 วัน</Text>
                           <Text style={{ color: '#22d3ee', fontWeight: 700, fontSize: 14 }}>฿{cum90.toLocaleString()}</Text>
                         </div>
                       </Col>
                       <Col span={8}>
-                        <div style={{ background: '#0f172a', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #60a5fa' }}>
-                          <Text style={{ color: '#94a3b8', fontSize: 11, display: 'block' }}>รวม ≤ 180 วัน</Text>
+                        <div style={{ background: 'var(--app-bg)', padding: '8px 6px', borderRadius: 6, textAlign: 'center', borderTop: '2px solid #60a5fa' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 11, display: 'block' }}>รวม ≤ 180 วัน</Text>
                           <Text style={{ color: '#60a5fa', fontWeight: 700, fontSize: 14 }}>฿{cum180.toLocaleString()}</Text>
                         </div>
                       </Col>
                     </Row>
-                    <Text style={{ color: '#94a3b8', fontSize: 11, marginTop: 8, display: 'block' }}>
+                    <Text style={{ color: 'var(--app-text-2)', fontSize: 11, marginTop: 8, display: 'block' }}>
                       วางแผนกระแสเงินสด • รวมที่ต้องจ่ายล่วงหน้า ฿{total.toLocaleString()} • ไม่รวมเกินกำหนด ({stats.unpaid.filter(r => dayjs(TODAY).isAfter(dayjs(r.dueDate))).length} ใบ)
                     </Text>
                   </>
@@ -699,10 +700,10 @@ const PageContent = () => {
 
         {/* ───── ประเภทเงินงบประมาณที่ค้างจ่าย ───── */}
         <Card title={<span style={{ color: '#f97316' }}><FundOutlined /> ประเภทเงินงบประมาณที่ค้างจ่าย</span>}
-          style={{ background: '#1e293b', border: '1px solid #334155', marginTop: 16 }}
-          styles={{ header: { borderBottom: '1px solid #334155' } }}>
+          style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginTop: 16 }}
+          styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
           {byBudget.length === 0 ? (
-            <Text style={{ color: '#94a3b8' }}>ไม่มียอดค้างจ่าย</Text>
+            <Text style={{ color: 'var(--app-text-2)' }}>ไม่มียอดค้างจ่าย</Text>
           ) : (() => {
             const totalUnpaid = byBudget.reduce((s, b) => s + b.unpaid, 0)
             const totalCount = byBudget.reduce((s, b) => s + b.count, 0)
@@ -714,8 +715,8 @@ const PageContent = () => {
                     grid: { left: 8, right: 110, top: 12, bottom: 8, containLabel: true },
                     tooltip: {
                       trigger: 'axis', axisPointer: { type: 'shadow' },
-                      backgroundColor: '#0f172a', borderColor: '#334155',
-                      textStyle: { color: '#e2e8f0' },
+                      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                      textStyle: { color: 'var(--app-text)' },
                       formatter: (params: { dataIndex: number }[]) => {
                         const b = byBudget[params[0].dataIndex]
                         const meta = BUDGET_META[b.type]
@@ -728,15 +729,15 @@ const PageContent = () => {
                     },
                     xAxis: {
                       type: 'value',
-                      axisLabel: { color: '#94a3b8',
+                      axisLabel: { color: 'var(--app-text-2)',
                         formatter: (v: number) => v >= 1000 ? (v/1000).toFixed(0)+'k' : String(v) },
-                      splitLine: { lineStyle: { color: '#334155' } },
+                      splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                     },
                     yAxis: {
                       type: 'category', inverse: true,
                       data: byBudget.map(b => BUDGET_META[b.type].label),
-                      axisLabel: { color: '#e2e8f0', fontSize: 12 },
-                      axisLine: { lineStyle: { color: '#334155' } },
+                      axisLabel: { color: 'var(--app-text)', fontSize: 12 },
+                      axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
                     },
                     series: [{
                       type: 'bar', barWidth: 22,
@@ -753,7 +754,7 @@ const PageContent = () => {
                           },
                         },
                       })),
-                      label: { show: true, position: 'right', color: '#e2e8f0', fontSize: 11, fontWeight: 600,
+                      label: { show: true, position: 'right', color: 'var(--app-text)', fontSize: 11, fontWeight: 600,
                         formatter: (p: { dataIndex: number; value: number }) => {
                           const b = byBudget[p.dataIndex]
                           const pct = Math.round((p.value / totalUnpaid) * 100)
@@ -767,27 +768,27 @@ const PageContent = () => {
                     backgroundColor: 'transparent',
                     tooltip: {
                       trigger: 'item',
-                      backgroundColor: '#0f172a', borderColor: '#334155',
-                      textStyle: { color: '#e2e8f0' },
+                      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                      textStyle: { color: 'var(--app-text)' },
                       formatter: (p: { name: string; value: number; percent: number }) =>
                         `${p.name}<br/>฿${p.value.toLocaleString()} (${p.percent}%)`,
                     },
                     legend: {
-                      orient: 'horizontal', bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 },
+                      orient: 'horizontal', bottom: 0, textStyle: { color: 'var(--app-text-2)', fontSize: 11 },
                       itemWidth: 10, itemHeight: 10, type: 'scroll',
                     },
                     title: [
                       { text: 'รวมค้างจ่าย', left: 'center', top: '36%',
-                        textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                        textStyle: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400 } },
                       { text: '฿' + totalUnpaid.toLocaleString(), left: 'center', top: '46%',
                         textStyle: { color: '#f97316', fontSize: 18, fontWeight: 700 } },
                       { text: totalCount + ' ใบ', left: 'center', top: '58%',
-                        textStyle: { color: '#94a3b8', fontSize: 11, fontWeight: 400 } },
+                        textStyle: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400 } },
                     ],
                     series: [{
                       type: 'pie', radius: ['58%', '82%'], center: ['50%', '46%'],
                       avoidLabelOverlap: true,
-                      itemStyle: { borderColor: '#1e293b', borderWidth: 3 },
+                      itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 3 },
                       label: { show: false }, labelLine: { show: false },
                       data: byBudget.map(b => ({
                         name: BUDGET_META[b.type].label, value: b.unpaid,
@@ -804,8 +805,8 @@ const PageContent = () => {
         {/* ───── Largest outstanding ───── */}
         <Card title={<span style={{ color: '#a78bfa' }}><FaChartLine style={{ marginRight: 6 }} /> รายการค้างจ่ายยอดสูง (Top 5)</span>}
           extra={<Link href="/accounting/accounts-payable"><Button type="link" size="small">ดูทั้งหมด <ArrowRightOutlined /></Button></Link>}
-          style={{ background: '#1e293b', border: '1px solid #334155', marginTop: 16 }}
-          styles={{ header: { borderBottom: '1px solid #334155' } }}>
+          style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginTop: 16 }}
+          styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
           <Table dataSource={largest} columns={largestCols} rowKey="id" size="small" pagination={false}
             locale={{ emptyText: 'ไม่มีรายการค้างจ่าย' }} />
         </Card>
@@ -816,10 +817,8 @@ const PageContent = () => {
 
 export default function AccountsPayableDashboardPage() {
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#10b981', borderRadius: 8 } }}>
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#10b981">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

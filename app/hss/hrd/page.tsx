@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Row, Col, Card, theme,
+  Typography, Breadcrumb, Row, Col, Card,
   Statistic, Progress, Tag, Space, Divider, Table
 } from 'antd'
 import {
@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import { FaGraduationCap } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 import {
   loadStrategies, loadGoals, loadTrainings,
@@ -105,7 +106,7 @@ const HRDHub = () => {
         const cm = getCompetencyMeta(r.competencyType)
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontWeight: 500 }}>{v}</div>
+            <div style={{ color: 'var(--app-text)', fontWeight: 500 }}>{v}</div>
             <Tag color={cm.color} style={{ marginTop: 4, borderColor: cm.color, color: '#fff', background: cm.color + 'cc' }}>{cm.label}</Tag>
           </div>
         )
@@ -114,7 +115,7 @@ const HRDHub = () => {
     {
       title: 'ช่วงเวลา', width: 200,
       render: (_: unknown, r: TrainingCourse) => (
-        <Text style={{ color: '#94a3b8' }}>
+        <Text style={{ color: 'var(--app-text-2)' }}>
           {new Date(r.startDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}
           {' → '}
           {new Date(r.endDate).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: '2-digit' })}
@@ -131,14 +132,14 @@ const HRDHub = () => {
     {
       title: 'ที่นั่ง', width: 120, align: 'center' as const,
       render: (_: unknown, r: TrainingCourse) => (
-        <Text style={{ color: '#cbd5e1' }}>{r.seatsActual}/{r.seatsPlanned}</Text>
+        <Text style={{ color: 'var(--app-text-2)' }}>{r.seatsActual}/{r.seatsPlanned}</Text>
       )
     },
   ]
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-[#020617] text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-12" />
       </div>
@@ -146,7 +147,7 @@ const HRDHub = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-purple-500/30">
+    <div className="min-h-screen bg-app-bg text-app-text selection:bg-purple-500/30">
       <Navbar />
 
       <div className="fixed inset-0 pointer-events-none">
@@ -158,9 +159,9 @@ const HRDHub = () => {
       <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
-            { href: '/', title: <span className="text-slate-500 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-            { title: <span className="text-slate-100 font-medium"><FundOutlined /> งานพัฒนาระบบบริการ</span> },
-            { title: <span className="text-slate-100 font-medium"><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาบุคลากรและการศึกษา</span> },
+            { href: '/', title: <span className="text-app-text-3 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+            { title: <span className="text-app-text font-medium"><FundOutlined /> งานพัฒนาระบบบริการ</span> },
+            { title: <span className="text-app-text font-medium"><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาบุคลากรและการศึกษา</span> },
           ]}
           className="mb-10 text-xs uppercase tracking-widest"
         />
@@ -169,16 +170,16 @@ const HRDHub = () => {
           <div className="flex items-center gap-4 mb-3">
             <div className="w-1 h-10 bg-linear-to-b from-purple-600 to-amber-500 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
             <div>
-              <Title level={1} className="text-slate-100 m-0 font-black! tracking-tighter uppercase">
+              <Title level={1} className="text-app-text m-0 font-black! tracking-tighter uppercase">
                 Human Resource Development
               </Title>
-              <Text className="text-slate-400 text-sm mt-1 block font-medium opacity-80 uppercase tracking-widest">
+              <Text className="text-app-text-2 text-sm mt-1 block font-medium opacity-80 uppercase tracking-widest">
                 ระบบพัฒนาบุคลากรและการศึกษา · Center for People Excellence
               </Text>
             </div>
           </div>
-          <div className="max-w-3xl border-l border-slate-800 ml-5 pl-5 py-1">
-            <Text className="text-slate-400 text-sm italic">
+          <div className="max-w-3xl border-l border-app-border ml-5 pl-5 py-1">
+            <Text className="text-app-text-2 text-sm italic">
               ระบบบริหารและพัฒนาทรัพยากรบุคคลแบบมืออาชีพสำหรับโรงพยาบาลขนาดใหญ่ — ครอบคลุมยุทธศาสตร์การพัฒนา 5 เสาหลัก, เป้าหมายเชิงตัวชี้วัด, และแผนการอบรมพัฒนาสมรรถนะตามมาตรฐาน HA / MOPH
             </Text>
           </div>
@@ -187,28 +188,28 @@ const HRDHub = () => {
         {/* KPI Strip */}
         <Row gutter={[16, 16]} className="mb-8">
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50 backdrop-blur-md" styles={{ body: { padding: 18 } }}>
+            <Card className="bg-app-surface/60 border-app-border backdrop-blur-md" styles={{ body: { padding: 18 } }}>
               <Space size={12} align="start">
                 <div className="p-3 rounded-xl bg-purple-500/15">
                   <CompassOutlined style={{ fontSize: 22, color: '#a855f7' }} />
                 </div>
                 <div>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">ยุทธศาสตร์</Text>
-                  <Statistic value={totalStrategies} suffix={<span className="text-xs text-slate-500">เรื่อง</span>}
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">ยุทธศาสตร์</Text>
+                  <Statistic value={totalStrategies} suffix={<span className="text-xs text-app-text-3">เรื่อง</span>}
                     styles={{ content: { color: '#a855f7', fontWeight: 800, fontSize: 26 } }} />
-                  <Text className="text-xs text-slate-500">งบกรอบรวม {formatCompactTHB(totalStrategyBudget)}</Text>
+                  <Text className="text-xs text-app-text-3">งบกรอบรวม {formatCompactTHB(totalStrategyBudget)}</Text>
                 </div>
               </Space>
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50 backdrop-blur-md" styles={{ body: { padding: 18 } }}>
+            <Card className="bg-app-surface/60 border-app-border backdrop-blur-md" styles={{ body: { padding: 18 } }}>
               <Space size={12} align="start">
                 <div className="p-3 rounded-xl bg-emerald-500/15">
                   <TrophyOutlined style={{ fontSize: 22, color: '#10b981' }} />
                 </div>
                 <div>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">บรรลุเป้าเฉลี่ย</Text>
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">บรรลุเป้าเฉลี่ย</Text>
                   <Statistic value={avgAchievement} suffix="%"
                     styles={{ content: { color: '#10b981', fontWeight: 800, fontSize: 26 } }} />
                   <Progress percent={avgAchievement} size="small" strokeColor="#10b981" showInfo={false} />
@@ -217,14 +218,14 @@ const HRDHub = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50 backdrop-blur-md" styles={{ body: { padding: 18 } }}>
+            <Card className="bg-app-surface/60 border-app-border backdrop-blur-md" styles={{ body: { padding: 18 } }}>
               <Space size={12} align="start">
                 <div className="p-3 rounded-xl bg-amber-500/15">
                   <TeamOutlined style={{ fontSize: 22, color: '#f59e0b' }} />
                 </div>
                 <div>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">ที่นั่งอบรม</Text>
-                  <Statistic value={totalSeatsActual} suffix={<span className="text-xs text-slate-500">/ {totalSeatsPlanned}</span>}
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">ที่นั่งอบรม</Text>
+                  <Statistic value={totalSeatsActual} suffix={<span className="text-xs text-app-text-3">/ {totalSeatsPlanned}</span>}
                     styles={{ content: { color: '#f59e0b', fontWeight: 800, fontSize: 26 } }} />
                   <Progress percent={seatsFillPct} size="small" strokeColor="#f59e0b" showInfo={false} />
                 </div>
@@ -232,16 +233,16 @@ const HRDHub = () => {
             </Card>
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <Card className="bg-slate-900/60 border-slate-800/50 backdrop-blur-md" styles={{ body: { padding: 18 } }}>
+            <Card className="bg-app-surface/60 border-app-border backdrop-blur-md" styles={{ body: { padding: 18 } }}>
               <Space size={12} align="start">
                 <div className="p-3 rounded-xl bg-blue-500/15">
                   <RiseOutlined style={{ fontSize: 22, color: '#3b82f6' }} />
                 </div>
                 <div>
-                  <Text className="text-slate-400 text-xs uppercase tracking-wider">งบเบิกจ่าย</Text>
+                  <Text className="text-app-text-2 text-xs uppercase tracking-wider">งบเบิกจ่าย</Text>
                   <Statistic value={budgetUsedPct} suffix="%"
                     styles={{ content: { color: '#3b82f6', fontWeight: 800, fontSize: 26 } }} />
-                  <Text className="text-xs text-slate-500">{formatCompactTHB(totalBudgetSpent)} / {formatCompactTHB(totalBudgetPlanned)}</Text>
+                  <Text className="text-xs text-app-text-3">{formatCompactTHB(totalBudgetSpent)} / {formatCompactTHB(totalBudgetPlanned)}</Text>
                 </div>
               </Space>
             </Card>
@@ -255,29 +256,29 @@ const HRDHub = () => {
               <Link href={item.href}>
                 <Card
                   hoverable
-                  className="h-full bg-slate-900/40 backdrop-blur-xl border-slate-800/50 hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-2xl"
+                  className="h-full bg-app-surface/40 backdrop-blur-xl border-app-border hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-2xl"
                   styles={{ body: { height: '100%', display: 'flex', flexDirection: 'column', padding: '2rem' } }}
                 >
                   <div className={`absolute inset-0 bg-linear-to-br ${item.color} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
                   <div className="relative z-10 flex-1">
-                    <div className="mb-6 p-4 bg-slate-800/50 rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner group-hover:bg-purple-900/20">
+                    <div className="mb-6 p-4 bg-app-surface/50 rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner group-hover:bg-purple-900/20">
                       {item.icon}
                     </div>
-                    <Title level={4} className="mb-1 text-slate-100 group-hover:text-white transition-colors font-bold! tracking-tight leading-tight">
+                    <Title level={4} className="mb-1 text-app-text group-hover:text-purple-500 transition-colors font-bold! tracking-tight leading-tight">
                       {item.title}
                     </Title>
                     <Text className="text-purple-400 text-[10px] font-bold uppercase tracking-widest block mb-3">
                       {item.subtitle}
                     </Text>
-                    <Text className="text-slate-500 group-hover:text-slate-300 text-xs leading-relaxed transition-colors block font-medium mb-5">
+                    <Text className="text-app-text-3 group-hover:text-app-text-2 text-xs leading-relaxed transition-colors block font-medium mb-5">
                       {item.description}
                     </Text>
                     <Divider style={{ margin: '12px 0', borderColor: 'rgba(255,255,255,0.06)' }} />
                     <div className="flex items-center justify-between">
                       {item.stats.map((s, i) => (
                         <div key={i}>
-                          <div className="text-[10px] text-slate-500 uppercase tracking-wider">{s.label}</div>
-                          <div className="text-lg font-bold text-slate-100">{s.value}</div>
+                          <div className="text-[10px] text-app-text-3 uppercase tracking-wider">{s.label}</div>
+                          <div className="text-lg font-bold text-app-text">{s.value}</div>
                         </div>
                       ))}
                     </div>
@@ -290,12 +291,12 @@ const HRDHub = () => {
 
         {/* Upcoming Trainings */}
         <Card
-          className="bg-slate-900/40 backdrop-blur-xl border-slate-800/50"
+          className="bg-app-surface/40 backdrop-blur-xl border-app-border"
           styles={{ body: { padding: '20px 24px' } }}
           title={
             <Space>
               <ReadOutlined style={{ color: '#a855f7' }} />
-              <span className="text-slate-100">หลักสูตรอบรมที่กำลังจะเริ่ม / กำลังดำเนินการ</span>
+              <span className="text-app-text">หลักสูตรอบรมที่กำลังจะเริ่ม / กำลังดำเนินการ</span>
             </Space>
           }
         >
@@ -311,7 +312,7 @@ const HRDHub = () => {
 
         {/* Strategy Pillars Quick View */}
         <div className="mt-8">
-          <Title level={5} className="text-slate-300 mb-4 uppercase tracking-wider">เสาหลักยุทธศาสตร์การพัฒนาบุคลากร</Title>
+          <Title level={5} className="text-app-text-2 mb-4 uppercase tracking-wider">เสาหลักยุทธศาสตร์การพัฒนาบุคลากร</Title>
           <Row gutter={[12, 12]}>
             {strategies.map(s => {
               const pm = getPillarMeta(s.pillar)
@@ -319,18 +320,18 @@ const HRDHub = () => {
               return (
                 <Col xs={24} sm={12} md={8} lg={Math.floor(24 / Math.max(strategies.length, 1)) || 5} key={s.id}>
                   <Card
-                    className="bg-slate-900/40 border-slate-800/50 hover:border-slate-700 transition-colors h-full"
+                    className="bg-app-surface/40 border-app-border hover:border-app-border transition-colors h-full"
                     styles={{ body: { padding: 16 } }}
                   >
                     <Tag color={pm.color} style={{ borderColor: pm.color, color: '#fff', background: pm.color + 'cc', marginBottom: 8 }}>
                       {s.code}
                     </Tag>
-                    <div className="text-slate-200 text-sm font-semibold leading-snug mb-2 line-clamp-2">{s.name}</div>
-                    <Text className="text-slate-500 text-xs block mb-2 line-clamp-2">{s.vision}</Text>
+                    <div className="text-app-text text-sm font-semibold leading-snug mb-2 line-clamp-2">{s.name}</div>
+                    <Text className="text-app-text-3 text-xs block mb-2 line-clamp-2">{s.vision}</Text>
                     <Divider style={{ margin: '8px 0', borderColor: 'rgba(255,255,255,0.06)' }} />
                     <div className="flex items-center justify-between">
                       <Tag color={sm.color}>{sm.label}</Tag>
-                      <Text className="text-xs text-slate-500">{formatCompactTHB(s.budget)}</Text>
+                      <Text className="text-xs text-app-text-3">{formatCompactTHB(s.budget)}</Text>
                     </div>
                   </Card>
                 </Col>
@@ -341,7 +342,7 @@ const HRDHub = () => {
       </div>
 
       <style jsx global>{`
-        .ant-breadcrumb-separator { color: #1e293b !important; margin: 0 12px; }
+        .ant-breadcrumb-separator { color: var(--app-text-3) !important; margin: 0 12px; }
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -355,21 +356,8 @@ const HRDHub = () => {
 
 export default function HRDPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#a855f7',
-          borderRadius: 12,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.08)'
-        }
-      }}
-    >
-      <App>
-        <HRDHub />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#a855f7">
+      <HRDHub />
+    </AppThemeProvider>
   )
 }

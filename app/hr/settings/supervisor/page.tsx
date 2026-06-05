@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  Button, ConfigProvider, Card, Tag, Avatar, Drawer, Input, Breadcrumb, theme,
+  Button, Card, Tag, Avatar, Drawer, Input, Breadcrumb,
   Table, Empty, Tooltip, Select, Row, Col, Typography, App, Tabs, Badge, Spin
 } from 'antd'
 import {
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { FaUsersCog, FaSitemap } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Text, Title } = Typography
 
@@ -273,7 +274,7 @@ const PageContent = () => {
         style={{ border: '1px dashed rgba(255,255,255,0.1)' }}
         onClick={() => handleOpenAssign(slotKey, mode)}
       >
-        <Avatar size={32} icon={<PlusOutlined />} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: '#64748b' }} />
+        <Avatar size={32} icon={<PlusOutlined />} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--app-text-3)' }} />
         <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
           {empId != null ? `รหัส ${empId} (กำลังโหลด...)` : `คลิกเพื่อแต่งตั้ง${isActing ? 'รักษาการ' : ''}`}
         </Text>
@@ -503,7 +504,7 @@ const PageContent = () => {
             )}
             <Input
               placeholder="ค้นหาชื่อหน่วยงาน, บุคลากร..."
-              prefix={<SearchOutlined className="text-slate-400" />}
+              prefix={<SearchOutlined className="text-app-text-2" />}
               value={slotSearch}
               onChange={e => setSlotSearch(e.target.value)}
               allowClear
@@ -550,7 +551,7 @@ const PageContent = () => {
   }, [activeRef, missions, majors, submajors])
 
   return (
-    <div className="min-h-dvh bg-slate-900 text-slate-200">
+    <div className="min-h-dvh bg-app-bg text-app-text">
       <Navbar />
       <div className="p-4 md:p-8 max-w-350 mx-auto">
 
@@ -660,7 +661,7 @@ const PageContent = () => {
         <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <Input
             placeholder="ค้นหาชื่อ หรือ ตำแหน่ง..."
-            prefix={<SearchOutlined className="text-slate-400" />}
+            prefix={<SearchOutlined className="text-app-text-2" />}
             value={empSearch}
             onChange={e => setEmpSearch(e.target.value)}
             allowClear
@@ -700,13 +701,8 @@ const PageContent = () => {
 
 export default function SupervisorPage() {
   return (
-    <ConfigProvider theme={{
-      algorithm: theme.darkAlgorithm,
-      token: { colorPrimary: '#006a5a', borderRadius: 8, fontFamily: 'var(--font-sarabun)' },
-    }}>
-      <App style={{ background: 'transparent' }}>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

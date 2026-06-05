@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { ConfigProvider, App, Typography, Breadcrumb, Row, Col, Card, theme } from 'antd'
+import { Typography, Breadcrumb, Row, Col, Card } from 'antd'
 import { 
   HomeOutlined, 
   FundOutlined, 
@@ -11,6 +11,7 @@ import {
   CompassOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 
 const { Title, Text } = Typography
@@ -48,7 +49,7 @@ const StrategyDashboard = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 selection:bg-purple-500/30">
+    <div className="min-h-screen bg-app-bg text-app-text selection:bg-purple-500/30">
       <Navbar />
       
       {/* Dynamic Background Glows */}
@@ -60,8 +61,8 @@ const StrategyDashboard = () => {
       <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
-            { href: '/', title: <span className="text-slate-500 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-            { title: <span className="text-slate-100 font-medium"><FundOutlined /> งานยุทธศาสตร์</span> },
+            { href: '/', title: <span className="text-app-text-3 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+            { title: <span className="text-app-text font-medium"><FundOutlined /> งานยุทธศาสตร์</span> },
           ]}
           className="mb-10 text-xs uppercase tracking-widest"
         />
@@ -70,16 +71,16 @@ const StrategyDashboard = () => {
           <div className="flex items-center gap-4 mb-3">
              <div className="w-1 h-10 bg-linear-to-b from-purple-600 to-emerald-500 rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)]" />
              <div>
-               <Title level={1} className="text-slate-100 m-0 font-black! tracking-tighter uppercase">
+               <Title level={1} className="text-app-text m-0 font-black! tracking-tighter uppercase">
                  Strategy & Planning
                </Title>
-               <Text className="text-slate-400 text-sm mt-1 block font-medium opacity-80 uppercase tracking-widest">
+               <Text className="text-app-text-2 text-sm mt-1 block font-medium opacity-80 uppercase tracking-widest">
                  Health Service Support & Digital Strategy
                </Text>
              </div>
           </div>
-          <div className="max-w-2xl border-l border-slate-800 ml-5 pl-5 py-1">
-             <Text className="text-slate-400 text-sm italic">
+          <div className="max-w-2xl border-l border-app-border ml-5 pl-5 py-1">
+             <Text className="text-app-text-2 text-sm italic">
                 ศูนย์กลางการจัดการยุทธศาสตร์ แผนงานโครงการ และตัวชี้วัดความสำเร็จของโรงพยาบาล เพื่อการขับเคลื่อนองค์กรสู่ความเป็นเลิศผ่านระบบดิจิทัล
              </Text>
           </div>
@@ -91,7 +92,7 @@ const StrategyDashboard = () => {
               <Link href={item.href}>
                 <Card
                   hoverable
-                  className="h-full bg-slate-900/40 backdrop-blur-xl border-slate-800/50 hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-2xl"
+                  className="h-full bg-app-surface/40 backdrop-blur-xl border-app-border hover:border-purple-500/50 transition-all duration-500 group overflow-hidden shadow-2xl"
                   styles={{ 
                     body: { 
                       height: '100%', 
@@ -106,21 +107,21 @@ const StrategyDashboard = () => {
                   <div className={`absolute inset-0 bg-linear-to-br ${item.color} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
                   
                   <div className="relative z-10 w-full">
-                    <div className="mb-8 p-5 bg-slate-800/50 rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner group-hover:bg-purple-900/20">
+                    <div className="mb-8 p-5 bg-app-surface/50 rounded-2xl w-fit group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-inner group-hover:bg-purple-900/20">
                       {item.icon}
                     </div>
-                    <Title level={4} className="mb-4 text-slate-100 group-hover:text-white transition-colors font-bold! tracking-tight leading-tight">
+                    <Title level={4} className="mb-4 text-app-text group-hover:text-purple-500 transition-colors font-bold! tracking-tight leading-tight">
                       {item.title}
                     </Title>
-                    <Text className="text-slate-500 group-hover:text-slate-300 text-xs leading-relaxed transition-colors block font-medium">
+                    <Text className="text-app-text-3 group-hover:text-app-text-2 text-xs leading-relaxed transition-colors block font-medium">
                       {item.description}
                     </Text>
                   </div>
 
                   {/* Corner Accent Decor */}
                   <div className="absolute top-4 right-4 flex gap-1.5 opacity-30 group-hover:opacity-100 transition-opacity">
-                    <div className="w-1.5 h-1.5 bg-slate-800 rounded-full group-hover:bg-purple-500 transition-colors" />
-                    <div className="w-1.5 h-1.5 bg-slate-800 rounded-full group-hover:bg-emerald-500 transition-colors" />
+                    <div className="w-1.5 h-1.5 bg-app-surface rounded-full group-hover:bg-purple-500 transition-colors" />
+                    <div className="w-1.5 h-1.5 bg-app-surface rounded-full group-hover:bg-emerald-500 transition-colors" />
                   </div>
                 </Card>
               </Link>
@@ -129,21 +130,21 @@ const StrategyDashboard = () => {
         </Row>
 
         {/* Informative Footer Section */}
-        <div className="mt-16 pt-8 border-t border-slate-900/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-           <div className="flex items-center gap-3 text-slate-500 group cursor-default">
+        <div className="mt-16 pt-8 border-t border-app-border flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+           <div className="flex items-center gap-3 text-app-text-3 group cursor-default">
               <AppstoreOutlined className="text-xl group-hover:text-purple-400 transition-colors" />
               <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Department of Strategy & Development Control</span>
            </div>
-           <div className="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-slate-600">
-              <span className="hover:text-slate-400 transition-colors cursor-pointer">Support</span>
-              <span className="hover:text-slate-400 transition-colors cursor-pointer">Privacy Policy</span>
-              <span className="hover:text-slate-400 transition-colors cursor-pointer">System Status</span>
+           <div className="flex gap-8 text-[10px] font-bold uppercase tracking-widest text-app-text-3">
+              <span className="hover:text-app-text-2 transition-colors cursor-pointer">Support</span>
+              <span className="hover:text-app-text-2 transition-colors cursor-pointer">Privacy Policy</span>
+              <span className="hover:text-app-text-2 transition-colors cursor-pointer">System Status</span>
            </div>
         </div>
       </div>
 
       <style jsx global>{`
-        .ant-breadcrumb-separator { color: #1e293b !important; margin: 0 12px; }
+        .ant-breadcrumb-separator { color: var(--app-text-3) !important; margin: 0 12px; }
         .ant-typography { color: inherit !important; }
       `}</style>
     </div>
@@ -152,27 +153,9 @@ const StrategyDashboard = () => {
 
 const StrategyPage = () => {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#6B21A8',
-          borderRadius: 20,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.08)'
-        },
-        components: {
-          Card: {
-            colorBgContainer: 'rgba(15, 23, 42, 0.4)',
-          }
-        }
-      }}
-    >
-      <App>
-        <StrategyDashboard />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#6B21A8">
+      <StrategyDashboard />
+    </AppThemeProvider>
   )
 }
 

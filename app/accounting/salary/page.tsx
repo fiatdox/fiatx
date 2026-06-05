@@ -1,8 +1,9 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import Cookies from 'js-cookie'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, ConfigProvider, App,
-  DatePicker, Select, Button, Modal, Space, Spin, theme, Row, Col,
+  Table, Tag, Card, Typography, Breadcrumb,
+  DatePicker, Select, Button, Modal, Space, Spin, Row, Col,
   Statistic, Avatar, Divider, Empty
 } from 'antd'
 import {
@@ -16,6 +17,7 @@ import { FaMoneyBillWave, FaFileInvoiceDollar, FaWallet, FaRegMoneyBillAlt, FaHi
 import dayjs, { Dayjs } from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { SalaryEarning, SalaryDeduction, SalarySlipData } from '@/app/components/SalarySlipPDF'
 
 const { Title, Text } = Typography
@@ -121,6 +123,31 @@ const PageContent = () => {
   const [pdfOpen, setPdfOpen] = useState(false)
   const [pdfMonth, setPdfMonth] = useState<Dayjs>(today.subtract(1, 'month'))
 
+  // ── ข้อมูลผู้ใช้จาก login (cookie) — ฟิลด์ที่ backend ไม่มี ใช้ค่า mock เป็น fallback ──
+  const [profile, setProfile] = useState({
+    name: '', position: '', department: '', group: '',
+    staffType: '', username: '',
+    bankName: '', bankAccount: '',
+  })
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (!raw) return
+    try {
+      const d = JSON.parse(raw)
+      setProfile({
+        name: d.name || '',
+        position: d.position_name || '',
+        department: d.major_name || '',          // กลุ่มงาน
+        group: d.mission_name || '',             // ภารกิจ
+        staffType: d.user_type_name || '',
+        username: d.username || (d.id != null ? String(d.id) : ''),
+        bankName: d.bankName || '',              // login ไม่มี — รอ API เงินเดือน
+        bankAccount: d.bankAccount || '',
+      })
+    } catch { /* ignore malformed cookie */ }
+  }, [])
+
   // Build 12-month history for selected year, up to current month
   const history = useMemo(() => {
     const list: { month: Dayjs; data: SalarySlipData }[] = []
@@ -160,7 +187,7 @@ const PageContent = () => {
       value: latest ? formatCurrency(latest.data.netSalary) : '—',
       suffix: 'บาท',
       icon: <FaWallet />,
-      color: '#0ea5e9',
+      color: '#0284c7',
       footnote: latest ? `${THAI_MONTHS[latest.month.month() + 1]} ${latest.month.year() + 543}` : '',
     },
     {
@@ -168,7 +195,7 @@ const PageContent = () => {
       value: changeVsPrev === 0 ? '—' : `${changeVsPrev > 0 ? '+' : ''}${formatCurrency(changeVsPrev)}`,
       suffix: 'บาท',
       icon: changeVsPrev >= 0 ? <RiseOutlined /> : <FallOutlined />,
-      color: changeVsPrev >= 0 ? '#22c55e' : '#ef4444',
+      color: changeVsPrev >= 0 ? '#16a34a' : '#ef4444',
       footnote: previous ? `vs ${THAI_MONTHS[previous.month.month() + 1]}` : '',
     },
     {
@@ -176,7 +203,7 @@ const PageContent = () => {
       value: formatCurrency(yearSummary.earnings),
       suffix: 'บาท',
       icon: <FaMoneyBillWave />,
-      color: '#22c55e',
+      color: '#16a34a',
       footnote: `${history.length} เดือน`,
     },
     {
@@ -184,7 +211,7 @@ const PageContent = () => {
       value: formatCurrency(yearSummary.deductions),
       suffix: 'บาท',
       icon: <FaRegMoneyBillAlt />,
-      color: '#f59e0b',
+      color: '#d97706',
       footnote: 'ภาษี · กบข. · สหกรณ์',
     },
   ]
@@ -207,7 +234,7 @@ const PageContent = () => {
     {
       title: 'รายได้รวม', key: 'earnings', align: 'right' as const, width: 140,
       render: (_: any, r: { data: SalarySlipData }) => (
-        <Text style={{ color: '#22c55e', fontSize: 14 }}>{formatCurrency(r.data.totalEarnings)}</Text>
+        <Text style={{ color: '#16a34a', fontSize: 14 }}>{formatCurrency(r.data.totalEarnings)}</Text>
       ),
     },
     {
@@ -219,7 +246,7 @@ const PageContent = () => {
     {
       title: 'เงินสุทธิ', key: 'net', align: 'right' as const, width: 160,
       render: (_: any, r: { data: SalarySlipData }) => (
-        <Text strong style={{ color: '#0ea5e9', fontSize: 16 }}>{formatCurrency(r.data.netSalary)}</Text>
+        <Text strong style={{ color: '#0284c7', fontSize: 16 }}>{formatCurrency(r.data.netSalary)}</Text>
       ),
     },
     {
@@ -259,7 +286,7 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-dvh bg-slate-900 text-slate-200" style={{ minHeight: '100dvh' }}>
+    <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>
       <Navbar />
       <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
 
@@ -296,20 +323,21 @@ const PageContent = () => {
                   icon={<UserOutlined />}
                 />
                 <div>
-                  <Tag color="white" style={{ color: '#006a5a', fontWeight: 600, marginBottom: 6 }}>
-                    {CURRENT_USER.staffType}
-                  </Tag>
+                  {profile.staffType && (
+                    <Tag color="white" style={{ color: '#006a5a', fontWeight: 600, marginBottom: 6 }}>
+                      {profile.staffType}
+                    </Tag>
+                  )}
                   <Title level={3} style={{ color: '#fff', margin: 0 }}>
-                    {CURRENT_USER.name}
+                    {profile.name || '—'}
                   </Title>
                   <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
-                    <IdcardOutlined className="mr-1" /> {CURRENT_USER.id}
-                    <span className="mx-2">·</span>
-                    {CURRENT_USER.position}
+                    {profile.username && <><IdcardOutlined className="mr-1" /> {profile.username}<span className="mx-2">·</span></>}
+                    {profile.position}
                   </Text>
                   <div>
                     <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                      <ApartmentOutlined className="mr-1" /> {CURRENT_USER.department} · {CURRENT_USER.group}
+                      <ApartmentOutlined className="mr-1" /> {profile.department}{profile.group ? ` · ${profile.group}` : ''}
                     </Text>
                   </div>
                 </div>
@@ -320,14 +348,14 @@ const PageContent = () => {
                 className="rounded-xl p-4"
                 style={{ backgroundColor: '#ffffff', border: '1px solid rgba(255,255,255,0.6)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
               >
-                <Text style={{ color: '#475569', fontSize: 12 }}>
+                <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>
                   <BankOutlined className="mr-1" style={{ color: '#006a5a' }} /> บัญชีรับเงินเดือน
                 </Text>
                 <div style={{ color: '#006a5a', fontSize: 15, fontWeight: 700, marginTop: 4 }}>
-                  {CURRENT_USER.bankName}
+                  {profile.bankName || 'ยังไม่ระบุ'}
                 </div>
                 <div style={{ color: '#0f172a', fontFamily: 'monospace', fontSize: 15, fontWeight: 600 }}>
-                  {CURRENT_USER.bankAccount}
+                  {profile.bankAccount || '—'}
                 </div>
               </div>
             </Col>
@@ -338,7 +366,7 @@ const PageContent = () => {
         <Row gutter={[12, 12]} className="mb-6">
           {stats.map((stat, i) => (
             <Col xs={12} md={6} key={i}>
-              <Card style={{ borderRadius: 12, border: 'none' }} styles={{ body: { padding: '18px 20px' } }}>
+              <Card style={{ borderRadius: 12, border: '1px solid var(--app-border)' }} styles={{ body: { padding: '18px 20px' } }}>
                 <div className="flex items-start justify-between gap-2">
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>{stat.title}</Text>
@@ -356,7 +384,7 @@ const PageContent = () => {
                   </div>
                   <div
                     className="flex items-center justify-center rounded-xl"
-                    style={{ width: 44, height: 44, backgroundColor: `${stat.color}18`, color: stat.color, fontSize: 20, flexShrink: 0 }}
+                    style={{ width: 44, height: 44, backgroundColor: `${stat.color}26`, color: stat.color, fontSize: 20, flexShrink: 0 }}
                   >
                     {stat.icon}
                   </div>
@@ -371,9 +399,9 @@ const PageContent = () => {
           <Card
             style={{
               borderRadius: 12,
-              border: '1px solid rgba(0, 106, 90, 0.3)',
+              border: '1px solid rgba(0, 106, 90, 0.35)',
               marginBottom: 24,
-              background: 'linear-gradient(135deg, rgba(0,106,90,0.12) 0%, rgba(14,165,233,0.08) 100%)',
+              background: 'var(--app-surface)',
             }}
             styles={{ body: { padding: 20 } }}
           >
@@ -391,7 +419,7 @@ const PageContent = () => {
                       title={<Text type="secondary" style={{ fontSize: 12 }}>รายได้รวม</Text>}
                       value={latest.data.totalEarnings}
                       precision={2}
-                      styles={{ content: { color: '#22c55e', fontSize: 18 } }}
+                      styles={{ content: { color: '#16a34a', fontSize: 18 } }}
                       prefix="฿"
                     />
                   </Col>
@@ -409,7 +437,7 @@ const PageContent = () => {
                       title={<Text type="secondary" style={{ fontSize: 12 }}>เงินสุทธิ</Text>}
                       value={latest.data.netSalary}
                       precision={2}
-                      styles={{ content: { color: '#0ea5e9', fontSize: 20, fontWeight: 700 } }}
+                      styles={{ content: { color: '#0284c7', fontSize: 20, fontWeight: 700 } }}
                       prefix="฿"
                     />
                   </Col>
@@ -487,7 +515,7 @@ const PageContent = () => {
           title={
             <Space>
               <FilePdfOutlined style={{ color: '#006a5a' }} />
-              <span>สลิปเงินเดือน · {CURRENT_USER.name}</span>
+              <span>สลิปเงินเดือน · {profile.name}</span>
               <Tag color="#006a5a">
                 {THAI_MONTHS[pdfMonth.month() + 1]} {pdfMonth.year() + 543}
               </Tag>
@@ -512,16 +540,8 @@ const PageContent = () => {
 
 export default function SalaryPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: { colorPrimary: '#006a5a', borderRadius: 8, colorBgBase: 'transparent' },
-        components: { App: { colorBgBase: 'transparent' } },
-      }}
-    >
-      <App style={{ background: 'transparent' }}>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

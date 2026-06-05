@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Table, Input, Button, Space, ConfigProvider, Card, Row, Col, Tag,
-  Avatar, Drawer, Form, Select, Breadcrumb, Tooltip, theme,
+  Table, Input, Button, Space, Card, Row, Col, Tag,
+  Avatar, Drawer, Form, Select, Breadcrumb, Tooltip,
   App, Typography, Popconfirm, Badge, Spin, DatePicker,
 } from 'antd'
 import {
@@ -15,6 +15,7 @@ import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Text, Title } = Typography
 
@@ -283,8 +284,8 @@ const PageContent = () => {
       confirmButtonColor: isActive(user) ? '#ef4444' : '#006a5a',
       cancelButtonText: 'ยกเลิก',
       confirmButtonText: label,
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
     })
     if (!result.isConfirmed) return
     try {
@@ -346,10 +347,10 @@ const PageContent = () => {
         <div className="flex items-center gap-3 py-1">
           <Avatar size={44} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
           <div>
-            <div className="font-semibold text-slate-100 text-[14px]">
+            <div className="font-semibold text-app-text text-[14px]">
               {u.pname}{u.fname} {u.lname}
             </div>
-            <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+            <div className="text-xs text-app-text-2 mt-0.5 flex items-center gap-1">
               <IdcardOutlined /> {u.id_card || u.username}
             </div>
           </div>
@@ -362,7 +363,7 @@ const PageContent = () => {
       dataIndex: 'username',
       key: 'username',
       width: 150,
-      render: (v: string) => <Text style={{ fontSize: 13, color: '#94a3b8' }}>{v}</Text>,
+      render: (v: string) => <Text style={{ fontSize: 13, color: 'var(--app-text-2)' }}>{v}</Text>,
     },
     {
       title: 'ด้าน / กลุ่มงาน',
@@ -370,8 +371,8 @@ const PageContent = () => {
       width: 220,
       render: (_: unknown, u: User) => (
         <div>
-          <div className="text-[13px] text-slate-200">{byId(missions, u.mission_id)}</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">{u.major_id ? byId(allMajors, u.major_id) : '-'}</div>
+          <div className="text-[13px] text-app-text">{byId(missions, u.mission_id)}</div>
+          <div className="text-[11px] text-app-text-3 mt-0.5">{u.major_id ? byId(allMajors, u.major_id) : '-'}</div>
         </div>
       ),
     },
@@ -383,7 +384,7 @@ const PageContent = () => {
         const levelName = byId(levels, u.user_level_id)
         return (
           <div>
-            <div className="text-[13px] text-slate-200">{byId(positions, u.user_position_id)}</div>
+            <div className="text-[13px] text-app-text">{byId(positions, u.user_position_id)}</div>
             {levelName !== '-' && <Tag color="cyan" style={{ marginTop: 4, fontSize: 11, borderRadius: 4 }}>{levelName}</Tag>}
           </div>
         )
@@ -395,7 +396,7 @@ const PageContent = () => {
       width: 160,
       render: (_: unknown, u: User) => {
         const name = byId(userTypes, u.user_type_id)
-        return name !== '-' ? <Tag style={{ borderRadius: 4, fontSize: 11 }}>{name}</Tag> : <span className="text-slate-500">-</span>
+        return name !== '-' ? <Tag style={{ borderRadius: 4, fontSize: 11 }}>{name}</Tag> : <span className="text-app-text-3">-</span>
       },
     },
     {
@@ -443,7 +444,7 @@ const PageContent = () => {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-dvh bg-slate-900 text-slate-200" style={{ minHeight: '100dvh' }}>
+    <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>
       <Navbar />
       <div className="p-4 md:p-8 max-w-350 mx-auto">
 
@@ -479,7 +480,7 @@ const PageContent = () => {
                   รีเฟรช
                 </Button>
                 <Button icon={<PlusOutlined />} onClick={handleAdd} size="large"
-                  style={{ backgroundColor: '#facc15', color: '#1e293b', border: 'none', fontWeight: 600 }}>
+                  style={{ backgroundColor: '#facc15', color: 'var(--app-surface)', border: 'none', fontWeight: 600 }}>
                   เพิ่มบุคลากร
                 </Button>
               </div>
@@ -505,7 +506,7 @@ const PageContent = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <Input
                   placeholder="ค้นหาชื่อ, username, เลขบัตร..."
-                  prefix={<SearchOutlined className="text-slate-400" />}
+                  prefix={<SearchOutlined className="text-app-text-2" />}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ width: 280 }}
@@ -524,7 +525,7 @@ const PageContent = () => {
             <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <FaFilter style={{ color: '#94a3b8', fontSize: 12 }} />
+                  <FaFilter style={{ color: 'var(--app-text-2)', fontSize: 12 }} />
                   <Text type="secondary" style={{ fontSize: 13 }}>ตัวกรองข้อมูล</Text>
                 </div>
                 {activeFilterCount > 0 && (
@@ -591,7 +592,7 @@ const PageContent = () => {
         >
           <Form form={form} layout="vertical" requiredMark="optional">
 
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">ข้อมูลส่วนตัว</div>
+            <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3">ข้อมูลส่วนตัว</div>
             <Row gutter={12}>
               <Col span={6}>
                 <Form.Item name="pname" label="คำนำหน้า">
@@ -636,7 +637,7 @@ const PageContent = () => {
               </Col>
             </Row>
 
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 mt-2">สังกัด / ตำแหน่ง</div>
+            <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3 mt-2">สังกัด / ตำแหน่ง</div>
             <Form.Item name="mission_id" label="ด้าน/ภารกิจ">
               <Select placeholder="เลือกด้าน" options={toOpts(missions)} onChange={handleMissionChange} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} />
             </Form.Item>
@@ -684,13 +685,8 @@ const PageContent = () => {
 
 export default function Page() {
   return (
-    <ConfigProvider
-      theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#006a5a', borderRadius: 8 } }}
-      getPopupContainer={(triggerNode) => triggerNode?.parentElement ?? document.body}
-    >
-      <App>
-        <PageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#006a5a">
+      <PageContent />
+    </AppThemeProvider>
   )
 }

@@ -273,7 +273,7 @@ function AttendanceDocument({ data }: { data: AttendanceReportData }) {
           </View>
         </View>
 
-        <Text style={s.footNote}>พิมพ์เมื่อ {printDate} · PYHOS-ERP ระบบบริหารทรัพยากรบุคคล</Text>
+        <Text style={s.footNote}>พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบบริหารทรัพยากรบุคคล</Text>
       </Page>
     </Document>
   )

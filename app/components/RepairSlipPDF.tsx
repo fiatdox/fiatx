@@ -468,7 +468,7 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
         </View>
 
         <Text style={s.footNote}>
-          เอกสารนี้จัดทำโดยระบบอัตโนมัติ · พิมพ์เมื่อ {printDate} · PYHOS-ERP ระบบแจ้งซ่อม IT
+          เอกสารนี้จัดทำโดยระบบอัตโนมัติ · พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบแจ้งซ่อม IT
         </Text>
 
       </Page>

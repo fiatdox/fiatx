@@ -1,9 +1,9 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
+  App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
   Input, Select, Modal, Form, Space, Statistic, Progress, Popconfirm,
-  theme, InputNumber
+  InputNumber
 } from 'antd'
 import {
   HomeOutlined, FundOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons'
 import { FaGraduationCap } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
 import {
   loadStrategies, loadGoals, saveGoals, DEFAULT_GOALS,
@@ -135,7 +136,7 @@ const GoalsPageContent = () => {
         const pm = st ? getPillarMeta(st.pillar) : null
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontWeight: 500 }}>{v}</div>
+            <div style={{ color: 'var(--app-text)', fontWeight: 500 }}>{v}</div>
             {st && pm && (
               <Tag color={pm.color} style={{ marginTop: 4, borderColor: pm.color, color: '#fff', background: pm.color + 'aa', fontSize: 11 }}>
                 {st.code} · {st.name.length > 40 ? st.name.slice(0, 40) + '…' : st.name}
@@ -153,8 +154,8 @@ const GoalsPageContent = () => {
       title: 'Baseline → เป้า', width: 160, align: 'center' as const,
       render: (_: unknown, r: Goal) => (
         <div style={{ textAlign: 'center' }}>
-          <Text className="text-xs text-slate-500">{r.baseline} → {r.target} {r.unit}</Text>
-          <div style={{ color: '#cbd5e1', fontWeight: 600 }}>ปัจจุบัน {r.current} {r.unit}</div>
+          <Text className="text-xs text-app-text-3">{r.baseline} → {r.target} {r.unit}</Text>
+          <div style={{ color: 'var(--app-text-2)', fontWeight: 600 }}>ปัจจุบัน {r.current} {r.unit}</div>
         </div>
       )
     },
@@ -175,8 +176,8 @@ const GoalsPageContent = () => {
       title: 'ผู้รับผิดชอบ', dataIndex: 'owner', width: 180,
       render: (v: string, r: Goal) => (
         <div>
-          <div style={{ color: '#e2e8f0' }}>{v}</div>
-          <Text className="text-xs text-slate-500">{r.department}</Text>
+          <div style={{ color: 'var(--app-text)' }}>{v}</div>
+          <Text className="text-xs text-app-text-3">{r.department}</Text>
         </div>
       )
     },
@@ -202,7 +203,7 @@ const GoalsPageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-[#020617] text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" />
       </div>
@@ -210,7 +211,7 @@ const GoalsPageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
 
       <div className="fixed inset-0 pointer-events-none">
@@ -230,7 +231,7 @@ const GoalsPageContent = () => {
           <div className="flex items-center gap-3">
             <AimOutlined style={{ fontSize: 28, color: '#10b981' }} />
             <div>
-              <Title level={3} style={{ color: '#f1f5f9', margin: 0 }}>เป้าหมายของการพัฒนาบุคลากร</Title>
+              <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>เป้าหมายของการพัฒนาบุคลากร</Title>
               <Text type="secondary">Development Goals & KPIs · ตัวชี้วัดและเป้าหมายเชิงปริมาณรายปีงบประมาณ</Text>
             </div>
           </div>
@@ -243,19 +244,19 @@ const GoalsPageContent = () => {
 
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="เป้าหมายทั้งหมด" value={totalGoals} suffix="เป้าหมาย"
                 styles={{ content: { color: '#10b981', fontWeight: 800 } }} />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="บรรลุเป้าแล้ว" value={completedCount} suffix={`/ ${totalGoals}`}
                 styles={{ content: { color: '#22c55e', fontWeight: 800 } }} prefix={<TrophyOutlined />} />
             </Card>
           </Col>
           <Col xs={24} sm={8}>
-            <Card className="bg-slate-900/60 border-slate-800/50">
+            <Card className="bg-app-surface/60 border-app-border">
               <Statistic title="ความสำเร็จเฉลี่ย" value={avgAchievement} suffix="%"
                 styles={{ content: { color: '#3b82f6', fontWeight: 800 } }} />
               <Progress percent={avgAchievement} size="small" strokeColor="#3b82f6" showInfo={false} />
@@ -263,7 +264,7 @@ const GoalsPageContent = () => {
           </Col>
         </Row>
 
-        <Card className="bg-slate-900/40 border-slate-800/50">
+        <Card className="bg-app-surface/40 border-app-border">
           <Space wrap className="mb-4">
             <Input
               prefix={<SearchOutlined />}
@@ -398,21 +399,8 @@ const GoalsPageContent = () => {
 
 export default function GoalsPage() {
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: '#10b981',
-          borderRadius: 10,
-          fontFamily: 'var(--font-sarabun)',
-          colorBgBase: '#020617',
-          colorBorder: 'rgba(255,255,255,0.08)'
-        }
-      }}
-    >
-      <App>
-        <GoalsPageContent />
-      </App>
-    </ConfigProvider>
+    <AppThemeProvider colorPrimary="#10b981">
+      <GoalsPageContent />
+    </AppThemeProvider>
   )
 }
