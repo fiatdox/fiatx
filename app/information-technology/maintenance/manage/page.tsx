@@ -1,15 +1,16 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import Cookies from 'js-cookie'
+import dayjs, { Dayjs } from 'dayjs'
 import {
-  ConfigProvider, App, theme, Form, Input, Button, Table, Tag, Tabs,
-  Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Steps, Select, Dropdown,
+  ConfigProvider, App, theme, Form, Input, DatePicker, Button, Table, Tag, Tabs,
+  Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select, Dropdown,
   Spin, Image as AntImage,
 } from 'antd'
 import {
   ToolOutlined, CheckCircleOutlined, CloseCircleOutlined, HomeOutlined,
-  ShoppingCartOutlined, SwapOutlined, InfoCircleOutlined, TeamOutlined,
-  AuditOutlined, SafetyCertificateOutlined, CheckSquareOutlined, FileTextOutlined,
+  ShoppingCartOutlined, SwapOutlined, InfoCircleOutlined,
+  AuditOutlined, SafetyCertificateOutlined, CheckSquareOutlined,
   ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined,
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
@@ -45,6 +46,9 @@ interface ManageRepairRequest {
   deviceLocation?: string; problemCategory: string; symptom: string
   urgency: 'low' | 'medium' | 'high' | 'critical'; status: RepairStatus
   assignedTo?: string; assignedTechId?: string; assignedBy?: string; assignedDate?: string
+  estimatedDays?: number; dueDateIso?: string
+  technicianPriorityId?: number; technicianPriorityName?: string
+  extensions?: { days: number; reason: string; date: string }[]
   repairResult?: RepairResult; technicianNote?: string; partsUsed?: string
   prNote?: string; prNumber?: string; prIssuedBy?: string; prIssuedDate?: string
   prTrackingStatus?: 'awaiting_signature' | 'pr_approved' | 'request_po' | 'po_issued' | 'tracking_po' | 'po_approved' | 'waiting_delivery' | 'received'
@@ -79,6 +83,15 @@ const urgencyConfig = {
   critical: { color: 'error',      label: 'วิกฤต' },
 }
 
+// จุดสีบอกระดับความเร่งด่วน — เขียว → เหลือง → ส้ม → แดง
+const URGENCY_DOT: Record<'low' | 'medium' | 'high' | 'critical', string> = {
+  low: '#22c55e', medium: '#eab308', high: '#f97316', critical: '#ef4444',
+}
+
+// แปลง display_order ของ priority-level → ระดับความเร่งด่วน (1=ปกติ … 4=วิกฤต)
+const urgencyByOrder = (order: number): 'low' | 'medium' | 'high' | 'critical' =>
+  order >= 4 ? 'critical' : order === 3 ? 'high' : order === 2 ? 'medium' : 'low'
+
 const repairResultConfig: Record<RepairResult, { label: string; color: string }> = {
   fixed_no_parts:      { label: 'ซ่อมได้ — ไม่ใช้อะไหล่',         color: '#22c55e' },
   fixed_with_parts:    { label: 'ซ่อมได้ — ใช้อะไหล่ในคลัง',      color: '#34d399' },
@@ -92,6 +105,14 @@ interface ApiRepairAssessment {
   assessment_name: string
   is_active: string
   created_at: string
+}
+
+interface ApiPriorityLevel {
+  it_priority_level_id: number
+  name: string
+  description: string
+  response_days: number | null
+  display_order: number
 }
 
 const ASSESSMENT_ID_TO_RESULT: Record<number, RepairResult> = {
@@ -159,6 +180,14 @@ interface ApiRepairRequest {
   created_by_name: string
   major_name: string
   submajor_name: string | null
+  // ข้อมูลช่างรับงาน (เพิ่มจาก backend)
+  assigned_to?: number | null
+  assigned_to_name?: string | null
+  assign_datetime?: string | null
+  estimated_days?: number | null
+  estimated_completion_date?: string | null
+  technician_priority_id?: number | null
+  technician_priority_name?: string | null
 }
 
 const URGENCY_BY_PRIORITY_NAME: Record<string, ManageRepairRequest['urgency']> = {
@@ -177,12 +206,21 @@ const STATUS_BY_PROCESS_ID: Record<number, RepairStatus> = {
   6: 'waiting_pr',
   7: 'po_processing',
   8: 'awaiting_delivery',
+  10: 'cancelled',
+}
+
+const toSlashDate = (iso?: string | null): string | undefined => {
+  if (!iso) return undefined
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return undefined
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`
 }
 
 const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
   const d = new Date(r.created_at)
   const dd = String(d.getDate()).padStart(2, '0')
   const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const due = r.estimated_completion_date ? new Date(r.estimated_completion_date) : null
   return {
     id:             `IT-${String(r.it_repair_request_id).padStart(4, '0')}`,
     apiId:          r.it_repair_request_id,
@@ -199,6 +237,14 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     symptom:        r.problem_description,
     urgency:        URGENCY_BY_PRIORITY_NAME[r.priority_name] ?? 'low',
     status:         STATUS_BY_PROCESS_ID[r.process_status_id] ?? 'pending',
+    // ช่างรับงาน
+    assignedTo:             r.assigned_to_name || undefined,
+    assignedTechId:         r.assigned_to != null ? String(r.assigned_to) : undefined,
+    assignedDate:           toSlashDate(r.assign_datetime),
+    estimatedDays:          r.estimated_days ?? undefined,
+    dueDateIso:             due && !isNaN(due.getTime()) ? due.toISOString() : undefined,
+    technicianPriorityId:   r.technician_priority_id ?? undefined,
+    technicianPriorityName: r.technician_priority_name || undefined,
   }
 }
 
@@ -221,6 +267,67 @@ const daysColor = (days: number): string => {
   if (days <= 7)  return '#f59e0b'
   if (days <= 14) return '#f97316'
   return '#ef4444'
+}
+
+// จำนวนวันที่เหลือจนถึงวันครบกำหนด (บวก = เหลือ, 0 = วันนี้, ลบ = เกินกำหนด)
+const daysUntil = (iso?: string): number | null => {
+  if (!iso) return null
+  const due = new Date(iso)
+  if (isNaN(due.getTime())) return null
+  const t = new Date(); t.setHours(0, 0, 0, 0)
+  due.setHours(0, 0, 0, 0)
+  return Math.round((due.getTime() - t.getTime()) / 86400000)
+}
+
+const dueStatus = (left: number): { color: string; label: string } => {
+  if (left > 1)   return { color: '#22c55e', label: `เหลืออีก ${left} วัน` }
+  if (left === 1) return { color: '#f59e0b', label: 'เหลืออีก 1 วัน' }
+  if (left === 0) return { color: '#f59e0b', label: 'ครบกำหนดวันนี้' }
+  return { color: '#ef4444', label: `เกินกำหนด ${Math.abs(left)} วัน` }
+}
+
+const fmtDate = (iso: string): string => {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`
+}
+
+// วันเวลาที่ส่งคำขอ — DD/MM/พ.ศ. HH:mm น.
+const fmtDateTime = (isoOrSlash?: string): string | null => {
+  if (!isoOrSlash) return null
+  const d = new Date(isoOrSlash)
+  if (isNaN(d.getTime())) return isoOrSlash
+  const date = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${date} ${time} น.`
+}
+
+// แถบแสดงกำหนดเวลาซ่อม — ใช้ในการ์ด kanban และการ์ดช่าง
+const renderDue = (r: ManageRepairRequest) => {
+  if (r.estimatedDays == null) return null
+  const left = daysUntil(r.dueDateIso)
+  if (left === null) return null
+  const ds = dueStatus(left)
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 5px', marginBottom: 6, fontSize: 10,
+      padding: '4px 7px', borderRadius: 6, background: ds.color + '14', border: `1px solid ${ds.color}33`,
+    }}>
+      <ClockCircleOutlined style={{ fontSize: 10, color: ds.color }} />
+      <span style={{ color: '#94a3b8' }}>ขอเวลา {r.estimatedDays} วัน</span>
+      {r.dueDateIso && (
+        <>
+          <span style={{ color: '#475569' }}>·</span>
+          <span style={{ color: '#94a3b8' }}>กำหนดเสร็จ {fmtDate(r.dueDateIso)}</span>
+        </>
+      )}
+      <span style={{ color: '#475569' }}>·</span>
+      <span style={{ color: ds.color, fontWeight: 600 }}>{ds.label}</span>
+      {r.extensions && r.extensions.length > 0 && (
+        <span style={{ color: '#64748b', marginLeft: 'auto' }}>ขยาย {r.extensions.length}×</span>
+      )}
+    </div>
+  )
 }
 
 const PR_TRACKING_CONFIG: Record<NonNullable<ManageRepairRequest['prTrackingStatus']>, { label: string; color: string }> = {
@@ -262,9 +369,21 @@ const PageContent = () => {
     }
   }, [])
 
+  // ชื่อผู้ใช้ที่ล็อกอินอยู่ — ใช้เป็น "ผู้รับงาน" ตอนกดรับงาน
+  const currentUserName = useMemo<string>(() => {
+    try {
+      const raw = Cookies.get('user_data')
+      if (!raw) return ''
+      return JSON.parse(raw).name ?? ''
+    } catch {
+      return ''
+    }
+  }, [])
+
   const [role] = useState<UserRole>(() => allowedRoles[0] ?? 'it_officer')
   const [requests, setRequests] = useState<ManageRepairRequest[]>([])
   const [assessments, setAssessments] = useState<ApiRepairAssessment[]>([])
+  const [priorityLevels, setPriorityLevels] = useState<ApiPriorityLevel[]>([])
   const [detailImages, setDetailImages] = useState<{ it_repair_request_image_id: number }[]>([])
   const [detailImagesLoading, setDetailImagesLoading] = useState(false)
 
@@ -290,14 +409,29 @@ const PageContent = () => {
         }
       })
       .catch(() => {})
+
+    fetch('/api/v1/it/priority-levels')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setPriorityLevels([...json.data].sort((a: ApiPriorityLevel, b: ApiPriorityLevel) => a.display_order - b.display_order))
+        }
+      })
+      .catch(() => {})
   }, [])
   const [prModal, setPrModal]         = useState<ManageRepairRequest | null>(null)
   const [resultModal, setResultModal] = useState<ManageRepairRequest | null>(null)
   const [approvalModal, setApprovalModal] = useState<{ req: ManageRepairRequest; level: 'it_head' | 'mission_head' } | null>(null)
   const [detailModal, setDetailModal] = useState<ManageRepairRequest | null>(null)
+  const [takeModal, setTakeModal]     = useState<ManageRepairRequest | null>(null)
+  const [rejectModal, setRejectModal] = useState<ManageRepairRequest | null>(null)
+  const [extendModal, setExtendModal] = useState<ManageRepairRequest | null>(null)
   const [prForm]       = Form.useForm()
   const [resultForm]   = Form.useForm()
   const [approvalForm] = Form.useForm()
+  const [takeForm]     = Form.useForm()
+  const [rejectForm]   = Form.useForm()
+  const [extendForm]   = Form.useForm()
   const { message } = App.useApp()
 
   useEffect(() => {
@@ -315,36 +449,131 @@ const PageContent = () => {
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const handleTakeJob = async (req: ManageRepairRequest) => {
+  const handleTakeJob = (req: ManageRepairRequest) => {
     if (!req.apiId) {
       message.error('ไม่พบ id ของคำร้องนี้')
       return
     }
+    takeForm.resetFields()
+    setTakeModal(req)
+  }
+
+  const submitTakeJob = async (values: { dueDate: Dayjs; it_priority_level_id?: number }) => {
+    const req = takeModal!
+    if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+    const due = values.dueDate.startOf('day')
+    const estimatedDays = due.diff(dayjs().startOf('day'), 'day')
+    const chosenLevel = priorityLevels.find(p => p.it_priority_level_id === values.it_priority_level_id)
     try {
       const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/receive-assignment`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          estimated_days: estimatedDays,
+          estimated_completion_date: due.format('YYYY-MM-DD'),
+          technician_priority_id: values.it_priority_level_id,
+        }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || json.success === false) {
         message.error(json.message ?? `รับงานไม่สำเร็จ (${res.status})`)
         return
       }
+      const receiver = currentUserName || roleInfo.name
+      const dueDateIso = due.toISOString()
       setRequests(prev => prev.map(r =>
         r.id === req.id
-          ? { ...r, status: 'in_progress', assignedTo: roleInfo.name, assignedBy: roleInfo.name, assignedDate: today }
+          ? { ...r, status: 'in_progress', assignedTo: receiver, assignedBy: receiver, assignedDate: today, estimatedDays, dueDateIso, technicianPriorityId: chosenLevel?.it_priority_level_id, technicianPriorityName: chosenLevel?.name }
           : r
       ))
-      message.success(`รับงาน ${req.id} — เริ่มซ่อมทันที`)
+      message.success(`รับงาน ${req.id} — เริ่มซ่อม (กำหนด ${estimatedDays} วัน)`)
+      setTakeModal(null)
+      takeForm.resetFields()
     } catch {
       message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
     }
   }
 
-  const handleAcceptJob = (req: ManageRepairRequest) => {
-    setRequests(prev => prev.map(r => r.id === req.id ? { ...r, status: 'in_progress' } : r))
-    message.success(`รับงาน ${req.id} แล้ว`)
+  const handleRejectJob = (req: ManageRepairRequest) => {
+    if (!req.apiId) {
+      message.error('ไม่พบ id ของคำร้องนี้')
+      return
+    }
+    rejectForm.resetFields()
+    setRejectModal(req)
+  }
+
+  const submitRejectJob = async (values: { reason: string }) => {
+    const req = rejectModal!
+    if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+    const reason = values.reason.trim()
+    try {
+      const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/reject-assignment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ process_status_id: 10, reject_reason: reason }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.success === false) {
+        message.error(json.message ?? `ปฏิเสธงานไม่สำเร็จ (${res.status})`)
+        return
+      }
+      setRequests(prev => prev.map(r =>
+        r.id === req.id
+          ? { ...r, status: 'cancelled', resolvedNote: reason, resolvedDate: today }
+          : r
+      ))
+      message.success(`ปฏิเสธงาน ${req.id} แล้ว`)
+      setRejectModal(null)
+      rejectForm.resetFields()
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
+    }
+  }
+
+  // ช่างพบปัญหา → ขอเพิ่มระยะเวลาซ่อม (ระบุจำนวนวัน + เหตุผล)
+  const handleExtendTime = (req: ManageRepairRequest) => {
+    if (!req.apiId) {
+      message.error('ไม่พบ id ของคำร้องนี้')
+      return
+    }
+    extendForm.resetFields()
+    setExtendModal(req)
+  }
+
+  const submitExtendTime = async (values: { newDueDate: Dayjs; reason: string }) => {
+    const req = extendModal!
+    if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+    const newDue = values.newDueDate.startOf('day')
+    const base = (req.dueDateIso ? dayjs(req.dueDateIso) : dayjs()).startOf('day')
+    const days = newDue.diff(base, 'day')
+    const reason = values.reason.trim()
+    try {
+      const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/extend-time`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extend_days: days, extend_reason: reason, due_date: newDue.format('YYYY-MM-DD') }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.success === false) {
+        message.error(json.message ?? `ขอเพิ่มเวลาไม่สำเร็จ (${res.status})`)
+        return
+      }
+      setRequests(prev => prev.map(r => {
+        if (r.id !== req.id) return r
+        return {
+          ...r,
+          estimatedDays: (r.estimatedDays ?? 0) + days,
+          dueDateIso: newDue.toISOString(),
+          extensions: [...(r.extensions ?? []), { days, reason, date: today }],
+        }
+      }))
+      message.success(`ขอเพิ่มเวลา ${req.id} อีก ${days} วันแล้ว`)
+      setExtendModal(null)
+      extendForm.resetFields()
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
+    }
   }
 
   const handleRecordResult = async (values: {
@@ -508,9 +737,10 @@ const PageContent = () => {
           </Space>
           <div style={{ color: '#e2e8f0', fontWeight: 600, marginTop: 6, fontSize: 13 }}>{r.deviceBrand}</div>
           <div style={{ color: '#94a3b8', fontSize: 12 }}>{r.department} · {r.deviceLocation}</div>
-          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4 }}>
+          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4, marginBottom: 6 }}>
             {r.symptom.length > 90 ? r.symptom.slice(0, 90) + '…' : r.symptom}
           </div>
+          {renderDue(r)}
         </Col>
         <Col style={{ flexShrink: 0, paddingLeft: 12 }}>{action}</Col>
       </Row>
@@ -568,25 +798,6 @@ const PageContent = () => {
 
   const emptyText = (text: string) => ({ emptyText: <div style={{ color: '#64748b', padding: '24px 0' }}>{text}</div> })
 
-  const getDetailStep = (r: ManageRepairRequest): { current: number; status: 'process' | 'finish' | 'error' } => {
-    if (r.status === 'cancelled') {
-      let current = 1
-      if (r.missionHeadApproval) current = 4
-      else if (r.itHeadApproval || r.repairResult) current = 3
-      else if (r.assignedTo) current = 2
-      return { current, status: 'error' }
-    }
-    const map: Record<RepairStatus, number> = {
-      pending: 0, assigned: 1, in_progress: 2,
-      waiting_pr: 3, recommend_replacement: 3, pending_it_approval: 3,
-      po_processing: 3, awaiting_delivery: 3,
-      pending_mission_approval: 4, purchase_approved: 4, completed: 4,
-      cancelled: 0,
-    }
-    const isDone = r.status === 'completed' || r.status === 'purchase_approved'
-    return { current: map[r.status], status: isDone ? 'finish' : 'process' }
-  }
-
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -616,9 +827,6 @@ const PageContent = () => {
 
           {/* ── IT Officer Panel ── */}
           {role === 'it_officer' && (() => {
-            const urgencyBorder: Record<string, string> = {
-              critical: '#ef4444', high: '#f97316', medium: '#eab308', low: '#475569',
-            }
             type KanbanCol = {
               key: string; title: string; accent: string
               items: ManageRepairRequest[]
@@ -629,22 +837,36 @@ const PageContent = () => {
                 key: 'pending', title: 'รอดำเนินการ', accent: '#f59e0b',
                 items: requests.filter(r => r.status === 'pending'),
                 action: (r) => (
-                  <Button size="small" type="primary" block
-                    style={{ background: '#7c3aed', borderColor: '#7c3aed', fontSize: 11 }}
-                    onClick={() => handleTakeJob(r)}>
-                    <CheckSquareOutlined /> รับงาน
-                  </Button>
+                  <div style={{ display: 'flex', gap: 5, flex: 1 }}>
+                    <Button size="small" type="primary"
+                      style={{ flex: 1, background: '#7c3aed', borderColor: '#7c3aed', fontSize: 11 }}
+                      onClick={() => handleTakeJob(r)}>
+                      <CheckSquareOutlined /> รับงาน
+                    </Button>
+                    <Button size="small" danger
+                      style={{ flex: 1, fontSize: 11 }}
+                      onClick={() => handleRejectJob(r)}>
+                      <CloseCircleOutlined /> ปฏิเสธ
+                    </Button>
+                  </div>
                 ),
               },
               {
                 key: 'in_progress', title: 'กำลังดำเนินการ', accent: '#06b6d4',
                 items: requests.filter(r => r.status === 'in_progress'),
                 action: (r) => (
-                  <Button size="small" block
-                    style={{ background: '#6d28d9', borderColor: '#6d28d9', color: '#fff', fontSize: 11 }}
-                    onClick={() => { setResultModal(r); resultForm.resetFields() }}>
-                    <CheckSquareOutlined /> บันทึกผล
-                  </Button>
+                  <>
+                    <Button size="small"
+                      style={{ flex: 1, background: '#6d28d9', borderColor: '#6d28d9', color: '#fff', fontSize: 11 }}
+                      onClick={() => { setResultModal(r); resultForm.resetFields() }}>
+                      <CheckSquareOutlined /> บันทึกผล
+                    </Button>
+                    <Button size="small"
+                      style={{ flex: 1, borderColor: '#f59e0b', color: '#f59e0b', fontSize: 11 }}
+                      onClick={() => handleExtendTime(r)}>
+                      <ClockCircleOutlined /> เพิ่มเวลา
+                    </Button>
+                  </>
                 ),
               },
               {
@@ -766,7 +988,7 @@ const PageContent = () => {
                                 <div key={r.id} style={{
                                   background: '#0f172a',
                                   border: '1px solid #1e293b',
-                                  borderLeft: `3px solid ${urgencyBorder[r.urgency]}`,
+                                  borderLeft: `3px solid ${col.accent}`,
                                   borderRadius: 8, padding: '10px 11px',
                                   transition: 'border-color .15s',
                                 }}>
@@ -807,6 +1029,13 @@ const PageContent = () => {
                                     <UserOutlined style={{ fontSize: 10 }} />{r.requesterName}
                                   </div>
                                   <div style={{ color: '#64748b', fontSize: 10, marginLeft: 14, marginBottom: 5 }}>{r.department}</div>
+                                  {/* วันเวลาที่ส่งคำขอ */}
+                                  {fmtDateTime(r.createdAtIso ?? r.requestDate) && (
+                                    <div style={{ color: '#64748b', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                                      <ClockCircleOutlined style={{ fontSize: 10 }} />
+                                      <span>ส่งคำขอ {fmtDateTime(r.createdAtIso ?? r.requestDate)}</span>
+                                    </div>
+                                  )}
                                   {/* Row 6: category */}
                                   <div style={{ marginBottom: 4 }}>
                                     <Tag style={{
@@ -820,12 +1049,30 @@ const PageContent = () => {
                                   <div style={{ color: '#94a3b8', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
                                     “{r.symptom.length > 60 ? r.symptom.slice(0, 60) + '…' : r.symptom}”
                                   </div>
+                                  {/* เส้นคั่น — แยกข้อมูลคำร้องออกจากส่วนงานของช่าง */}
+                                  {r.status !== 'pending' && r.assignedTo && (
+                                    <div style={{ borderTop: '1px dashed #334155', margin: '6px 0 7px' }} />
+                                  )}
                                   {/* Assigned tech */}
-                                  {r.assignedTo && (
+                                  {r.status !== 'pending' && r.assignedTo && (
                                     <div style={{ color: '#6ee7b7', fontSize: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                                       <ToolOutlined style={{ fontSize: 9 }} />{r.assignedTo}
                                     </div>
                                   )}
+                                  {/* Technician-assessed priority */}
+                                  {r.status !== 'pending' && r.technicianPriorityName && (() => {
+                                    const lvl = priorityLevels.find(l => l.it_priority_level_id === r.technicianPriorityId)
+                                    const color = lvl ? URGENCY_DOT[urgencyByOrder(lvl.display_order)] : '#94a3b8'
+                                    return (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, fontSize: 10 }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 5px ${color}99`, flexShrink: 0 }} />
+                                        <span style={{ color: '#64748b' }}>ช่างประเมิน:</span>
+                                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{r.technicianPriorityName}</span>
+                                      </div>
+                                    )
+                                  })()}
+                                  {/* Due countdown (กำหนดเวลาซ่อม) */}
+                                  {r.status === 'in_progress' && renderDue(r)}
                                   {/* PR number + tracking status */}
                                   {r.prNumber && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -910,7 +1157,10 @@ const PageContent = () => {
                   <div>
                     {waitingJobs.length === 0 && <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>ไม่มีงานที่รอรับ</div>}
                     {waitingJobs.map(r => jobCard(r,
-                      <Button type="primary" onClick={() => handleAcceptJob(r)}>รับงาน</Button>
+                      <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                        <Button block type="primary" icon={<CheckCircleOutlined />} onClick={() => handleTakeJob(r)}>รับงาน</Button>
+                        <Button block danger icon={<CloseCircleOutlined />} onClick={() => handleRejectJob(r)}>ปฏิเสธงาน</Button>
+                      </Space>
                     ))}
                   </div>
                 ),
@@ -922,12 +1172,20 @@ const PageContent = () => {
                   <div>
                     {activeJobs.length === 0 && <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>ไม่มีงานที่กำลังดำเนินการ</div>}
                     {activeJobs.map(r => jobCard(r,
-                      <Button
-                        style={{ background: '#6d28d9', borderColor: '#6d28d9', color: '#fff' }}
-                        icon={<CheckSquareOutlined />}
-                        onClick={() => { setResultModal(r); resultForm.resetFields() }}>
-                        บันทึกผล
-                      </Button>
+                      <Space direction="vertical" size={6}>
+                        <Button block
+                          style={{ background: '#6d28d9', borderColor: '#6d28d9', color: '#fff' }}
+                          icon={<CheckSquareOutlined />}
+                          onClick={() => { setResultModal(r); resultForm.resetFields() }}>
+                          บันทึกผล
+                        </Button>
+                        <Button block
+                          style={{ borderColor: '#f59e0b', color: '#f59e0b' }}
+                          icon={<ClockCircleOutlined />}
+                          onClick={() => handleExtendTime(r)}>
+                          ขอเพิ่มเวลา
+                        </Button>
+                      </Space>
                     ))}
                   </div>
                 ),
@@ -1309,6 +1567,180 @@ const PageContent = () => {
         </Form>
       </Modal>
 
+      {/* ══ Take Job Modal ════════════════════════════════════════════════════ */}
+      <Modal
+        title={<span><CheckSquareOutlined style={{ color: '#7c3aed', marginRight: 8 }} />รับงานซ่อม<code style={{ color: '#a78bfa', fontSize: 12, marginLeft: 8, fontWeight: 400 }}>{takeModal?.id}</code></span>}
+        open={!!takeModal}
+        onCancel={() => { setTakeModal(null); takeForm.resetFields() }}
+        onOk={() => takeForm.submit()}
+        okText="รับงาน — เริ่มซ่อม" cancelText="ยกเลิก"
+        okButtonProps={{ style: { background: '#7c3aed', borderColor: '#7c3aed' } }}
+        width={460}
+      >
+        {takeModal && (
+          <Alert
+            type="info" showIcon style={{ marginBottom: 16 }}
+            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{takeModal.deviceBrand}</span>}
+            description={<span style={{ fontSize: 12, color: '#94a3b8' }}>{takeModal.department}{takeModal.deviceLocation ? ' · ' + takeModal.deviceLocation : ''}</span>}
+          />
+        )}
+        <Form
+          key={takeModal?.id}
+          form={takeForm}
+          layout="vertical"
+          onFinish={submitTakeJob}
+          initialValues={{
+            dueDate: dayjs().add(1, 'day'),
+            it_priority_level_id: priorityLevels.find(p => urgencyByOrder(p.display_order) === takeModal?.urgency)?.it_priority_level_id,
+          }}
+        >
+          <Form.Item
+            name="it_priority_level_id"
+            label="ความเร่งด่วน (ช่างประเมิน)"
+            extra={<span style={{ color: '#64748b', fontSize: 11 }}>ช่างกำหนดระดับความเร่งด่วนของงานนี้เอง</span>}
+            rules={[{ required: true, message: 'กรุณาเลือกความเร่งด่วน' }]}
+          >
+            <Select
+              placeholder="เลือกระดับความเร่งด่วน"
+              options={priorityLevels.map(p => {
+                const u = urgencyByOrder(p.display_order)
+                return {
+                  value: p.it_priority_level_id,
+                  label: (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: URGENCY_DOT[u], boxShadow: `0 0 6px ${URGENCY_DOT[u]}99`, flexShrink: 0 }} />
+                      <span style={{ color: '#e2e8f0' }}>{p.name}</span>
+                      {p.description && <span style={{ color: '#64748b', fontSize: 11 }}>· {p.description}</span>}
+                    </span>
+                  ),
+                }
+              })}
+            />
+          </Form.Item>
+          <Form.Item
+            name="dueDate"
+            label="กำหนดวันที่จะซ่อมเสร็จ"
+            extra={<span style={{ color: '#64748b', fontSize: 11 }}>เลือกวันที่ — ระบบจะคำนวณจำนวนวันให้อัตโนมัติ</span>}
+            rules={[{ required: true, message: 'กรุณาเลือกวันที่จะเสร็จ' }]}
+          >
+            <DatePicker
+              style={{ width: '100%' }}
+              format="DD/MM/YYYY"
+              placeholder="เลือกวันที่จะเสร็จ"
+              disabledDate={(d) => d.isBefore(dayjs(), 'day')}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(p, c) => p.dueDate !== c.dueDate}>
+            {({ getFieldValue }) => {
+              const due = getFieldValue('dueDate') as Dayjs | undefined
+              if (!due) return null
+              const days = due.startOf('day').diff(dayjs().startOf('day'), 'day')
+              const color = daysColor(days)
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: color + '14', border: `1px solid ${color}33`, marginBottom: 8 }}>
+                  <ClockCircleOutlined style={{ color }} />
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>ระยะเวลาซ่อม</span>
+                  <span style={{ color, fontWeight: 700, fontSize: 16 }}>{days}</span>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>วัน</span>
+                  <span style={{ color: '#475569', fontSize: 12, marginLeft: 'auto' }}>ครบกำหนด {due.format('DD/MM/YYYY')}</span>
+                </div>
+              )
+            }}
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ══ Reject Job Modal ══════════════════════════════════════════════════ */}
+      <Modal
+        title={<span><CloseCircleOutlined style={{ color: '#dc2626', marginRight: 8 }} />ปฏิเสธงานซ่อม<code style={{ color: '#a78bfa', fontSize: 12, marginLeft: 8, fontWeight: 400 }}>{rejectModal?.id}</code></span>}
+        open={!!rejectModal}
+        onCancel={() => { setRejectModal(null); rejectForm.resetFields() }}
+        onOk={() => rejectForm.submit()}
+        okText="ปฏิเสธงาน" cancelText="ยกเลิก"
+        okButtonProps={{ danger: true }}
+        width={460}
+      >
+        {rejectModal && (
+          <Alert
+            type="warning" showIcon style={{ marginBottom: 16 }}
+            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{rejectModal.deviceBrand}</span>}
+            description={<span style={{ fontSize: 12, color: '#94a3b8' }}>{rejectModal.department}{rejectModal.deviceLocation ? ' · ' + rejectModal.deviceLocation : ''}</span>}
+          />
+        )}
+        <Form form={rejectForm} layout="vertical" onFinish={submitRejectJob}>
+          <Form.Item name="reason" label="เหตุผลการปฏิเสธงาน" rules={[{ required: true, message: 'กรุณาระบุเหตุผลการปฏิเสธ' }]}>
+            <TextArea rows={3} placeholder="ระบุเหตุผลการปฏิเสธงาน..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ══ Extend Time Modal ═════════════════════════════════════════════════ */}
+      <Modal
+        title={<span><ClockCircleOutlined style={{ color: '#f59e0b', marginRight: 8 }} />ขอเพิ่มระยะเวลาซ่อม<code style={{ color: '#a78bfa', fontSize: 12, marginLeft: 8, fontWeight: 400 }}>{extendModal?.id}</code></span>}
+        open={!!extendModal}
+        onCancel={() => { setExtendModal(null); extendForm.resetFields() }}
+        onOk={() => extendForm.submit()}
+        okText="ขอเพิ่มเวลา" cancelText="ยกเลิก"
+        okButtonProps={{ style: { background: '#f59e0b', borderColor: '#f59e0b' } }}
+        width={460}
+      >
+        {extendModal && (() => {
+          const left = daysUntil(extendModal.dueDateIso)
+          const ds = left !== null ? dueStatus(left) : null
+          return (
+            <Alert
+              type="warning" showIcon style={{ marginBottom: 16 }}
+              title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{extendModal.deviceBrand}</span>}
+              description={
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                  {extendModal.dueDateIso
+                    ? <>กำหนดเดิม {fmtDate(extendModal.dueDateIso)}{ds && <> · <span style={{ color: ds.color }}>{ds.label}</span></>}</>
+                    : 'ยังไม่ได้กำหนดเวลา'}
+                </span>
+              }
+            />
+          )
+        })()}
+        <Form form={extendForm} layout="vertical" onFinish={submitExtendTime}>
+          <Form.Item
+            name="newDueDate"
+            label="กำหนดวันที่จะเสร็จใหม่"
+            extra={<span style={{ color: '#64748b', fontSize: 11 }}>เลือกวันที่ใหม่ — ระบบจะคำนวณจำนวนวันที่เพิ่มให้อัตโนมัติ</span>}
+            rules={[{ required: true, message: 'กรุณาเลือกวันที่จะเสร็จใหม่' }]}
+          >
+            <DatePicker
+              style={{ width: '100%' }}
+              format="DD/MM/YYYY"
+              placeholder="เลือกวันที่จะเสร็จใหม่"
+              disabledDate={(d) => {
+                const min = extendModal?.dueDateIso ? dayjs(extendModal.dueDateIso) : dayjs()
+                return !d.isAfter(min, 'day')
+              }}
+            />
+          </Form.Item>
+          <Form.Item noStyle shouldUpdate={(p, c) => p.newDueDate !== c.newDueDate}>
+            {({ getFieldValue }) => {
+              const nd = getFieldValue('newDueDate') as Dayjs | undefined
+              if (!nd || !extendModal) return null
+              const base = (extendModal.dueDateIso ? dayjs(extendModal.dueDateIso) : dayjs()).startOf('day')
+              const days = nd.startOf('day').diff(base, 'day')
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#f59e0b14', border: '1px solid #f59e0b33', marginBottom: 16 }}>
+                  <ClockCircleOutlined style={{ color: '#f59e0b' }} />
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>เพิ่มอีก</span>
+                  <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 16 }}>{days}</span>
+                  <span style={{ color: '#94a3b8', fontSize: 13 }}>วัน</span>
+                  <span style={{ color: '#475569', fontSize: 12, marginLeft: 'auto' }}>กำหนดใหม่ {nd.format('DD/MM/YYYY')}</span>
+                </div>
+              )
+            }}
+          </Form.Item>
+          <Form.Item name="reason" label="เหตุผล / ปัญหาที่พบ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
+            <TextArea rows={3} placeholder="อธิบายปัญหาที่พบทำให้ต้องขอเพิ่มเวลา..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
       {/* ══ Detail Modal ══════════════════════════════════════════════════════ */}
       <Modal
         title={<span><InfoCircleOutlined style={{ color: '#a78bfa', marginRight: 8 }} />รายละเอียด {detailModal?.id}</span>}
@@ -1317,52 +1749,8 @@ const PageContent = () => {
         footer={<Button onClick={() => setDetailModal(null)}>ปิด</Button>}
         width={1100}
       >
-        {detailModal && (() => {
-          const { current, status: stepStatus } = getDetailStep(detailModal)
-          return (
+        {detailModal && (
             <>
-              <div style={{ background: '#0f172a', borderRadius: 8, padding: '20px 24px', marginBottom: 20 }}>
-                <Steps
-                  current={current}
-                  status={stepStatus}
-                  size="small"
-                  items={[
-                    {
-                      title: 'รับคำร้อง',
-                      content: detailModal.requestDate,
-                      icon: <FileTextOutlined />,
-                    },
-                    {
-                      title: 'มอบหมายงาน',
-                      content: detailModal.assignedTo ?? '—',
-                      icon: <TeamOutlined />,
-                    },
-                    {
-                      title: 'กำลังซ่อม',
-                      content: detailModal.assignedDate ? `รับงาน ${detailModal.assignedDate}` : '—',
-                      icon: <ToolOutlined />,
-                    },
-                    {
-                      title: 'บันทึกผลการซ่อม',
-                      content: detailModal.repairResult
-                        ? repairResultConfig[detailModal.repairResult].label
-                        : '—',
-                      icon: <CheckSquareOutlined />,
-                    },
-                    {
-                      title: detailModal.status === 'completed' ? 'เสร็จสิ้น' : 'อนุมัติ / เสร็จสิ้น',
-                      content: detailModal.resolvedDate
-                        ?? detailModal.missionHeadApproval?.date
-                        ?? detailModal.itHeadApproval?.date
-                        ?? '—',
-                      icon: detailModal.status === 'completed'
-                        ? <CheckCircleOutlined />
-                        : <SafetyCertificateOutlined />,
-                    },
-                  ]}
-                />
-              </div>
-
               <Descriptions column={2} size="small" bordered
                 styles={{ label: { color: '#94a3b8', background: '#0f172a', width: 130 }, content: { background: '#1e293b', color: '#e2e8f0' } }}
               >
@@ -1379,10 +1767,44 @@ const PageContent = () => {
             {detailModal.deviceLocation && <Descriptions.Item label="สถานที่" span={detailModal.assetNo ? 1 : 2}>{detailModal.deviceLocation}</Descriptions.Item>}
             <Descriptions.Item label="อาการ" span={2}
               styles={{ content: { whiteSpace: 'pre-wrap', color: '#e2e8f0' } }}>{detailModal.symptom}</Descriptions.Item>
-            {detailModal.assignedTo && <Descriptions.Item label="ช่าง / เจ้าหน้าที่" span={detailModal.assignedDate ? 1 : 2}>
-              <Text style={{ color: '#6ee7b7' }}>{detailModal.assignedTo}</Text>
-            </Descriptions.Item>}
-            {detailModal.assignedDate && <Descriptions.Item label="วันที่มอบหมาย" span={detailModal.assignedTo ? 1 : 2}>{detailModal.assignedDate}</Descriptions.Item>}
+            <Descriptions.Item label="ผู้รับงาน" span={detailModal.assignedDate ? 1 : 2}>
+              {detailModal.assignedTo
+                ? <Text style={{ color: '#6ee7b7' }}>{detailModal.assignedTo}</Text>
+                : <Text style={{ color: '#475569' }}>— ยังไม่มีผู้รับงาน</Text>}
+            </Descriptions.Item>
+            {detailModal.assignedDate && <Descriptions.Item label="วันที่รับงาน" span={1}>{detailModal.assignedDate}</Descriptions.Item>}
+            {detailModal.estimatedDays != null && (() => {
+              const left = daysUntil(detailModal.dueDateIso)
+              const ds = left !== null ? dueStatus(left) : null
+              return (
+                <Descriptions.Item label="กำหนดเวลาซ่อม" span={2}>
+                  <Space size={8} wrap>
+                    <Tag style={{ color: '#a78bfa', borderColor: '#a78bfa44', background: 'transparent', margin: 0 }}>
+                      ขอเวลา {detailModal.estimatedDays} วัน
+                    </Tag>
+                    {detailModal.dueDateIso && (
+                      <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(detailModal.dueDateIso)}</span>
+                    )}
+                    {ds && detailModal.status === 'in_progress' && (
+                      <Tag style={{ color: ds.color, borderColor: ds.color + '55', background: 'transparent', margin: 0 }}>{ds.label}</Tag>
+                    )}
+                  </Space>
+                </Descriptions.Item>
+              )
+            })()}
+            {detailModal.extensions && detailModal.extensions.length > 0 && (
+              <Descriptions.Item label="ประวัติขอเพิ่มเวลา" span={2}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {detailModal.extensions.map((ex, i) => (
+                    <div key={i} style={{ fontSize: 12 }}>
+                      <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{ex.days} วัน</span>
+                      <span style={{ color: '#475569', margin: '0 6px' }}>({ex.date})</span>
+                      <span style={{ color: '#94a3b8' }}>{ex.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </Descriptions.Item>
+            )}
             {detailModal.repairResult && (
               <Descriptions.Item label="ผลการซ่อม" span={2}>
                 <Tag style={{ color: repairResultConfig[detailModal.repairResult].color, borderColor: repairResultConfig[detailModal.repairResult].color + '44' }}>
@@ -1482,8 +1904,7 @@ const PageContent = () => {
                 </div>
               )}
             </>
-          )
-        })()}
+        )}
       </Modal>
     </div>
   )

@@ -160,6 +160,10 @@ function ActivityPageContent() {
   const [analysisRange, setAnalysisRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
   const [dashboardYear, setDashboardYear] = useState<number>(getFiscalYearBE(dayjs()))
   const [submitting, setSubmitting] = useState(false)
+  // กันปัญหา hydration mismatch — state ที่อิงเวลาปัจจุบัน (scheduleDate, dashboardYear)
+  // จะถูกเรนเดอร์เฉพาะฝั่ง client หลัง mount เท่านั้น
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   const [form] = Form.useForm()
 
   // ----- API helpers -----
@@ -956,6 +960,15 @@ function ActivityPageContent() {
   // =============================================================================
   // Render
   // =============================================================================
+  // ก่อน mount เรนเดอร์เฉพาะโครงหน้า เพื่อให้ HTML ฝั่ง server ตรงกับ client เป๊ะ ๆ
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-200">
+        <Navbar />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
       <Navbar />

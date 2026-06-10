@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons'
 import {
   FaWrench, FaBed, FaCar, FaTruck,
-  FaBriefcaseMedical, FaCalendarAlt, FaDesktop, FaUserShield,
+  FaBriefcaseMedical, FaCalendarAlt, FaDesktop, FaKey, FaMoneyCheckAlt,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
@@ -25,15 +25,17 @@ const { Title, Text } = Typography
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const quickActions = [
-  { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669', bg: '#05966920' },
+const quickActions: { key: string; icon: React.ReactNode; label: string; color: string; bg: string; glow?: boolean }[] = [
+  // { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669', bg: '#05966920' },
   { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed', bg: '#7c3aed20' },
-  { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมทั่วไป', color: '#006a5a', bg: '#006a5a20' },
-  { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'เครื่องมือแพทย์', color: '#0891b2', bg: '#0891b220' },
-  { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ/จัดสถานที่', color: '#9333ea', bg: '#9333ea20' },
-  { key: '/general/room-booking', icon: <FaBed />, label: 'จองห้องพัก', color: '#d97706', bg: '#d9770620' },
-  { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626', bg: '#dc262620' },
-  { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งาน', color: '#2563eb', bg: '#2563eb20' },
+  // { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมทั่วไป', color: '#006a5a', bg: '#006a5a20' },
+  // { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'เครื่องมือแพทย์', color: '#0891b2', bg: '#0891b220' },
+  // { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ/จัดสถานที่', color: '#9333ea', bg: '#9333ea20' },
+  // { key: '/general/room-booking', icon: <FaBed />, label: 'จองห้องพัก', color: '#d97706', bg: '#d9770620' },
+  // { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626', bg: '#dc262620' },
+  { key: '/accounting/salary', icon: <FaMoneyCheckAlt />, label: 'เงินเดือน', color: '#22c55e', bg: '#22c55e20' },
+  { key: '/information-technology/user-request', icon: <FaKey />, label: 'ขอรหัสผู้ใช้งาน HIS', color: '#2563eb', bg: '#2563eb20' },
+  
 ]
 
 
@@ -159,9 +161,18 @@ const PageContent = () => {
             {quickActions.map((a) => (
               <Col xs={12} sm={8} md={6} lg={3} key={a.key}>
                 <Card
-                  hoverable
                   onClick={() => router.push(a.key)}
-                  style={{ borderRadius: 14, border: '1px solid var(--app-border)', background: 'var(--app-surface)', cursor: 'pointer', textAlign: 'center' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow = `0 8px 24px ${a.color}55`
+                    e.currentTarget.style.borderColor = a.color
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.borderColor = 'var(--app-border)'
+                    e.currentTarget.style.transform = 'none'
+                  }}
+                  style={{ borderRadius: 14, border: '1px solid var(--app-border)', background: 'var(--app-surface)', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.2s' }}
                   styles={{ body: { padding: '18px 8px' } }}
                 >
                   <div
@@ -169,6 +180,9 @@ const PageContent = () => {
                       width: 48, height: 48, borderRadius: 12, margin: '0 auto 10px',
                       background: a.bg, color: a.color,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                      boxShadow: a.glow ? `0 0 14px ${a.color}88, inset 0 0 10px ${a.color}33` : undefined,
+                      filter: a.glow ? `drop-shadow(0 0 5px ${a.color})` : undefined,
+                      border: a.glow ? `1px solid ${a.color}66` : undefined,
                     }}
                   >
                     {a.icon}
