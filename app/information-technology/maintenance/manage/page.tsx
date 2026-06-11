@@ -40,6 +40,16 @@ interface Approval {
   note?: string
 }
 
+// ประวัติขอเพิ่มเวลา 1 รายการ (map มาจาก GET /repair-requests/{id}/extensions)
+interface RepairExtension {
+  days: number
+  reason: string
+  date: string          // วันเวลาที่ขอ (แสดงผลแล้ว)
+  by?: string           // ชื่อผู้ขอ
+  prevDueIso?: string   // กำหนดเดิม
+  newDueIso?: string    // กำหนดใหม่
+}
+
 interface ManageRepairRequest {
   id: string; apiId?: number; requestDate: string; createdAtIso?: string; requesterName: string; department: string; phone: string
   deviceType: string; deviceBrand: string; deviceSerial?: string; assetNo?: string
@@ -48,7 +58,7 @@ interface ManageRepairRequest {
   assignedTo?: string; assignedTechId?: string; assignedBy?: string; assignedDate?: string
   estimatedDays?: number; dueDateIso?: string
   technicianPriorityId?: number; technicianPriorityName?: string
-  extensions?: { days: number; reason: string; date: string }[]
+  extensions?: RepairExtension[]
   repairResult?: RepairResult; technicianNote?: string; partsUsed?: string
   prNote?: string; prNumber?: string; prIssuedBy?: string; prIssuedDate?: string
   prTrackingStatus?: 'awaiting_signature' | 'pr_approved' | 'request_po' | 'po_issued' | 'tracking_po' | 'po_approved' | 'waiting_delivery' | 'received'
@@ -188,6 +198,10 @@ interface ApiRepairRequest {
   estimated_completion_date?: string | null
   technician_priority_id?: number | null
   technician_priority_name?: string | null
+  // ผลประเมินของช่าง (มากับงานที่บันทึกผลแล้ว เช่น รออนุมัติหัวหน้า IT)
+  repair_assessment_id?: number | null
+  assessment_name?: string | null
+  assessment_detail?: string | null
 }
 
 const URGENCY_BY_PRIORITY_NAME: Record<string, ManageRepairRequest['urgency']> = {
@@ -200,12 +214,13 @@ const URGENCY_BY_PRIORITY_NAME: Record<string, ManageRepairRequest['urgency']> =
 const STATUS_BY_PROCESS_ID: Record<number, RepairStatus> = {
   1: 'pending',
   2: 'in_progress',
-  3: 'pending_it_approval',
+  3: 'waiting_pr',
   4: 'recommend_replacement',
   5: 'completed',
-  6: 'waiting_pr',
+  6: 'pending_it_approval',
   7: 'po_processing',
   8: 'awaiting_delivery',
+  9: 'pending_mission_approval',  // หัวหน้า IT อนุมัติแล้ว — รอหัวหน้าภารกิจ
   10: 'cancelled',
 }
 
@@ -245,6 +260,9 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     dueDateIso:             due && !isNaN(due.getTime()) ? due.toISOString() : undefined,
     technicianPriorityId:   r.technician_priority_id ?? undefined,
     technicianPriorityName: r.technician_priority_name || undefined,
+    // ผลประเมินของช่าง — ใช้แสดงให้หัวหน้า IT / หัวหน้าภารกิจตอนพิจารณาอนุมัติ
+    repairResult:           r.repair_assessment_id != null ? ASSESSMENT_ID_TO_RESULT[r.repair_assessment_id] : undefined,
+    technicianNote:         r.assessment_detail || undefined,
   }
 }
 
@@ -302,33 +320,120 @@ const fmtDateTime = (isoOrSlash?: string): string | null => {
   return `${date} ${time} น.`
 }
 
+// กำหนดเสร็จล่าสุดของงาน — ถ้าเคยขอเพิ่มเวลาแล้ว ใช้กำหนดใหม่ของการขอครั้งล่าสุด (extensions[0])
+// แทนกำหนดแรก เพื่อให้การขอครั้งถัดไปต่อจากกำหนดล่าสุดเสมอ ไม่เลือกวันย้อนซ้ำของเดิม
+const effectiveDueIso = (r: ManageRepairRequest): string | undefined => {
+  const latest = r.extensions?.[0]?.newDueIso
+  if (!latest) return r.dueDateIso
+  if (!r.dueDateIso) return latest
+  return new Date(latest) > new Date(r.dueDateIso) ? latest : r.dueDateIso
+}
+
+// กำหนดเสร็จครั้งแรกที่สัญญาไว้ — ถ้าเคยผลัดสัญญา ใช้กำหนดเดิมของการขอครั้งแรกสุด (extensions ตัวท้ายสุด)
+const originalDueIso = (r: ManageRepairRequest): string | undefined => {
+  const exts = r.extensions
+  if (exts && exts.length > 0) {
+    const first = exts[exts.length - 1].prevDueIso
+    if (first) return first
+  }
+  return r.dueDateIso
+}
+
 // แถบแสดงกำหนดเวลาซ่อม — ใช้ในการ์ด kanban และการ์ดช่าง
+// ถ้าเคยผลัดสัญญา: แสดง "สัญญาแรก → ผลัด N ครั้ง → กำหนดล่าสุด" ให้เห็นครบในบรรทัดเดียว
 const renderDue = (r: ManageRepairRequest) => {
-  if (r.estimatedDays == null) return null
-  const left = daysUntil(r.dueDateIso)
+  const dueIso = effectiveDueIso(r)
+  const left = daysUntil(dueIso)
   if (left === null) return null
   const ds = dueStatus(left)
+  const extCount = r.extensions?.length ?? 0
+  const firstIso = originalDueIso(r)
   return (
     <div style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 5px', marginBottom: 6, fontSize: 10,
       padding: '4px 7px', borderRadius: 6, background: ds.color + '14', border: `1px solid ${ds.color}33`,
     }}>
       <ClockCircleOutlined style={{ fontSize: 10, color: ds.color }} />
-      <span style={{ color: '#94a3b8' }}>ขอเวลา {r.estimatedDays} วัน</span>
-      {r.dueDateIso && (
+      {extCount > 0 && firstIso ? (
         <>
+          <span style={{ color: '#94a3b8' }}>สัญญาแรก {fmtDate(firstIso)}</span>
           <span style={{ color: '#475569' }}>·</span>
-          <span style={{ color: '#94a3b8' }}>กำหนดเสร็จ {fmtDate(r.dueDateIso)}</span>
+          <span style={{ color: '#f59e0b', fontWeight: 700 }}>ผลัดสัญญา {extCount} ครั้ง</span>
+          <span style={{ color: '#475569' }}>·</span>
+          {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>ล่าสุด {fmtDate(dueIso)}</span>}
+        </>
+      ) : (
+        <>
+          {r.estimatedDays != null && (
+            <>
+              <span style={{ color: '#94a3b8' }}>ขอเวลา {r.estimatedDays} วัน</span>
+              <span style={{ color: '#475569' }}>·</span>
+            </>
+          )}
+          {dueIso && <span style={{ color: '#94a3b8' }}>กำหนดเสร็จ {fmtDate(dueIso)}</span>}
         </>
       )}
       <span style={{ color: '#475569' }}>·</span>
       <span style={{ color: ds.color, fontWeight: 600 }}>{ds.label}</span>
-      {r.extensions && r.extensions.length > 0 && (
-        <span style={{ color: '#64748b', marginLeft: 'auto' }}>ขยาย {r.extensions.length}×</span>
+    </div>
+  )
+}
+
+// รายการประวัติขอเพิ่มเวลา — ต่อท้ายการ์ด (API ส่งมาเรียงล่าสุด → เก่าสุดอยู่แล้ว)
+// ย่อเหลือรายการล่าสุดรายการเดียว กดขยายดูทั้งหมดได้ — กันการ์ดยาวเกินเมื่อผลัดหลายครั้ง
+const ExtensionHistory = ({ exts }: { exts?: RepairExtension[] }) => {
+  const [open, setOpen] = useState(false)
+  if (!exts || exts.length === 0) return null
+  const shown = open ? exts : exts.slice(0, 1)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 6 }}>
+      {shown.map((ex, i) => (
+        <div key={i} style={{
+          fontSize: 10, lineHeight: 1.5, padding: '3px 7px', borderRadius: 6,
+          background: '#f59e0b0d', border: '1px dashed #f59e0b2e',
+        }}>
+          <span style={{ color: '#f59e0b', fontWeight: 700 }}>+{ex.days} วัน</span>
+          {ex.newDueIso && <span style={{ color: '#94a3b8' }}> → กำหนดใหม่ {fmtDate(ex.newDueIso)}</span>}
+          <span style={{ color: '#475569' }}> · {ex.date}</span>
+          <div style={{ color: '#94a3b8' }}>
+            {ex.reason}
+            {ex.by && <span style={{ color: '#64748b' }}> — {ex.by}</span>}
+          </div>
+        </div>
+      ))}
+      {exts.length > 1 && (
+        <a
+          onClick={() => setOpen(o => !o)}
+          style={{ fontSize: 10, color: '#f59e0b', userSelect: 'none' }}
+        >
+          {open ? '▲ ย่อประวัติผลัดสัญญา' : `▼ ดูประวัติผลัดสัญญาทั้งหมด (${exts.length} ครั้ง)`}
+        </a>
       )}
     </div>
   )
 }
+
+// GET /repair-requests/{id}/extensions
+interface ApiRepairExtension {
+  it_repair_request_extension_id: number
+  it_repair_request_id: number
+  previous_estimated_completion_date: string
+  new_estimated_completion_date: string
+  extension_days: number
+  extension_reason: string
+  requested_at: string
+  requested_by: number
+  requested_by_name: string
+}
+
+const apiToExtension = (e: ApiRepairExtension): RepairExtension => ({
+  days:       e.extension_days,
+  reason:     e.extension_reason,
+  date:       fmtDateTime(e.requested_at) ?? '',
+  by:         e.requested_by_name || undefined,
+  prevDueIso: e.previous_estimated_completion_date || undefined,
+  newDueIso:  e.new_estimated_completion_date || undefined,
+})
 
 const PR_TRACKING_CONFIG: Record<NonNullable<ManageRepairRequest['prTrackingStatus']>, { label: string; color: string }> = {
   awaiting_signature: { label: 'รอผอ.เซ็น',                    color: '#f59e0b' },
@@ -342,10 +447,12 @@ const PR_TRACKING_CONFIG: Record<NonNullable<ManageRepairRequest['prTrackingStat
 }
 
 const API_ROLE_MAP: Record<string, UserRole> = {
-  IT_Staff:     'it_officer',
-  IT_Head:      'it_head',
-  Technician:   'technician',
-  Mission_Head: 'mission_head',
+  IT_Staff:         'it_officer',
+  IT_Head:          'it_head',
+  Technician:       'technician',
+  Mission_Head:     'mission_head',
+  CHIEF_GROUP_IT:   'it_head',       // หัวหน้ากลุ่มงาน IT
+  CHIEF_MISSION_IT: 'mission_head',  // หัวหน้าภารกิจ
 }
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; name: string; techId?: string }> = {
@@ -386,17 +493,37 @@ const PageContent = () => {
   const [priorityLevels, setPriorityLevels] = useState<ApiPriorityLevel[]>([])
   const [detailImages, setDetailImages] = useState<{ it_repair_request_image_id: number }[]>([])
   const [detailImagesLoading, setDetailImagesLoading] = useState(false)
+  const [approvalImages, setApprovalImages] = useState<{ it_repair_request_image_id: number }[]>([])
+  const [approvalImagesLoading, setApprovalImagesLoading] = useState(false)
+
+  // ดึงประวัติขอเพิ่มเวลาของคำร้องจาก API — คืน null ถ้าโหลดไม่ได้
+  const loadExtensions = (apiId: number): Promise<RepairExtension[] | null> =>
+    fetch(`/api/v1/it/repair-requests/${apiId}/extensions`)
+      .then(r => r.json())
+      .then(json => (json.success && Array.isArray(json.data))
+        ? (json.data as ApiRepairExtension[]).map(apiToExtension)
+        : null)
+      .catch(() => null)
 
   useEffect(() => {
-    fetch('/api/v1/it/repair-requests/all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
-    })
+    // GET /repair-requests — รวมข้อมูลผลประเมินของช่าง (repair_assessment_id, assessment_detail)
+    fetch('/api/v1/it/repair-requests')
       .then(r => r.json())
       .then(json => {
         if (json.success && Array.isArray(json.data)) {
-          setRequests(json.data.map(apiToManageRequest))
+          const mapped: ManageRepairRequest[] = json.data.map(apiToManageRequest)
+          setRequests(mapped)
+          // โหลดประวัติขอเพิ่มเวลาของงานที่ช่างรับแล้ว — ต่อท้ายการ์ด
+          // (เช็คจากสถานะ ไม่ใช่ estimated_days เพราะบาง endpoint ไม่ส่ง field นี้มา)
+          mapped
+            .filter(m => m.apiId != null && m.status !== 'pending')
+            .forEach(m => {
+              loadExtensions(m.apiId!).then(exts => {
+                if (exts && exts.length > 0) {
+                  setRequests(prev => prev.map(r => r.id === m.id ? { ...r, extensions: exts } : r))
+                }
+              })
+            })
         }
       })
       .catch(() => {})
@@ -434,15 +561,45 @@ const PageContent = () => {
   const [extendForm]   = Form.useForm()
   const { message } = App.useApp()
 
-  useEffect(() => {
-    if (!detailModal?.apiId) { setDetailImages([]); return }
+  // เปิด modal รายละเอียด — โหลดรูปและประวัติขอเพิ่มเวลาสดจาก API ทุกครั้ง
+  const openDetail = (req: ManageRepairRequest) => {
+    setDetailModal(req)
+    setDetailImages([])
+    const apiId = req.apiId
+    if (!apiId) return
     setDetailImagesLoading(true)
-    fetch(`/api/v1/it/repair-requests/${detailModal.apiId}/images`)
+    fetch(`/api/v1/it/repair-requests/${apiId}/images`)
       .then(r => r.json())
       .then(json => { if (json.success && Array.isArray(json.data)) setDetailImages(json.data) })
       .catch(() => {})
       .finally(() => setDetailImagesLoading(false))
-  }, [detailModal])
+    // ประวัติขอเพิ่มเวลา — ครอบคลุมงานที่ปิดไปแล้วด้วย
+    loadExtensions(apiId).then(exts => {
+      if (!exts) return
+      setDetailModal(prev => prev && prev.apiId === apiId ? { ...prev, extensions: exts } : prev)
+      setRequests(prev => prev.map(r => r.apiId === apiId ? { ...r, extensions: exts } : r))
+    })
+  }
+
+  // เปิด modal พิจารณาอนุมัติ — โหลดรูปและประวัติผลัดสัญญาสดจาก API ประกอบการตัดสินใจ
+  const openApproval = (req: ManageRepairRequest, level: 'it_head' | 'mission_head') => {
+    setApprovalModal({ req, level })
+    approvalForm.resetFields()
+    setApprovalImages([])
+    const apiId = req.apiId
+    if (!apiId) return
+    setApprovalImagesLoading(true)
+    fetch(`/api/v1/it/repair-requests/${apiId}/images`)
+      .then(r => r.json())
+      .then(json => { if (json.success && Array.isArray(json.data)) setApprovalImages(json.data) })
+      .catch(() => {})
+      .finally(() => setApprovalImagesLoading(false))
+    loadExtensions(apiId).then(exts => {
+      if (!exts) return
+      setApprovalModal(prev => prev && prev.req.apiId === apiId ? { ...prev, req: { ...prev.req, extensions: exts } } : prev)
+      setRequests(prev => prev.map(r => r.apiId === apiId ? { ...r, extensions: exts } : r))
+    })
+  }
 
   const roleInfo = ROLE_CONFIG[role]
   const today = '15/05/2026'
@@ -545,27 +702,34 @@ const PageContent = () => {
     const req = extendModal!
     if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
     const newDue = values.newDueDate.startOf('day')
-    const base = (req.dueDateIso ? dayjs(req.dueDateIso) : dayjs()).startOf('day')
+    const baseIso = effectiveDueIso(req)
+    const base = (baseIso ? dayjs(baseIso) : dayjs()).startOf('day')
     const days = newDue.diff(base, 'day')
     const reason = values.reason.trim()
     try {
-      const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/extend-time`, {
+      const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/request-extension`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ extend_days: days, extend_reason: reason, due_date: newDue.format('YYYY-MM-DD') }),
+        body: JSON.stringify({
+          new_estimated_completion_date: newDue.format('YYYY-MM-DD'),
+          extension_reason: reason,
+          extension_days: days,
+        }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || json.success === false) {
         message.error(json.message ?? `ขอเพิ่มเวลาไม่สำเร็จ (${res.status})`)
         return
       }
+      // ดึงประวัติจาก API ให้ได้ข้อมูลครบ (ผู้ขอ, กำหนดเดิม/ใหม่) — ถ้าดึงไม่ได้ค่อย fallback ต่อท้ายเอง
+      const exts = await loadExtensions(req.apiId)
       setRequests(prev => prev.map(r => {
         if (r.id !== req.id) return r
         return {
           ...r,
           estimatedDays: (r.estimatedDays ?? 0) + days,
           dueDateIso: newDue.toISOString(),
-          extensions: [...(r.extensions ?? []), { days, reason, date: today }],
+          extensions: exts ?? [{ days, reason, date: today, newDueIso: newDue.toISOString() }, ...(r.extensions ?? [])],
         }
       }))
       message.success(`ขอเพิ่มเวลา ${req.id} อีก ${days} วันแล้ว`)
@@ -672,11 +836,41 @@ const PageContent = () => {
     message.success(`อัปเดตสถานะ PR เป็น "${PR_TRACKING_CONFIG[prStatus].label}" แล้ว`)
   }
 
-  const handleApproval = (values: { decision: 'approved' | 'rejected'; note?: string }) => {
+  const handleApproval = async (values: { decision: 'approved' | 'rejected'; note?: string }) => {
     const { req, level } = approvalModal!
-    const approval: Approval = { status: values.decision, by: roleInfo.name, date: today, note: values.note }
+    let statusFromApi: RepairStatus | undefined
+
+    // หัวหน้า IT — บันทึกผลพิจารณาผ่าน API (1=อนุมัติ, 2=ไม่อนุมัติ + ต้องมีเหตุผล)
+    if (level === 'it_head') {
+      if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+      const comment = values.note?.trim()
+      try {
+        const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/header-approve`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            header_approve: values.decision === 'approved' ? 1 : 2,
+            ...(comment ? { header_comment: comment } : {}),
+          }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.success === false) {
+          message.error(json.message ?? `บันทึกผลพิจารณาไม่สำเร็จ (${res.status})`)
+          return
+        }
+        const apiStatusId = json.data?.process_status_id as number | undefined
+        statusFromApi = apiStatusId ? STATUS_BY_PROCESS_ID[apiStatusId] : undefined
+      } catch {
+        message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
+        return
+      }
+    }
+
+    const approval: Approval = { status: values.decision, by: currentUserName || roleInfo.name, date: today, note: values.note }
     let nextStatus: RepairStatus
-    if (values.decision === 'rejected') {
+    if (statusFromApi) {
+      nextStatus = statusFromApi
+    } else if (values.decision === 'rejected') {
       nextStatus = 'cancelled'
     } else if (level === 'it_head') {
       nextStatus = 'pending_mission_approval'
@@ -699,11 +893,6 @@ const PageContent = () => {
   const activeJobs  = requests.filter(r => r.assignedTechId === myTechId && r.status === 'in_progress')
   const doneJobs    = requests.filter(r => r.assignedTechId === myTechId && ['completed', 'cancelled'].includes(r.status))
 
-  const itApprovalPending  = requests.filter(r => r.status === 'pending_it_approval')
-  const itApprovalHistory  = requests.filter(r => r.itHeadApproval?.by === ROLE_CONFIG.it_head.name)
-  const msnApprovalPending = requests.filter(r => r.status === 'pending_mission_approval')
-  const msnApprovalHistory = requests.filter(r => r.missionHeadApproval?.by === ROLE_CONFIG.mission_head.name)
-
   // ── Common column helpers ─────────────────────────────────────────────────────
 
   const colId     = { title: 'รหัส', dataIndex: 'id', key: 'id', width: 120, render: (v: string) => <code style={{ color: '#a78bfa', fontSize: 11 }}>{v}</code> }
@@ -719,7 +908,7 @@ const PageContent = () => {
     render: (v: RepairStatus) => <Tag color={statusConfig[v].color}>{statusConfig[v].label}</Tag> }
   const colDetail  = { title: '', key: 'detail', width: 50, align: 'center' as const,
     render: (_: unknown, r: ManageRepairRequest) => (
-      <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setDetailModal(r)} />
+      <Button size="small" icon={<InfoCircleOutlined />} onClick={() => openDetail(r)} />
     )}
 
   const tableProps = { size: 'small' as const, scroll: { x: 900 } }
@@ -741,60 +930,12 @@ const PageContent = () => {
             {r.symptom.length > 90 ? r.symptom.slice(0, 90) + '…' : r.symptom}
           </div>
           {renderDue(r)}
+          <ExtensionHistory exts={r.extensions} />
         </Col>
         <Col style={{ flexShrink: 0, paddingLeft: 12 }}>{action}</Col>
       </Row>
     </Card>
   )
-
-  // ── Approval table helper ─────────────────────────────────────────────────────
-
-  const approvalCols = (level: 'it_head' | 'mission_head') => [
-    colId, colDevice, colUrgency,
-    { title: 'ช่าง', dataIndex: 'assignedTo', key: 'assignedTo', width: 140 },
-    { title: 'ผลประเมิน / รายละเอียด', key: 'result', render: (_: unknown, r: ManageRepairRequest) => (
-      <div>
-        {r.repairResult && (
-          <Tag style={{ color: repairResultConfig[r.repairResult].color, borderColor: repairResultConfig[r.repairResult].color + '44', fontSize: 10 }}>
-            {repairResultConfig[r.repairResult].label}
-          </Tag>
-        )}
-        <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4 }}>
-          {(r.replacementNote || r.prNote || r.technicianNote || '').slice(0, 60)}…
-        </div>
-        {level === 'mission_head' && r.itHeadApproval && (
-          <div style={{ marginTop: 4 }}>
-            <Tag color="success" style={{ fontSize: 10 }}>IT Head อนุมัติแล้ว</Tag>
-            <span style={{ color: '#64748b', fontSize: 10, marginLeft: 4 }}>{r.itHeadApproval.note}</span>
-          </div>
-        )}
-      </div>
-    )},
-    { title: 'จัดการ', key: 'action', width: 90, align: 'center' as const,
-      render: (_: unknown, r: ManageRepairRequest) => (
-        <Button size="small" type="primary" onClick={() => { setApprovalModal({ req: r, level }); approvalForm.resetFields() }}>
-          พิจารณา
-        </Button>
-      )},
-    colDetail,
-  ]
-
-  const approvalHistoryCols = (level: 'it_head' | 'mission_head') => [
-    colId, colDevice, colUrgency,
-    { title: 'มติ', key: 'decision', width: 90, render: (_: unknown, r: ManageRepairRequest) => {
-      const a = level === 'it_head' ? r.itHeadApproval : r.missionHeadApproval
-      return a ? <Tag color={a.status === 'approved' ? 'success' : 'error'}>{a.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'}</Tag> : '-'
-    }},
-    { title: 'วันที่', key: 'date', width: 110, render: (_: unknown, r: ManageRepairRequest) => {
-      const a = level === 'it_head' ? r.itHeadApproval : r.missionHeadApproval
-      return <Text style={{ fontSize: 11, color: '#94a3b8' }}>{a?.date ?? '-'}</Text>
-    }},
-    { title: 'หมายเหตุ', key: 'note', render: (_: unknown, r: ManageRepairRequest) => {
-      const a = level === 'it_head' ? r.itHeadApproval : r.missionHeadApproval
-      return <Text style={{ fontSize: 11, color: '#94a3b8' }}>{a?.note ?? '-'}</Text>
-    }},
-    colDetail,
-  ]
 
   const emptyText = (text: string) => ({ emptyText: <div style={{ color: '#64748b', padding: '24px 0' }}>{text}</div> })
 
@@ -825,8 +966,9 @@ const PageContent = () => {
         {/* Panel Card */}
         <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
 
-          {/* ── IT Officer Panel ── */}
-          {role === 'it_officer' && (() => {
+          {/* ── IT Officer / หัวหน้า IT / หัวหน้าภารกิจ — kanban board เดียวกัน
+               ระดับหัวหน้าเห็นบอร์ดเหมือนเจ้าหน้าที่ เพิ่มเฉพาะปุ่มพิจารณาอนุมัติตาม role ── */}
+          {(role === 'it_officer' || role === 'it_head' || role === 'mission_head') && (() => {
             type KanbanCol = {
               key: string; title: string; accent: string
               items: ManageRepairRequest[]
@@ -871,7 +1013,21 @@ const PageContent = () => {
               },
               {
                 key: 'pending_head_approval', title: 'รออนุมัติหัวหน้า IT / หัวหน้าภารกิจ', accent: '#a855f7',
-                items: requests.filter(r => r.status === 'pending_it_approval'),
+                items: requests.filter(r => r.status === 'pending_it_approval' || r.status === 'pending_mission_approval'),
+                // ปุ่มอนุมัติแสดงตาม role ของผู้ใช้: หัวหน้า IT อนุมัติขั้นแรก, หัวหน้าภารกิจอนุมัติขั้นถัดไป
+                action: (allowedRoles.includes('it_head') || allowedRoles.includes('mission_head'))
+                  ? (r) => {
+                      const level = r.status === 'pending_it_approval' ? 'it_head' as const : 'mission_head' as const
+                      if (!allowedRoles.includes(level)) return null
+                      return (
+                        <Button size="small" block
+                          style={{ background: '#9333ea', borderColor: '#9333ea', color: '#fff', fontSize: 11 }}
+                          onClick={() => openApproval(r, level)}>
+                          <SafetyCertificateOutlined /> พิจารณาอนุมัติ ({level === 'it_head' ? 'หัวหน้า IT' : 'หัวหน้าภารกิจ'})
+                        </Button>
+                      )
+                    }
+                  : undefined,
               },
               {
                 key: 'recommend_replacement', title: 'แนะนำซื้อทดแทน', accent: '#f472b6',
@@ -1073,6 +1229,8 @@ const PageContent = () => {
                                   })()}
                                   {/* Due countdown (กำหนดเวลาซ่อม) */}
                                   {r.status === 'in_progress' && renderDue(r)}
+                                  {/* ประวัติขอเพิ่มเวลา — ต่อท้ายการ์ด */}
+                                  <ExtensionHistory exts={r.extensions} />
                                   {/* PR number + tracking status */}
                                   {r.prNumber && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -1105,14 +1263,19 @@ const PageContent = () => {
                                     <Tag color="cyan" style={{ fontSize: 10, marginBottom: 6 }}>อนุมัติจัดซื้อแล้ว</Tag>
                                   )}
                                   {/* Actions */}
-                                  <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
-                                    {col.action && col.action(r)}
-                                    <Button size="small" icon={<InfoCircleOutlined />}
-                                      style={{ flex: col.action ? '0 0 auto' : 1, fontSize: 11 }}
-                                      onClick={() => setDetailModal(r)}>
-                                      {!col.action && 'รายละเอียด'}
-                                    </Button>
-                                  </div>
+                                  {(() => {
+                                    const actionNode = col.action ? col.action(r) : null
+                                    return (
+                                      <div style={{ display: 'flex', gap: 5, marginTop: 4 }}>
+                                        {actionNode}
+                                        <Button size="small" icon={<InfoCircleOutlined />}
+                                          style={{ flex: actionNode ? '0 0 auto' : 1, fontSize: 11 }}
+                                          onClick={() => openDetail(r)}>
+                                          {!actionNode && 'รายละเอียด'}
+                                        </Button>
+                                      </div>
+                                    )
+                                  })()}
                                 </div>
                                 )
                               })}
@@ -1216,73 +1379,6 @@ const PageContent = () => {
             ]} />
           )}
 
-          {/* ── IT Head Panel ── */}
-          {role === 'it_head' && (
-            <Tabs type="line" items={[
-              {
-                key: 'pending',
-                label: <Badge count={itApprovalPending.length} size="small" offset={[6, -2]}><span>รออนุมัติ</span></Badge>,
-                children: (
-                  <Table
-                    {...tableProps}
-                    dataSource={itApprovalPending}
-                    rowKey="id"
-                    pagination={false}
-                    locale={emptyText('ไม่มีรายการรออนุมัติ')}
-                    columns={approvalCols('it_head')}
-                  />
-                ),
-              },
-              {
-                key: 'history',
-                label: 'ประวัติการอนุมัติ',
-                children: (
-                  <Table
-                    {...tableProps}
-                    dataSource={itApprovalHistory}
-                    rowKey="id"
-                    pagination={false}
-                    locale={emptyText('ไม่มีประวัติ')}
-                    columns={approvalHistoryCols('it_head')}
-                  />
-                ),
-              },
-            ]} />
-          )}
-
-          {/* ── Mission Head Panel ── */}
-          {role === 'mission_head' && (
-            <Tabs type="line" items={[
-              {
-                key: 'pending',
-                label: <Badge count={msnApprovalPending.length} size="small" offset={[6, -2]}><span>รออนุมัติ</span></Badge>,
-                children: (
-                  <Table
-                    {...tableProps}
-                    dataSource={msnApprovalPending}
-                    rowKey="id"
-                    pagination={false}
-                    locale={emptyText('ไม่มีรายการรออนุมัติ')}
-                    columns={approvalCols('mission_head')}
-                  />
-                ),
-              },
-              {
-                key: 'history',
-                label: 'ประวัติการอนุมัติ',
-                children: (
-                  <Table
-                    {...tableProps}
-                    dataSource={msnApprovalHistory}
-                    rowKey="id"
-                    pagination={false}
-                    locale={emptyText('ไม่มีประวัติ')}
-                    columns={approvalHistoryCols('mission_head')}
-                  />
-                ),
-              },
-            ]} />
-          )}
         </Card>
       </div>
 
@@ -1523,33 +1619,135 @@ const PageContent = () => {
         onCancel={() => { setApprovalModal(null); approvalForm.resetFields() }}
         onOk={() => approvalForm.submit()}
         okText="ยืนยัน" cancelText="ยกเลิก"
-        width={520}
+        width={860}
       >
-        {approvalModal && (
+        {approvalModal && (() => {
+          const req = approvalModal.req
+          const exts = req.extensions ?? []
+          const dueIso = effectiveDueIso(req)
+          const firstIso = originalDueIso(req)
+          const left = daysUntil(dueIso)
+          const ds = left !== null ? dueStatus(left) : null
+          return (
+          <>
           <Descriptions column={1} size="small" bordered
             styles={{ label: { color: '#94a3b8', background: '#0f172a', width: 130 }, content: { background: '#1e293b', color: '#e2e8f0' } }}
             style={{ marginBottom: 16 }}
           >
-            <Descriptions.Item label="อุปกรณ์">{approvalModal.req.deviceBrand}</Descriptions.Item>
-            <Descriptions.Item label="หน่วยงาน">{approvalModal.req.department}</Descriptions.Item>
+            <Descriptions.Item label="อุปกรณ์">
+              {req.deviceBrand}
+              {req.assetNo && <code style={{ color: '#fb923c', fontSize: 11, marginLeft: 8 }}>{req.assetNo}</code>}
+            </Descriptions.Item>
+            <Descriptions.Item label="หน่วยงาน">{req.department}{req.deviceLocation ? ` · ${req.deviceLocation}` : ''}</Descriptions.Item>
+            <Descriptions.Item label="อาการ" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+              {req.symptom}
+            </Descriptions.Item>
+            {req.assignedTo && (
+              <Descriptions.Item label="ช่างผู้รับผิดชอบ">
+                <ToolOutlined style={{ color: '#6ee7b7', marginRight: 6 }} />{req.assignedTo}
+                {req.assignedDate && <span style={{ color: '#64748b', fontSize: 11, marginLeft: 8 }}>รับงาน {req.assignedDate}</span>}
+              </Descriptions.Item>
+            )}
+            {(req.estimatedDays != null || dueIso || exts.length > 0) && (
+              <Descriptions.Item label="กำหนดเวลาซ่อม">
+                <Space size={8} wrap>
+                  {req.estimatedDays != null && (
+                    <Tag style={{ color: '#a78bfa', borderColor: '#a78bfa44', background: 'transparent', margin: 0 }}>
+                      ขอเวลา {req.estimatedDays} วัน
+                    </Tag>
+                  )}
+                  {exts.length > 0 && firstIso ? (
+                    <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                      สัญญาแรก {fmtDate(firstIso)}
+                      <span style={{ color: '#f59e0b', fontWeight: 600, margin: '0 6px' }}>ผลัดสัญญา {exts.length} ครั้ง</span>
+                      {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
+                    </span>
+                  ) : (
+                    dueIso && <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
+                  )}
+                  {ds && <Tag style={{ color: ds.color, borderColor: ds.color + '55', background: 'transparent', margin: 0 }}>{ds.label}</Tag>}
+                </Space>
+              </Descriptions.Item>
+            )}
+            {exts.length > 0 && (
+              <Descriptions.Item label="ประวัติผลัดสัญญา">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {exts.map((ex, i) => (
+                    <div key={i} style={{ fontSize: 12 }}>
+                      <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{ex.days} วัน</span>
+                      {ex.prevDueIso && ex.newDueIso && (
+                        <span style={{ color: '#94a3b8', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
+                      )}
+                      <span style={{ color: '#475569', margin: '0 6px' }}>({ex.date})</span>
+                      <span style={{ color: '#94a3b8' }}>{ex.reason}</span>
+                      {ex.by && <span style={{ color: '#64748b', marginLeft: 6 }}>— {ex.by}</span>}
+                    </div>
+                  ))}
+                </div>
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="ผลการประเมิน">
-              {approvalModal.req.repairResult && (
-                <Tag style={{ color: repairResultConfig[approvalModal.req.repairResult].color }}>
-                  {repairResultConfig[approvalModal.req.repairResult].label}
+              {req.repairResult && (
+                <Tag style={{ color: repairResultConfig[req.repairResult].color }}>
+                  {repairResultConfig[req.repairResult].label}
                 </Tag>
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="รายละเอียด" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
-              {approvalModal.req.replacementNote || approvalModal.req.prNote || approvalModal.req.technicianNote}
+            <Descriptions.Item label="ความเห็นช่าง" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+              {req.replacementNote || req.prNote || req.technicianNote}
             </Descriptions.Item>
-            {approvalModal.level === 'mission_head' && approvalModal.req.itHeadApproval && (
+            {req.partsUsed && (
+              <Descriptions.Item label="อะไหล่ที่ใช้" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+                {req.partsUsed}
+              </Descriptions.Item>
+            )}
+            {(req.prNumber || req.prTrackingStatus) && (
+              <Descriptions.Item label="ติดตาม PR">
+                <Space size={8} wrap>
+                  {req.prNumber && (
+                    <code style={{ color: '#fb923c', fontSize: 12, background: '#1c0f00', padding: '1px 6px', borderRadius: 4 }}>{req.prNumber}</code>
+                  )}
+                  {req.prTrackingStatus && (
+                    <Tag style={{ color: PR_TRACKING_CONFIG[req.prTrackingStatus].color, borderColor: PR_TRACKING_CONFIG[req.prTrackingStatus].color + '55', background: 'transparent', margin: 0 }}>
+                      {PR_TRACKING_CONFIG[req.prTrackingStatus].label}
+                    </Tag>
+                  )}
+                </Space>
+              </Descriptions.Item>
+            )}
+            {approvalModal.level === 'mission_head' && req.itHeadApproval && (
               <Descriptions.Item label="มติหัวหน้า IT">
                 <Tag color="success">อนุมัติแล้ว</Tag>
-                <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 8 }}>{approvalModal.req.itHeadApproval.note}</span>
+                <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 8 }}>{req.itHeadApproval.note}</span>
               </Descriptions.Item>
             )}
           </Descriptions>
-        )}
+
+          {(approvalImagesLoading || approvalImages.length > 0) && (
+            <div style={{ marginBottom: 16 }}>
+              <Text style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
+              {approvalImagesLoading ? (
+                <Spin size="small" />
+              ) : (
+                <AntImage.PreviewGroup>
+                  <Space wrap>
+                    {approvalImages.map(img => (
+                      <AntImage
+                        key={img.it_repair_request_image_id}
+                        src={`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`}
+                        width={96}
+                        height={96}
+                        style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid #334155' }}
+                      />
+                    ))}
+                  </Space>
+                </AntImage.PreviewGroup>
+              )}
+            </div>
+          )}
+          </>
+          )
+        })()}
         <Form form={approvalForm} layout="vertical" onFinish={handleApproval}>
           <Form.Item name="decision" label="มติ" rules={[{ required: true, message: 'กรุณาเลือกมติ' }]}>
             <Radio.Group>
@@ -1561,8 +1759,19 @@ const PageContent = () => {
               </Radio.Button>
             </Radio.Group>
           </Form.Item>
-          <Form.Item name="note" label="หมายเหตุ / เหตุผล">
-            <TextArea rows={2} placeholder="ระบุหมายเหตุ เหตุผลการอนุมัติหรือปฏิเสธ..." />
+          <Form.Item noStyle shouldUpdate={(p, c) => p.decision !== c.decision}>
+            {({ getFieldValue }) => (
+              <Form.Item
+                name="note"
+                label="หมายเหตุ / เหตุผล"
+                rules={[{
+                  required: getFieldValue('decision') === 'rejected',
+                  message: 'กรุณาระบุเหตุผลที่ไม่อนุมัติ',
+                }]}
+              >
+                <TextArea rows={2} placeholder="ระบุหมายเหตุ เหตุผลการอนุมัติหรือปฏิเสธ..." />
+              </Form.Item>
+            )}
           </Form.Item>
         </Form>
       </Modal>
@@ -1685,16 +1894,30 @@ const PageContent = () => {
         width={460}
       >
         {extendModal && (() => {
-          const left = daysUntil(extendModal.dueDateIso)
+          // กำหนดเดิม = กำหนดล่าสุดหลังรวมการขอเพิ่มเวลาครั้งก่อน ๆ แล้ว
+          const dueIso = effectiveDueIso(extendModal)
+          const firstIso = originalDueIso(extendModal)
+          const left = daysUntil(dueIso)
           const ds = left !== null ? dueStatus(left) : null
+          const extCount = extendModal.extensions?.length ?? 0
           return (
             <Alert
               type="warning" showIcon style={{ marginBottom: 16 }}
               title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{extendModal.deviceBrand}</span>}
               description={
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>
-                  {extendModal.dueDateIso
-                    ? <>กำหนดเดิม {fmtDate(extendModal.dueDateIso)}{ds && <> · <span style={{ color: ds.color }}>{ds.label}</span></>}</>
+                  {dueIso
+                    ? extCount > 0 && firstIso
+                      ? <>
+                          สัญญาแรก {fmtDate(firstIso)}
+                          <span style={{ color: '#f59e0b', fontWeight: 600 }}> · ผลัดมาแล้ว {extCount} ครั้ง</span>
+                          {' · '}<span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>
+                          {ds && <> · <span style={{ color: ds.color }}>{ds.label}</span></>}
+                        </>
+                      : <>
+                          กำหนดเดิม {fmtDate(dueIso)}
+                          {ds && <> · <span style={{ color: ds.color }}>{ds.label}</span></>}
+                        </>
                     : 'ยังไม่ได้กำหนดเวลา'}
                 </span>
               }
@@ -1713,7 +1936,9 @@ const PageContent = () => {
               format="DD/MM/YYYY"
               placeholder="เลือกวันที่จะเสร็จใหม่"
               disabledDate={(d) => {
-                const min = extendModal?.dueDateIso ? dayjs(extendModal.dueDateIso) : dayjs()
+                // เลือกได้เฉพาะวันหลังกำหนดล่าสุดเท่านั้น — กันเลือกวันซ้ำ/ย้อนช่วงที่ขยายไปแล้ว
+                const minIso = extendModal ? effectiveDueIso(extendModal) : undefined
+                const min = minIso ? dayjs(minIso) : dayjs()
                 return !d.isAfter(min, 'day')
               }}
             />
@@ -1722,7 +1947,8 @@ const PageContent = () => {
             {({ getFieldValue }) => {
               const nd = getFieldValue('newDueDate') as Dayjs | undefined
               if (!nd || !extendModal) return null
-              const base = (extendModal.dueDateIso ? dayjs(extendModal.dueDateIso) : dayjs()).startOf('day')
+              const baseIso = effectiveDueIso(extendModal)
+              const base = (baseIso ? dayjs(baseIso) : dayjs()).startOf('day')
               const days = nd.startOf('day').diff(base, 'day')
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#f59e0b14', border: '1px solid #f59e0b33', marginBottom: 16 }}>
@@ -1773,17 +1999,28 @@ const PageContent = () => {
                 : <Text style={{ color: '#475569' }}>— ยังไม่มีผู้รับงาน</Text>}
             </Descriptions.Item>
             {detailModal.assignedDate && <Descriptions.Item label="วันที่รับงาน" span={1}>{detailModal.assignedDate}</Descriptions.Item>}
-            {detailModal.estimatedDays != null && (() => {
-              const left = daysUntil(detailModal.dueDateIso)
+            {(detailModal.estimatedDays != null || !!effectiveDueIso(detailModal) || (detailModal.extensions?.length ?? 0) > 0) && (() => {
+              const dueIso = effectiveDueIso(detailModal)
+              const firstIso = originalDueIso(detailModal)
+              const extCount = detailModal.extensions?.length ?? 0
+              const left = daysUntil(dueIso)
               const ds = left !== null ? dueStatus(left) : null
               return (
                 <Descriptions.Item label="กำหนดเวลาซ่อม" span={2}>
                   <Space size={8} wrap>
-                    <Tag style={{ color: '#a78bfa', borderColor: '#a78bfa44', background: 'transparent', margin: 0 }}>
-                      ขอเวลา {detailModal.estimatedDays} วัน
-                    </Tag>
-                    {detailModal.dueDateIso && (
-                      <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(detailModal.dueDateIso)}</span>
+                    {detailModal.estimatedDays != null && (
+                      <Tag style={{ color: '#a78bfa', borderColor: '#a78bfa44', background: 'transparent', margin: 0 }}>
+                        ขอเวลา {detailModal.estimatedDays} วัน
+                      </Tag>
+                    )}
+                    {extCount > 0 && firstIso ? (
+                      <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                        สัญญาแรก {fmtDate(firstIso)}
+                        <span style={{ color: '#f59e0b', fontWeight: 600, margin: '0 6px' }}>ผลัดสัญญา {extCount} ครั้ง</span>
+                        {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
+                      </span>
+                    ) : (
+                      dueIso && <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
                     )}
                     {ds && detailModal.status === 'in_progress' && (
                       <Tag style={{ color: ds.color, borderColor: ds.color + '55', background: 'transparent', margin: 0 }}>{ds.label}</Tag>
@@ -1798,8 +2035,12 @@ const PageContent = () => {
                   {detailModal.extensions.map((ex, i) => (
                     <div key={i} style={{ fontSize: 12 }}>
                       <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{ex.days} วัน</span>
+                      {ex.prevDueIso && ex.newDueIso && (
+                        <span style={{ color: '#94a3b8', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
+                      )}
                       <span style={{ color: '#475569', margin: '0 6px' }}>({ex.date})</span>
                       <span style={{ color: '#94a3b8' }}>{ex.reason}</span>
+                      {ex.by && <span style={{ color: '#64748b', marginLeft: 6 }}>— {ex.by}</span>}
                     </div>
                   ))}
                 </div>

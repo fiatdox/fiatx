@@ -12,7 +12,13 @@
       "Bash(awk '/accounts-payable\\\\\\\\page.tsx|procurement\\\\\\\\dashboard\\\\\\\\page.tsx|procurement\\\\\\\\inspection\\\\\\\\page.tsx|procurement\\\\\\\\receipt\\\\\\\\page.tsx/{flag=1; print; next} /^D:\\\\\\\\/{if\\(flag\\){flag=0}} flag{print}')",
       "Read(//tmp/**)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "PowerShell(npx tsc --noEmit 2>$null)",
+      "PowerShell(if \\($?\\) { \"OK\" })",
+      "PowerShell(npx eslint \"app/information-technology/maintenance/manage/page.tsx\" \"app/api/v1/it/repair-requests/[id]/extensions/route.ts\" \"app/api/v1/it/repair-requests/[id]/request-extension/route.ts\")",
+      "PowerShell(if \\($?\\) { \"LINT OK\" })",
+      "PowerShell(npx eslint \"app/information-technology/maintenance/manage/page.tsx\")",
+      "PowerShell(if \\($?\\) { \"TSC OK\" })"
     ]
   }
 }

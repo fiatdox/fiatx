@@ -17,6 +17,7 @@ import { FaMicrochip, FaPrint, FaLaptop, FaDesktop, FaNetworkWired } from 'react
 import Swal from 'sweetalert2'
 import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
+import RepairKanbanView from '@/app/components/RepairKanbanView'
 import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
 
 const RepairSlipPDFViewer = dynamic(
@@ -195,20 +196,6 @@ const PageContent = () => {
     const cat = problemCategories.find(c => c.it_problem_category_id === id)
     const idx = Math.min((cat?.it_problem_category_id ?? 1) - 1, PROBLEM_CATEGORY_COLORS.length - 1)
     return { label: cat?.name ?? String(id), desc: cat?.description ?? '', color: PROBLEM_CATEGORY_COLORS[idx] }
-  }
-
-  const daysSince = (isoOrSlash: string): number => {
-    const from = isoOrSlash.includes('T')
-      ? new Date(isoOrSlash)
-      : (() => { const [d, m, y] = isoOrSlash.split('/').map(Number); return new Date(y, m - 1, d) })()
-    return Math.floor((Date.now() - from.getTime()) / 86400000)
-  }
-
-  const daysColor = (days: number) => {
-    if (days <= 3)  return '#22c55e'
-    if (days <= 7)  return '#f59e0b'
-    if (days <= 14) return '#f97316'
-    return '#ef4444'
   }
 
   const toSlipData = (r: RepairRequest): RepairSlipData => ({
@@ -826,110 +813,15 @@ const PageContent = () => {
                   <AppstoreOutlined style={{ marginRight: 6 }} />Kanban
                 </span>
               ),
-              children: (() => {
-                const kanbanCols: { statusId: number; label: string; accent: string; bg: string; sub?: string }[] = [
-                  { statusId: 1, label: 'รอดำเนินการ',        accent: '#f59e0b', bg: '#1c1a0f' },
-                  { statusId: 2, label: 'กำลังซ่อม',          accent: '#3b82f6', bg: '#0f1a2e' },
-                  { statusId: 3, label: 'รออะไหล่ / ออก PR',  accent: '#fb923c', bg: '#1f150a', sub: 'รอจัดซื้อ / รออนุมัติ PR' },
-                  { statusId: 4, label: 'แนะนำซื้อทดแทน',     accent: '#f472b6', bg: '#1f0e1a', sub: 'ซ่อมไม่ได้ / ประเมินแล้ว' },
-                  { statusId: 5, label: 'ซ่อมเสร็จแล้ว',      accent: '#22c55e', bg: '#0d1f12' },
-                  { statusId: 6, label: 'ยกเลิก',              accent: '#ef4444', bg: '#1f0d0d' },
-                ]
-                return (
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', overflowX: 'auto', paddingBottom: 8 }}>
-                    {kanbanCols.map(col => {
-                      const colItems = requests
-                        .filter(r => r.process_status_id === col.statusId)
-                        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                      return (
-                        <div key={col.statusId} style={{ minWidth: 270, flex: '1 1 0' }}>
-                          <div style={{
-                            background: col.bg,
-                            border: `1px solid ${col.accent}44`,
-                            borderTop: `3px solid ${col.accent}`,
-                            borderRadius: 8,
-                            padding: '10px 14px',
-                            marginBottom: 10,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                          }}>
-                            <div>
-                              <Text style={{ color: col.accent, fontWeight: 700, fontSize: 13 }}>{col.label}</Text>
-                              {col.sub && <div style={{ color: '#64748b', fontSize: 10, marginTop: 1 }}>{col.sub}</div>}
-                            </div>
-                            <Badge count={colItems.length} style={{ background: col.accent, fontSize: 11 }} showZero />
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {colItems.length === 0 && (
-                              <div style={{ textAlign: 'center', color: '#475569', fontSize: 12, padding: '24px 0' }}>ไม่มีรายการ</div>
-                            )}
-                            {colItems.map(r => {
-                              const catColor = getProblemCategoryColor(r.problem_category_name)
-                              const priorityCfg = getPriorityColorByName(r.priority_name)
-                              return (
-                                <div
-                                  key={r.it_repair_request_id}
-                                  onClick={() => setDetailModal(r)}
-                                  style={{
-                                    background: '#1e293b',
-                                    border: '1px solid #334155',
-                                    borderLeft: `3px solid ${priorityCfg.borderColor}`,
-                                    borderRadius: 8,
-                                    padding: '11px 13px',
-                                    cursor: 'pointer',
-                                    transition: 'border-color 0.2s',
-                                  }}
-                                  onMouseEnter={e => (e.currentTarget.style.borderColor = col.accent)}
-                                  onMouseLeave={e => (e.currentTarget.style.borderColor = '#334155')}
-                                >
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <Text style={{ color: '#a78bfa', fontWeight: 700, fontSize: 11, fontFamily: 'monospace' }}>
-                                      IT-{String(r.it_repair_request_id).padStart(4, '0')}
-                                    </Text>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                      {![5, 6].includes(r.process_status_id) && (() => {
-                                        const days = daysSince(r.created_at)
-                                        return (
-                                          <Text style={{ fontSize: 10, color: daysColor(days), whiteSpace: 'nowrap' }}>
-                                            <ClockCircleOutlined style={{ marginRight: 2 }} />{days} วัน
-                                          </Text>
-                                        )
-                                      })()}
-                                      <Tag color={priorityCfg.color} style={{ fontSize: 10, padding: '0 5px', margin: 0 }}>
-                                        {r.priority_name}
-                                      </Tag>
-                                    </div>
-                                  </div>
-                                  <div style={{ color: '#e2e8f0', fontSize: 13, fontWeight: 600, marginBottom: 3 }}>
-                                    {r.brand || r.equipment_type_name}
-                                  </div>
-                                  {r.equipment_number && (
-                                    <Text style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace', display: 'block', marginBottom: 4 }}>
-                                      {r.equipment_number}
-                                    </Text>
-                                  )}
-                                  <div style={{ color: '#94a3b8', fontSize: 11, marginBottom: 6 }}>
-                                    {r.created_by_name} · {r.major_name}
-                                  </div>
-                                  <div style={{ color: '#64748b', fontSize: 11, marginBottom: 8, lineHeight: 1.5 }}>
-                                    {r.problem_description.length > 70 ? r.problem_description.slice(0, 70) + '…' : r.problem_description}
-                                  </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Tag style={{ fontSize: 10, color: catColor, borderColor: catColor + '44', margin: 0, padding: '0 5px' }}>
-                                      {r.problem_category_name}
-                                    </Tag>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })(),
+              children: (
+                <RepairKanbanView
+                  rows={requests}
+                  onDetail={(row) => {
+                    const full = requests.find(x => x.it_repair_request_id === row.it_repair_request_id)
+                    if (full) setDetailModal(full)
+                  }}
+                />
+              ),
             },
           ]}
         />
