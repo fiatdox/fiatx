@@ -11,7 +11,10 @@
       "Bash(findstr :5000)",
       "Bash(curl -s http://127.0.0.1:5000/docs)",
       "Bash(curl -s http://127.0.0.1:5000/redoc)",
-      "Bash(curl -s http://127.0.0.1:5000/v1/openapi.json)"
+      "Bash(curl -s http://127.0.0.1:5000/v1/openapi.json)",
+      "PowerShell(if \\($?\\) { \"TSC OK\" })",
+      "PowerShell(if \\($?\\) { \"LINT OK\" })",
+      "PowerShell(npx eslint \"app/information-technology/maintenance/manage/page.tsx\" \"app/api/v1/it/repair-requests/[id]/mission-approve/route.ts\")"
     ]
   }
 }

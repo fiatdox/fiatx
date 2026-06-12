@@ -4,7 +4,7 @@ import Cookies from 'js-cookie'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   ConfigProvider, App, theme, Form, Input, DatePicker, Button, Table, Tag, Tabs,
-  Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select, Dropdown,
+  Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select,
   Spin, Image as AntImage,
 } from 'antd'
 import {
@@ -59,8 +59,10 @@ interface ManageRepairRequest {
   estimatedDays?: number; dueDateIso?: string
   technicianPriorityId?: number; technicianPriorityName?: string
   extensions?: RepairExtension[]
+  repairAssessmentId?: number
   repairResult?: RepairResult; technicianNote?: string; partsUsed?: string
   prNote?: string; prNumber?: string; prIssuedBy?: string; prIssuedDate?: string
+  prTaskStep?: number  // ขั้นงานที่เจ้าหน้าที่กำลังทำระหว่างออก PR (PR_TASK_STEPS)
   prTrackingStatus?: 'awaiting_signature' | 'pr_approved' | 'request_po' | 'po_issued' | 'tracking_po' | 'po_approved' | 'waiting_delivery' | 'received'
   replacementNote?: string
   replacementHandover?: ReplacementHandover
@@ -113,6 +115,8 @@ const repairResultConfig: Record<RepairResult, { label: string; color: string }>
 interface ApiRepairAssessment {
   repair_assessment_id: number
   assessment_name: string
+  // สถานะถัดไปเมื่อหัวหน้าภารกิจอนุมัติ (process_status_id) — null = ผลประเมินที่ไม่ต้องขออนุมัติ
+  approve_process_id: number | null
   is_active: string
   created_at: string
 }
@@ -222,6 +226,7 @@ const STATUS_BY_PROCESS_ID: Record<number, RepairStatus> = {
   8: 'awaiting_delivery',
   9: 'pending_mission_approval',  // หัวหน้า IT อนุมัติแล้ว — รอหัวหน้าภารกิจ
   10: 'cancelled',
+  11: 'purchase_approved',        // อนุมัติซื้อทดแทน (approve_process_id ของผลประเมิน "แนะนำซื้อทดแทน")
 }
 
 const toSlashDate = (iso?: string | null): string | undefined => {
@@ -261,6 +266,7 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     technicianPriorityId:   r.technician_priority_id ?? undefined,
     technicianPriorityName: r.technician_priority_name || undefined,
     // ผลประเมินของช่าง — ใช้แสดงให้หัวหน้า IT / หัวหน้าภารกิจตอนพิจารณาอนุมัติ
+    repairAssessmentId:     r.repair_assessment_id ?? undefined,
     repairResult:           r.repair_assessment_id != null ? ASSESSMENT_ID_TO_RESULT[r.repair_assessment_id] : undefined,
     technicianNote:         r.assessment_detail || undefined,
   }
@@ -446,6 +452,14 @@ const PR_TRACKING_CONFIG: Record<NonNullable<ManageRepairRequest['prTrackingStat
   received:           { label: 'ได้รับอะไหล่แล้ว',            color: '#22c55e' },
 }
 
+// ขั้นงานของเจ้าหน้าที่ IT ระหว่างออกใบ PR — ใช้ใน modal อัพเดทงาน + แสดงบนการ์ด
+const PR_TASK_STEPS: { id: number; label: string }[] = [
+  { id: 1, label: 'ทำบันทึกข้อความ' },
+  { id: 2, label: 'ทำใบ PR' },
+  { id: 3, label: 'แจ้งเตือนให้ขอทะเบียนครุภัณฑ์จากพัสดุ' },
+  { id: 4, label: 'ขอเพิ่ม item จากระบบ inventory — รออนุมัติจาก ผอ.' },
+]
+
 const API_ROLE_MAP: Record<string, UserRole> = {
   IT_Staff:         'it_officer',
   IT_Head:          'it_head',
@@ -547,6 +561,7 @@ const PageContent = () => {
       .catch(() => {})
   }, [])
   const [prModal, setPrModal]         = useState<ManageRepairRequest | null>(null)
+  const [taskModal, setTaskModal]     = useState<ManageRepairRequest | null>(null)
   const [resultModal, setResultModal] = useState<ManageRepairRequest | null>(null)
   const [approvalModal, setApprovalModal] = useState<{ req: ManageRepairRequest; level: 'it_head' | 'mission_head' } | null>(null)
   const [detailModal, setDetailModal] = useState<ManageRepairRequest | null>(null)
@@ -554,6 +569,7 @@ const PageContent = () => {
   const [rejectModal, setRejectModal] = useState<ManageRepairRequest | null>(null)
   const [extendModal, setExtendModal] = useState<ManageRepairRequest | null>(null)
   const [prForm]       = Form.useForm()
+  const [taskForm]     = Form.useForm()
   const [resultForm]   = Form.useForm()
   const [approvalForm] = Form.useForm()
   const [takeForm]     = Form.useForm()
@@ -782,6 +798,7 @@ const PageContent = () => {
 
       let nextStatus: RepairStatus
       const updates: Partial<ManageRepairRequest> = {
+        repairAssessmentId:  values.repair_assessment_id,
         repairResult:        resultKey,
         technicianNote:      values.assessment_detail,
         partsUsed:           values.parts_used,
@@ -825,15 +842,14 @@ const PageContent = () => {
     prForm.resetFields()
   }
 
-  const handleUpdatePRStatus = (id: string, prStatus: NonNullable<ManageRepairRequest['prTrackingStatus']>) => {
-    setRequests(prev => prev.map(r => {
-      if (r.id !== id) return r
-      const next: Partial<ManageRepairRequest> = { prTrackingStatus: prStatus }
-      if (['pr_approved', 'po_issued', 'tracking_po', 'po_approved'].includes(prStatus)) next.status = 'pending_it_approval'
-      if (['waiting_delivery', 'received'].includes(prStatus)) next.status = 'purchase_approved'
-      return { ...r, ...next }
-    }))
-    message.success(`อัปเดตสถานะ PR เป็น "${PR_TRACKING_CONFIG[prStatus].label}" แล้ว`)
+  // อัพเดทขั้นงานที่เจ้าหน้าที่กำลังทำระหว่างออก PR (PR_TASK_STEPS)
+  const handleUpdateTaskStep = (values: { task_step: number }) => {
+    const req = taskModal!
+    const step = PR_TASK_STEPS.find(s => s.id === values.task_step)
+    setRequests(prev => prev.map(r => r.id === req.id ? { ...r, prTaskStep: values.task_step } : r))
+    message.success(`อัพเดทงาน ${req.id} — ${step?.label ?? ''}`)
+    setTaskModal(null)
+    taskForm.resetFields()
   }
 
   const handleApproval = async (values: { decision: 'approved' | 'rejected'; note?: string }) => {
@@ -866,16 +882,47 @@ const PageContent = () => {
       }
     }
 
+    // หัวหน้ากลุ่มภารกิจ — บันทึกผลผ่าน API (backend เซ็ตสถานะตาม approve_process_id ของผลประเมิน)
+    if (level === 'mission_head') {
+      if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+      const comment = values.note?.trim()
+      try {
+        const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/mission-approve`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mission_approve: values.decision === 'approved' ? 1 : 2,
+            ...(comment ? { mission_comment: comment } : {}),
+          }),
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok || json.success === false) {
+          message.error(json.message ?? `บันทึกผลพิจารณาไม่สำเร็จ (${res.status})`)
+          return
+        }
+        const apiStatusId = json.data?.process_status_id as number | undefined
+        statusFromApi = apiStatusId ? STATUS_BY_PROCESS_ID[apiStatusId] : undefined
+      } catch {
+        message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
+        return
+      }
+    }
+
     const approval: Approval = { status: values.decision, by: currentUserName || roleInfo.name, date: today, note: values.note }
     let nextStatus: RepairStatus
     if (statusFromApi) {
       nextStatus = statusFromApi
     } else if (values.decision === 'rejected') {
+      // ปฏิเสธ (ทั้งสองขั้น) → process_status 10
       nextStatus = 'cancelled'
     } else if (level === 'it_head') {
       nextStatus = 'pending_mission_approval'
     } else {
-      nextStatus = 'purchase_approved'
+      // หัวหน้าภารกิจอนุมัติ — เดินตาม approve_process_id ของผลประเมินที่ช่างเลือก
+      // เช่น สั่งซื้ออะไหล่/จ้างนอก → 3 (ออก PR), แนะนำซื้อทดแทน → 11 (อนุมัติซื้อทดแทน)
+      const assess = assessments.find(a => a.repair_assessment_id === req.repairAssessmentId)
+      const pid = assess?.approve_process_id
+      nextStatus = (pid != null ? STATUS_BY_PROCESS_ID[pid] : undefined) ?? 'purchase_approved'
     }
     const updates: Partial<ManageRepairRequest> = { status: nextStatus }
     if (level === 'it_head') updates.itHeadApproval = approval
@@ -1030,44 +1077,25 @@ const PageContent = () => {
                   : undefined,
               },
               {
-                key: 'recommend_replacement', title: 'แนะนำซื้อทดแทน', accent: '#f472b6',
-                items: requests.filter(r => r.status === 'recommend_replacement'),
-                action: (r) => (
-                  <Button size="small" block
-                    style={{ background: '#9d174d', borderColor: '#9d174d', color: '#fff', fontSize: 11 }}
-                    onClick={() => {
-                      setRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'pending_it_approval' } : x))
-                      message.success(`ส่งเรื่องขออนุมัติซื้อทดแทน ${r.id} แล้ว`)
-                    }}>
-                    <SwapOutlined /> ส่งขออนุมัติ
-                  </Button>
-                ),
-              },
-              {
                 key: 'waiting_pr', title: 'ออกใบ PR เจ้าหน้าที่ IT', accent: '#f97316',
                 items: requests.filter(r => r.status === 'waiting_pr'),
-                action: (r) => !r.prNumber ? (
-                  <Button size="small" block
-                    style={{ background: '#f97316', borderColor: '#f97316', color: '#fff', fontSize: 11 }}
-                    onClick={() => { setPrModal(r); prForm.resetFields() }}>
-                    <ShoppingCartOutlined /> ออก PR
-                  </Button>
-                ) : (
-                  <Dropdown
-                    trigger={['click']}
-                    menu={{
-                      items: (Object.entries(PR_TRACKING_CONFIG) as [NonNullable<ManageRepairRequest['prTrackingStatus']>, { label: string; color: string }][]).map(([key, cfg]) => ({
-                        key,
-                        label: <span style={{ color: cfg.color, fontSize: 12 }}>{cfg.label}</span>,
-                        onClick: () => handleUpdatePRStatus(r.id, key),
-                      })),
-                      selectedKeys: r.prTrackingStatus ? [r.prTrackingStatus] : [],
-                    }}
-                  >
-                    <Button size="small" block style={{ fontSize: 11, borderColor: '#334155', color: '#94a3b8' }}>
-                      อัปเดตสถานะ PR ▾
+                // 2 ปุ่ม: บันทึกงาน (ออกใบ PR) + อัพเดทงานที่เจ้าหน้าที่กำลังทำ (PR_TASK_STEPS)
+                action: (r) => (
+                  <>
+                    <Button size="small"
+                      style={{ flex: 1, background: '#f97316', borderColor: '#f97316', color: '#fff', fontSize: 11 }}
+                      onClick={() => { setPrModal(r); prForm.resetFields() }}>
+                      <ShoppingCartOutlined /> บันทึกงาน
                     </Button>
-                  </Dropdown>
+                    <Button size="small"
+                      style={{ flex: 1, borderColor: '#f97316', color: '#f97316', fontSize: 11 }}
+                      onClick={() => {
+                        setTaskModal(r)
+                        taskForm.setFieldsValue({ task_step: r.prTaskStep ?? 1 })
+                      }}>
+                      <ToolOutlined /> อัพเดทงาน
+                    </Button>
+                  </>
                 ),
               },
               {
@@ -1249,6 +1277,23 @@ const PageContent = () => {
                                       )}
                                     </div>
                                   )}
+                                  {/* ขั้นงานที่เจ้าหน้าที่กำลังทำ (ออกใบ PR) */}
+                                  {r.status === 'waiting_pr' && r.prTaskStep && (() => {
+                                    const step = PR_TASK_STEPS.find(s => s.id === r.prTaskStep)
+                                    if (!step) return null
+                                    return (
+                                      <div style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: 5, marginBottom: 6, fontSize: 10,
+                                        padding: '4px 7px', borderRadius: 6, background: '#f9731614', border: '1px solid #f9731633',
+                                      }}>
+                                        <ToolOutlined style={{ fontSize: 10, color: '#f97316', marginTop: 1 }} />
+                                        <span style={{ color: '#94a3b8' }}>
+                                          กำลังทำ (ขั้น {step.id}/{PR_TASK_STEPS.length}):{' '}
+                                          <span style={{ color: '#f97316', fontWeight: 600 }}>{step.label}</span>
+                                        </span>
+                                      </div>
+                                    )
+                                  })()}
                                   {/* Sub-status badge */}
                                   {r.status === 'waiting_pr' && !r.prNumber && (
                                     <Tag color="orange" style={{ fontSize: 10, marginBottom: 6 }}>ออก PR แล้ว — รออะไหล่</Tag>
@@ -1381,6 +1426,46 @@ const PageContent = () => {
 
         </Card>
       </div>
+
+      {/* ══ Task Modal — อัพเดทงานที่เจ้าหน้าที่กำลังทำ (ออกใบ PR) ═══════════════ */}
+      <Modal
+        title={<span><ToolOutlined style={{ color: '#f97316', marginRight: 8 }} />อัพเดทงานที่กำลังทำ<code style={{ color: '#a78bfa', fontSize: 12, marginLeft: 8, fontWeight: 400 }}>{taskModal?.id}</code></span>}
+        open={!!taskModal}
+        onCancel={() => { setTaskModal(null); taskForm.resetFields() }}
+        onOk={() => taskForm.submit()}
+        okText="อัพเดทงาน" cancelText="ยกเลิก"
+        okButtonProps={{ style: { background: '#f97316', borderColor: '#f97316' } }}
+        width={460}
+      >
+        {taskModal && (
+          <Alert
+            type="info" showIcon style={{ marginBottom: 16 }}
+            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{taskModal.deviceBrand}</span>}
+            description={
+              <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                {taskModal.department}
+                {taskModal.prNumber && <> · PR <code style={{ color: '#fb923c' }}>{taskModal.prNumber}</code></>}
+              </span>
+            }
+          />
+        )}
+        <Form form={taskForm} layout="vertical" onFinish={handleUpdateTaskStep}>
+          <Form.Item
+            name="task_step"
+            label="ขั้นงานที่กำลังดำเนินการ"
+            rules={[{ required: true, message: 'กรุณาเลือกขั้นงาน' }]}
+          >
+            <Radio.Group style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {PR_TASK_STEPS.map(s => (
+                <Radio key={s.id} value={s.id}>
+                  <span style={{ color: '#f97316', fontWeight: 700, marginRight: 6 }}>{s.id}.</span>
+                  <span style={{ color: '#e2e8f0' }}>{s.label}</span>
+                </Radio>
+              ))}
+            </Radio.Group>
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* ══ PR Modal ══════════════════════════════════════════════════════════ */}
       <Modal

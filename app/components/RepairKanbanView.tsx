@@ -45,7 +45,7 @@ const COLUMNS: { key: string; ids: number[]; title: string; accent: string }[] =
   { key: 'pending',     ids: [1],    title: 'รอดำเนินการ',                              accent: '#f59e0b' },
   { key: 'in_progress', ids: [2],    title: 'กำลังดำเนินการ',                            accent: '#06b6d4' },
   { key: 'approval',    ids: [6, 9], title: 'รออนุมัติหัวหน้า IT / หัวหน้าภารกิจ',       accent: '#a855f7' },
-  { key: 'replace',     ids: [4],    title: 'แนะนำซื้อทดแทน',                            accent: '#f472b6' },
+  { key: 'replace',     ids: [4, 11], title: 'แนะนำซื้อทดแทน',                           accent: '#f472b6' },
   { key: 'pr',          ids: [3],    title: 'ออกใบ PR เจ้าหน้าที่ IT',                   accent: '#f97316' },
   { key: 'po',          ids: [7],    title: 'ขั้นตอน PO โดยพัสดุ / เสนอผู้อำนวยการ',     accent: '#6366f1' },
   { key: 'delivery',    ids: [8],    title: 'รอรับของ / รับอะไหล่',                      accent: '#0ea5e9' },
@@ -64,6 +64,11 @@ const URGENCY_BY_PRIORITY_NAME: Record<string, { color: string; label: string }>
 const PROBLEM_CATEGORY_COLOR: Record<string, string> = {
   'ฮาร์ดแวร์': '#f87171', 'ซอฟต์แวร์': '#60a5fa', 'อุปกรณ์ต่อพ่วง': '#34d399',
   'เครือข่าย': '#fbbf24', 'อื่น ๆ': '#94a3b8',
+}
+
+// จุดสีระดับความเร่งด่วนที่ช่างประเมิน — เขียว → เหลือง → ส้ม → แดง (โทนเดียวกับหน้า manage)
+const PRIORITY_DOT: Record<string, string> = {
+  'วิกฤต': '#ef4444', 'ด่วนมาก': '#ef4444', 'ด่วน': '#f97316', 'ปานกลาง': '#eab308', 'ปกติ': '#22c55e',
 }
 
 // ── Date helpers (พ.ศ.) ──
@@ -269,12 +274,17 @@ export default function RepairKanbanView({
                   const catColor = PROBLEM_CATEGORY_COLOR[r.problem_category_name ?? ''] ?? '#94a3b8'
                   const exts = extMap[r.it_repair_request_id] ?? []
                   return (
-                    <div key={r.it_repair_request_id} style={{
-                      background: '#0f172a',
-                      border: '1px solid #1e293b',
-                      borderLeft: `3px solid ${col.accent}`,
-                      borderRadius: 8, padding: '10px 11px',
-                    }}>
+                    <div key={r.it_repair_request_id}
+                      onClick={() => onDetail?.(r)}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = col.accent)}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}
+                      style={{
+                        background: '#0f172a',
+                        border: '1px solid #1e293b',
+                        borderLeft: `3px solid ${col.accent}`,
+                        borderRadius: 8, padding: '10px 11px',
+                        cursor: 'pointer', transition: 'border-color .15s',
+                      }}>
                       {/* Row 1: id + days + urgency */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 4 }}>
                         <code style={{ color: '#a78bfa', fontSize: 10, fontWeight: 600 }}>
@@ -341,7 +351,7 @@ export default function RepairKanbanView({
                       <div style={{ color: '#94a3b8', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
                         “{r.problem_description.length > 60 ? r.problem_description.slice(0, 60) + '…' : r.problem_description}”
                       </div>
-                      {/* เส้นคั่น + ช่างผู้รับงาน */}
+                      {/* เส้นคั่น — แยกข้อมูลคำร้องออกจากส่วนงานของช่าง (ลำดับเดียวกับหน้า manage) */}
                       {r.assigned_to_name && (
                         <>
                           <div style={{ borderTop: '1px dashed #334155', margin: '6px 0 7px' }} />
@@ -350,21 +360,38 @@ export default function RepairKanbanView({
                           </div>
                         </>
                       )}
+                      {/* ความเร่งด่วนที่ช่างประเมิน */}
+                      {r.technician_priority_name && (() => {
+                        const dot = PRIORITY_DOT[r.technician_priority_name] ?? '#94a3b8'
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, fontSize: 10 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, boxShadow: `0 0 5px ${dot}99`, flexShrink: 0 }} />
+                            <span style={{ color: '#64748b' }}>ช่างประเมิน:</span>
+                            <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{r.technician_priority_name}</span>
+                          </div>
+                        )
+                      })()}
                       {/* กำหนดเวลาซ่อม + ผลัดสัญญา (เฉพาะงานที่กำลังซ่อม) */}
                       {r.process_status_id === 2 && renderDue(r, exts)}
-                      {/* ขั้นการอนุมัติ — แยกให้เห็นว่ารอใคร */}
+                      {/* ประวัติผลัดสัญญา — ต่อท้ายการ์ด */}
+                      <ExtensionHistory exts={exts} />
+                      {/* Badge สถานะย่อย — แยกให้เห็นว่างานค้างอยู่ขั้นไหน */}
+                      {r.process_status_id === 3 && (
+                        <Tag color="orange" style={{ fontSize: 10, marginBottom: 6 }}>อยู่ขั้นออกใบ PR — รออะไหล่</Tag>
+                      )}
                       {r.process_status_id === 6 && (
                         <Tag color="purple" style={{ fontSize: 10, marginBottom: 6 }}>รอหัวหน้า IT</Tag>
                       )}
                       {r.process_status_id === 9 && (
                         <Tag color="magenta" style={{ fontSize: 10, marginBottom: 6 }}>หัวหน้า IT อนุมัติแล้ว — รอหัวหน้าภารกิจ</Tag>
                       )}
-                      {/* ประวัติผลัดสัญญา — ต่อท้ายการ์ด */}
-                      <ExtensionHistory exts={exts} />
-                      {/* ปุ่มเดียว: รายละเอียด */}
+                      {r.process_status_id === 11 && (
+                        <Tag color="cyan" style={{ fontSize: 10, marginBottom: 6 }}>อนุมัติซื้อทดแทนแล้ว</Tag>
+                      )}
+                      {/* สิทธิ์ดูอย่างเดียว — ไม่มีปุ่มจัดการ มีแค่ดูรายละเอียด */}
                       <Button size="small" block icon={<InfoCircleOutlined />}
                         style={{ fontSize: 11, marginTop: 4 }}
-                        onClick={() => onDetail?.(r)}>
+                        onClick={(e) => { e.stopPropagation(); onDetail?.(r) }}>
                         รายละเอียด
                       </Button>
                     </div>

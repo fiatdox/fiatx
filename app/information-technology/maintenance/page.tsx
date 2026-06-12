@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import {
   ConfigProvider, App, theme, Form, Input, Select, Button, Upload, Table, Tag, Tabs,
@@ -53,6 +53,10 @@ interface RepairRequest {
   major_name: string
   submajor_name: string | null
   it_priority_level_id?: number
+  // ผลประเมินของช่าง (มากับงานที่บันทึกผลแล้ว)
+  repair_assessment_id?: number | null
+  assessment_name?: string | null
+  assessment_detail?: string | null
 }
 
 
@@ -146,6 +150,7 @@ const PageContent = () => {
   const [processStatuses, setProcessStatuses] = useState<ProcessStatus[]>([])
   const [filterStatusIds, setFilterStatusIds] = useState<number[]>([])
   const [filterDateRange, setFilterDateRange] = useState<[string, string] | null>(null)
+  const [searchText, setSearchText] = useState('')
   const [detailImages, setDetailImages] = useState<RepairRequestImage[]>([])
   const [detailImagesLoading, setDetailImagesLoading] = useState(false)
   const { message } = App.useApp()
@@ -218,6 +223,7 @@ const PageContent = () => {
     assignedTo:           undefined,
     resolvedDate:         undefined,
     resolvedNote:         undefined,
+    technicianNote:       r.assessment_detail ?? undefined,
     prNote:               undefined,
     prDate:               undefined,
     replacementNote:      undefined,
@@ -248,6 +254,20 @@ const PageContent = () => {
   }
 
   useEffect(() => { fetchRequests() }, [filterStatusIds, filterDateRange]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // กรองด้วยเลขที่ (client-side) — รองรับ "IT-0032", "0032", "32" และเลขครุภัณฑ์
+  // ใช้ร่วมกันทั้ง tab สถานะการซ่อมและ kanban
+  const filteredRequests = useMemo(() => {
+    const q = searchText.trim().toLowerCase()
+    if (!q) return requests
+    const qNum = q.replace(/^it-?/i, '').replace(/^0+/, '')
+    return requests.filter(r => {
+      const idFormatted = `it-${String(r.it_repair_request_id).padStart(4, '0')}`
+      return idFormatted.includes(q)
+        || (qNum !== '' && String(r.it_repair_request_id) === qNum)
+        || (r.equipment_number ?? '').toLowerCase().includes(q)
+    })
+  }, [requests, searchText])
 
   useEffect(() => {
     if (!assetModalOpen) return
@@ -776,6 +796,14 @@ const PageContent = () => {
               children: (
                 <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
                   <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <Input
+                      allowClear
+                      prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                      placeholder="ค้นหาเลขที่ เช่น IT-0032 หรือเลขครุภัณฑ์"
+                      style={{ width: 280 }}
+                      value={searchText}
+                      onChange={e => setSearchText(e.target.value)}
+                    />
                     <Select
                       mode="multiple"
                       allowClear
@@ -795,7 +823,7 @@ const PageContent = () => {
                     />
                   </div>
                   <Table
-                    dataSource={requests}
+                    dataSource={filteredRequests}
                     columns={columns}
                     rowKey="it_repair_request_id"
                     scroll={{ x: 1100 }}
@@ -814,13 +842,25 @@ const PageContent = () => {
                 </span>
               ),
               children: (
-                <RepairKanbanView
-                  rows={requests}
-                  onDetail={(row) => {
-                    const full = requests.find(x => x.it_repair_request_id === row.it_repair_request_id)
-                    if (full) setDetailModal(full)
-                  }}
-                />
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <Input
+                      allowClear
+                      prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                      placeholder="ค้นหาเลขที่ เช่น IT-0032 หรือเลขครุภัณฑ์"
+                      style={{ width: 280 }}
+                      value={searchText}
+                      onChange={e => setSearchText(e.target.value)}
+                    />
+                  </div>
+                  <RepairKanbanView
+                    rows={filteredRequests}
+                    onDetail={(row) => {
+                      const full = requests.find(x => x.it_repair_request_id === row.it_repair_request_id)
+                      if (full) setDetailModal(full)
+                    }}
+                  />
+                </>
               ),
             },
           ]}

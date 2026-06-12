@@ -46,7 +46,8 @@ export interface RepairSlipData {
   assignedTo?: string
   resolvedDate?: string
   resolvedNote?: string
-  prNote?: string
+  technicianNote?: string   // ความเห็นของช่าง (ผลประเมิน)
+  prNote?: string           // รายการที่ต้องการขอซื้อ / บันทึก PR
   prDate?: string
   replacementNote?: string
 }
@@ -55,421 +56,309 @@ export interface RepairSlipData {
 const s = StyleSheet.create({
   page: {
     fontFamily: 'Sarabun',
-    fontSize: 8,
-    padding: '0.9cm 1.1cm',
+    fontSize: 9,
+    padding: '1cm 1.5cm',
     color: '#000',
     backgroundColor: '#fff',
+    // ฟอนต์ไทยต้องเผื่อ lineHeight ให้สระบน/วรรณยุกต์ ไม่งั้นโดนตัดแหว่ง
+    lineHeight: 1.6,
   },
 
-  // ── Header band ──────────────────────────────────────────────────────────
-  headerBand: {
-    backgroundColor: '#4c1d95',
+  // แถวบนสุด: ชื่อฟอร์ม + หัวบันทึก (ซ้าย) + กล่องธุรการ (ขวา)
+  topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '7px 12px',
-    marginBottom: 0,
-    borderRadius: '4px 4px 0 0',
+    alignItems: 'flex-start',
+    marginBottom: 6,
   },
-  hospName: { fontSize: 10, fontWeight: 'bold', color: '#fff' },
-  hospSub:  { fontSize: 6.5, color: 'rgba(255,255,255,0.75)', marginTop: 1 },
-  docTitle: { fontSize: 10, fontWeight: 'bold', color: '#fff', textAlign: 'right' },
-  docSub:   { fontSize: 7, color: '#ddd6fe', textAlign: 'right', marginTop: 2 },
-
-  // ── Info grid (top bordered block) ────────────────────────────────────────
-  infoBlock: {
-    border: '1px solid #000',
-    borderTop: 'none',
-    padding: '4px 7px 3px',
-    marginBottom: 0,
+  topLeft: {
+    flex: 1,
+    marginRight: 12,
   },
-  iRow: {
-    flexDirection: 'row',
-    borderBottom: '0.4px solid #bbb',
-    paddingVertical: 2.5,
-    alignItems: 'flex-end',
-  },
-  iRowLast: { borderBottom: 'none' },
-  lbl: {
+  formTitle: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#1a1a1a',
+    textAlign: 'left',
+    marginBottom: 6,
+  },
+  regBox: {
+    border: '1px solid #000',
+    padding: '4px 8px',
+    width: 190,
     flexShrink: 0,
-    marginRight: 2,
   },
-  val: {
-    color: '#000',
+
+  // แถวฟอร์ม: label + เส้นประเติมข้อความ
+  row:  { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 4 },
+  lbl:  { fontWeight: 'bold', marginRight: 3, flexShrink: 0 },
+  fill: {
     flex: 1,
-    borderBottom: '0.4px solid #333',
+    borderBottom: '0.7px dotted #000',
     paddingBottom: 1,
-    marginRight: 8,
-    minHeight: 10,
+    minHeight: 15,
+    marginRight: 6,
   },
-  symptomLabel: { fontWeight: 'bold', marginBottom: 2 },
-  symptomBox: {
-    border: '0.5px solid #666',
-    padding: '3px 5px',
-    minHeight: 30,
-    borderRadius: 2,
-    marginBottom: 3,
-  },
+  fillLast: { marginRight: 0 },
 
-  // ── Two-column middle section ─────────────────────────────────────────────
-  twoCol: {
-    flexDirection: 'row',
-    border: '1px solid #000',
-    borderTop: 'none',
-  },
-  leftPane: {
-    flex: 5,
-    borderRight: '1px solid #000',
-    padding: '4px 7px',
-  },
-  rightPane: {
-    flex: 5,
-    padding: '4px 7px',
-  },
-  paneTitle: {
-    fontWeight: 'bold',
-    backgroundColor: '#ede9fe',
-    color: '#3b0764',
-    padding: '2px 5px',
-    marginBottom: 5,
-    borderRadius: 2,
-  },
+  indent: { marginLeft: 36 },
 
-  // Steps
-  stepRow: { flexDirection: 'row', marginBottom: 3.5, alignItems: 'flex-start' },
-  stepNum: { fontWeight: 'bold', width: 10, flexShrink: 0 },
-  stepTxt: { flex: 1, lineHeight: 1.3 },
-  stepDone: { color: '#4c1d95', fontWeight: 'bold' },
-  stepPend: { color: '#999' },
+  // checkbox
+  cb: { marginRight: 4, flexShrink: 0 },
 
-  // Checkboxes
-  cbRow:      { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
-  cbBox:      { marginRight: 4, fontWeight: 'bold', width: 14 },
-  cbLbl:      { color: '#111' },
-  cbLblOn:    { fontWeight: 'bold' },
+  // กล่องส่วนล่าง (บันทึกหน่วยซ่อม / ความเห็นคำสั่ง)
+  box:       { border: '1px solid #000', marginTop: 8 },
+  boxRow:    { flexDirection: 'row' },
+  cellLeft:  { flex: 11, borderRight: '1px solid #000', padding: '5px 8px' },
+  cellRight: { flex: 10, padding: '5px 8px' },
+  boxBottom: { flexDirection: 'row', borderTop: '1px solid #000' },
+  secTitle:  { fontWeight: 'bold', marginBottom: 4 },
 
-  // Sub-label + dotted box
-  subLbl: { fontWeight: 'bold', color: '#374151', marginTop: 4, marginBottom: 2 },
-  noteBox: {
-    border: '0.5px solid #999',
-    padding: '3px 5px',
-    minHeight: 24,
-    borderRadius: 2,
-  },
-  noteBoxRed: { borderColor: '#fca5a5', color: '#7f1d1d' },
-
-  // ── Acceptance section ────────────────────────────────────────────────────
-  acceptBlock: {
-    border: '1px solid #000',
-    borderTop: 'none',
-    padding: '4px 7px 3px',
-  },
-  acceptTitle: {
-    fontWeight: 'bold',
-    borderBottom: '0.4px solid #bbb',
-    paddingBottom: 2,
-    marginBottom: 4,
-  },
-  acceptRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3, gap: 14 },
-
-  // ── Director section ──────────────────────────────────────────────────────
-  dirBlock: {
-    border: '1px solid #000',
-    borderTop: 'none',
-    padding: '4px 7px 5px',
-  },
-  dirTitle: {
-    fontWeight: 'bold',
-    borderBottom: '0.4px solid #bbb',
-    paddingBottom: 2,
-    marginBottom: 4,
-  },
-  dirRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4, gap: 4 },
-  dirLine: {
-    flex: 1,
-    borderBottom: '0.5px dashed #555',
-    fontSize: 8,
-    paddingBottom: 1,
-    minHeight: 11,
-  },
-  dirDottedLine: {
-    borderBottom: '0.5px dashed #555',
-    marginTop: 5,
-    height: 12,
-  },
-  dirSigBox: { alignItems: 'center', marginTop: 10 },
-  dirSigLine: { borderBottom: '0.5px dashed #555', width: '70%', height: 36, marginBottom: 4 },
-  dirName: { color: '#222', textAlign: 'center' },
-  dirPost: { color: '#555', textAlign: 'center', marginTop: 1 },
-
-  // ── Signatures ────────────────────────────────────────────────────────────
-  sigBlock: {
-    border: '1px solid #000',
-    borderTop: 'none',
-    flexDirection: 'row',
-    padding: '6px 10px 4px',
-    gap: 10,
-  },
-  sigBox: { flex: 1, alignItems: 'center' },
-  sigLine: { borderBottom: '0.5px solid #333', width: '75%', height: 28, marginBottom: 4 },
-  sigLbl: { color: '#222', textAlign: 'center' },
-  sigSub: { color: '#555', textAlign: 'center', marginTop: 2 },
-
-  footNote: {
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginTop: 4,
-    borderTop: '0.4px dashed #ccc',
-    paddingTop: 3,
-  },
+  // ลายเซ็น
+  sigRow:    { flexDirection: 'row', alignItems: 'flex-end', marginTop: 6 },
+  sigCenter: { alignItems: 'center', marginTop: 8 },
+  small:     { fontSize: 8.5 },
+  dim:       { color: '#000' },
 })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function CB({ on, label, color }: { on: boolean; label: string; color?: string }) {
-  const c = on ? (color ?? '#4c1d95') : '#222'
-  return (
-    <View style={s.cbRow}>
-      <Text style={[s.cbBox, { color: c }]}>{on ? '[✓]' : '[  ]'}</Text>
-      <Text style={[on ? s.cbLblOn : s.cbLbl, { color: c }]}>{label}</Text>
-    </View>
-  )
-}
+const CB = ({ on, label }: { on?: boolean; label: string }) => (
+  <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginRight: 14 }}>
+    <Text style={s.cb}>{on ? '( / )' : '(    )'}</Text>
+    <Text>{label}</Text>
+  </View>
+)
 
-function FieldRow({ children }: { children: React.ReactNode }) {
-  return <View style={s.iRow}>{children}</View>
-}
+const Fill = ({ v, flex, last, center }: { v?: string; flex?: number; last?: boolean; center?: boolean }) => (
+  <Text style={[s.fill, last ? s.fillLast : {}, flex ? { flex } : {}, center ? { textAlign: 'center' } : {}]}>{v ?? ' '}</Text>
+)
 
 // ─── Document ─────────────────────────────────────────────────────────────────
 function RepairSlipDocument({ data }: { data: RepairSlipData }) {
-  const printDate = new Date().toLocaleDateString('th-TH', {
-    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
+  // ประเภทงานซ่อม — ติ๊กตามประเภทอุปกรณ์
+  const isPrinter  = /พิมพ์|ปริ้น|printer/i.test(data.equipmentTypeLabel + data.deviceBrand)
+  const isComputer = !isPrinter
 
-  // ── Step active flags ──
-  const inProgress    = ['in_progress', 'waiting_pr', 'recommend_replacement', 'completed'].includes(data.status)
-  const hasPR         = !!data.prNote || data.status === 'waiting_pr'
-  const hasReplacement = !!data.replacementNote || data.status === 'recommend_replacement'
-  const isCompleted   = data.status === 'completed'
-
-  const steps: { text: string; done: boolean }[] = [
-    { text: `รับแจ้งซ่อม — วันที่ ${data.requestDate}`,                                                done: true },
-    { text: `มอบหมายงาน: ${data.assignedTo ?? '......................................'}`,                  done: !!data.assignedTo },
-    { text: 'ตรวจสอบและวินิจฉัยอุปกรณ์',                                                                done: inProgress },
-    { text: 'ดำเนินการซ่อมแซม',                                                                          done: ['in_progress', 'waiting_pr', 'completed'].includes(data.status) },
-    { text: `รออะไหล่ / ออกใบ PR${data.prDate ? ` — ${data.prDate}` : ''}`,                             done: hasPR },
-    { text: 'แนะนำจัดซื้ออุปกรณ์ทดแทน',                                                                 done: hasReplacement },
-    { text: `ซ่อมแซมเสร็จสมบูรณ์${data.resolvedDate ? ` — ${data.resolvedDate}` : ''}`,                  done: isCompleted },
-    { text: 'ส่งคืนและรับมอบอุปกรณ์',                                                                    done: isCompleted },
-  ]
-
-  // ── Repair type checkboxes ──
-  const isPRType      = hasPR && !isCompleted || (data.status === 'waiting_pr')
-  const isReplacType  = hasReplacement
-  const isInternalRep = !isPRType && !isReplacType && data.status !== 'pending' && data.status !== 'cancelled'
-  const isExternal    = false
-
-  // ── Acceptance state ──
-  const done    = isCompleted
-  const ongoing = ['pending', 'in_progress', 'waiting_pr'].includes(data.status)
-  const needRep = data.status === 'recommend_replacement'
+  // (1) บันทึกของหน่วยงานซ่อมบำรุง — ติ๊กตามผลการดำเนินงาน
+  const fixedNoParts = data.status === 'completed' && !data.prNote && !data.replacementNote
+  const fixedParts   = !!data.prNote || data.status === 'waiting_pr'
+  const cannotFix    = !!data.replacementNote || data.status === 'recommend_replacement'
 
   return (
-    <Document title={`ใบแจ้งซ่อม ${data.id}`}>
+    <Document title={`ใบส่งซ่อม ${data.id}`}>
       <Page size="A4" style={s.page}>
 
-        {/* ── Header ── */}
-        <View style={s.headerBand}>
-          <View>
-            <Text style={s.hospName}>โรงพยาบาล</Text>
-            <Text style={s.hospSub}>กรมการแพทย์ · กระทรวงสาธารณสุข</Text>
+        {/* ── แถวบนสุด: ชื่อฟอร์ม + หัวบันทึก (ซ้าย) | กล่องธุรการ (ขวา) ── */}
+        <View style={s.topRow}>
+          <View style={s.topLeft}>
+            <Text style={s.formTitle}>ใบส่งซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์&nbsp;</Text>
+            <View style={s.row}>
+              <Text style={s.lbl}>ส่วนราชการ</Text>
+              <Text style={s.lbl}>ตึกผู้ป่วย / ฝ่าย / กลุ่มงาน</Text>
+              <Fill v={data.department} last />
+            </View>
+            <View style={s.row}>
+              <Text style={s.lbl}>ใบส่งซ่อมที่</Text>
+              <Fill v={data.id} />
+              <Text style={s.lbl}>วันที่</Text>
+              <Fill v={data.requestDate} last />
+            </View>
+            <View style={s.row}>
+              <Text style={s.lbl}>เรื่อง</Text>
+              <Text>ขออนุมัติซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์ &nbsp;</Text>
+            </View>
+            <View style={[s.row, { marginBottom: 0 }]}>
+              <Text style={s.lbl}>เรียน</Text>
+              <Text>ผู้อำนวยการโรงพยาบาล &nbsp;</Text>
+            </View>
           </View>
-          <View>
-            <Text style={s.docTitle}>ใบแจ้งซ่อมคอมพิวเตอร์และอุปกรณ์ IT</Text>
-            <Text style={s.docSub}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ  |  เลขที่ {data.id}</Text>
-          </View>
-        </View>
-
-        {/* ── Info grid ── */}
-        <View style={s.infoBlock}>
-          <FieldRow>
-            <Text style={s.lbl}>ส่งซ่อม:</Text>
-            <Text style={[s.val, { flex: 2 }]}>{data.deviceBrand || '—'}</Text>
-            <Text style={s.lbl}>ประเภทอุปกรณ์:</Text>
-            <Text style={s.val}>{data.equipmentTypeLabel}</Text>
-            <Text style={s.lbl}>วันที่แจ้ง:</Text>
-            <Text style={[s.val, { marginRight: 0 }]}>{data.requestDate}</Text>
-          </FieldRow>
-          <FieldRow>
-            <Text style={s.lbl}>ผู้แจ้งซ่อม:</Text>
-            <Text style={[s.val, { flex: 2 }]}>{data.requesterName}</Text>
-            <Text style={s.lbl}>ตำแหน่ง:</Text>
-            <Text style={s.val}>{data.position ?? '—'}</Text>
-            <Text style={s.lbl}>เบอร์ภายใน:</Text>
-            <Text style={[s.val, { marginRight: 0 }]}>{data.phone}</Text>
-          </FieldRow>
-          <FieldRow>
-            <Text style={s.lbl}>หน่วยงาน:</Text>
-            <Text style={[s.val, { flex: 2 }]}>{data.department}</Text>
-            <Text style={s.lbl}>สถานที่ติดตั้ง:</Text>
-            <Text style={[s.val, { flex: 2, marginRight: 0 }]}>{data.deviceLocation ?? '—'}</Text>
-          </FieldRow>
-          <FieldRow>
-            <Text style={s.lbl}>เลขครุภัณฑ์:</Text>
-            <Text style={s.val}>{data.assetNo ?? '—'}</Text>
-            <Text style={s.lbl}>Serial No.:</Text>
-            <Text style={s.val}>{data.deviceSerial ?? '—'}</Text>
-            <Text style={s.lbl}>หมวดหมู่ปัญหา:</Text>
-            <Text style={s.val}>{data.problemCategoryLabel}</Text>
-            <Text style={s.lbl}>ความเร่งด่วน:</Text>
-            <Text style={[s.val, { marginRight: 0 }]}>{data.priorityLabel}</Text>
-          </FieldRow>
-
-          {/* Symptom */}
-          <View style={{ paddingVertical: 3 }}>
-            <Text style={s.symptomLabel}>ลักษณะอาการที่ชำรุด / เสียหาย:</Text>
-            <Text style={s.symptomBox}>{data.symptom}</Text>
-          </View>
-
-          {/* Inspector */}
-          <View style={[s.iRow, s.iRowLast]}>
-            <Text style={s.lbl}>ผลการตรวจสอบ (เจ้าหน้าที่ IT):</Text>
-            <Text style={[s.val, { flex: 2 }]}>
-              {data.assignedTo ? `ตรวจสอบและรับผิดชอบโดย  ${data.assignedTo}` : '...............................................................................'}
+          <View style={s.regBox}>
+            <Text style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: 3 }}>
+              ธุรการงานซ่อมกลุ่มงานเทคโนโลยีสารสนเทศ
             </Text>
-            <Text style={s.lbl}>สถานะ:</Text>
-            <Text style={[s.val, { marginRight: 0, fontWeight: 'bold', color: '#4c1d95' }]}>{data.statusLabel}</Text>
+            <View style={s.row}>
+              <Text style={s.lbl}>เลขที่</Text>
+              <Fill v={data.id} />
+              <Text style={s.lbl}>/</Text>
+              <Fill last />
+            </View>
+            <View style={[s.row, { marginBottom: 0 }]}>
+              <Text style={s.lbl}>วันที่</Text>
+              <Fill v={data.requestDate} last />
+            </View>
           </View>
         </View>
 
-        {/* ── Two columns ── */}
-        <View style={s.twoCol}>
+        {/* ── เนื้อความ ── */}
+        <View style={[s.row, s.indent]}>
+          <Text style={s.lbl}>ด้วยฝ่าย/งาน</Text>
+          <Fill v={data.department} />&nbsp;
+          <Text> มีความประสงค์ทำการซ่อมบำรุง &nbsp;</Text>
+        </View>
+        <View style={[s.row, { marginBottom: 6 }]}>
 
-          {/* Left: Steps */}
-          <View style={s.leftPane}>
-            <Text style={s.paneTitle}>(1) ขั้นตอนการดำเนินงานซ่อมแซม</Text>
-            {steps.map((step, i) => (
-              <View key={i} style={s.stepRow}>
-                <Text style={[s.stepNum, step.done ? s.stepDone : s.stepPend]}>{i + 1}.</Text>
-                <Text style={[s.stepTxt, step.done ? s.stepDone : s.stepPend]}>{step.text}</Text>
+          <CB on={isPrinter} label="ซ่อมปริ้นเตอร์" />
+          <CB on={isComputer} label="ซ่อมคอมพิวเตอร์ / เปลี่ยนอะไหล่" />
+          <Text>ตามรายการต่อไปนี้</Text>
+        </View>
+
+        {/* รายการครุภัณฑ์ที่ส่งซ่อม — 1 ใบ ต่อ 1 รายการ */}
+        <View style={s.row}>
+          <Text style={s.lbl}>ชื่อครุภัณฑ์&nbsp;</Text>
+          <Fill v={`${data.deviceBrand} (${data.equipmentTypeLabel}) `} flex={3} />
+          <Text style={s.lbl}>รหัสครุภัณฑ์</Text>
+          <Fill v={data.assetNo} flex={1} last />
+        </View>
+        <View style={s.row}>
+          <Text style={s.lbl}>อาการเสีย&nbsp;</Text>
+          <Fill v={`${data.symptom} `} last />
+        </View>
+
+        <Text style={[s.indent, { marginTop: 4 }]}>จึงเรียนมาเพื่อพิจารณาดำเนินการต่อไป&nbsp;</Text>
+
+        {/* ลงชื่อผู้ส่งซ่อม */}
+        <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
+          <View style={[s.row, { width: 260 }]}>
+            <Text style={s.lbl}>(ลงชื่อ)</Text>
+            <Fill v={data.requesterName+' '} center />
+            <Text>ผู้ส่งซ่อม </Text>
+          </View>
+          <View style={[s.row, { width: 260 }]}>
+            <Text style={s.lbl}>ตำแหน่ง </Text>
+            <Fill v={data.position} last />
+          </View>
+        </View>
+
+        {/* ══ กล่องส่วนล่าง ══ */}
+        <View style={s.box}>
+          <View style={s.boxRow}>
+
+            {/* (1) บันทึกของหน่วยงานซ่อมบำรุง */}
+            <View style={s.cellLeft}>
+              <Text style={s.secTitle}>(1) บันทึกของหน่วยงานซ่อมบำรุงคอมพิวเตอร์ </Text>
+              <View style={{ marginBottom: 2 }}><CB on={fixedNoParts} label="ซ่อมได้ ไม่เบิกวัสดุ" /></View>
+              <View style={{ marginBottom: 2 }}><CB on={fixedParts} label="ซ่อมได้ เบิกวัสดุ" /></View>
+              <View style={{ marginBottom: 4 }}><CB on={cannotFix} label="ซ่อมไม่ได้ ขอซื้อใหม่ทดแทน" /></View>
+
+              {/* ความเห็นของช่าง */}
+              <Text style={[s.lbl, { marginBottom: 2 }]}>ความเห็นของช่าง</Text>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill v={data.technicianNote} last /></View>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
+
+              {/* รายการที่ต้องการขอซื้อ */}
+              <Text style={[s.lbl, { marginTop: 4, marginBottom: 2 }]}>รายการที่ต้องการขอซื้อ</Text>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill v={data.prNote ?? data.replacementNote} last /></View>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
+
+              <View style={[s.sigRow, { justifyContent: 'flex-end' }]}>
+                <Text style={s.lbl}>ลงชื่อ </Text>
+                <Fill v={data.assignedTo} flex={2} center />
+                <Text>ผู้ซ่อมบำรุง </Text>
               </View>
-            ))}
-            <Text style={[s.subLbl, { marginTop: 8 }]}>สิ่งที่ขอรับการสนับสนุน / ต้องดำเนินการเพิ่มเติม:</Text>
-            <Text style={s.noteBox}>
-              {data.prNote
-                ? data.prNote
-                : data.replacementNote
-                  ? data.replacementNote
-                  : '—'}
-            </Text>
-          </View>
+            </View>
 
-          {/* Right: Repair type + results */}
-          <View style={s.rightPane}>
-            <Text style={s.paneTitle}>(2) ประเภทการดำเนินการ / ผลการซ่อม</Text>
-
-            <Text style={[s.subLbl, { marginTop: 0 }]}>ประเภทการดำเนินการ:</Text>
-            <CB on={isInternalRep} label="ซ่อมแซมภายในหน่วยงาน" color="#1e6b3a" />
-            <CB on={isPRType}      label="ออก PR / PO สั่งซื้ออะไหล่" color="#b45309" />
-            <CB on={isReplacType}  label="แนะนำจัดซื้ออุปกรณ์ทดแทน" color="#991b1b" />
-            <CB on={isExternal}    label="ส่งซ่อมภายนอกหน่วยงาน" />
-
-            <View style={{ borderTop: '0.4px solid #ccc', marginTop: 5, paddingTop: 5 }}>
-              <Text style={s.subLbl}>ใบ PR / รายการอะไหล่:</Text>
-              <Text style={[s.noteBox, data.prNote ? { borderColor: '#f97316' } : {}]}>
-                {data.prNote ?? '—'}
-              </Text>
-              {data.prDate ? (
-                <View style={[s.iRow, { marginTop: 3, borderBottom: 'none' }]}>
-                  <Text style={s.lbl}>วันที่ออก PR:</Text>
-                  <Text style={[s.val, { marginRight: 0 }]}>{data.prDate}</Text>
+            {/* เรียน ผอ. + (2) ความเห็นและคำสั่ง */}
+            <View style={s.cellRight}>
+              <Text style={s.secTitle}>เรียน ผู้อำนวยการ </Text>
+              <Text style={[s.indent, { marginLeft: 20, marginBottom: 8 }]}>เพื่อโปรดพิจารณา</Text>
+              <View style={s.sigCenter}>
+                <View style={[s.row, { width: 200 }]}>
+                  <Text style={s.lbl}>(ลงชื่อ)</Text>
+                  <Fill last />
                 </View>
-              ) : null}
-            </View>
-
-            {data.resolvedNote ? (
-              <View style={{ marginTop: 5 }}>
-                <Text style={s.subLbl}>รายละเอียดการซ่อมแซม:</Text>
-                <Text style={s.noteBox}>{data.resolvedNote}</Text>
+                <Text>นายไกรรัตน์ คำดี </Text>
+                <Text>นายแพทย์ชำนาญการ </Text>
+                <Text style={s.small}>วันที่ ........../........../..........</Text>
               </View>
-            ) : null}
 
-            {data.replacementNote ? (
-              <View style={{ marginTop: 5 }}>
-                <Text style={[s.subLbl, { color: '#991b1b' }]}>⚠ รายละเอียดแนะนำจัดซื้อทดแทน:</Text>
-                <Text style={[s.noteBox, s.noteBoxRed]}>{data.replacementNote}</Text>
+              <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
+                <Text style={s.secTitle}>(2) ความเห็นและคำสั่ง &nbsp;</Text>
+                <View style={{ marginBottom: 2 }}><CB on={false} label="อนุมัติให้ซ่อมได้" /></View>
+                <View style={[s.row, { marginBottom: 2 }]}>
+                  <Text style={s.cb}>(    )</Text>
+                  <Text>อนุมัติให้จัดซื้อ</Text>
+                  <Fill />
+                  <Text>ซ่อม</Text>
+                </View>
+                <View style={[s.row, { marginBottom: 4 }]}>
+                  <Text style={s.cb}>(    )</Text>
+                  <Text>อื่นๆ</Text>
+                  <Fill last />
+                </View>
+                <View style={s.sigCenter}>
+                  <View style={[s.row, { width: 200 }]}>
+                    <Text style={s.lbl}>(ลงชื่อ)</Text>
+                    <Fill last />
+                  </View>
+                  <Text>(นายธวัชชัย ปานทอง)</Text>
+                  <Text>ผู้อำนวยการโรงพยาบาลพะเยา </Text>
+                  <Text style={s.small}>วันที่ ........../........../..........</Text>
+                </View>
               </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* ── Acceptance ── */}
-        <View style={s.acceptBlock}>
-          <Text style={s.acceptTitle}>การตรวจรับงาน</Text>
-          <View style={s.acceptRow}>
-            <CB on={done}    label="ซ่อมเสร็จเรียบร้อย"       color="#166534" />
-            <CB on={ongoing} label="ยังอยู่ระหว่างดำเนินการ"  color="#1e40af" />
-            <CB on={needRep} label="แนะนำจัดซื้อทดแทน"        color="#991b1b" />
-            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 4 }}>
-              <Text style={[s.lbl, { flexShrink: 0 }]}>วันที่ตรวจรับ:</Text>
-              <Text style={[s.val, { marginRight: 0 }]}>{data.resolvedDate ?? '..............................'}</Text>
             </View>
           </View>
-          {data.replacementNote ? (
-            <View style={[s.iRow, { borderBottom: 'none' }]}>
-              <Text style={[s.lbl, { color: '#7f1d1d' }]}>หมายเหตุ:</Text>
-              <Text style={[s.val, { marginRight: 0, color: '#7f1d1d' }]}>{data.replacementNote}</Text>
-            </View>
-          ) : null}
-        </View>
 
-        {/* ── Director ── */}
-        <View style={s.dirBlock}>
-          <Text style={s.dirTitle}>ความเห็นและคำสั่งผู้อำนวยการ</Text>
-          <View style={{ flexDirection: 'row', gap: 18 }}>
-            <CB on={false} label="อนุมัติให้ซ่อม" />
-            <CB on={false} label="อนุมัติให้ซื้อทดแทน" />
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flex: 1, gap: 3 }}>
-              <Text style={[s.cbBox, { color: '#222' }]}>[  ]</Text>
-              <Text style={[s.cbLbl, { flexShrink: 0 }]}>อนุมัติให้จ้าง</Text>
-              <Text style={[s.dirLine, { flex: 1 }]} />
-              <Text style={[s.cbLbl, { flexShrink: 0 }]}>ซ่อม</Text>
+          {/* แถวล่างของกล่อง */}
+          <View style={s.boxBottom}>
+            <View style={s.cellLeft}>
+              <Text style={s.secTitle}>เรียน หัวหน้างานซ่อมบำรุงคอมพิวเตอร์ &nbsp;</Text>
+              <Text style={[s.small, { marginBottom: 4 }]}>
+                เพื่อพิจารณาดำเนินการ / ตรวจสอบ / เสนอความเห็น&nbsp;
+              </Text>
+              <View style={[s.row]}><Fill last /></View>
+              <View style={[s.row, { marginBottom: 6 }]}><Fill last /></View>
+              <View style={s.sigCenter}>
+                <View style={[s.row, { width: 200 }]}>
+                  <Text style={s.lbl}>(ลงชื่อ)</Text>
+                  <Fill last />
+                </View>
+                <Text>(นางวรางคณา เอื้อหยิ่งศักดิ์)</Text>
+                <Text>นักวิชาการคอมพิวเตอร์ปฏิบัติการ</Text>
+              </View>
+              {/* เส้นคั่นยาวเต็มช่อง — แยกส่วนลงชื่อออกจากหมายเหตุ */}
+              <View style={{ borderBottom: '0.7px solid #000', marginTop: 8, marginBottom: 6 }} />
+              <View style={s.row}>
+                <Text style={[s.lbl, { textDecoration: 'underline' }]}>หมายเหตุ</Text>
+                <Text style={s.lbl}>ส่งงานพัสดุดำเนินการวันที่&nbsp;</Text>
+                <Fill v={data.prDate} last />
+              </View>
+              {/* ชื่อผู้รับ/ตำแหน่ง — จัดกึ่งกลางความกว้าง 200 มาตรฐานเดียวกับบล็อกลงชื่อด้านบน */}
+              <View style={[s.sigCenter, { marginTop: 4 }]}>
+                <View style={[s.row, { width: 200 }]}>
+                  <Text style={s.lbl}>ชื่อผู้รับ&nbsp;</Text>
+                  <Fill last center />
+                </View>
+                <View style={[s.row, { width: 200, marginBottom: 0 }]}>
+                  <Text style={s.lbl}>ตำแหน่ง&nbsp;</Text>
+                  <Fill last center />
+                </View>
+              </View>
+            </View>
+
+            <View style={s.cellRight}>
+              <Text style={[s.secTitle, { textAlign: 'center' }]}>ได้ตรวจสอบแล้ว ปรากฏว่า</Text>
+              <View style={{ marginBottom: 2 }}>
+                <CB on={data.status === 'completed'} label="เรียบร้อยใช้การได้ดี" />
+              </View>
+              <View style={{ marginBottom: 6 }}>
+                <CB on={false} label="ยังไม่เรียบร้อย ใช้การยังไม่ได้" />
+              </View>
+              <View style={s.sigRow}>
+                <Text style={s.lbl}>(ลงชื่อ)</Text>
+                <Fill v={data.assignedTo} center />
+                <Text>ผู้ซ่อม</Text>
+              </View>
+              <View style={s.sigRow}>
+                <Text style={s.lbl}>(ลงชื่อ)</Text>
+                <Fill />
+                <Text>ผู้รับ</Text>
+              </View>
+              <View style={[s.sigRow, { marginBottom: 0 }]}>
+                <Text style={[s.lbl, { textDecoration: 'underline' }]}>วันที่แล้วเสร็จ</Text>
+                <Fill v={data.resolvedDate} last />
+              </View>
             </View>
           </View>
-          <View style={{ marginTop: 5 }}>
-            <Text style={[s.lbl, { marginBottom: 3 }]}>ความเห็น:</Text>
-            <View style={s.dirDottedLine} />
-            <View style={s.dirDottedLine} />
-            <View style={s.dirDottedLine} />
-          </View>
-          <View style={s.dirSigBox}>
-            <View style={s.dirSigLine} />
-            <Text style={s.dirName}>(นายธวัชชัย กอบแก้ว)</Text>
-            <Text style={s.dirPost}>ผู้อำนวยการโรงพยาบาลพะเยา</Text>
-            <Text style={[s.dirPost, { marginTop: 1 }]}>วันที่ ....../....../......</Text>
-          </View>
         </View>
-
-        {/* ── Signatures ── */}
-        <View style={s.sigBlock}>
-          {[
-            { label: 'ลงชื่อผู้แจ้งซ่อม',              sub: data.requesterName },
-            { label: 'ลงชื่อเจ้าหน้าที่ IT ผู้รับงาน', sub: data.assignedTo ?? '.....................................' },
-            { label: 'ลงชื่อหัวหน้างาน IT',             sub: '.....................................' },
-          ].map((sig, i) => (
-            <View key={i} style={s.sigBox}>
-              <View style={s.sigLine} />
-              <Text style={s.sigLbl}>{sig.label}</Text>
-              <Text style={s.sigSub}>({sig.sub})</Text>
-              <Text style={s.sigSub}>วันที่ ....../....../......</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={s.footNote}>
-          เอกสารนี้จัดทำโดยระบบอัตโนมัติ · พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบแจ้งซ่อม IT
-        </Text>
 
       </Page>
     </Document>
@@ -479,7 +368,9 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
 // ─── Default export: PDFViewer wrapper ────────────────────────────────────────
 export default function RepairSlipPDFViewer({ data }: { data: RepairSlipData }) {
   return (
-    <PDFViewer width="100%" showToolbar style={{ border: 'none', flex: 1, minHeight: 580 } as any}>
+    // iframe ต้องกำหนด height ตรง ๆ ให้เต็ม container — flex/minHeight ใช้ไม่ได้กับ iframe ใน parent ปกติ
+    <PDFViewer width="100%" height="100%" showToolbar
+      style={{ border: 'none', width: '100%', height: '100%', minHeight: 580 }}>
       <RepairSlipDocument data={data} />
     </PDFViewer>
   )
