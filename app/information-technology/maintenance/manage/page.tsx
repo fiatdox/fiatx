@@ -5,7 +5,7 @@ import dayjs, { Dayjs } from 'dayjs'
 import {
   ConfigProvider, App, theme, Form, Input, DatePicker, Button, Table, Tag, Tabs,
   Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select,
-  Spin, Image as AntImage,
+  Spin, Image as AntImage, Checkbox,
 } from 'antd'
 import {
   ToolOutlined, CheckCircleOutlined, CloseCircleOutlined, HomeOutlined,
@@ -61,7 +61,7 @@ interface ManageRepairRequest {
   extensions?: RepairExtension[]
   repairAssessmentId?: number
   repairResult?: RepairResult; technicianNote?: string; partsUsed?: string
-  prNote?: string; prNumber?: string; prIssuedBy?: string; prIssuedDate?: string
+  prNote?: string; prNumber?: string; prIssuedBy?: string; prIssuedDate?: string; prDocuments?: string[]
   prTaskStep?: number  // ขั้นงานที่เจ้าหน้าที่กำลังทำระหว่างออก PR (PR_TASK_STEPS)
   prTrackingStatus?: 'awaiting_signature' | 'pr_approved' | 'request_po' | 'po_issued' | 'tracking_po' | 'po_approved' | 'waiting_delivery' | 'received'
   replacementNote?: string
@@ -460,6 +460,15 @@ const PR_TASK_STEPS: { id: number; label: string }[] = [
   { id: 4, label: 'ขอเพิ่ม item จากระบบ inventory — รออนุมัติจาก ผอ.' },
 ]
 
+// เอกสารแนบประกอบการออกใบ PR
+const PR_DOCUMENTS: { value: string; label: string }[] = [
+  { value: 'memo',          label: 'บันทึกข้อความ' },
+  { value: 'asset_reg',     label: 'ทะเบียนครุภัณฑ์' },
+  { value: 'repair_form',   label: 'ใบซ่อมครุภัณฑ์คอมพิวเตอร์' },
+  { value: 'quotation',     label: 'ใบเสนอราคาของ บ.' },
+  { value: 'unplanned_buy', label: 'ใบขอซื้อนอกแผน' },
+]
+
 const API_ROLE_MAP: Record<string, UserRole> = {
   IT_Staff:         'it_officer',
   IT_Head:          'it_head',
@@ -831,10 +840,10 @@ const PageContent = () => {
     }
   }
 
-  const handleIssuePR = (values: { prNote: string; prNumber: string; prTrackingStatus: ManageRepairRequest['prTrackingStatus'] }) => {
+  const handleIssuePR = (values: { prNote?: string; prNumber: string; prDocuments?: string[] }) => {
     setRequests(prev => prev.map(r =>
       r.id === prModal!.id
-        ? { ...r, status: 'waiting_pr', prNote: values.prNote, prNumber: values.prNumber, prTrackingStatus: values.prTrackingStatus, prIssuedBy: roleInfo.name, prIssuedDate: today }
+        ? { ...r, status: 'waiting_pr', prNote: values.prNote, prNumber: values.prNumber, prDocuments: values.prDocuments, prIssuedBy: roleInfo.name, prIssuedDate: today }
         : r
     ))
     message.success(`ออก PR ${values.prNumber} สำหรับ ${prModal!.id} แล้ว`)
@@ -1469,12 +1478,12 @@ const PageContent = () => {
 
       {/* ══ PR Modal ══════════════════════════════════════════════════════════ */}
       <Modal
-        title={<span><ShoppingCartOutlined style={{ color: '#fb923c', marginRight: 8 }} />ออกใบ PR — {prModal?.id}</span>}
+        title={<span><ShoppingCartOutlined style={{ color: '#f97316', marginRight: 8 }} />ออกใบ PR — {prModal?.id}</span>}
         open={!!prModal}
         onCancel={() => { setPrModal(null); prForm.resetFields() }}
         onOk={() => prForm.submit()}
         okText="บันทึก PR" cancelText="ยกเลิก"
-        okButtonProps={{ style: { background: '#fb923c', borderColor: '#fb923c' } }}
+        okButtonProps={{ style: { background: '#f97316', borderColor: '#f97316' } }}
       >
         {prModal && (
           <Alert
@@ -1483,30 +1492,23 @@ const PageContent = () => {
             type="warning" showIcon style={{ marginBottom: 16 }}
           />
         )}
-        <Form form={prForm} layout="vertical" onFinish={handleIssuePR}>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item name="prNumber" label="เลขที่ใบ PR" rules={[{ required: true, message: 'กรุณาระบุเลขที่ใบ PR' }]}>
-                <Input placeholder="เช่น PR-2026-00123" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="prTrackingStatus" label="สถานะ PR" rules={[{ required: true, message: 'กรุณาเลือกสถานะ' }]}
-                initialValue="awaiting_signature">
-                <Select
-                  options={(Object.entries(PR_TRACKING_CONFIG) as [NonNullable<ManageRepairRequest['prTrackingStatus']>, { label: string; color: string }][]).map(([key, cfg]) => ({
-                    value: key,
-                    label: <span style={{ color: cfg.color }}>{cfg.label}</span>,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="prNote" label="รายละเอียด PR / อะไหล่ที่ต้องการจัดซื้อ"
-            rules={[{ required: true, message: 'กรุณาระบุรายละเอียด PR' }]}>
-            <TextArea rows={3} placeholder="เช่น ออก PR สั่งซื้อ... Part Number: ... จำนวน ... ราคาประมาณ ..." />
-          </Form.Item>
-        </Form>
+        <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#f97316', colorPrimaryHover: '#fb923c', colorPrimaryActive: '#ea580c' } }}>
+          <Form form={prForm} layout="vertical" onFinish={handleIssuePR}>
+            <Form.Item name="prNumber" label="เลขที่ใบ PR" rules={[{ required: true, message: 'กรุณาระบุเลขที่ใบ PR' }]}>
+              <Input placeholder="เช่น PR-2026-00123" />
+            </Form.Item>
+            <Form.Item name="prDocuments" label="เอกสารที่เสนอผู้อำนวยการ ประกอบด้วย">
+              <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {PR_DOCUMENTS.map(doc => (
+                  <Checkbox key={doc.value} value={doc.value}>{doc.label}</Checkbox>
+                ))}
+              </Checkbox.Group>
+            </Form.Item>
+            <Form.Item name="prNote" label="รายละเอียด PR / อะไหล่ที่ต้องการจัดซื้อ">
+              <TextArea rows={3} placeholder="เช่น ออก PR สั่งซื้อ... Part Number: ... จำนวน ... ราคาประมาณ ..." />
+            </Form.Item>
+          </Form>
+        </ConfigProvider>
       </Modal>
 
       {/* ══ Record Result Modal ═══════════════════════════════════════════════ */}
@@ -2142,24 +2144,27 @@ const PageContent = () => {
               <Descriptions.Item label="บันทึกช่าง" span={2}
                 styles={{ content: { whiteSpace: 'pre-wrap' } }}>{detailModal.technicianNote}</Descriptions.Item>
             )}
-            {(detailModal.prNumber || detailModal.prNote) && (
-              <Descriptions.Item label={<span style={{ color: '#fb923c' }}><ShoppingCartOutlined style={{ marginRight: 4 }} />ใบ PR</span>} span={2}
+            {(detailModal.prNumber || detailModal.prNote || (detailModal.prDocuments?.length ?? 0) > 0) && (
+              <Descriptions.Item label={<span style={{ color: '#f97316' }}><ShoppingCartOutlined style={{ marginRight: 4 }} />ใบ PR</span>} span={2}
                 styles={{ content: { whiteSpace: 'pre-wrap' } }}>
                 {detailModal.prNumber && (
                   <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <code style={{ color: '#fb923c', fontWeight: 700, fontSize: 13 }}>{detailModal.prNumber}</code>
-                    {detailModal.prTrackingStatus && (
-                      <Tag style={{
-                        color: PR_TRACKING_CONFIG[detailModal.prTrackingStatus].color,
-                        borderColor: PR_TRACKING_CONFIG[detailModal.prTrackingStatus].color + '55',
-                        background: 'transparent', fontSize: 11,
-                      }}>
-                        {PR_TRACKING_CONFIG[detailModal.prTrackingStatus].label}
-                      </Tag>
-                    )}
+                    <code style={{ color: '#f97316', fontWeight: 700, fontSize: 13 }}>{detailModal.prNumber}</code>
                     {detailModal.prIssuedDate && (
                       <span style={{ color: '#475569', fontSize: 11 }}>ออกวันที่ {detailModal.prIssuedDate}</span>
                     )}
+                  </div>
+                )}
+                {(detailModal.prDocuments?.length ?? 0) > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: detailModal.prNote ? 6 : 0 }}>
+                    {detailModal.prDocuments!.map(d => {
+                      const doc = PR_DOCUMENTS.find(x => x.value === d)
+                      return (
+                        <Tag key={d} icon={<CheckCircleOutlined />} style={{
+                          color: '#f97316', borderColor: '#f9731655', background: 'transparent', fontSize: 11,
+                        }}>{doc?.label ?? d}</Tag>
+                      )
+                    })}
                   </div>
                 )}
                 {detailModal.prNote && <span style={{ color: '#94a3b8' }}>{detailModal.prNote}</span>}

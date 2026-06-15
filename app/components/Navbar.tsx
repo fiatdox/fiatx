@@ -373,6 +373,15 @@ const Navbar: React.FC = () => {
                 { key: '/information-technology/his-users-session', icon: <FaUserClock />, label: 'ขอเคลียร์เซสชัน HIS ผู้ใช้ระบบ' },
               ]
             },
+            {
+              key: 'medical-data',
+              icon: <FaChartBar />,
+              label: 'งานข้อมูลทางการแพทย์',
+              children: [
+                { key: '/medical-data/statistics', icon: <FaChartBar />, label: 'เวชสถิติ / สถิติผู้ป่วย' },
+                { key: '/medical-data/statistics-request', icon: <FaClipboardList />, label: 'ขอข้อมูลสถิติ' },
+              ]
+            },
             { 
               key: 'accounting', 
               icon: <FaCalculator />, 

@@ -243,6 +243,11 @@ const getMTTR = (r: IncidentReport): number | null => {
   return Math.max(0, dayjs(r.resolvedDate).diff(dayjs(r.incidentDate), 'day'))
 }
 
+// escape ค่าที่ผู้ใช้กรอก ก่อนแทรกลง HTML ของหน้าพิมพ์ (document.write ไม่ escape ให้)
+const esc = (v: unknown): string =>
+  String(v ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+
 function buildPrintHtml(incidents: IncidentReport[], monthLabel: string): string {
   const total     = incidents.length
   const critical  = incidents.filter(i => i.severity === 'critical').length
@@ -252,8 +257,8 @@ function buildPrintHtml(incidents: IncidentReport[], monthLabel: string): string
 
   const summaryRows = incidents.map((r, idx) => `
     <tr>
-      <td>${idx + 1}</td><td>${r.incidentNo}</td><td>${fmtDate(r.incidentDate)}</td>
-      <td>${r.threatType}</td><td>${r.affectedSystem}</td>
+      <td>${idx + 1}</td><td>${esc(r.incidentNo)}</td><td>${fmtDate(r.incidentDate)}</td>
+      <td>${esc(r.threatType)}</td><td>${esc(r.affectedSystem)}</td>
       <td style="color:${severityPrintColor[r.severity]};font-weight:600">${severityConfig[r.severity].ncsa} ${severityConfig[r.severity].label}</td>
       <td>${statusConfig[r.status].label}</td>
       <td>${r.ncsaReported === 'Y' ? '✓' : '—'}</td>
@@ -262,7 +267,7 @@ function buildPrintHtml(incidents: IncidentReport[], monthLabel: string): string
   const detailCards = incidents.map(r => `
     <div class="card">
       <div class="card-header">
-        <span>${r.incidentNo}</span>
+        <span>${esc(r.incidentNo)}</span>
         <span style="color:${severityPrintColor[r.severity]}">${severityConfig[r.severity].ncsa} — ${severityConfig[r.severity].label}</span>
         <span>${statusConfig[r.status].label}</span>
       </div>
@@ -270,17 +275,17 @@ function buildPrintHtml(incidents: IncidentReport[], monthLabel: string): string
       <div class="g2">
         <div><span class="lb">วันที่เกิดเหตุ</span>${fmtDate(r.incidentDate)}</div>
         <div><span class="lb">วันที่ตรวจพบ</span>${fmtDate(r.detectedDate)}</div>
-        <div><span class="lb">ผู้แจ้งเหตุ</span>${r.reportedBy}</div>
-        <div><span class="lb">หน่วยงาน</span>${r.department}</div>
+        <div><span class="lb">ผู้แจ้งเหตุ</span>${esc(r.reportedBy)}</div>
+        <div><span class="lb">หน่วยงาน</span>${esc(r.department)}</div>
       </div>
       <div class="st">ส่วนที่ 2 : รายละเอียดภัยคุกคาม</div>
       <div class="g2">
-        <div><span class="lb">ประเภทภัยคุกคาม (สกมช)</span>${r.threatType}</div>
-        <div><span class="lb">ช่องทาง/เวกเตอร์</span>${r.attackVector}</div>
-        <div><span class="lb">ระบบที่ได้รับผลกระทบ</span>${r.affectedSystem}</div>
-        <div><span class="lb">ทรัพย์สิน/อุปกรณ์</span>${r.affectedAssets || '—'}</div>
+        <div><span class="lb">ประเภทภัยคุกคาม (สกมช)</span>${esc(r.threatType)}</div>
+        <div><span class="lb">ช่องทาง/เวกเตอร์</span>${esc(r.attackVector)}</div>
+        <div><span class="lb">ระบบที่ได้รับผลกระทบ</span>${esc(r.affectedSystem)}</div>
+        <div><span class="lb">ทรัพย์สิน/อุปกรณ์</span>${r.affectedAssets ? esc(r.affectedAssets) : '—'}</div>
       </div>
-      <div class="fr"><span class="lb">รายละเอียดเหตุการณ์</span><div class="vb">${r.description}</div></div>
+      <div class="fr"><span class="lb">รายละเอียดเหตุการณ์</span><div class="vb">${esc(r.description)}</div></div>
       <div class="st">ส่วนที่ 3 : ผลกระทบ</div>
       <div class="g2">
         <div><span class="lb">ระดับความรุนแรง</span><span style="color:${severityPrintColor[r.severity]};font-weight:600">${severityConfig[r.severity].ncsa} (${severityConfig[r.severity].label})</span></div>
@@ -288,16 +293,16 @@ function buildPrintHtml(incidents: IncidentReport[], monthLabel: string): string
         <div><span class="lb">ข้อมูลรั่วไหล</span>${r.dataBreached === 'Y' ? 'ใช่' : 'ไม่มี'}</div>
         <div><span class="lb">กระทบความต่อเนื่องบริการ</span>${r.continuityImpact === 'Y' ? 'ใช่' : 'ไม่มี'}</div>
       </div>
-      <div class="fr"><span class="lb">ผลกระทบต่อการให้บริการ</span><div class="vb">${r.impact}</div></div>
+      <div class="fr"><span class="lb">ผลกระทบต่อการให้บริการ</span><div class="vb">${esc(r.impact)}</div></div>
       <div class="st">ส่วนที่ 4 : การวิเคราะห์สาเหตุ (Root Cause)</div>
-      <div class="fr"><div class="vb">${r.rootCause || '—'}</div></div>
+      <div class="fr"><div class="vb">${r.rootCause ? esc(r.rootCause) : '—'}</div></div>
       <div class="st">ส่วนที่ 5 : มาตรการรับมือและการดำเนินการ</div>
-      <div class="fr"><span class="lb">มาตรการเร่งด่วน</span><div class="vb">${r.immediateActions || '—'}</div></div>
-      <div class="fr"><span class="lb">การแก้ไขปัญหา</span><div class="vb">${r.resolution || '—'}</div></div>
-      <div class="fr"><span class="lb">มาตรการระยะยาว / ป้องกันการเกิดซ้ำ</span><div class="vb">${r.longTermMeasures || '—'}</div></div>
+      <div class="fr"><span class="lb">มาตรการเร่งด่วน</span><div class="vb">${r.immediateActions ? esc(r.immediateActions) : '—'}</div></div>
+      <div class="fr"><span class="lb">การแก้ไขปัญหา</span><div class="vb">${r.resolution ? esc(r.resolution) : '—'}</div></div>
+      <div class="fr"><span class="lb">มาตรการระยะยาว / ป้องกันการเกิดซ้ำ</span><div class="vb">${r.longTermMeasures ? esc(r.longTermMeasures) : '—'}</div></div>
       <div class="g2">
         <div><span class="lb">วันที่แก้ไขสำเร็จ</span>${r.resolvedDate ? fmtDate(r.resolvedDate) : '(ยังดำเนินการ)'}</div>
-        <div><span class="lb">ผู้แก้ไข</span>${r.resolvedBy || '—'}</div>
+        <div><span class="lb">ผู้แก้ไข</span>${r.resolvedBy ? esc(r.resolvedBy) : '—'}</div>
       </div>
       <div class="st">ส่วนที่ 6 : การรายงานต่อ สกมช</div>
       <div class="g2">

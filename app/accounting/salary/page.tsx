@@ -178,7 +178,24 @@ const PageContent = () => {
   const previous = history[1]
   const changeVsPrev = latest && previous ? latest.data.netSalary - previous.data.netSalary : 0
 
-  const pdfData = computeSalaryForMonth(pdfMonth)
+  // สร้างข้อมูลสลิป แล้วแทนที่ส่วน "ตัวตนพนักงาน" ด้วยข้อมูลผู้ login จริง (user_data)
+  // ตัวเลขเงินเดือนยังมาจาก mock จนกว่าจะมี API เงินเดือน
+  const pdfData = useMemo<SalarySlipData>(() => {
+    const base = computeSalaryForMonth(pdfMonth)
+    return {
+      ...base,
+      employee: {
+        ...base.employee,
+        id:          profile.username   || base.employee.id,
+        name:        profile.name       || base.employee.name,
+        position:    profile.position   || base.employee.position,
+        department:  profile.department || base.employee.department,
+        staffType:   profile.staffType  || base.employee.staffType,
+        bankName:    profile.bankName    || base.employee.bankName,
+        bankAccount: profile.bankAccount || base.employee.bankAccount,
+      },
+    }
+  }, [pdfMonth, profile])
 
   // Stats
   const stats = [
