@@ -148,12 +148,14 @@ const Navbar: React.FC = () => {
           />
           <Typography.Text
             strong
+            onClick={() => router.push('/home')}
             style={{
               color: '#fff',
               fontSize: '1.25rem',
               margin: 0,
               letterSpacing: '0.02em',
-              textShadow: '0 0 12px rgba(16, 185, 129, 0.45)'
+              textShadow: '0 0 12px rgba(16, 185, 129, 0.45)',
+              cursor: 'pointer'
             }}
           >
             PYHOS-EXP

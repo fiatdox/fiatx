@@ -1,9 +1,10 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import Cookies from 'js-cookie'
 import {
   Card, Form, Input, Button, Breadcrumb, Typography,
   Row, Col, Tag, Space, Avatar, Divider, Tabs, Select, DatePicker, Switch, Alert,
-  Descriptions, Upload, Tooltip, Badge
+  Upload, Tooltip, Badge, Spin
 } from 'antd'
 import type { UploadProps } from 'antd'
 import {
@@ -20,16 +21,25 @@ import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 
-// ข้อมูลที่งาน HR กำหนดและผู้ใช้แก้ไขเองไม่ได้
-const profileLocked = {
-  employeeNo: 'EMP-0428',
-  fullName: 'นายสมชาย ใจดี',
-  position: 'นักทรัพยากรบุคคล ปฏิบัติการ',
-  staffType: 'ข้าราชการ',
-  missionGroup: 'กลุ่มภารกิจอำนวยการ',
-  workGroup: 'กลุ่มงานทรัพยากรบุคคล',
-  department: 'งานบริหารทั่วไป',
-  startDate: '2018-04-02',
+// ข้อมูลบุคลากรจาก GET /api/v1/users/{id}/info (งาน HR กำหนด — แก้ไขเองไม่ได้)
+interface UserInfo {
+  id: number
+  id_card?: string
+  pname?: string
+  fname?: string
+  lname?: string
+  employee_name?: string
+  gender?: string
+  birthday?: string | null
+  hire_date?: string | null
+  username?: string
+  mission_name?: string
+  major_name?: string
+  submajor_name?: string | null
+  position_name?: string
+  user_type_name?: string
+  user_level_name?: string
+  user_status_name?: string
 }
 
 const banks = [
@@ -44,6 +54,49 @@ const SettingsContent = () => {
   const [emergencyForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('profile')
+
+  // ── ดึงข้อมูลบุคลากรของผู้ที่ล็อกอิน จาก /api/v1/users/{id}/info ──
+  const [info, setInfo] = useState<UserInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let id: number | null = null
+    try { id = JSON.parse(Cookies.get('user_data') || '{}').id ?? null } catch { id = null }
+    if (id == null) { setLoading(false); return }
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/v1/users/${id}/info`)
+        const data = await res.json()
+        const u = (data?.data ?? data) as UserInfo
+        setInfo(u)
+        // เติมค่าในฟอร์มข้อมูลส่วนตัวจาก API
+        profileForm.setFieldsValue({
+          gender: u.gender === 'M' ? 'male' : u.gender === 'F' ? 'female' : undefined,
+          birthdate: u.birthday ? dayjs(u.birthday) : undefined,
+        })
+      } catch {
+        // เงียบ — แสดง '-' หากดึงไม่สำเร็จ
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [profileForm])
+
+  // แปลงข้อมูล API → ฟิลด์ที่หน้านี้ใช้ (ส่วนที่ HR กำหนด)
+  const fullName =
+    info?.employee_name?.trim() ||
+    `${info?.pname ?? ''}${info?.fname ?? ''} ${info?.lname ?? ''}`.trim() ||
+    '-'
+  const profileLocked = {
+    employeeNo: info?.id_card || info?.username || '-',
+    fullName,
+    position: [info?.position_name, info?.user_level_name].filter(Boolean).join(' ') || '-',
+    staffType: info?.user_type_name || '-',
+    missionGroup: info?.mission_name || '-',
+    workGroup: info?.major_name || '-',
+    department: info?.submajor_name || info?.major_name || '-',
+    startDate: info?.hire_date || null,
+  }
 
   // ตัวอย่างค่าเริ่มต้น
   const initialProfile = {
@@ -121,7 +174,8 @@ const SettingsContent = () => {
 
         {/* Header banner */}
         <Card
-          className="mt-4 mb-6 border-0 overflow-hidden"
+          className="mt-4 mb-4 border-0 overflow-hidden"
+          styles={{ body: { padding: '16px 20px' } }}
           style={{
             background: 'linear-gradient(135deg, rgba(6,106,90,0.25), rgba(16,185,129,0.08) 60%, transparent)',
             borderLeft: '4px solid #006a5a',
@@ -156,16 +210,17 @@ const SettingsContent = () => {
                 <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>
                   {profileLocked.fullName}
                 </Title>
-                <Tag color="green">{profileLocked.staffType}</Tag>
-                <Tag color="cyan">{profileLocked.employeeNo}</Tag>
+                {loading && <Spin size="small" />}
+                {!loading && <Tag color="green">{profileLocked.staffType}</Tag>}
+                {!loading && <Tag color="cyan">{profileLocked.employeeNo}</Tag>}
               </div>
               <Text type="secondary" style={{ color: 'var(--app-text-2)' }}>
                 {profileLocked.position} · {profileLocked.workGroup}
               </Text>
               <div className="mt-1">
                 <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
-                  <ClockCircleOutlined /> เริ่มงาน: {dayjs(profileLocked.startDate).format('DD/MM/YYYY')} ·
-                  อายุงาน: {dayjs().diff(profileLocked.startDate, 'year')} ปี
+                  <ClockCircleOutlined /> เริ่มงาน: {profileLocked.startDate ? dayjs(profileLocked.startDate).format('DD/MM/YYYY') : '-'} ·
+                  อายุงาน: {profileLocked.startDate ? `${dayjs().diff(profileLocked.startDate, 'year')} ปี` : '-'}
                 </Text>
               </div>
             </div>
@@ -181,13 +236,13 @@ const SettingsContent = () => {
           type="info"
           showIcon
           icon={<InfoCircleOutlined />}
-          className="mb-5"
-          message="หมายเหตุการแก้ไขข้อมูล"
+          className="mb-4"
+          title="หมายเหตุการแก้ไขข้อมูล"
           description="ข้อมูลที่ผู้ใช้แก้ไขในหน้านี้ถือเป็นการแจ้งให้งานทรัพยากรบุคคลทราบ ระบบจะแสดงสถานะ 'รอ HR ยืนยัน' จนกว่าจะได้รับอนุมัติ ส่วนข้อมูลที่ HR กำหนด (สีเทา) จะไม่สามารถแก้ไขเองได้"
           style={{ background: 'rgba(30,41,59,0.6)', borderColor: 'var(--app-surface)' }}
         />
 
-        <Card styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+        <Card styles={{ body: { padding: '4px 20px 20px' }, header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
           <Tabs
             activeKey={tab}
             onChange={setTab}
@@ -197,24 +252,40 @@ const SettingsContent = () => {
                 label: <Space><UserOutlined />ข้อมูลส่วนตัว</Space>,
                 children: (
                   <>
-                    <Descriptions
-                      column={{ xs: 1, sm: 2, md: 3 }}
-                      size="small"
-                      bordered
-                      className="mb-5"
-                      styles={{
-                        label: { color: 'var(--app-text-2)', background: 'var(--app-surface)', width: 160 },
-                        content: { color: 'var(--app-text)', background: 'transparent' },
-                      }}
-                      title={<span className="text-app-text-2 text-sm">ข้อมูลที่ HR กำหนด · แก้ไขเองไม่ได้</span>}
-                    >
-                      <Descriptions.Item label="รหัสบุคลากร">{profileLocked.employeeNo}</Descriptions.Item>
-                      <Descriptions.Item label="ชื่อ-นามสกุล">{profileLocked.fullName}</Descriptions.Item>
-                      <Descriptions.Item label="ตำแหน่ง">{profileLocked.position}</Descriptions.Item>
-                      <Descriptions.Item label="กลุ่มภารกิจ">{profileLocked.missionGroup}</Descriptions.Item>
-                      <Descriptions.Item label="กลุ่มงาน">{profileLocked.workGroup}</Descriptions.Item>
-                      <Descriptions.Item label="หน่วยงาน">{profileLocked.department}</Descriptions.Item>
-                    </Descriptions>
+                    <div className="mb-5">
+                      <div className="text-app-text-2 text-sm mb-3 flex items-center gap-2">
+                        <SafetyCertificateOutlined /> ข้อมูลที่ HR กำหนด · แก้ไขเองไม่ได้
+                      </div>
+                      <Row gutter={[12, 12]}>
+                        {[
+                          { label: 'รหัสบุคลากร', value: profileLocked.employeeNo, icon: <IdcardOutlined /> },
+                          { label: 'ชื่อ-นามสกุล', value: profileLocked.fullName, icon: <UserOutlined /> },
+                          { label: 'ตำแหน่ง', value: profileLocked.position, icon: <SolutionOutlined /> },
+                          { label: 'กลุ่มภารกิจ', value: profileLocked.missionGroup, icon: <ApartmentOutlined /> },
+                          { label: 'กลุ่มงาน', value: profileLocked.workGroup, icon: <ApartmentOutlined /> },
+                          { label: 'หน่วยงาน', value: profileLocked.department, icon: <EnvironmentOutlined /> },
+                        ].map(f => (
+                          <Col xs={24} sm={12} md={8} key={f.label}>
+                            <div
+                              style={{
+                                background: 'var(--app-surface)',
+                                border: '1px solid var(--app-border)',
+                                borderRadius: 10,
+                                padding: '10px 14px',
+                                height: '100%',
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: 'var(--app-text-3)', marginBottom: 3 }}>
+                                <span style={{ marginRight: 6 }}>{f.icon}</span>{f.label}
+                              </div>
+                              <div style={{ color: 'var(--app-text)', fontWeight: 600, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                                {f.value}
+                              </div>
+                            </div>
+                          </Col>
+                        ))}
+                      </Row>
+                    </div>
 
                     <Form
                       form={profileForm}
@@ -380,7 +451,7 @@ const SettingsContent = () => {
                       type="warning"
                       showIcon
                       className="mt-2 mb-4"
-                      message="การแก้ไขเลขที่บัญชีธนาคารต้องผ่านการยืนยันจากงานการเงิน"
+                      title="การแก้ไขเลขที่บัญชีธนาคารต้องผ่านการยืนยันจากงานการเงิน"
                       style={{ background: 'rgba(146,64,14,0.18)', borderColor: '#92400e' }}
                     />
 

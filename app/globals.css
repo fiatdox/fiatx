@@ -90,3 +90,40 @@ body {
 [data-theme="light"] .ant-card-bordered {
   border-color: var(--app-border);
 }
+
+/* carousel ข่าวสาร/แผนโครงการ: ลูกศรซ้าย-ขวาให้เห็นชัดบนพื้น gradient */
+.home-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(4px);
+  transition: background 0.2s;
+}
+.home-arrow:hover {
+  background: rgba(0, 0, 0, 0.45);
+}
+.home-arrow::before { content: none; }
+.home-arrow-prev { left: 16px; }
+.home-arrow-next { right: 16px; }
+
+/* ปฏิทินวันลา: ให้บาร์ใบลาต่อเนื่อง "ลากยาว" ข้ามวันได้ (ไม่ถูก cell ตัดขอบ) */
+.leave-cal .ant-picker-calendar-date-content {
+  overflow: visible;
+}
+.leave-cal .ant-picker-calendar-date {
+  padding-left: 6px;
+  padding-right: 6px;
+}

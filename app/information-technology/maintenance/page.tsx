@@ -49,7 +49,9 @@ interface RepairRequest {
   priority_name: string
   process_status_name: string
   process_status_id: number
+  created_by?: number | null
   created_by_name: string
+  position_name?: string | null   // ตำแหน่งของผู้ส่งซ่อม (มากับ row คำร้อง)
   major_name: string
   submajor_name: string | null
   it_priority_level_id?: number
@@ -57,6 +59,17 @@ interface RepairRequest {
   repair_assessment_id?: number | null
   assessment_name?: string | null
   assessment_detail?: string | null
+  parts_used?: string | null   // รายการที่ต้องซื้อ/อะไหล่ (มากับ row คำร้อง)
+  assigned_to_name?: string | null   // ชื่อช่างผู้รับงาน
+  // อนุมัติหัวหน้า 2 ระดับ (มากับ row คำร้อง) — 1=อนุมัติ, 2=ไม่อนุมัติ
+  header_approve?: number | null
+  header_approve_by_name?: string | null
+  header_approve_date?: string | null
+  header_comment?: string | null
+  mission_approve?: number | null
+  mission_approve_by_name?: string | null
+  mission_approve_date?: string | null
+  mission_comment?: string | null
 }
 
 
@@ -144,6 +157,7 @@ const PageContent = () => {
   const [imageList, setImageList] = useState<any[]>([])
   const [detailModal, setDetailModal] = useState<RepairRequest | null>(null)
   const [printSlip, setPrintSlip] = useState<RepairRequest | null>(null)
+  const [printPr, setPrintPr] = useState<{ prNumber?: string; prNote?: string } | null>(null)
   const [priorityLevels, setPriorityLevels] = useState<PriorityLevel[]>([])
   const [problemCategories, setProblemCategories] = useState<ProblemCategory[]>([])
   const [equipmentTypes, setEquipmentTypes] = useState<EquipmentType[]>([])
@@ -203,13 +217,21 @@ const PageContent = () => {
     return { label: cat?.name ?? String(id), desc: cat?.description ?? '', color: PROBLEM_CATEGORY_COLORS[idx] }
   }
 
-  const toSlipData = (r: RepairRequest): RepairSlipData => ({
+  // วันที่แบบ พ.ศ. (DD/MM/พ.ศ.) สำหรับใบพิมพ์
+  const fmtThaiDate = (iso?: string | null): string | undefined => {
+    if (!iso) return undefined
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return undefined
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear() + 543}`
+  }
+
+  const toSlipData = (r: RepairRequest, pr?: { prNumber?: string; prNote?: string } | null): RepairSlipData => ({
     id:                   `IT-${String(r.it_repair_request_id).padStart(4, '0')}`,
     requestDate:          new Date(r.created_at).toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' }),
     status:               String(r.process_status_id),
     statusLabel:          statusConfig[r.process_status_id]?.label ?? r.process_status_name,
     requesterName:        r.created_by_name,
-    position:             undefined,
+    position:             r.position_name ?? undefined,
     department:           r.major_name,
     phone:                '',
     equipmentTypeLabel:   r.equipment_type_name,
@@ -220,13 +242,27 @@ const PageContent = () => {
     problemCategoryLabel: r.problem_category_name,
     priorityLabel:        r.priority_name,
     symptom:              r.problem_description,
-    assignedTo:           undefined,
+    assignedTo:           r.assigned_to_name ?? undefined,
     resolvedDate:         undefined,
     resolvedNote:         undefined,
+    // รายงานการซ่อมของช่าง
     technicianNote:       r.assessment_detail ?? undefined,
-    prNote:               undefined,
+    assessmentResult:     r.assessment_name ?? undefined,
+    // อะไหล่ที่ขอซื้อ — ใช้ parts_used จาก row ก่อน แล้ว fallback เป็นรายละเอียดใบ PR
+    prNote:               r.parts_used ?? pr?.prNote ?? undefined,
+    prNumber:             pr?.prNumber ?? undefined,
     prDate:               undefined,
     replacementNote:      undefined,
+    // อนุมัติหัวหน้า IT (ระดับ 1)
+    itHeadName:           r.header_approve_by_name ?? undefined,
+    itHeadDate:           fmtThaiDate(r.header_approve_date),
+    itHeadComment:        r.header_comment ?? undefined,
+    itHeadDecision:       r.header_approve === 1 ? 'approved' : r.header_approve === 2 ? 'rejected' : undefined,
+    // อนุมัติหัวหน้าภารกิจ (ระดับ 2)
+    missionHeadName:      r.mission_approve_by_name ?? undefined,
+    missionHeadDate:      fmtThaiDate(r.mission_approve_date),
+    missionHeadComment:   r.mission_comment ?? undefined,
+    missionHeadDecision:  r.mission_approve === 1 ? 'approved' : r.mission_approve === 2 ? 'rejected' : undefined,
   })
 
   useEffect(() => {
@@ -239,35 +275,55 @@ const PageContent = () => {
       .finally(() => setDetailImagesLoading(false))
   }, [detailModal])
 
-  const fetchRequests = (statusIds = filterStatusIds, dateRange = filterDateRange) => {
-    const body: Record<string, unknown> = {}
-    if (statusIds.length > 0) body.status = statusIds
-    if (dateRange) { body.date1 = dateRange[0]; body.date2 = dateRange[1] }
-    fetch('/api/v1/it/repair-requests/all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+  // ดึงใบ PR (อะไหล่ที่ขอซื้อ) มาเติมในใบพิมพ์เมื่อเปิด modal พิมพ์
+  useEffect(() => {
+    if (!printSlip) { setPrintPr(null); return }
+    fetch(`/api/v1/it/repair-requests/${printSlip.it_repair_request_id}/pr`)
+      .then(r => r.json())
+      .then(json => {
+        const d = json?.data
+        if (json?.success && d) {
+          setPrintPr({ prNumber: d.pr_number || undefined, prNote: d.pr_detail ?? d.pr_note ?? undefined })
+        }
+      })
+      .catch(() => {})
+  }, [printSlip])
+
+  // โหลดจาก GET /repair-requests — row มี position_name, assessment_name/detail ครบสำหรับใบพิมพ์
+  const fetchRequests = () => {
+    fetch('/api/v1/it/repair-requests')
       .then(r => r.json())
       .then(json => { if (json.success && Array.isArray(json.data)) setRequests(json.data) })
       .catch(() => {})
   }
 
-  useEffect(() => { fetchRequests() }, [filterStatusIds, filterDateRange]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { fetchRequests() }, [])
 
-  // กรองด้วยเลขที่ (client-side) — รองรับ "IT-0032", "0032", "32" และเลขครุภัณฑ์
+  // กรองทั้งหมดฝั่ง client — สถานะ + ช่วงวันที่ + เลขที่/เลขครุภัณฑ์
   // ใช้ร่วมกันทั้ง tab สถานะการซ่อมและ kanban
   const filteredRequests = useMemo(() => {
+    let list = requests
+    // สถานะ
+    if (filterStatusIds.length > 0) list = list.filter(r => filterStatusIds.includes(r.process_status_id))
+    // ช่วงวันที่ (ตามวันที่แจ้ง created_at)
+    if (filterDateRange) {
+      const start = new Date(`${filterDateRange[0]}T00:00:00`).getTime()
+      const end   = new Date(`${filterDateRange[1]}T23:59:59.999`).getTime()
+      list = list.filter(r => { const t = new Date(r.created_at).getTime(); return t >= start && t <= end })
+    }
+    // เลขที่ / เลขครุภัณฑ์ — รองรับ "IT-0032", "0032", "32"
     const q = searchText.trim().toLowerCase()
-    if (!q) return requests
-    const qNum = q.replace(/^it-?/i, '').replace(/^0+/, '')
-    return requests.filter(r => {
-      const idFormatted = `it-${String(r.it_repair_request_id).padStart(4, '0')}`
-      return idFormatted.includes(q)
-        || (qNum !== '' && String(r.it_repair_request_id) === qNum)
-        || (r.equipment_number ?? '').toLowerCase().includes(q)
-    })
-  }, [requests, searchText])
+    if (q) {
+      const qNum = q.replace(/^it-?/i, '').replace(/^0+/, '')
+      list = list.filter(r => {
+        const idFormatted = `it-${String(r.it_repair_request_id).padStart(4, '0')}`
+        return idFormatted.includes(q)
+          || (qNum !== '' && String(r.it_repair_request_id) === qNum)
+          || (r.equipment_number ?? '').toLowerCase().includes(q)
+      })
+    }
+    return list
+  }, [requests, searchText, filterStatusIds, filterDateRange])
 
   useEffect(() => {
     if (!assetModalOpen) return
@@ -1026,7 +1082,7 @@ const PageContent = () => {
         destroyOnHidden
       >
         <div style={{ width: '100%', height: '100%' }}>
-          {printSlip && <RepairSlipPDFViewer data={toSlipData(printSlip)} />}
+          {printSlip && <RepairSlipPDFViewer data={toSlipData(printSlip, printPr)} />}
         </div>
       </Modal>
     </div>

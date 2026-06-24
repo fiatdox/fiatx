@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button, Tag, Typography } from 'antd'
 import {
   ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined,
-  ToolOutlined, InfoCircleOutlined,
+  ToolOutlined, InfoCircleOutlined, CheckSquareOutlined, CloseCircleOutlined,
 } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -39,18 +39,47 @@ interface Extension {
   newDueIso?: string
 }
 
+// ── ขั้นตอนออกเอกสาร / ติดตาม PO (อ่านอย่างเดียว — เหมือนบอร์ดหน้า manage) ──
+interface WorkStep {
+  id: number
+  step_code: string
+  name_th: string
+  sort_order: number
+}
+
+// ขั้นตอนติดตาม PO ของพัสดุ (คอลัมน์ po_processing) — รายการคงที่ เช่นเดียวกับหน้า manage
+const PO_TRACKING_STEPS: WorkStep[] = [
+  { id: 1, step_code: 'pr_approved', name_th: 'อนุมัติ PR แล้ว', sort_order: 1 },
+  { id: 2, step_code: 'po_approved', name_th: 'อนุมัติ PO แล้ว', sort_order: 2 },
+]
+
+// สถานะ PR จากระบบพัสดุ (ตรวจว่าออกเลข/อนุมัติแล้วหรือยัง)
+interface PrStatus {
+  found: boolean
+  issued: boolean
+  requestNo?: string
+  approveDate?: string
+  poApproveDate?: string
+  paidStatusName?: string
+}
+
+// ข้อมูลความคืบหน้าออกเอกสาร/ติดตาม PO ต่อคำร้อง — โหลดจาก API
+interface PrInfo {
+  prStatus?: PrStatus
+  prNumber?: string
+  prTaskSteps?: number[]
+  prTaskNote?: string
+}
+
 // ── คอลัมน์ตาม process_status_id (ชุดเดียวกับหน้า manage + เสร็จสิ้น/ยกเลิกต่อท้าย) ──
 // คอลัมน์รออนุมัติรวม 2 สถานะ: 6 = รอหัวหน้า IT, 9 = หัวหน้า IT อนุมัติแล้ว รอหัวหน้าภารกิจ
 const COLUMNS: { key: string; ids: number[]; title: string; accent: string }[] = [
   { key: 'pending',     ids: [1],    title: 'รอดำเนินการ',                              accent: '#f59e0b' },
   { key: 'in_progress', ids: [2],    title: 'กำลังดำเนินการ',                            accent: '#06b6d4' },
   { key: 'approval',    ids: [6, 9], title: 'รออนุมัติหัวหน้า IT / หัวหน้าภารกิจ',       accent: '#a855f7' },
-  { key: 'replace',     ids: [4, 11], title: 'แนะนำซื้อทดแทน',                           accent: '#f472b6' },
   { key: 'pr',          ids: [3],    title: 'ออกใบ PR เจ้าหน้าที่ IT',                   accent: '#f97316' },
   { key: 'po',          ids: [7],    title: 'ขั้นตอน PO โดยพัสดุ / เสนอผู้อำนวยการ',     accent: '#6366f1' },
   { key: 'delivery',    ids: [8],    title: 'รอรับของ / รับอะไหล่',                      accent: '#0ea5e9' },
-  { key: 'completed',   ids: [5],    title: 'เสร็จสิ้น',                                  accent: '#22c55e' },
-  { key: 'cancelled',   ids: [10],   title: 'ยกเลิก',                                     accent: '#ef4444' },
 ]
 
 const URGENCY_BY_PRIORITY_NAME: Record<string, { color: string; label: string }> = {
@@ -171,6 +200,86 @@ export default function RepairKanbanView({
 }) {
   // ประวัติผลัดสัญญาต่อคำร้อง — โหลดจาก API เฉพาะงานที่ช่างรับแล้ว
   const [extMap, setExtMap] = useState<Record<number, Extension[]>>({})
+  // เช็กลิสต์ขั้นงาน (ออกเอกสาร) + ความคืบหน้า PR/PO ต่อคำร้อง
+  const [workSteps, setWorkSteps] = useState<WorkStep[]>([])
+  const [prMap, setPrMap] = useState<Record<number, PrInfo>>({})
+
+  // เลือกชุดเช็คลิสต์ตามสถานะ — คอลัมน์ PO ใช้ขั้นตอนติดตาม PO, ที่เหลือใช้ขั้นงานช่าง/IT
+  const stepsFor = (statusId: number): WorkStep[] =>
+    statusId === 7 ? PO_TRACKING_STEPS : workSteps
+
+  // โหลดนิยามขั้นงานครั้งเดียว — ใช้แสดงเช็คลิสต์บนการ์ดช่วงออกเอกสาร
+  useEffect(() => {
+    fetch('/api/v1/it/repair-work-steps')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setWorkSteps([...json.data].sort((a: WorkStep, b: WorkStep) => a.sort_order - b.sort_order))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  // โหลดความคืบหน้า/เลข PR/สถานะพัสดุ เฉพาะคอลัมน์ออกใบ PR (3) และ PO (7)
+  useEffect(() => {
+    const targets = rows.filter(r => r.process_status_id === 3 || r.process_status_id === 7)
+    if (targets.length === 0) return
+    targets.forEach(r => {
+      const id = r.it_repair_request_id
+      // ความคืบหน้าล่าสุด → เช็คลิสต์ขั้นงานที่ทำเสร็จ + หมายเหตุ
+      fetch(`/api/v1/it/repair-requests/${id}/progress`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && Array.isArray(json.data)) {
+            const latest = json.data[0]
+            setPrMap(prev => ({
+              ...prev,
+              [id]: {
+                ...prev[id],
+                prTaskSteps: latest ? latest.completed_steps.map((s: { id: number }) => s.id) : [],
+                prTaskNote: latest?.note || undefined,
+              },
+            }))
+          }
+        })
+        .catch(() => {})
+      // เลขที่ใบ PR ที่บันทึกไว้ในฐานข้อมูล
+      fetch(`/api/v1/it/repair-requests/${id}/pr`)
+        .then(res => res.json())
+        .then(json => {
+          const d = json?.data
+          if (json?.success && d) {
+            setPrMap(prev => ({ ...prev, [id]: { ...prev[id], prNumber: d.pr_number || undefined } }))
+          }
+        })
+        .catch(() => {})
+      // สถานะ PR จากระบบพัสดุ — เฉพาะคอลัมน์ PO เพื่อแสดงวันที่อนุมัติ
+      if (r.process_status_id === 7) {
+        fetch(`/api/v1/it/repair-requests/${id}/pr-status`)
+          .then(res => res.json())
+          .then(json => {
+            const d = json?.data
+            if (json?.success && d) {
+              setPrMap(prev => ({
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  prStatus: {
+                    found: !!d.found,
+                    issued: !!d.issued,
+                    requestNo: d.request_no || undefined,
+                    approveDate: d.stock_approve_date || undefined,
+                    poApproveDate: d.request_receive_date || undefined,
+                    paidStatusName: d.paid_status_name || undefined,
+                  },
+                },
+              }))
+            }
+          })
+          .catch(() => {})
+      }
+    })
+  }, [rows])
 
   useEffect(() => {
     const targets = rows.filter(r => r.process_status_id !== 1)
@@ -273,6 +382,7 @@ export default function RepairKanbanView({
                   const urgency = URGENCY_BY_PRIORITY_NAME[r.priority_name ?? ''] ?? { color: 'default', label: r.priority_name ?? '-' }
                   const catColor = PROBLEM_CATEGORY_COLOR[r.problem_category_name ?? ''] ?? '#94a3b8'
                   const exts = extMap[r.it_repair_request_id] ?? []
+                  const info: PrInfo = prMap[r.it_repair_request_id] ?? {}
                   return (
                     <div key={r.it_repair_request_id}
                       onClick={() => onDetail?.(r)}
@@ -375,8 +485,92 @@ export default function RepairKanbanView({
                       {r.process_status_id === 2 && renderDue(r, exts)}
                       {/* ประวัติผลัดสัญญา — ต่อท้ายการ์ด */}
                       <ExtensionHistory exts={exts} />
+                      {/* เลขที่ใบ PR — คอลัมน์ PO แสดงเลขที่ในส่วนความคืบหน้าแทน */}
+                      {info.prNumber && r.process_status_id !== 7 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
+                          <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
+                            {info.prNumber}
+                          </code>
+                        </div>
+                      )}
+                      {/* ความคืบหน้างาน (ออกเอกสาร / ขั้นตอน PO) — เช็คลิสต์อ่านอย่างเดียว เหมือนหน้า manage */}
+                      {(r.process_status_id === 3 || r.process_status_id === 7) && ((info.prTaskSteps && info.prTaskSteps.length > 0) || info.prTaskNote || (r.process_status_id === 7 && (info.prStatus?.found || info.prStatus?.issued))) && (() => {
+                        const cardSteps = stepsFor(r.process_status_id)
+                        const sel = info.prTaskSteps ?? []
+                        const isPo = r.process_status_id === 7
+                        const accent = isPo ? '#0d9488' : '#f97316'
+                        // PO นับจากสถานะพัสดุเท่านั้น: issued → 'อนุมัติ PR แล้ว', request_receive_date → 'อนุมัติ PO แล้ว'
+                        let done: Set<number>
+                        if (isPo) {
+                          const ps = info.prStatus
+                          done = new Set<number>()
+                          cardSteps.forEach(s => {
+                            if (s.step_code === 'pr_approved' && (ps?.issued || ps?.poApproveDate)) done.add(s.id)
+                            if (s.step_code === 'po_approved' && ps?.poApproveDate) done.add(s.id)
+                          })
+                        } else {
+                          done = new Set(sel)
+                        }
+                        return (
+                          <div style={{
+                            marginBottom: 6, fontSize: 10,
+                            padding: '5px 7px', borderRadius: 6, background: `${accent}14`, border: `1px solid ${accent}33`,
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                              <ToolOutlined style={{ fontSize: 10, color: accent }} />
+                              <span style={{ color: '#94a3b8' }}>
+                                ความคืบหน้างาน{' '}
+                                <span style={{ color: accent, fontWeight: 700 }}>{done.size}/{cardSteps.length} ขั้น</span>
+                              </span>
+                            </div>
+                            {cardSteps.map(s => {
+                              const checked = done.has(s.id)
+                              // ไม่มีข้อมูลยืนยันการอนุมัติ (found:false หรือ pr-status โหลดไม่ได้) → ขึ้นกากบาท
+                              const notFound = isPo && (s.step_code === 'pr_approved' || s.step_code === 'po_approved') && !info.prStatus?.found
+                              return (
+                                <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.5 }}>
+                                  {notFound
+                                    ? <CloseCircleOutlined style={{ fontSize: 10, marginTop: 1, color: '#ef4444' }} />
+                                    : <CheckSquareOutlined style={{ fontSize: 10, marginTop: 1, color: checked ? '#22c55e' : '#475569' }} />}
+                                  <span style={{ color: notFound ? '#94a3b8' : (checked ? '#cbd5e1' : '#64748b') }}>
+                                    {s.name_th}
+                                    {notFound && <span style={{ color: '#ef4444', marginLeft: 4 }}>· ไม่พบข้อมูล</span>}
+                                    {isPo && s.step_code === 'pr_approved' && (() => {
+                                      const prNo = info.prNumber ?? info.prStatus?.requestNo
+                                      return (
+                                        <>
+                                          {prNo && <span style={{ marginLeft: 4 }}>เลขที่ <code style={{ color: '#fb923c', fontSize: 10 }}>{prNo}</code></span>}
+                                          {info.prStatus?.issued && info.prStatus.approveDate && (
+                                            <span style={{ color: '#22c55e', marginLeft: 4 }}>· อนุมัติวันที่ {fmtDate(info.prStatus.approveDate)}</span>
+                                          )}
+                                          {info.prStatus?.found && !info.prStatus.issued && (
+                                            <span style={{ color: '#eab308', marginLeft: 4 }}>· รออนุมัติพัสดุ</span>
+                                          )}
+                                        </>
+                                      )
+                                    })()}
+                                    {isPo && s.step_code === 'po_approved' && info.prStatus?.poApproveDate && (
+                                      <>
+                                        <span style={{ color: '#22c55e', marginLeft: 4 }}>· อนุมัติ PO วันที่ {fmtDate(info.prStatus.poApproveDate)}</span>
+                                        {info.prStatus.paidStatusName && (
+                                          <span style={{ color: '#38bdf8', marginLeft: 4 }}>· {info.prStatus.paidStatusName}</span>
+                                        )}
+                                      </>
+                                    )}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                            {info.prTaskNote && (
+                              <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px dashed ${accent}33`, color: '#94a3b8', lineHeight: 1.5 }}>
+                                <span style={{ color: '#64748b' }}>หมายเหตุ: </span>{info.prTaskNote}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                       {/* Badge สถานะย่อย — แยกให้เห็นว่างานค้างอยู่ขั้นไหน */}
-                      {r.process_status_id === 3 && (
+                      {r.process_status_id === 3 && !info.prNumber && (
                         <Tag color="orange" style={{ fontSize: 10, marginBottom: 6 }}>อยู่ขั้นออกใบ PR — รออะไหล่</Tag>
                       )}
                       {r.process_status_id === 6 && (

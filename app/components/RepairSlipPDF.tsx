@@ -23,7 +23,21 @@ Font.register({
     { src: '/fonts/Sarabun/Sarabun-ExtraBoldItalic.ttf',   fontWeight: 800, fontStyle: 'italic' },
   ],
 })
+// ห้าม react-pdf ตัดกลางคำเอง — การตัดทำให้ textkit shape ทีละชิ้นแล้ววรรณยุกต์/สระหาย
+// เราจะแทรกจุดตัดบรรทัด (ZWSP) ที่ขอบเขตคำไทยเองใน "ค่าข้อความ" ผ่าน wrapTh() แทน
 Font.registerHyphenationCallback(word => [word])
+
+const thaiSegmenter =
+  typeof Intl !== 'undefined' && 'Segmenter' in Intl
+    ? new Intl.Segmenter('th', { granularity: 'word' })
+    : null
+
+// แทรก zero-width space ที่ขอบเขตคำไทย → ข้อความยาว wrap ได้ โดย shaping วรรณยุกต์ไม่หาย
+const wrapTh = (t?: string | null): string | undefined => {
+  if (!t) return undefined
+  if (!thaiSegmenter) return t
+  return Array.from(thaiSegmenter.segment(t), seg => seg.segment).join('​')
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface RepairSlipData {
@@ -50,6 +64,19 @@ export interface RepairSlipData {
   prNote?: string           // รายการที่ต้องการขอซื้อ / บันทึก PR
   prDate?: string
   replacementNote?: string
+  // ── ข้อมูลเพิ่มเติมจาก API (รายงานการซ่อม / PR / อนุมัติ 2 ระดับ) ──
+  assessmentResult?: string         // ผลการรายงานการซ่อมของช่าง (assessment_name)
+  prNumber?: string                 // เลขที่ใบ PR
+  // อนุมัติหัวหน้า IT (ระดับ 1)
+  itHeadName?: string
+  itHeadDate?: string
+  itHeadComment?: string
+  itHeadDecision?: 'approved' | 'rejected'
+  // อนุมัติหัวหน้าภารกิจ (ระดับ 2)
+  missionHeadName?: string
+  missionHeadDate?: string
+  missionHeadComment?: string
+  missionHeadDecision?: 'approved' | 'rejected'
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -137,10 +164,7 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
   const isPrinter  = /พิมพ์|ปริ้น|printer/i.test(data.equipmentTypeLabel + data.deviceBrand)
   const isComputer = !isPrinter
 
-  // (1) บันทึกของหน่วยงานซ่อมบำรุง — ติ๊กตามผลการดำเนินงาน
-  const fixedNoParts = data.status === 'completed' && !data.prNote && !data.replacementNote
-  const fixedParts   = !!data.prNote || data.status === 'waiting_pr'
-  const cannotFix    = !!data.replacementNote || data.status === 'recommend_replacement'
+  const isCompleted = data.status === 'completed' || /เสร็จ|เรียบร้อย/.test(data.statusLabel)
 
   return (
     <Document title={`ใบส่งซ่อม ${data.id}`}>
@@ -208,8 +232,8 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
           <Fill v={data.assetNo} flex={1} last />
         </View>
         <View style={s.row}>
-          <Text style={s.lbl}>อาการเสีย&nbsp;</Text>
-          <Fill v={`${data.symptom} `} last />
+          <Text style={[s.lbl, { fontWeight: 'normal' }]}>อาการเสีย&nbsp;</Text>
+          <Fill v={wrapTh(data.symptom)} last />
         </View>
 
         <Text style={[s.indent, { marginTop: 4 }]}>จึงเรียนมาเพื่อพิจารณาดำเนินการต่อไป&nbsp;</Text>
@@ -234,40 +258,54 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
             {/* (1) บันทึกของหน่วยงานซ่อมบำรุง */}
             <View style={s.cellLeft}>
               <Text style={s.secTitle}>(1) บันทึกของหน่วยงานซ่อมบำรุงคอมพิวเตอร์ </Text>
-              <View style={{ marginBottom: 2 }}><CB on={fixedNoParts} label="ซ่อมได้ ไม่เบิกวัสดุ" /></View>
-              <View style={{ marginBottom: 2 }}><CB on={fixedParts} label="ซ่อมได้ เบิกวัสดุ" /></View>
-              <View style={{ marginBottom: 4 }}><CB on={cannotFix} label="ซ่อมไม่ได้ ขอซื้อใหม่ทดแทน" /></View>
+
+              {/* ผลการรายงานการซ่อมของช่าง */}
+              {data.assessmentResult && (
+                <View style={[s.row, { marginBottom: 3 }]}>
+                  <Text style={s.lbl}>ผลการรายงาน</Text>
+                  <Fill v={wrapTh(data.assessmentResult)} last />
+                </View>
+              )}
 
               {/* ความเห็นของช่าง */}
               <Text style={[s.lbl, { marginBottom: 2 }]}>ความเห็นของช่าง</Text>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill v={data.technicianNote} last /></View>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill v={wrapTh(data.technicianNote)} last /></View>
               <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
 
-              {/* รายการที่ต้องการขอซื้อ */}
-              <Text style={[s.lbl, { marginTop: 4, marginBottom: 2 }]}>รายการที่ต้องการขอซื้อ</Text>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill v={data.prNote ?? data.replacementNote} last /></View>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
+              {/* รายการที่ต้องการขอซื้อ (อะไหล่จากใบ PR) */}
+              <View style={{ marginTop: 4 }}>
+                <Text style={[s.lbl, { marginBottom: 2, fontWeight: 'normal' }]}>รายการที่ต้องการขอซื้อ</Text>
+              </View>
+              <View style={[s.row, { marginBottom: 3 }]}><Fill v={wrapTh(data.prNote ?? data.replacementNote)} last /></View>
+             
+
 
               <View style={[s.sigRow, { justifyContent: 'flex-end' }]}>
                 <Text style={s.lbl}>ลงชื่อ </Text>
-                <Fill v={data.assignedTo} flex={2} center />
+                <Fill v={data.assignedTo ? `${data.assignedTo} ` : undefined} flex={2} center />
                 <Text>ผู้ซ่อมบำรุง </Text>
               </View>
             </View>
 
-            {/* เรียน ผอ. + (2) ความเห็นและคำสั่ง */}
+            {/* เรียน ผอ. (หัวหน้าภารกิจเสนอความเห็น) + (2) ความเห็นและคำสั่ง */}
             <View style={s.cellRight}>
               <Text style={s.secTitle}>เรียน ผู้อำนวยการ </Text>
-              <Text style={[s.indent, { marginLeft: 20, marginBottom: 8 }]}>เพื่อโปรดพิจารณา</Text>
+              <Text style={[s.indent, { marginLeft: 20, marginBottom: 4 }]}>เพื่อโปรดพิจารณา</Text>
+              <View style={{ flexDirection: 'row', marginLeft: 20, marginBottom: 4 }}>
+                <CB on={data.missionHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
+                <CB on={data.missionHeadDecision === 'rejected'} label="ไม่เห็นควร" />
+              </View>
+              {data.missionHeadComment && (
+                <View style={[s.row, { marginLeft: 20, marginBottom: 4 }]}><Fill v={wrapTh(data.missionHeadComment)} last /></View>
+              )}
               <View style={s.sigCenter}>
                 <View style={[s.row, { width: 200 }]}>
                   <Text style={s.lbl}>(ลงชื่อ)</Text>
                   <Fill last />
                 </View>
-                <Text>นายไกรรัตน์ คำดี </Text>
-                <Text>นายแพทย์ชำนาญการ </Text>
-                <Text style={s.small}>วันที่ ........../........../..........</Text>
+                <Text>({data.missionHeadName ?? 'นายไกรรัตน์ คำดี'}) </Text>
+                <Text>{data.missionHeadName ? 'หัวหน้ากลุ่มภารกิจ' : 'นายแพทย์ชำนาญการ'} </Text>
+                <Text style={s.small}>วันที่ {data.missionHeadDate ?? '........../........../..........'}</Text>
               </View>
 
               <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
@@ -304,15 +342,19 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
               <Text style={[s.small, { marginBottom: 4 }]}>
                 เพื่อพิจารณาดำเนินการ / ตรวจสอบ / เสนอความเห็น&nbsp;
               </Text>
-              <View style={[s.row]}><Fill last /></View>
-              <View style={[s.row, { marginBottom: 6 }]}><Fill last /></View>
+              <View style={{ flexDirection: 'row', marginBottom: 3 }}>
+                <CB on={data.itHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
+                <CB on={data.itHeadDecision === 'rejected'} label="ไม่เห็นควร" />
+              </View>
+              <View style={[s.row]}><Fill v={wrapTh(data.itHeadComment)} last /></View>
               <View style={s.sigCenter}>
                 <View style={[s.row, { width: 200 }]}>
                   <Text style={s.lbl}>(ลงชื่อ)</Text>
                   <Fill last />
                 </View>
-                <Text>(นางวรางคณา เอื้อหยิ่งศักดิ์)</Text>
-                <Text>นักวิชาการคอมพิวเตอร์ปฏิบัติการ</Text>
+                <Text>({data.itHeadName ?? 'นางวรางคณา เอื้อหยิ่งศักดิ์'})</Text>
+                <Text>{data.itHeadName ? 'หัวหน้างานซ่อมบำรุงคอมพิวเตอร์' : 'นักวิชาการคอมพิวเตอร์ปฏิบัติการ'}</Text>
+                {data.itHeadDate && <Text style={s.small}>วันที่ {data.itHeadDate}</Text>}
               </View>
               {/* เส้นคั่นยาวเต็มช่อง — แยกส่วนลงชื่อออกจากหมายเหตุ */}
               <View style={{ borderBottom: '0.7px solid #000', marginTop: 8, marginBottom: 6 }} />
@@ -337,14 +379,14 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
             <View style={s.cellRight}>
               <Text style={[s.secTitle, { textAlign: 'center' }]}>ได้ตรวจสอบแล้ว ปรากฏว่า</Text>
               <View style={{ marginBottom: 2 }}>
-                <CB on={data.status === 'completed'} label="เรียบร้อยใช้การได้ดี" />
+                <CB on={isCompleted} label="เรียบร้อยใช้การได้ดี" />
               </View>
               <View style={{ marginBottom: 6 }}>
                 <CB on={false} label="ยังไม่เรียบร้อย ใช้การยังไม่ได้" />
               </View>
               <View style={s.sigRow}>
                 <Text style={s.lbl}>(ลงชื่อ)</Text>
-                <Fill v={data.assignedTo} center />
+                <Fill center />
                 <Text>ผู้ซ่อม</Text>
               </View>
               <View style={s.sigRow}>

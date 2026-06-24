@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
@@ -345,35 +345,73 @@ const LeaveApprovalContent = () => {
     rejected: requests.filter(r => getOverall(r.approvalChain) === 'rejected').length,
   }
 
-  // ─── Calendar: events on each cell ─────────────────────────────────────────
+  // ─── Calendar: จัดเลน (lane) ให้ใบลาแต่ละใบมีแถวคงที่ตลอดทั้งเดือน ───────────
+  // เพื่อให้บาร์ของใบลาต่อเนื่อง "ลากยาว" ข้ามวันโดยอยู่แถวเดิม (ไม่สลับขึ้นลง)
+  const laneInfo = useMemo(() => {
+    const sorted = [...requests].sort(
+      (a, b) => a.startISO.localeCompare(b.startISO) || a.endISO.localeCompare(b.endISO)
+    )
+    const laneEnd: string[] = []          // endISO ล่าสุดของแต่ละเลน
+    const map: Record<string, number> = {}
+    for (const r of sorted) {
+      let lane = laneEnd.findIndex(end => end < r.startISO)   // เลนแรกที่ว่าง
+      if (lane === -1) { lane = laneEnd.length; laneEnd.push(r.endISO) }
+      else laneEnd[lane] = r.endISO
+      map[r.id] = lane
+    }
+    return map
+  }, [requests])
+
+  // ─── Calendar: render บาร์วันลาแบบต่อเนื่องในแต่ละ cell ──────────────────────
   const cellRender = (date: Dayjs) => {
     if (date.month() !== calMonth.month()) return null
-    const onLeave = requests.filter(r => isOnLeave(date, r))
-    if (!onLeave.length) return null
-    return (
-      <div className="flex flex-col gap-0.5 mt-0.5">
-        {onLeave.map(r => (
-          <div
-            key={r.id}
-            style={{
-              backgroundColor: r.color,
-              borderRadius: 3,
-              padding: '1px 5px',
-              fontSize: 10,
-              color: '#fff',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              cursor: 'pointer',
-            }}
-            onClick={(e) => { e.stopPropagation(); openDetail(r) }}
-            title={`${r.employeeName} — ${r.leaveType}`}
-          >
-            {r.shortName}
-          </div>
-        ))}
-      </div>
-    )
+    const ds = date.format('YYYY-MM-DD')
+    const active = requests.filter(r => ds >= r.startISO && ds <= r.endISO)
+    if (!active.length) return null
+
+    const byLane: Record<number, LeaveApprovalRequest> = {}
+    active.forEach(r => { byLane[laneInfo[r.id]] = r })
+    const maxLane = Math.max(...active.map(r => laneInfo[r.id]))
+    const dow = date.day()   // 0 = อาทิตย์, 6 = เสาร์
+
+    const rows = []
+    for (let i = 0; i <= maxLane; i++) {
+      const r = byLane[i]
+      if (!r) { rows.push(<div key={i} style={{ height: 16 }} />); continue }   // spacer คงแถว
+      const isStart  = ds === r.startISO
+      const isEnd    = ds === r.endISO
+      const openLeft  = isStart || dow === 0   // ต้นใบลา หรือ ต้นสัปดาห์
+      const openRight = isEnd   || dow === 6   // ปลายใบลา หรือ ปลายสัปดาห์
+      rows.push(
+        <div
+          key={i}
+          style={{
+            backgroundColor: r.color,
+            height: 16,
+            lineHeight: '16px',
+            padding: '0 5px',
+            fontSize: 10,
+            color: '#fff',
+            overflow: 'hidden',
+            whiteSpace: 'nowrap',
+            textOverflow: 'ellipsis',
+            cursor: 'pointer',
+            // ลากบาร์ให้ชนขอบ cell เพื่อต่อกันข้ามวัน (เปิดด้านที่ยังลาต่อ)
+            marginLeft: openLeft ? 0 : -9,
+            marginRight: openRight ? 0 : -9,
+            borderTopLeftRadius: openLeft ? 3 : 0,
+            borderBottomLeftRadius: openLeft ? 3 : 0,
+            borderTopRightRadius: openRight ? 3 : 0,
+            borderBottomRightRadius: openRight ? 3 : 0,
+          }}
+          onClick={(e) => { e.stopPropagation(); openDetail(r) }}
+          title={`${r.employeeName} — ${r.leaveType} (${fmtThai(r.startISO)} – ${fmtThai(r.endISO)})`}
+        >
+          {openLeft ? r.shortName : ' '}
+        </div>
+      )
+    }
+    return <div className="flex flex-col gap-0.5 mt-0.5">{rows}</div>
   }
 
   // เพื่อนร่วมงานที่ลาทับช่วงเวลาเดียวกัน (ใช้ใน modal)
@@ -648,6 +686,7 @@ const LeaveApprovalContent = () => {
             <Col xs={24} xl={18}>
               <Card variant="borderless" className="rounded-xl overflow-hidden">
                 <Calendar
+                  className="leave-cal"
                   value={calMonth}
                   onPanelChange={v => setCalMonth(v)}
                   cellRender={cellRender}
@@ -734,7 +773,7 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="จำนวนวัน">
                   <Text style={{ color: '#6ee7b7', fontWeight: 700 }}>{selected.totalDays} วัน</Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="เหตุผล" span={3}>{selected.reason}</Descriptions.Item>
+                <Descriptions.Item label="เหตุผล" span={{ xs: 1, sm: 2, md: 3 }}>{selected.reason}</Descriptions.Item>
               </Descriptions>
 
               {/* ── ปฏิทินช่วงวันลา + เพื่อนร่วมงาน ── */}
@@ -835,7 +874,7 @@ const LeaveApprovalContent = () => {
               <Timeline
                 items={selected.approvalChain.map(s => ({
                   color: s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : s.status === 'pending' ? 'blue' : 'gray',
-                  children: (
+                  content: (
                     <div>
                       <Text strong>{s.level}</Text>
                       <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{s.timestamp}</Text>
@@ -922,14 +961,14 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="จำนวนวัน">
                   <Text style={{ color: '#fcd34d', fontWeight: 700 }}>{selectedCancel.totalDays} วัน</Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="เหตุผลการยกเลิก" span={2}>{selectedCancel.cancelReason}</Descriptions.Item>
+                <Descriptions.Item label="เหตุผลการยกเลิก" span={{ xs: 1, sm: 2 }}>{selectedCancel.cancelReason}</Descriptions.Item>
               </Descriptions>
 
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการอนุมัติ</Divider>
               <Timeline
                 items={selectedCancel.approvalChain.map(s => ({
                   color: s.status === 'approved' ? 'green' : s.status === 'rejected' ? 'red' : s.status === 'pending' ? 'blue' : 'gray',
-                  children: (
+                  content: (
                     <div>
                       <Text strong>{s.level}</Text>
                       <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{s.timestamp}</Text>
