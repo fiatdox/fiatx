@@ -487,9 +487,9 @@ const PageContent = () => {
                 </div>
               </div>
               <Descriptions column={{ xs: 1, sm: 2 }} size="small">
-                <Descriptions.Item label="จุดประสงค์การขอข้อมูล" span={2}>{selected.purpose}</Descriptions.Item>
+                <Descriptions.Item label="จุดประสงค์การขอข้อมูล" span={{ xs: 1, sm: 2 }}>{selected.purpose}</Descriptions.Item>
                 {selected.sampleFile && (
-                  <Descriptions.Item label="ไฟล์ตัวอย่าง" span={2}>
+                  <Descriptions.Item label="ไฟล์ตัวอย่าง" span={{ xs: 1, sm: 2 }}>
                     <a><PaperClipOutlined /> {selected.sampleFile}</a>
                   </Descriptions.Item>
                 )}
@@ -500,12 +500,12 @@ const PageContent = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="ติดต่อ">{selected.phone ?? selected.email ?? '-'}</Descriptions.Item>
                 {selected.assignedTo && (
-                  <Descriptions.Item label="ผู้จัดทำ" span={2}>
+                  <Descriptions.Item label="ผู้จัดทำ" span={{ xs: 1, sm: 2 }}>
                     <Text style={{ color: ACCENT, fontWeight: 600 }}>{selected.assignedTo}</Text>
                   </Descriptions.Item>
                 )}
                 {selected.deliveredNote && (
-                  <Descriptions.Item label="การส่งมอบ" span={2}>{selected.deliveredNote}</Descriptions.Item>
+                  <Descriptions.Item label="การส่งมอบ" span={{ xs: 1, sm: 2 }}>{selected.deliveredNote}</Descriptions.Item>
                 )}
               </Descriptions>
             </Card>
@@ -516,7 +516,7 @@ const PageContent = () => {
                 color: h.action.includes('ไม่อนุมัติ') ? 'red'
                   : h.action.includes('อนุมัติ') || h.action.includes('ส่งมอบ') ? 'green'
                   : ACCENT,
-                children: (
+                content: (
                   <div>
                     <Text strong>{h.stepName}</Text>
                     <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{h.timestamp}</Text>

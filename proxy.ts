@@ -71,6 +71,18 @@ export function proxy(req: NextRequest) {
     }
   }
 
+  // กั้นหน้าจัดการงานซ่อม IT — เฉพาะเจ้าหน้าที่/หัวหน้ากลุ่ม IT, หัวหน้าภารกิจ และผู้ดูแลระบบ
+  if (pathname === '/information-technology/maintenance/manage' || pathname === '/information-technology/maintenance/manage/') {
+    const allowed = ['CHIEF_GROUP_IT', 'IT_STAFF', 'CHIEF_MISSION_IT', 'ADMIN']
+    const roles = getRoles(req).map(r => r.toUpperCase())
+    if (!roles.some(r => allowed.includes(r))) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
+  }
+
   return NextResponse.next()
 }
 

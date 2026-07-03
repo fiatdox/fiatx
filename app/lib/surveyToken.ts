@@ -13,11 +13,6 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
 
 const RAW_SECRET = process.env.SURVEY_SECRET ?? ''
 
-if (!RAW_SECRET && process.env.NODE_ENV === 'production') {
-  // กันพลาดบน production — ถ้าไม่ตั้ง secret โทเค็นจะใช้คีย์ dev ที่ใครก็เดาได้
-  console.warn('[surveyToken] ⚠️  ไม่ได้ตั้งค่า SURVEY_SECRET — โทเค็นแบบประเมินจะไม่ปลอดภัย')
-}
-
 // derive คีย์ 32 ไบต์จาก secret (scrypt + salt คงที่ของแอป)
 const KEY = scryptSync(RAW_SECRET || 'pyhos-dev-insecure-secret', 'pyhos-survey-key-v1', 32)
 

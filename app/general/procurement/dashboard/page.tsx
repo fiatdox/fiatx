@@ -158,7 +158,7 @@ const PageContent = () => {
               }}>
               <Progress type="dashboard" percent={stats.onTimePct} strokeColor={
                 stats.onTimePct >= 90 ? '#10b981' : stats.onTimePct >= 70 ? '#fbbf24' : '#ef4444'
-              } trailColor="#334155" size={160} />
+              } railColor="#334155" size={160} />
 
               <Row gutter={12} style={{ width: '100%', marginTop: 16 }}>
                 <Col span={12}>

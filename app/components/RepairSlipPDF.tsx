@@ -1,4 +1,5 @@
 'use client'
+import type { ReactNode } from 'react'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
@@ -23,21 +24,41 @@ Font.register({
     { src: '/fonts/Sarabun/Sarabun-ExtraBoldItalic.ttf',   fontWeight: 800, fontStyle: 'italic' },
   ],
 })
-// ห้าม react-pdf ตัดกลางคำเอง — การตัดทำให้ textkit shape ทีละชิ้นแล้ววรรณยุกต์/สระหาย
-// เราจะแทรกจุดตัดบรรทัด (ZWSP) ที่ขอบเขตคำไทยเองใน "ค่าข้อความ" ผ่าน wrapTh() แทน
-Font.registerHyphenationCallback(word => [word])
-
-const thaiSegmenter =
-  typeof Intl !== 'undefined' && 'Segmenter' in Intl
-    ? new Intl.Segmenter('th', { granularity: 'word' })
-    : null
-
-// แทรก zero-width space ที่ขอบเขตคำไทย → ข้อความยาว wrap ได้ โดย shaping วรรณยุกต์ไม่หาย
-const wrapTh = (t?: string | null): string | undefined => {
-  if (!t) return undefined
-  if (!thaiSegmenter) return t
-  return Array.from(thaiSegmenter.segment(t), seg => seg.segment).join('​')
+// ตัดบรรทัดไทยที่ "จุดปลอดภัย" (หน้าพยางค์ใหม่) ผ่าน hyphenation callback — ไม่มีช่องว่าง ไม่มียัติภังค์
+// แยกเฉพาะหน้าพยัญชนะ/สระนำ (เแโใไ) ไม่แยกสระตาม/วรรณยุกต์ออกจากพยัญชนะ → สระ/วรรณยุกต์ไม่หาย
+//
+// callback นี้เป็น GLOBAL (react-pdf มีตัวเดียวทั้งเอกสาร) จึงจำกัด scope ด้วยเงื่อนไข:
+//   • คำสั้น (≤ THRESHOLD) → คืน [word] เดิม ไม่แตะเลย → label/ค่าสั้นทุก field ไม่กระทบ
+//   • เฉพาะข้อความไทยยาวติดกัน (comment) เท่านั้นที่เสนอจุดตัด — ใช้ก็ต่อเมื่อบรรทัดล้นจริง
+const TH_WRAP_MIN = 18  // ความยาวขั้นต่ำที่จะเริ่มเสนอจุดตัด (กัน field สั้นโดนกระทบ)
+const HARD_CHUNK = 28  // ความยาวสูงสุดต่อชิ้นก่อนบังคับตัด (กันคำยาวๆ ไม่มีช่องว่างล้นกรอบ)
+const chunk = (s: string): string[] => {
+  if (s.length <= HARD_CHUNK) return [s]
+  const out: string[] = []
+  for (let i = 0; i < s.length; i += HARD_CHUNK) out.push(s.slice(i, i + HARD_CHUNK))
+  return out
 }
+Font.registerHyphenationCallback(word => {
+  if (word.length <= TH_WRAP_MIN) return [word]
+  // มีอักษรไทย → ตัดตามกฎไทยก่อน แล้วบังคับตัดชิ้นที่ยังยาวเกิน
+  const pieces = /[ก-๿]/.test(word)
+    ? word.split(/(?<=[ก-ฺๅ-๎])(?=[ก-ฮเ-ไ])/g)
+    : [word]
+  return pieces.flatMap(chunk)
+})
+
+// wrapTh คงไว้เพื่อ <T> (pass-through — การ wrap ทำที่ callback ด้านบน)
+const wrapTh = (t?: string | null): string | undefined => t ?? undefined
+
+// <T> = <Text> ที่ wrap ภาษาไทยอัตโนมัติทุกที่ (กัน glyph/สระ/วรรณยุกต์หาย) — ใช้แทน <Text> ทั้งไฟล์
+const wrapNode = (node: ReactNode): ReactNode =>
+  typeof node === 'string' ? wrapTh(node)
+    : Array.isArray(node) ? node.map(wrapNode)
+    : node
+const T = ({ children, style }: { children?: ReactNode; style?: object | object[] }) => (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  <Text style={style as any}>{wrapNode(children)}</Text>
+)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface RepairSlipData {
@@ -69,11 +90,15 @@ export interface RepairSlipData {
   prNumber?: string                 // เลขที่ใบ PR
   // อนุมัติหัวหน้า IT (ระดับ 1)
   itHeadName?: string
+  itHeadPosition?: string
+  itHeadLevel?: string
   itHeadDate?: string
   itHeadComment?: string
   itHeadDecision?: 'approved' | 'rejected'
   // อนุมัติหัวหน้าภารกิจ (ระดับ 2)
   missionHeadName?: string
+  missionHeadPosition?: string
+  missionHeadLevel?: string
   missionHeadDate?: string
   missionHeadComment?: string
   missionHeadDecision?: 'approved' | 'rejected'
@@ -136,7 +161,7 @@ const s = StyleSheet.create({
   boxRow:    { flexDirection: 'row' },
   cellLeft:  { flex: 11, borderRight: '1px solid #000', padding: '5px 8px' },
   cellRight: { flex: 10, padding: '5px 8px' },
-  boxBottom: { flexDirection: 'row', borderTop: '1px solid #000' },
+  boxBottom: { flexDirection: 'row' },
   secTitle:  { fontWeight: 'bold', marginBottom: 4 },
 
   // ลายเซ็น
@@ -149,13 +174,25 @@ const s = StyleSheet.create({
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const CB = ({ on, label }: { on?: boolean; label: string }) => (
   <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginRight: 14 }}>
-    <Text style={s.cb}>{on ? '( / )' : '(    )'}</Text>
-    <Text>{label}</Text>
+    <T style={s.cb}>{on ? '( / )' : '(    )'}</T>
+    <T>{label}</T>
   </View>
 )
 
 const Fill = ({ v, flex, last, center }: { v?: string; flex?: number; last?: boolean; center?: boolean }) => (
-  <Text style={[s.fill, last ? s.fillLast : {}, flex ? { flex } : {}, center ? { textAlign: 'center' } : {}]}>{v ?? ' '}</Text>
+  <T style={[s.fill, last ? s.fillLast : {}, flex ? { flex } : {}, center ? { textAlign: 'center' } : {}]}>{v ?? ' '}</T>
+)
+
+// RuledText — กล่องข้อความที่มี "เส้นปะเต็มความกว้าง" ขีดใต้ทุกบรรทัด (เหมือนกระดาษเส้นบรรทัด)
+// วางเส้นปะแบบ absolute เป็นพื้นหลัง แล้ววางข้อความทับ → เส้นยาวจนสุดขอบทุกบรรทัด ไม่ว่าข้อความสั้น/ยาว
+const LH = 14.4  // fontSize 9 × lineHeight 1.6
+const RuledText = ({ text, lines = 3 }: { text?: string; lines?: number }) => (
+  <View style={{ position: 'relative', minHeight: LH * lines, marginBottom: 3 }}>
+    {Array.from({ length: lines }).map((_, i) => (
+      <View key={i} style={{ position: 'absolute', left: 0, right: 0, top: LH * (i + 1) - 2, borderBottom: '0.7px dotted #000' }} />
+    ))}
+    <T>{text || ' '}</T>
+  </View>
 )
 
 // ─── Document ─────────────────────────────────────────────────────────────────
@@ -173,39 +210,39 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
         {/* ── แถวบนสุด: ชื่อฟอร์ม + หัวบันทึก (ซ้าย) | กล่องธุรการ (ขวา) ── */}
         <View style={s.topRow}>
           <View style={s.topLeft}>
-            <Text style={s.formTitle}>ใบส่งซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์&nbsp;</Text>
+            <T style={s.formTitle}>ใบส่งซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์&nbsp;</T>
             <View style={s.row}>
-              <Text style={s.lbl}>ส่วนราชการ</Text>
-              <Text style={s.lbl}>ตึกผู้ป่วย / ฝ่าย / กลุ่มงาน</Text>
+              <T style={s.lbl}>ส่วนราชการ</T>
+              <T style={s.lbl}>ตึกผู้ป่วย / ฝ่าย / กลุ่มงาน</T>
               <Fill v={data.department} last />
             </View>
             <View style={s.row}>
-              <Text style={s.lbl}>ใบส่งซ่อมที่</Text>
+              <T style={s.lbl}>ใบส่งซ่อมที่</T>
               <Fill v={data.id} />
-              <Text style={s.lbl}>วันที่</Text>
+              <T style={s.lbl}>วันที่</T>
               <Fill v={data.requestDate} last />
             </View>
             <View style={s.row}>
-              <Text style={s.lbl}>เรื่อง</Text>
-              <Text>ขออนุมัติซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์ &nbsp;</Text>
+              <T style={s.lbl}>เรื่อง</T>
+              <T>ขออนุมัติซ่อมบำรุงครุภัณฑ์คอมพิวเตอร์ &nbsp;</T>
             </View>
             <View style={[s.row, { marginBottom: 0 }]}>
-              <Text style={s.lbl}>เรียน</Text>
-              <Text>ผู้อำนวยการโรงพยาบาล &nbsp;</Text>
+              <T style={s.lbl}>เรียน</T>
+              <T>ผู้อำนวยการโรงพยาบาลพะเยา &nbsp;</T>
             </View>
           </View>
           <View style={s.regBox}>
-            <Text style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: 3 }}>
+            <T style={{ fontWeight: 'bold', textAlign: 'center', marginBottom: 3 }}>
               ธุรการงานซ่อมกลุ่มงานเทคโนโลยีสารสนเทศ
-            </Text>
+            </T>
             <View style={s.row}>
-              <Text style={s.lbl}>เลขที่</Text>
+              <T style={s.lbl}>เลขที่</T>
               <Fill v={data.id} />
-              <Text style={s.lbl}>/</Text>
+              <T style={s.lbl}>/</T>
               <Fill last />
             </View>
             <View style={[s.row, { marginBottom: 0 }]}>
-              <Text style={s.lbl}>วันที่</Text>
+              <T style={s.lbl}>วันที่</T>
               <Fill v={data.requestDate} last />
             </View>
           </View>
@@ -213,40 +250,40 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
 
         {/* ── เนื้อความ ── */}
         <View style={[s.row, s.indent]}>
-          <Text style={s.lbl}>ด้วยฝ่าย/งาน</Text>
+          <T style={s.lbl}>ด้วยฝ่าย/งาน</T>
           <Fill v={data.department} />&nbsp;
-          <Text> มีความประสงค์ทำการซ่อมบำรุง &nbsp;</Text>
+          <T> มีความประสงค์ทำการซ่อมบำรุง &nbsp;</T>
         </View>
-        <View style={[s.row, { marginBottom: 6 }]}>
+        <View style={[s.row, { marginBottom: 2 }]}>
 
           <CB on={isPrinter} label="ซ่อมปริ้นเตอร์" />
           <CB on={isComputer} label="ซ่อมคอมพิวเตอร์ / เปลี่ยนอะไหล่" />
-          <Text>ตามรายการต่อไปนี้</Text>
+          <T>ตามรายการต่อไปนี้</T>
         </View>
 
         {/* รายการครุภัณฑ์ที่ส่งซ่อม — 1 ใบ ต่อ 1 รายการ */}
         <View style={s.row}>
-          <Text style={s.lbl}>ชื่อครุภัณฑ์&nbsp;</Text>
+          <T style={s.lbl}>ชื่อครุภัณฑ์&nbsp;</T>
           <Fill v={`${data.deviceBrand} (${data.equipmentTypeLabel}) `} flex={3} />
-          <Text style={s.lbl}>รหัสครุภัณฑ์</Text>
+          <T style={s.lbl}>รหัสครุภัณฑ์</T>
           <Fill v={data.assetNo} flex={1} last />
         </View>
         <View style={s.row}>
-          <Text style={[s.lbl, { fontWeight: 'normal' }]}>อาการเสีย&nbsp;</Text>
-          <Fill v={wrapTh(data.symptom)} last />
+          <T style={[s.lbl, { fontWeight: 'normal' }]}>อาการเสีย&nbsp;</T>
+          <Fill v={wrapTh(data.symptom+ '     ')} last />
         </View>
 
-        <Text style={[s.indent, { marginTop: 4 }]}>จึงเรียนมาเพื่อพิจารณาดำเนินการต่อไป&nbsp;</Text>
+        <T style={[s.indent, { marginTop: 4 }]}>จึงเรียนมาเพื่อพิจารณาดำเนินการต่อไป&nbsp;</T>
 
         {/* ลงชื่อผู้ส่งซ่อม */}
-        <View style={{ alignItems: 'flex-end', marginTop: 4 }}>
+        <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
           <View style={[s.row, { width: 260 }]}>
-            <Text style={s.lbl}>(ลงชื่อ)</Text>
+            <T style={s.lbl}>(ลงชื่อ)</T>
             <Fill v={data.requesterName+' '} center />
-            <Text>ผู้ส่งซ่อม </Text>
+            <T>ผู้ส่งซ่อม </T>
           </View>
           <View style={[s.row, { width: 260 }]}>
-            <Text style={s.lbl}>ตำแหน่ง </Text>
+            <T style={s.lbl}>ตำแหน่ง </T>
             <Fill v={data.position} last />
           </View>
         </View>
@@ -257,146 +294,146 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
 
             {/* (1) บันทึกของหน่วยงานซ่อมบำรุง */}
             <View style={s.cellLeft}>
-              <Text style={s.secTitle}>(1) บันทึกของหน่วยงานซ่อมบำรุงคอมพิวเตอร์ </Text>
+              <T style={s.secTitle}>(1) บันทึกของหน่วยงานซ่อมบำรุงคอมพิวเตอร์ </T>
 
               {/* ผลการรายงานการซ่อมของช่าง */}
               {data.assessmentResult && (
                 <View style={[s.row, { marginBottom: 3 }]}>
-                  <Text style={s.lbl}>ผลการรายงาน</Text>
-                  <Fill v={wrapTh(data.assessmentResult)} last />
+                  <T style={s.lbl}>ผลการรายงาน</T>
+                  <Fill v={wrapTh(data.assessmentResult+ '    ')} last />
                 </View>
               )}
 
-              {/* ความเห็นของช่าง */}
-              <Text style={[s.lbl, { marginBottom: 2 }]}>ความเห็นของช่าง</Text>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill v={wrapTh(data.technicianNote)} last /></View>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill last /></View>
+              {/* ความเห็นของช่าง — เส้นปะเต็มความกว้างทุกบรรทัด */}
+              <T style={[s.lbl, { marginBottom: 2 }]}>ความเห็นของช่าง</T>
+              <RuledText text={data.technicianNote+'      '} />
+
 
               {/* รายการที่ต้องการขอซื้อ (อะไหล่จากใบ PR) */}
               <View style={{ marginTop: 4 }}>
-                <Text style={[s.lbl, { marginBottom: 2, fontWeight: 'normal' }]}>รายการที่ต้องการขอซื้อ</Text>
+                <T style={[s.lbl, { marginBottom: 2, fontWeight: 'normal' }]}>รายการที่ต้องการขอซื้อ</T>
               </View>
-              <View style={[s.row, { marginBottom: 3 }]}><Fill v={wrapTh(data.prNote ?? data.replacementNote)} last /></View>
-             
+              <RuledText text={data.prNote ?? data.replacementNote ?? data.equipmentTypeLabel} />
+
 
 
               <View style={[s.sigRow, { justifyContent: 'flex-end' }]}>
-                <Text style={s.lbl}>ลงชื่อ </Text>
+                <T style={s.lbl}>ลงชื่อ </T>
                 <Fill v={data.assignedTo ? `${data.assignedTo} ` : undefined} flex={2} center />
-                <Text>ผู้ซ่อมบำรุง </Text>
+                <T>ผู้ซ่อมบำรุง </T>
+              </View>
+
+              {/* เรียน หัวหน้างานซ่อม — ต่อในคอลัมน์ซ้าย (ขีดเส้นใต้คั่นเหมือนข้อ (2) ฝั่งขวา) */}
+              <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
+                <T style={s.secTitle}>เรียน หัวหน้างานซ่อมบำรุงคอมพิวเตอร์ &nbsp;</T>
+              <T style={[s.small, { marginBottom: 4 }]}>
+                เพื่อพิจารณาดำเนินการ / ตรวจสอบ / เสนอความเห็น&nbsp;
+              </T>
+              <View style={{ flexDirection: 'row', marginBottom: 2 }}>
+                <CB on={data.itHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
+                <CB on={data.itHeadDecision === 'rejected'} label="ไม่เห็นควร" />
+              </View>
+              <RuledText text={data.itHeadComment+'    '} lines={2} />
+              <View style={s.sigCenter}>
+                <View style={[s.row, { width: 200 }]}>
+                  <T style={s.lbl}>(ลงชื่อ)</T>
+                  <Fill v={wrapTh(data.itHeadName)} last center />
+                </View>
+                <T>({wrapTh(data.itHeadName ?? 'นางวรางคณา เอื้อหยิ่งศักดิ์')})</T>
+                <T>{wrapTh(((data.itHeadPosition ?? '') + (data.itHeadLevel ?? '')) || 'นักวิชาการคอมพิวเตอร์ปฏิบัติการ')}</T>
+                {data.itHeadDate && <T style={s.small}>วันที่ {data.itHeadDate}</T>}
+              </View>
+              {/* เส้นคั่นด้านบนก่อนหมายเหตุ */}
+              <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
+                <View style={s.row}>
+                  <T style={[s.lbl, { textDecoration: 'underline' }]}>หมายเหตุ</T>
+                  <T style={s.lbl}>ส่งงานพัสดุดำเนินการวันที่&nbsp;</T>
+                  <Fill v={data.prDate} last />
+                </View>
+              </View>
+              {/* ชื่อผู้รับ/ตำแหน่ง */}
+              <View style={[s.sigCenter, { marginTop: 0 }]}>
+                <View style={[s.row, { width: 200 }]}>
+                  <T style={s.lbl}>ชื่อผู้รับ&nbsp;</T>
+                  <Fill last center />
+                </View>
+                <View style={[s.row, { width: 200, marginBottom: 0 }]}>
+                  <T style={s.lbl}>ตำแหน่ง&nbsp;</T>
+                  <Fill last center />
+                </View>
+              </View>
               </View>
             </View>
 
             {/* เรียน ผอ. (หัวหน้าภารกิจเสนอความเห็น) + (2) ความเห็นและคำสั่ง */}
             <View style={s.cellRight}>
-              <Text style={s.secTitle}>เรียน ผู้อำนวยการ </Text>
-              <Text style={[s.indent, { marginLeft: 20, marginBottom: 4 }]}>เพื่อโปรดพิจารณา</Text>
+              <T style={s.secTitle}>เรียน ผู้อำนวยการโรงพยาบาลพะเยา </T>
+              <T style={[s.indent, { marginLeft: 20, marginBottom: 4 }]}>เพื่อโปรดพิจารณา</T>
               <View style={{ flexDirection: 'row', marginLeft: 20, marginBottom: 4 }}>
                 <CB on={data.missionHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
                 <CB on={data.missionHeadDecision === 'rejected'} label="ไม่เห็นควร" />
               </View>
-              {data.missionHeadComment && (
-                <View style={[s.row, { marginLeft: 20, marginBottom: 4 }]}><Fill v={wrapTh(data.missionHeadComment)} last /></View>
-              )}
+              <View style={{ marginLeft: 20 }}>
+                <RuledText text={data.missionHeadComment} lines={2} />
+              </View>
               <View style={s.sigCenter}>
                 <View style={[s.row, { width: 200 }]}>
-                  <Text style={s.lbl}>(ลงชื่อ)</Text>
+                  <T style={s.lbl}>(ลงชื่อ)</T>
                   <Fill last />
                 </View>
-                <Text>({data.missionHeadName ?? 'นายไกรรัตน์ คำดี'}) </Text>
-                <Text>{data.missionHeadName ? 'หัวหน้ากลุ่มภารกิจ' : 'นายแพทย์ชำนาญการ'} </Text>
-                <Text style={s.small}>วันที่ {data.missionHeadDate ?? '........../........../..........'}</Text>
+                <T>({wrapTh(data.missionHeadName ?? 'นายไกรรัตน์ คำดี')}) </T>
+                <T>{wrapTh((((data.missionHeadPosition ?? '') + (data.missionHeadLevel ?? '')) || 'นายแพทย์ชำนาญการ') + ' ')}</T>
+                <T style={s.small}>วันที่ {data.missionHeadDate ?? '........../........../..........'}</T>
               </View>
 
               <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
-                <Text style={s.secTitle}>(2) ความเห็นและคำสั่ง &nbsp;</Text>
+                <T style={s.secTitle}>(2) ความเห็นและคำสั่ง &nbsp;</T>
                 <View style={{ marginBottom: 2 }}><CB on={false} label="อนุมัติให้ซ่อมได้" /></View>
                 <View style={[s.row, { marginBottom: 2 }]}>
-                  <Text style={s.cb}>(    )</Text>
-                  <Text>อนุมัติให้จัดซื้อ</Text>
+                  <T style={s.cb}>(    )</T>
+                  <T>อนุมัติให้จัดซื้อ</T>
                   <Fill />
-                  <Text>ซ่อม</Text>
+                  <T>ซ่อม</T>
                 </View>
                 <View style={[s.row, { marginBottom: 4 }]}>
-                  <Text style={s.cb}>(    )</Text>
-                  <Text>อื่นๆ</Text>
+                  <T style={s.cb}>(    )</T>
+                  <T>อื่นๆ</T>
                   <Fill last />
                 </View>
                 <View style={s.sigCenter}>
                   <View style={[s.row, { width: 200 }]}>
-                    <Text style={s.lbl}>(ลงชื่อ)</Text>
+                    <T style={s.lbl}>(ลงชื่อ)</T>
                     <Fill last />
                   </View>
-                  <Text>(นายธวัชชัย ปานทอง)</Text>
-                  <Text>ผู้อำนวยการโรงพยาบาลพะเยา </Text>
-                  <Text style={s.small}>วันที่ ........../........../..........</Text>
+                  <T>(นายธวัชชัย ปานทอง)</T>
+                  <T>ผู้อำนวยการโรงพยาบาลพะเยา </T>
+                  <T style={s.small}>วันที่ ........../........../..........</T>
                 </View>
               </View>
-            </View>
-          </View>
 
-          {/* แถวล่างของกล่อง */}
-          <View style={s.boxBottom}>
-            <View style={s.cellLeft}>
-              <Text style={s.secTitle}>เรียน หัวหน้างานซ่อมบำรุงคอมพิวเตอร์ &nbsp;</Text>
-              <Text style={[s.small, { marginBottom: 4 }]}>
-                เพื่อพิจารณาดำเนินการ / ตรวจสอบ / เสนอความเห็น&nbsp;
-              </Text>
-              <View style={{ flexDirection: 'row', marginBottom: 3 }}>
-                <CB on={data.itHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
-                <CB on={data.itHeadDecision === 'rejected'} label="ไม่เห็นควร" />
-              </View>
-              <View style={[s.row]}><Fill v={wrapTh(data.itHeadComment)} last /></View>
-              <View style={s.sigCenter}>
-                <View style={[s.row, { width: 200 }]}>
-                  <Text style={s.lbl}>(ลงชื่อ)</Text>
-                  <Fill last />
-                </View>
-                <Text>({data.itHeadName ?? 'นางวรางคณา เอื้อหยิ่งศักดิ์'})</Text>
-                <Text>{data.itHeadName ? 'หัวหน้างานซ่อมบำรุงคอมพิวเตอร์' : 'นักวิชาการคอมพิวเตอร์ปฏิบัติการ'}</Text>
-                {data.itHeadDate && <Text style={s.small}>วันที่ {data.itHeadDate}</Text>}
-              </View>
-              {/* เส้นคั่นยาวเต็มช่อง — แยกส่วนลงชื่อออกจากหมายเหตุ */}
-              <View style={{ borderBottom: '0.7px solid #000', marginTop: 8, marginBottom: 6 }} />
-              <View style={s.row}>
-                <Text style={[s.lbl, { textDecoration: 'underline' }]}>หมายเหตุ</Text>
-                <Text style={s.lbl}>ส่งงานพัสดุดำเนินการวันที่&nbsp;</Text>
-                <Fill v={data.prDate} last />
-              </View>
-              {/* ชื่อผู้รับ/ตำแหน่ง — จัดกึ่งกลางความกว้าง 200 มาตรฐานเดียวกับบล็อกลงชื่อด้านบน */}
-              <View style={[s.sigCenter, { marginTop: 4 }]}>
-                <View style={[s.row, { width: 200 }]}>
-                  <Text style={s.lbl}>ชื่อผู้รับ&nbsp;</Text>
-                  <Fill last center />
-                </View>
-                <View style={[s.row, { width: 200, marginBottom: 0 }]}>
-                  <Text style={s.lbl}>ตำแหน่ง&nbsp;</Text>
-                  <Fill last center />
-                </View>
-              </View>
-            </View>
-
-            <View style={s.cellRight}>
-              <Text style={[s.secTitle, { textAlign: 'center' }]}>ได้ตรวจสอบแล้ว ปรากฏว่า</Text>
+              {/* ได้ตรวจสอบแล้ว — ต่อในคอลัมน์ขวา (ขีดเส้นใต้คั่นด้านบนเหมือนข้อ (2)) */}
+              <View style={{ borderTop: '1px solid #000', marginTop: 8, paddingTop: 6 }}>
+              <T style={[s.secTitle, { textAlign: 'center' }]}>ได้ตรวจสอบแล้ว ปรากฏว่า</T>
               <View style={{ marginBottom: 2 }}>
                 <CB on={isCompleted} label="เรียบร้อยใช้การได้ดี" />
               </View>
-              <View style={{ marginBottom: 6 }}>
+              <View style={{ marginBottom: 2 }}>
                 <CB on={false} label="ยังไม่เรียบร้อย ใช้การยังไม่ได้" />
               </View>
               <View style={s.sigRow}>
-                <Text style={s.lbl}>(ลงชื่อ)</Text>
+                <T style={s.lbl}>(ลงชื่อ)</T>
                 <Fill center />
-                <Text>ผู้ซ่อม</Text>
+                <T>ผู้ซ่อม</T>
               </View>
               <View style={s.sigRow}>
-                <Text style={s.lbl}>(ลงชื่อ)</Text>
+                <T style={s.lbl}>(ลงชื่อ)</T>
                 <Fill />
-                <Text>ผู้รับ</Text>
+                <T>ผู้รับ</T>
               </View>
               <View style={[s.sigRow, { marginBottom: 0 }]}>
-                <Text style={[s.lbl, { textDecoration: 'underline' }]}>วันที่แล้วเสร็จ</Text>
+                <T style={[s.lbl, { textDecoration: 'underline' }]}>วันที่แล้วเสร็จ</T>
                 <Fill v={data.resolvedDate} last />
+              </View>
               </View>
             </View>
           </View>

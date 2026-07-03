@@ -1,5 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import Cookies from 'js-cookie'
 import dayjs, { Dayjs } from 'dayjs'
 import {
@@ -11,9 +12,20 @@ import {
   ToolOutlined, CheckCircleOutlined, CloseCircleOutlined, HomeOutlined,
   ShoppingCartOutlined, SwapOutlined, InfoCircleOutlined, FileTextOutlined,
   AuditOutlined, SafetyCertificateOutlined, CheckSquareOutlined,
-  ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined,
+  ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
+
+// ตัวแสดง PDF ใบส่งซ่อม — โหลดฝั่ง client เท่านั้น (react-pdf ใช้ใน browser)
+const RepairSlipPDFViewer = dynamic(() => import('@/app/components/RepairSlipPDF'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 580, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Spin size="large" />
+    </div>
+  ),
+})
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -76,6 +88,12 @@ interface ManageRepairRequest {
   externalServiceNote?: string
   itHeadApproval?: Approval; missionHeadApproval?: Approval
   resolvedNote?: string; resolvedDate?: string
+  // ข้อมูลจาก row คำร้อง สำหรับใบพิมพ์ (ให้ครบเท่าหน้าแจ้งซ่อม)
+  positionName?: string; assessmentName?: string
+  headerApprove?: number; headerApproveByName?: string; headerApproveDate?: string; headerComment?: string
+  itHeadName?: string; itHeadPosition?: string; itHeadLevel?: string
+  missionApprove?: number; missionApproveByName?: string; missionApproveDate?: string; missionComment?: string
+  missionHeadName?: string; missionHeadPosition?: string; missionHeadLevel?: string
 }
 
 // ── Config ─────────────────────────────────────────────────────────────────────
@@ -213,6 +231,23 @@ interface ApiRepairRequest {
   repair_assessment_id?: number | null
   assessment_name?: string | null
   assessment_detail?: string | null
+  parts_used?: string | null
+  // ข้อมูลสำหรับใบพิมพ์ (มากับ row คำร้อง)
+  position_name?: string | null
+  header_approve?: number | null
+  header_approve_by_name?: string | null
+  header_approve_date?: string | null
+  header_comment?: string | null
+  it_head_name?: string | null
+  it_head_position?: string | null
+  it_head_level?: string | null
+  mission_approve?: number | null
+  mission_approve_by_name?: string | null
+  mission_approve_date?: string | null
+  mission_comment?: string | null
+  mission_head_name?: string | null
+  mission_head_position?: string | null
+  mission_head_level?: string | null
 }
 
 const URGENCY_BY_PRIORITY_NAME: Record<string, ManageRepairRequest['urgency']> = {
@@ -277,6 +312,24 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     repairAssessmentId:     r.repair_assessment_id ?? undefined,
     repairResult:           r.repair_assessment_id != null ? ASSESSMENT_ID_TO_RESULT[r.repair_assessment_id] : undefined,
     technicianNote:         r.assessment_detail || undefined,
+    partsUsed:              r.parts_used || undefined,
+    // ข้อมูลจาก row สำหรับใบพิมพ์
+    positionName:           r.position_name || undefined,
+    assessmentName:         r.assessment_name || undefined,
+    headerApprove:          r.header_approve ?? undefined,
+    headerApproveByName:    r.header_approve_by_name || undefined,
+    headerApproveDate:      r.header_approve_date || undefined,
+    headerComment:          r.header_comment || undefined,
+    itHeadName:             r.it_head_name || undefined,
+    itHeadPosition:         r.it_head_position || undefined,
+    itHeadLevel:            r.it_head_level || undefined,
+    missionApprove:         r.mission_approve ?? undefined,
+    missionApproveByName:   r.mission_approve_by_name || undefined,
+    missionApproveDate:     r.mission_approve_date || undefined,
+    missionComment:         r.mission_comment || undefined,
+    missionHeadName:        r.mission_head_name || undefined,
+    missionHeadPosition:    r.mission_head_position || undefined,
+    missionHeadLevel:       r.mission_head_level || undefined,
   }
 }
 
@@ -502,14 +555,19 @@ interface PrDocumentType {
   sort_order: number
 }
 
+// map ชื่อ role จาก API → role ในหน้านี้ (key เป็นตัวพิมพ์ใหญ่ทั้งหมด — เทียบแบบ case-insensitive)
 const API_ROLE_MAP: Record<string, UserRole> = {
-  IT_Staff:         'it_officer',
-  IT_Head:          'it_head',
-  Technician:       'technician',
-  Mission_Head:     'mission_head',
-  CHIEF_GROUP_IT:   'it_head',       // หัวหน้ากลุ่มงาน IT
-  CHIEF_MISSION_IT: 'mission_head',  // หัวหน้าภารกิจ
+  IT_STAFF:         'it_officer',
+  ADMIN:            'it_officer',     // ผู้ดูแลระบบ — เห็นบอร์ดเหมือนเจ้าหน้าที่
+  IT_HEAD:          'it_head',
+  TECHNICIAN:       'technician',
+  MISSION_HEAD:     'mission_head',
+  CHIEF_GROUP_IT:   'it_head',        // หัวหน้ากลุ่มงาน IT
+  CHIEF_MISSION_IT: 'mission_head',   // หัวหน้าภารกิจ
 }
+
+// role ที่มีสิทธิ์เข้าหน้าจัดการงานซ่อม — ไม่มี role เหล่านี้ = เข้าไม่ได้
+const ALLOWED_API_ROLES = ['CHIEF_GROUP_IT', 'IT_STAFF', 'CHIEF_MISSION_IT', 'ADMIN']
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; name: string; techId?: string }> = {
   it_officer:   { label: 'เจ้าหน้าที่ IT',     color: '#6d28d9', name: 'นางสาวสุดา ไอที' },
@@ -521,16 +579,25 @@ const ROLE_CONFIG: Record<UserRole, { label: string; color: string; name: string
 // ── PageContent ────────────────────────────────────────────────────────────────
 
 const PageContent = () => {
-  const allowedRoles = useMemo<UserRole[]>(() => {
+  // roles ดิบจาก cookie (normalize เป็นตัวพิมพ์ใหญ่) — ใช้ทั้งตรวจสิทธิ์เข้าหน้าและ map เป็น role ในหน้า
+  const apiRoles = useMemo<string[]>(() => {
     try {
       const raw = Cookies.get('user_data')
       if (!raw) return []
-      const apiRoles: string[] = JSON.parse(raw).roles ?? []
-      return apiRoles.map(r => API_ROLE_MAP[r]).filter(Boolean) as UserRole[]
+      const roles: string[] = JSON.parse(raw).roles ?? []
+      return roles.map(r => String(r).toUpperCase())
     } catch {
       return []
     }
   }, [])
+
+  // มีสิทธิ์เข้าหน้านี้หรือไม่ — ต้องมี role อย่างน้อย 1 ตัวใน ALLOWED_API_ROLES
+  const hasAccess = useMemo(() => apiRoles.some(r => ALLOWED_API_ROLES.includes(r)), [apiRoles])
+
+  const allowedRoles = useMemo<UserRole[]>(
+    () => apiRoles.map(r => API_ROLE_MAP[r]).filter(Boolean) as UserRole[],
+    [apiRoles],
+  )
 
   // ชื่อผู้ใช้ที่ล็อกอินอยู่ — ใช้เป็น "ผู้รับงาน" ตอนกดรับงาน
   const currentUserName = useMemo<string>(() => {
@@ -716,6 +783,7 @@ const PageContent = () => {
   const [resultModal, setResultModal] = useState<ManageRepairRequest | null>(null)
   const [approvalModal, setApprovalModal] = useState<{ req: ManageRepairRequest; level: 'it_head' | 'mission_head' } | null>(null)
   const [detailModal, setDetailModal] = useState<ManageRepairRequest | null>(null)
+  const [printSlip, setPrintSlip] = useState<ManageRepairRequest | null>(null)
   const [takeModal, setTakeModal]     = useState<ManageRepairRequest | null>(null)
   const [rejectModal, setRejectModal] = useState<ManageRepairRequest | null>(null)
   const [extendModal, setExtendModal] = useState<ManageRepairRequest | null>(null)
@@ -768,6 +836,50 @@ const PageContent = () => {
       .finally(() => setTaskHistoryLoading(false))
   }
 
+  // แปลงคำร้อง → ข้อมูลใบส่งซ่อม (PDF) สำหรับปุ่มพิมพ์ใน modal รายละเอียด
+  const toSlipData = (r: ManageRepairRequest): RepairSlipData => ({
+    id:                   r.id,
+    requestDate:          r.createdAtIso ? fmtDate(r.createdAtIso) : r.requestDate,
+    status:               r.status,
+    statusLabel:          statusConfig[r.status]?.label ?? r.status,
+    requesterName:        r.requesterName,
+    position:             r.positionName,
+    department:           r.department,
+    phone:                r.phone,
+    equipmentTypeLabel:   r.deviceType,
+    deviceBrand:          r.deviceBrand,
+    assetNo:              r.assetNo,
+    deviceSerial:         r.deviceSerial,
+    deviceLocation:       r.deviceLocation,
+    problemCategoryLabel: r.problemCategory,
+    priorityLabel:        urgencyConfig[r.urgency]?.label ?? '',
+    symptom:              r.symptom,
+    assignedTo:           r.assignedTo,
+    resolvedDate:         r.resolvedDate,
+    resolvedNote:         r.resolvedNote,
+    technicianNote:       r.technicianNote,
+    assessmentResult:     r.assessmentName ?? (r.repairResult ? repairResultConfig[r.repairResult]?.label : undefined),
+    prNote:               r.partsUsed ?? r.prNote ?? undefined,
+    prNumber:             r.prNumber,
+    replacementNote:      r.replacementNote,
+    // อนุมัติหัวหน้า IT — ใช้ข้อมูลจาก row ก่อน แล้ว fallback เป็นที่อนุมัติในเซสชัน
+    itHeadName:           r.itHeadName ?? r.headerApproveByName ?? r.itHeadApproval?.by,
+    itHeadPosition:       r.itHeadPosition,
+    itHeadLevel:          r.itHeadLevel,
+    itHeadDate:           r.headerApproveDate ? fmtDate(r.headerApproveDate) : r.itHeadApproval?.date,
+    itHeadComment:        r.headerComment ?? r.itHeadApproval?.note,
+    itHeadDecision:       r.headerApprove === 1 ? 'approved' : r.headerApprove === 2 ? 'rejected'
+                            : r.itHeadApproval?.status === 'approved' ? 'approved' : r.itHeadApproval?.status === 'rejected' ? 'rejected' : undefined,
+    // อนุมัติหัวหน้าภารกิจ
+    missionHeadName:      r.missionHeadName ?? r.missionApproveByName ?? r.missionHeadApproval?.by,
+    missionHeadPosition:  r.missionHeadPosition,
+    missionHeadLevel:     r.missionHeadLevel,
+    missionHeadDate:      r.missionApproveDate ? fmtDate(r.missionApproveDate) : r.missionHeadApproval?.date,
+    missionHeadComment:   r.missionComment ?? r.missionHeadApproval?.note,
+    missionHeadDecision:  r.missionApprove === 1 ? 'approved' : r.missionApprove === 2 ? 'rejected'
+                            : r.missionHeadApproval?.status === 'approved' ? 'approved' : r.missionHeadApproval?.status === 'rejected' ? 'rejected' : undefined,
+  })
+
   // เปิด modal รายละเอียด — โหลดรูปและประวัติขอเพิ่มเวลาสดจาก API ทุกครั้ง
   const openDetail = (req: ManageRepairRequest) => {
     setDetailModal(req)
@@ -809,7 +921,7 @@ const PageContent = () => {
   }
 
   const roleInfo = ROLE_CONFIG[role]
-  const today = '15/05/2026'
+  const today = fmtDate(new Date().toISOString())  // dd/mm/พ.ศ. ของวันนี้
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -1237,6 +1349,29 @@ const PageContent = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
+  // ไม่มีสิทธิ์เข้าหน้านี้ — แสดงหน้าปฏิเสธการเข้าถึง
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-200">
+        <Navbar />
+        <div className="p-6 md:p-8" style={{ display: 'flex', justifyContent: 'center' }}>
+          <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, maxWidth: 480, marginTop: 60, textAlign: 'center' }}>
+            <CloseCircleOutlined style={{ fontSize: 48, color: '#ef4444', marginBottom: 16 }} />
+            <Title level={4} style={{ color: '#e2e8f0', marginTop: 0 }}>ไม่มีสิทธิ์เข้าถึง</Title>
+            <Text style={{ color: '#94a3b8' }}>
+              หน้าจัดการงานซ่อมนี้เปิดให้เฉพาะเจ้าหน้าที่ IT, หัวหน้ากลุ่มงาน IT, หัวหน้าภารกิจ และผู้ดูแลระบบเท่านั้น
+            </Text>
+            <div style={{ marginTop: 20 }}>
+              <Button type="primary" href="/home" style={{ background: '#7c3aed', borderColor: '#7c3aed' }}>
+                <HomeOutlined /> กลับหน้าหลัก
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
       <Navbar />
@@ -1510,24 +1645,29 @@ const PageContent = () => {
                                   {r.status === 'in_progress' && renderDue(r)}
                                   {/* ประวัติขอเพิ่มเวลา — ต่อท้ายการ์ด */}
                                   <ExtensionHistory exts={r.extensions} />
-                                  {/* PR number + tracking status — คอลัมน์ PO แสดงเลขที่ในส่วนความคืบหน้าแทน */}
-                                  {r.prNumber && r.status !== 'po_processing' && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
-                                      <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
-                                        {r.prNumber}
-                                      </code>
-                                      {r.prTrackingStatus && (
-                                        <Tag style={{
-                                          margin: 0, fontSize: 10, padding: '0 5px', lineHeight: '16px',
-                                          color: PR_TRACKING_CONFIG[r.prTrackingStatus].color,
-                                          borderColor: PR_TRACKING_CONFIG[r.prTrackingStatus].color + '55',
-                                          background: 'transparent',
-                                        }}>
-                                          {PR_TRACKING_CONFIG[r.prTrackingStatus].label}
-                                        </Tag>
-                                      )}
-                                    </div>
-                                  )}
+                                  {/* PR number + tracking status — แสดงเลขที่ PR บนหัวการ์ด (รวมคอลัมน์ PO ด้วย) */}
+                                  {(() => {
+                                    const prNo = r.prNumber ?? (r.status === 'po_processing' ? r.prStatus?.requestNo : undefined)
+                                    if (!prNo) return null
+                                    return (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
+                                        <span style={{ color: '#64748b', fontSize: 10 }}>เลขที่ PR</span>
+                                        <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
+                                          {prNo}
+                                        </code>
+                                        {r.prTrackingStatus && (
+                                          <Tag style={{
+                                            margin: 0, fontSize: 10, padding: '0 5px', lineHeight: '16px',
+                                            color: PR_TRACKING_CONFIG[r.prTrackingStatus].color,
+                                            borderColor: PR_TRACKING_CONFIG[r.prTrackingStatus].color + '55',
+                                            background: 'transparent',
+                                          }}>
+                                            {PR_TRACKING_CONFIG[r.prTrackingStatus].label}
+                                          </Tag>
+                                        )}
+                                      </div>
+                                    )
+                                  })()}
                                   {/* ขั้นงานที่ทำเสร็จแล้ว (ออกเอกสาร / ขั้นตอน PO) — เช็คลิสต์ */}
                                   {(r.status === 'waiting_pr' || r.status === 'po_processing') && ((r.prTaskSteps && r.prTaskSteps.length > 0) || r.prTaskNote || (r.status === 'po_processing' && (r.prStatus?.found || r.prStatus?.issued))) && (() => {
                                     const cardSteps = stepsFor(r.status)
@@ -1572,20 +1712,16 @@ const PageContent = () => {
                                               <span style={{ color: notFound ? '#94a3b8' : (checked ? '#cbd5e1' : '#64748b') }}>
                                                 {s.name_th}
                                                 {notFound && <span style={{ color: '#ef4444', marginLeft: 4 }}>· ไม่พบข้อมูล</span>}
-                                                {isPo && s.step_code === 'pr_approved' && (() => {
-                                                  const prNo = r.prNumber ?? r.prStatus?.requestNo
-                                                  return (
-                                                    <>
-                                                      {prNo && <span style={{ marginLeft: 4 }}>เลขที่ <code style={{ color: '#fb923c', fontSize: 10 }}>{prNo}</code></span>}
-                                                      {r.prStatus?.issued && r.prStatus.approveDate && (
-                                                        <span style={{ color: '#22c55e', marginLeft: 4 }}>· อนุมัติวันที่ {fmtDate(r.prStatus.approveDate)}</span>
-                                                      )}
-                                                      {r.prStatus?.found && !r.prStatus.issued && (
-                                                        <span style={{ color: '#eab308', marginLeft: 4 }}>· รออนุมัติพัสดุ</span>
-                                                      )}
-                                                    </>
-                                                  )
-                                                })()}
+                                                {isPo && s.step_code === 'pr_approved' && (
+                                                  <>
+                                                    {r.prStatus?.issued && r.prStatus.approveDate && (
+                                                      <span style={{ color: '#22c55e', marginLeft: 4 }}>· อนุมัติวันที่ {fmtDate(r.prStatus.approveDate)}</span>
+                                                    )}
+                                                    {r.prStatus?.found && !r.prStatus.issued && (
+                                                      <span style={{ color: '#eab308', marginLeft: 4 }}>· รออนุมัติพัสดุ</span>
+                                                    )}
+                                                  </>
+                                                )}
                                                 {isPo && s.step_code === 'po_approved' && r.prStatus?.poApproveDate && (
                                                   <>
                                                     <span style={{ color: '#22c55e', marginLeft: 4 }}>· อนุมัติ PO วันที่ {fmtDate(r.prStatus.poApproveDate)}</span>
@@ -1997,6 +2133,7 @@ const PageContent = () => {
         onOk={() => prForm.submit()}
         okText="บันทึก PR" cancelText="ยกเลิก"
         okButtonProps={{ style: { background: '#f97316', borderColor: '#f97316' } }}
+        width={900}
       >
         {prModal && (() => {
           const waited = daysSince(prModal.createdAtIso ?? prModal.requestDate)
@@ -2041,78 +2178,100 @@ const PageContent = () => {
         })()}
         {prModal && (() => {
           const rr = prModal.repairResult ? repairResultConfig[prModal.repairResult] : undefined
+          // ความเห็นหัวหน้าจากทั้ง 2 แหล่ง: row จาก API (headerApprove/missionApprove) และผลที่อนุมัติในเซสชัน
+          type HeadRow = { label: string; icon: React.ReactNode; decision?: 'approved' | 'rejected'; by?: string; date?: string; note?: string }
+          const decisionOf = (code?: number, ap?: Approval): 'approved' | 'rejected' | undefined =>
+            code === 1 ? 'approved' : code === 2 ? 'rejected' : ap?.status === 'approved' ? 'approved' : ap?.status === 'rejected' ? 'rejected' : undefined
+          const headRows: HeadRow[] = [
+            {
+              label: 'หัวหน้า IT', icon: <SafetyCertificateOutlined style={{ fontSize: 11 }} />,
+              decision: decisionOf(prModal.headerApprove, prModal.itHeadApproval),
+              by:   prModal.headerApproveByName ?? prModal.itHeadApproval?.by,
+              date: prModal.headerApproveDate ? fmtDate(prModal.headerApproveDate) : prModal.itHeadApproval?.date,
+              note: prModal.headerComment ?? prModal.itHeadApproval?.note,
+            },
+            {
+              label: 'หัวหน้ากลุ่มภารกิจ', icon: <AuditOutlined style={{ fontSize: 11 }} />,
+              decision: decisionOf(prModal.missionApprove, prModal.missionHeadApproval),
+              by:   prModal.missionApproveByName ?? prModal.missionHeadApproval?.by,
+              date: prModal.missionApproveDate ? fmtDate(prModal.missionApproveDate) : prModal.missionHeadApproval?.date,
+              note: prModal.missionComment ?? prModal.missionHeadApproval?.note,
+            },
+          ].filter(r => r.decision || r.note)
+          const hasHeads = headRows.length > 0
           return (
-            <Alert
-              type="warning" showIcon style={{ marginBottom: 16 }}
-              title={
-                <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{prModal.assignedTo || '-'}</span>
-                  {prModal.assignedDate && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· รับงาน {prModal.assignedDate}</span>}
-                </span>
-              }
-              description={
-                <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                  {(() => {
-                    const used = techWorkingDays(prModal)
-                    if (used == null) return null
-                    return (
-                      <div>
-                        <span style={{ color: '#64748b' }}>ช่างใช้เวลาดำเนินการ: </span>
-                        <span style={{ color: daysColor(used), fontWeight: 700 }}>{used} วัน</span>
-                        {prModal.estimatedDays != null && <span style={{ color: '#64748b' }}> / ขอไว้ {prModal.estimatedDays} วัน</span>}
-                      </div>
-                    )
-                  })()}
-                  {rr && (
-                    <div>
-                      <span style={{ color: '#64748b' }}>ผลการประเมิน: </span>
-                      <span style={{ color: rr.color, fontWeight: 700 }}>{rr.label}</span>
+            <Row gutter={12} style={{ marginBottom: 16 }}>
+              {/* ── ความเห็นช่าง ── */}
+              <Col xs={24} md={hasHeads ? 12 : 24}>
+                <Alert
+                  type="warning" showIcon style={{ height: '100%' }}
+                  title={
+                    <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{prModal.assignedTo || '-'}</span>
+                      {prModal.assignedDate && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· รับงาน {prModal.assignedDate}</span>}
+                    </span>
+                  }
+                  description={
+                    <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                      {(() => {
+                        const used = techWorkingDays(prModal)
+                        if (used == null) return null
+                        return (
+                          <div>
+                            <span style={{ color: '#64748b' }}>ช่างใช้เวลาดำเนินการ: </span>
+                            <span style={{ color: daysColor(used), fontWeight: 700 }}>{used} วัน</span>
+                            {prModal.estimatedDays != null && <span style={{ color: '#64748b' }}> / ขอไว้ {prModal.estimatedDays} วัน</span>}
+                          </div>
+                        )
+                      })()}
+                      {rr && (
+                        <div>
+                          <span style={{ color: '#64748b' }}>ผลการประเมิน: </span>
+                          <span style={{ color: rr.color, fontWeight: 700 }}>{rr.label}</span>
+                        </div>
+                      )}
+                      {prModal.technicianNote && (
+                        <div><span style={{ color: '#64748b' }}>บันทึกของช่าง: </span><span style={{ color: '#cbd5e1' }}>{prModal.technicianNote}</span></div>
+                      )}
+                      {prModal.partsUsed && (
+                        <div><span style={{ color: '#64748b' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: '#cbd5e1' }}>{prModal.partsUsed}</span></div>
+                      )}
+                      {prModal.replacementNote && (
+                        <div><span style={{ color: '#64748b' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: '#cbd5e1' }}>{prModal.replacementNote}</span></div>
+                      )}
+                      {prModal.externalServiceNote && (
+                        <div><span style={{ color: '#64748b' }}>ส่งซ่อมภายนอก: </span><span style={{ color: '#cbd5e1' }}>{prModal.externalServiceNote}</span></div>
+                      )}
                     </div>
-                  )}
-                  {prModal.technicianNote && (
-                    <div><span style={{ color: '#64748b' }}>บันทึกของช่าง: </span><span style={{ color: '#cbd5e1' }}>{prModal.technicianNote}</span></div>
-                  )}
-                  {prModal.partsUsed && (
-                    <div><span style={{ color: '#64748b' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: '#cbd5e1' }}>{prModal.partsUsed}</span></div>
-                  )}
-                  {prModal.replacementNote && (
-                    <div><span style={{ color: '#64748b' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: '#cbd5e1' }}>{prModal.replacementNote}</span></div>
-                  )}
-                  {prModal.externalServiceNote && (
-                    <div><span style={{ color: '#64748b' }}>ส่งซ่อมภายนอก: </span><span style={{ color: '#cbd5e1' }}>{prModal.externalServiceNote}</span></div>
-                  )}
-                </div>
-              }
-            />
-          )
-        })()}
-        {prModal && (prModal.itHeadApproval || prModal.missionHeadApproval) && (() => {
-          const rows: { label: string; icon: React.ReactNode; ap?: Approval }[] = [
-            { label: 'หัวหน้า IT', icon: <SafetyCertificateOutlined style={{ fontSize: 11 }} />, ap: prModal.itHeadApproval },
-            { label: 'หัวหน้ากลุ่มภารกิจ', icon: <AuditOutlined style={{ fontSize: 11 }} />, ap: prModal.missionHeadApproval },
-          ].filter(r => r.ap)
-          return (
-            <Alert
-              type="success" showIcon style={{ marginBottom: 16 }}
-              title={<span style={{ fontSize: 12, color: '#e2e8f0' }}>ผ่านการอนุมัติแล้ว</span>}
-              description={
-                <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
-                  {rows.map(({ label, icon, ap }) => {
-                    const approved = ap!.status === 'approved'
-                    const color = approved ? '#22c55e' : '#ef4444'
-                    return (
-                      <div key={label} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 6px' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b' }}>{icon}{label}:</span>
-                        <span style={{ color, fontWeight: 700 }}>{approved ? 'อนุมัติ' : 'ไม่อนุมัติ'}</span>
-                        {ap!.by && <><span style={{ color: '#475569' }}>·</span><span style={{ color: '#cbd5e1' }}>{ap!.by}</span></>}
-                        {ap!.date && <><span style={{ color: '#475569' }}>·</span><span>{ap!.date}</span></>}
-                        {ap!.note && <div style={{ width: '100%', color: '#94a3b8' }}><span style={{ color: '#64748b' }}>หมายเหตุ: </span>{ap!.note}</div>}
+                  }
+                />
+              </Col>
+              {/* ── ความเห็นหัวหน้า 2 คน ── */}
+              {hasHeads && (
+                <Col xs={24} md={12}>
+                  <Alert
+                    type="success" showIcon style={{ height: '100%' }}
+                    title={<span style={{ fontSize: 12, color: '#e2e8f0' }}>ความเห็น / ผลพิจารณาของหัวหน้า</span>}
+                    description={
+                      <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
+                        {headRows.map(({ label, icon, decision, by, date, note }) => {
+                          const color = decision === 'approved' ? '#22c55e' : decision === 'rejected' ? '#ef4444' : '#94a3b8'
+                          return (
+                            <div key={label} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 6px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b' }}>{icon}{label}:</span>
+                              {decision && <span style={{ color, fontWeight: 700 }}>{decision === 'approved' ? 'อนุมัติ' : 'ไม่อนุมัติ'}</span>}
+                              {by && <><span style={{ color: '#475569' }}>·</span><span style={{ color: '#cbd5e1' }}>{by}</span></>}
+                              {date && <><span style={{ color: '#475569' }}>·</span><span>{date}</span></>}
+                              {note && <div style={{ width: '100%', color: '#94a3b8' }}><span style={{ color: '#64748b' }}>ความเห็น: </span>{note}</div>}
+                            </div>
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                </div>
-              }
-            />
+                    }
+                  />
+                </Col>
+              )}
+            </Row>
           )
         })()}
         <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#f97316', colorPrimaryHover: '#fb923c', colorPrimaryActive: '#ea580c' } }}>
@@ -2682,7 +2841,15 @@ const PageContent = () => {
         title={<span><InfoCircleOutlined style={{ color: '#a78bfa', marginRight: 8 }} />รายละเอียด {detailModal?.id}</span>}
         open={!!detailModal}
         onCancel={() => setDetailModal(null)}
-        footer={<Button onClick={() => setDetailModal(null)}>ปิด</Button>}
+        footer={
+          <Space>
+            <Button onClick={() => setDetailModal(null)}>ปิด</Button>
+            <Button type="primary" icon={<PrinterOutlined />} style={{ background: '#6d28d9', borderColor: '#6d28d9' }}
+              onClick={() => detailModal && setPrintSlip(detailModal)}>
+              พิมพ์ใบส่งซ่อม
+            </Button>
+          </Space>
+        }
         width={1100}
       >
         {detailModal && (
@@ -2859,6 +3026,27 @@ const PageContent = () => {
               )}
             </>
         )}
+      </Modal>
+
+      {/* ── Print Slip Modal — ใบส่งซ่อม PDF ── */}
+      <Modal
+        title={
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PrinterOutlined style={{ color: '#a78bfa' }} />
+            ใบส่งซ่อม {printSlip?.id}
+          </span>
+        }
+        open={!!printSlip}
+        onCancel={() => setPrintSlip(null)}
+        footer={<Button onClick={() => setPrintSlip(null)}>ปิด</Button>}
+        width="90%"
+        style={{ top: 24, maxWidth: 1100 }}
+        styles={{ body: { padding: 0, height: '80vh' } }}
+        destroyOnHidden
+      >
+        <div style={{ width: '100%', height: '100%' }}>
+          {printSlip && <RepairSlipPDFViewer data={toSlipData(printSlip)} />}
+        </div>
       </Modal>
     </div>
   )

@@ -272,7 +272,7 @@ const PageContent = () => {
             <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
               <Text style={{ color: 'var(--app-text-2)', fontSize: 13 }}>KPI จ่ายตรงเวลา</Text>
               <Progress percent={kpiOnTimePct} strokeColor={kpiOnTimePct >= 90 ? '#10b981' : kpiOnTimePct >= 70 ? '#fbbf24' : '#ef4444'}
-                trailColor="var(--app-border-strong)" />
+                railColor="var(--app-border-strong)" />
               <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>จ่ายแล้ว {paidList.length} รายการ • ฿{summary.paid.toLocaleString()}</Text>
             </Card>
           </Col>

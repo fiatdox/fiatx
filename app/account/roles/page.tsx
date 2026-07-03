@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Card, Row, Col, Select, Transfer, Button, Breadcrumb, Typography,
-  App, Spin, Tag, Empty, Space,
+  App, Spin, Tag, Empty, Space, Result,
 } from 'antd'
 import type { TransferProps } from 'antd'
 import {
@@ -10,9 +11,23 @@ import {
   ReloadOutlined, TeamOutlined,
 } from '@ant-design/icons'
 import { FaUserShield } from 'react-icons/fa'
+import Cookies from 'js-cookie'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+
+// สิทธิ์ที่เข้าถึงหน้าจัดการสิทธิ์ได้ — admin หรือ CHIEF_GROUP_IT เท่านั้น
+const ALLOWED_ROLES = ['ADMIN', 'CHIEF_GROUP_IT']
+function canAccessRoles(): boolean {
+  try {
+    const raw = Cookies.get('user_data')
+    if (!raw) return false
+    const roles = JSON.parse(raw)?.roles
+    return Array.isArray(roles) && roles.some((r: unknown) => ALLOWED_ROLES.includes(String(r).toUpperCase()))
+  } catch {
+    return false
+  }
+}
 
 const { Text, Title } = Typography
 
@@ -103,6 +118,11 @@ const fullName = (u: User) => `${u.pname ?? ''}${u.fname} ${u.lname}`.trim()
 
 const PageContent = () => {
   const { message } = App.useApp()
+  const router = useRouter()
+
+  // ตรวจสิทธิ์เข้าถึง — admin / CHIEF_GROUP_IT เท่านั้น (null = ยังตรวจไม่เสร็จ)
+  const [allowed, setAllowed] = useState<boolean | null>(null)
+  useEffect(() => { setAllowed(canAccessRoles()) }, [])
 
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<RoleItem[]>([])
@@ -141,7 +161,7 @@ const PageContent = () => {
     }
   }, [message])
 
-  useEffect(() => { loadInit() }, [loadInit])
+  useEffect(() => { if (allowed) loadInit() }, [allowed, loadInit])
 
   // ── ตัวเลือก ────────────────────────────────────────────────────────────
   const roleOptions = useMemo(
@@ -241,6 +261,34 @@ const PageContent = () => {
     `${item.title} ${item.description}`.toLowerCase().includes(input.toLowerCase())
 
   // ── Render ───────────────────────────────────────────────────────────────
+
+  // ยังตรวจสิทธิ์ไม่เสร็จ
+  if (allowed === null) {
+    return (
+      <div className="min-h-dvh bg-app-bg text-app-text flex items-center justify-center" style={{ minHeight: '100dvh' }}>
+        <Spin size="large" />
+      </div>
+    )
+  }
+
+  // ไม่มีสิทธิ์เข้าถึง
+  if (!allowed) {
+    return (
+      <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>
+        <Navbar />
+        <Result
+          status="403"
+          title="ไม่มีสิทธิ์เข้าถึง"
+          subTitle="หน้านี้สำหรับผู้ดูแลระบบ (admin) หรือหัวหน้ากลุ่มงานเทคโนโลยีสารสนเทศเท่านั้น"
+          extra={
+            <Button type="primary" onClick={() => router.replace('/home')} style={{ backgroundColor: '#006a5a', borderColor: '#006a5a' }}>
+              กลับหน้าหลัก
+            </Button>
+          }
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>

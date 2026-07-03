@@ -287,7 +287,7 @@ const PageContent = () => {
               <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>KPI จ่ายตรงเวลา</Text>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
                 <Progress type="circle" size={56} percent={stats.onTimePct}
-                  strokeColor={kpiVerdict.color} trailColor="var(--app-border-strong)"
+                  strokeColor={kpiVerdict.color} railColor="var(--app-border-strong)"
                   format={p => <Text style={{ color: kpiVerdict.color, fontSize: 13, fontWeight: 700 }}>{p}%</Text>} />
                 <div>
                   <Tag color={stats.onTimePct >= 90 ? 'success' : stats.onTimePct >= 70 ? 'warning' : 'error'}>

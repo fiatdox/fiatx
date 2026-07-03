@@ -389,6 +389,7 @@ const Navbar: React.FC = () => {
               icon: <FaCalculator />, 
               label: 'งานการเงินและบัญชี',
               children: [
+                { key: '/accounting/schedule',           icon: <FaCalendarAlt />, label: 'ตารางเวรการปฏิบัติงาน' },
                 { key: '/accounting/salary',           icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
                 { key: '/accounting/credentials',      icon: <FaLock />,              label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
                 { key: '/accounting/repair-payment',   icon: <FaFileAlt />,           label: 'เบิกจ่ายค่าซ่อมบำรุง' },
@@ -490,8 +491,11 @@ const Navbar: React.FC = () => {
             items={[
               { key: 'settings', icon: <SettingOutlined />, label: 'ตั้งค่าบัญชี' },
               { key: 'change-password', icon: <FaLock />, label: 'เปลี่ยนรหัสผ่าน' },
-              // แสดงเฉพาะผู้มีสิทธิ์ IT_STAFF หรือ ADMIN
-              ...(userData.roles?.some((r) => r === 'IT_STAFF' || r === 'ADMIN')
+              // แสดงเฉพาะผู้มีสิทธิ์ admin หรือ CHIEF_GROUP_IT
+              ...(userData.roles?.some((r) => {
+                const role = String(r).toUpperCase()
+                return role === 'ADMIN' || role === 'CHIEF_GROUP_IT'
+              })
                 ? [{ key: 'roles', icon: <SettingOutlined />, label: 'จัดการสิทธิ์การใช้งาน' }]
                 : []),
               { key: 'logout', icon: <LogoutOutlined />, label: 'ออกจากระบบ', danger: true },

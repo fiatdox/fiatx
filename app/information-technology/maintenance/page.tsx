@@ -534,8 +534,8 @@ const PageContent = () => {
       dataIndex: 'process_status_id',
       key: 'process_status_id',
       width: 160,
-      render: (v: number) => {
-        const cfg = statusConfig[v] ?? { color: 'default', label: String(v), icon: null }
+      render: (v: number, r: RepairRequest) => {
+        const cfg = statusConfig[v] ?? { color: 'default', label: r.process_status_name || String(v), icon: null }
         return <Tag color={cfg.color} icon={cfg.icon}>{cfg.label}</Tag>
       },
     },

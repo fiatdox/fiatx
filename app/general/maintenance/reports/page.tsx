@@ -182,7 +182,7 @@ export default function MaintenanceReportsPage() {
                       </div>
                       <Text style={{ color: t.color, fontWeight: 600 }}>฿{t.cost.toLocaleString()}</Text>
                     </div>
-                    <Progress percent={Math.round((t.cost / totalCost) * 100)} strokeColor={t.color} trailColor="#334155" size="small" />
+                    <Progress percent={Math.round((t.cost / totalCost) * 100)} strokeColor={t.color} railColor="#334155" size="small" />
                   </div>
                 ))}
               </Card>
@@ -200,7 +200,7 @@ export default function MaintenanceReportsPage() {
                     <Text style={{ fontSize: 13 }}>{d.dept}</Text>
                     <Text style={{ color: d.color, fontWeight: 700 }}>฿{d.total.toLocaleString()}</Text>
                   </div>
-                  <Progress percent={deptTotal > 0 ? Math.round((d.total / deptTotal) * 100) : 0} strokeColor={d.color} trailColor="#334155" size="small" showInfo={false} />
+                  <Progress percent={deptTotal > 0 ? Math.round((d.total / deptTotal) * 100) : 0} strokeColor={d.color} railColor="#334155" size="small" showInfo={false} />
                   <Text style={{ fontSize: 11, color: '#64748b' }}>{d.count} ใบงาน</Text>
                 </div>
               ))}

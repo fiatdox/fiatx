@@ -499,7 +499,7 @@ const PageContent = () => {
                     </Text>
                   </div>
 
-                  <Progress percent={pct} strokeColor="#FF6500" trailColor="#334155" size="small"
+                  <Progress percent={pct} strokeColor="#FF6500" railColor="#334155" size="small"
                     style={{ marginBottom: 10 }}
                     format={() => <Text style={{ color: '#94a3b8', fontSize: 11 }}>รับสะสมในใบ PO {item.received}/{item.qty}</Text>} />
 
