@@ -248,6 +248,9 @@ interface ApiRepairRequest {
   mission_head_name?: string | null
   mission_head_position?: string | null
   mission_head_level?: string | null
+  // ปิดงานซ่อม (รับอะไหล่/เสร็จสิ้น)
+  completed_at?: string | null
+  completion_note?: string | null
 }
 
 const URGENCY_BY_PRIORITY_NAME: Record<string, ManageRepairRequest['urgency']> = {
@@ -330,6 +333,9 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     missionHeadName:        r.mission_head_name || undefined,
     missionHeadPosition:    r.mission_head_position || undefined,
     missionHeadLevel:       r.mission_head_level || undefined,
+    // ปิดงานซ่อม — เวลาที่ซ่อมเสร็จจริง + หมายเหตุปิดงาน
+    resolvedDate:           r.completed_at ? (toSlashDate(r.completed_at) ?? undefined) : undefined,
+    resolvedNote:           r.completion_note || undefined,
   }
 }
 
@@ -532,6 +538,19 @@ interface WorkStep {
   sort_order: number
 }
 
+// สถานะกระบวนการ (process status) — GET /api/v1/it/process-statuses
+interface ApiProcessStatus {
+  id: number
+  it_process_status_name: string
+  description: string | null
+}
+
+// สถานะปลายทางที่เลือกได้บนการ์ดคอลัมน์ PO — 5 เสร็จสิ้น, 8 รอรับของ, 10 ยกเลิก
+const PO_NEXT_STATUS_IDS = [5, 8, 10]
+
+// สถานะปลายทางที่เลือกได้ในโมดัลงานช่าง (คอลัมน์ออกใบ PR) — 8 รอรับของ, 5 เสร็จสิ้น, 10 ยกเลิก
+const TASK_NEXT_STATUS_IDS = [8, 5, 10]
+
 // ขั้นตอนติดตาม PO ของธุรการ (คอลัมน์ po_processing) — รายการคงที่ (รอ API จริง)
 const PO_TRACKING_STEPS: WorkStep[] = [
   { id: 1, step_code: 'pr_approved', name_th: 'อนุมัติ PR แล้ว', sort_order: 1 },
@@ -610,12 +629,18 @@ const PageContent = () => {
     }
   }, [])
 
+  // gate การ render จนกว่าจะ mount ฝั่ง client — กัน hydration mismatch จากการอ่าน cookie
+  // (server อ่าน cookie ไม่ได้ → hasAccess/role ต่างจาก client) ให้ render แรกตรงกันก่อน
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   const [role] = useState<UserRole>(() => allowedRoles[0] ?? 'it_officer')
   const [requests, setRequests] = useState<ManageRepairRequest[]>([])
   const [assessments, setAssessments] = useState<ApiRepairAssessment[]>([])
   const [priorityLevels, setPriorityLevels] = useState<ApiPriorityLevel[]>([])
   const [prDocTypes, setPrDocTypes] = useState<PrDocumentType[]>([])
   const [workSteps, setWorkSteps] = useState<WorkStep[]>([])
+  const [poNextStatuses, setPoNextStatuses] = useState<ApiProcessStatus[]>([])
   const [taskHistory, setTaskHistory] = useState<ProgressEntry[]>([])
   const [taskHistoryLoading, setTaskHistoryLoading] = useState(false)
   const [taskSubmitting, setTaskSubmitting] = useState(false)
@@ -777,6 +802,16 @@ const PageContent = () => {
         }
       })
       .catch(() => {})
+
+    // สถานะกระบวนการทั้งหมด — ใช้ชื่อประกอบตัวเลือกสถานะปลายทางใน modal PO
+    fetch('/api/v1/it/process-statuses')
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && Array.isArray(json.data)) {
+          setPoNextStatuses(json.data as ApiProcessStatus[])
+        }
+      })
+      .catch(() => {})
   }, [])
   const [prModal, setPrModal]         = useState<ManageRepairRequest | null>(null)
   const [taskModal, setTaskModal]     = useState<ManageRepairRequest | null>(null)
@@ -787,6 +822,8 @@ const PageContent = () => {
   const [takeModal, setTakeModal]     = useState<ManageRepairRequest | null>(null)
   const [rejectModal, setRejectModal] = useState<ManageRepairRequest | null>(null)
   const [extendModal, setExtendModal] = useState<ManageRepairRequest | null>(null)
+  const [completeModal, setCompleteModal] = useState<ManageRepairRequest | null>(null)
+  const [completeSubmitting, setCompleteSubmitting] = useState(false)
   const [prForm]       = Form.useForm()
   const [taskForm]     = Form.useForm()
   const [resultForm]   = Form.useForm()
@@ -794,7 +831,35 @@ const PageContent = () => {
   const [takeForm]     = Form.useForm()
   const [rejectForm]   = Form.useForm()
   const [extendForm]   = Form.useForm()
+  const [completeForm] = Form.useForm()
   const { message } = App.useApp()
+
+  // ตัวเลือกสถานะปลายทางบน modal PO — สร้างจาก id 5/8/10 เสมอ
+  // ใช้ชื่อจาก API ถ้ามี ไม่มีก็ fallback เป็นชื่อสถานะในระบบ (กันกรณี API ไม่ส่ง id เหล่านี้มา)
+  const poStatusOptions = useMemo(
+    () => PO_NEXT_STATUS_IDS.map(id => {
+      const api = poNextStatuses.find(s => s.id === id)
+      const fallbackKey = STATUS_BY_PROCESS_ID[id]
+      return {
+        value: id,
+        label: api?.it_process_status_name ?? (fallbackKey ? statusConfig[fallbackKey].label : `สถานะ ${id}`),
+      }
+    }),
+    [poNextStatuses],
+  )
+
+  // ตัวเลือกสถานะปลายทางบนโมดัลงานช่าง (คอลัมน์ออกใบ PR) — id 8/5/10
+  const taskStatusOptions = useMemo(
+    () => TASK_NEXT_STATUS_IDS.map(id => {
+      const api = poNextStatuses.find(s => s.id === id)
+      const fallbackKey = STATUS_BY_PROCESS_ID[id]
+      return {
+        value: id,
+        label: api?.it_process_status_name ?? (fallbackKey ? statusConfig[fallbackKey].label : `สถานะ ${id}`),
+      }
+    }),
+    [poNextStatuses],
+  )
 
   // เลือกชุดเช็คลิสต์ตามสถานะ — คอลัมน์ PO ใช้ขั้นตอนติดตาม PO, ที่เหลือใช้ขั้นงานช่าง/IT
   const stepsFor = (status?: RepairStatus): WorkStep[] =>
@@ -812,7 +877,7 @@ const PageContent = () => {
     // PO ใช้ radio (เลือกได้ค่าเดียว) ส่วนงานช่างใช้ checkbox (หลายค่า)
     const isPo = req.status === 'po_processing'
     const prefill = (ids: number[]) => (isPo ? (ids.length ? ids[ids.length - 1] : undefined) : ids)
-    taskForm.setFieldsValue({ task_steps: prefill(req.prTaskSteps ?? []), task_note: '' })
+    taskForm.setFieldsValue({ task_steps: prefill(req.prTaskSteps ?? []), task_note: '', po_next_status: undefined })
     const apiId = req.apiId
     if (!apiId) return
     // refresh สถานะ PR จากพัสดุ (วันที่อนุมัติ) ตอนเปิดโมดัล PO
@@ -1168,20 +1233,22 @@ const PageContent = () => {
     }
   }
 
-  // บันทึกความคืบหน้า — POST /repair-requests/{id}/progress (note + work_step_ids)
-  // ต้องมี note หรือ work_step_ids อย่างน้อย 1 รายการ (ไม่งั้น backend ตอบ 400)
-  const handleUpdateTaskStep = async (values: { task_steps?: number[] | number; task_note?: string }) => {
+  // บันทึกความคืบหน้า — POST /repair-requests/{id}/progress (note + work_step_ids + process_status_id?)
+  // ต้องมี note, work_step_ids หรือ process_status_id อย่างน้อย 1 อย่าง
+  const handleUpdateTaskStep = async (values: { task_steps?: number[] | number; task_note?: string; po_next_status?: number }) => {
     const req = taskModal!
     if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
     const rawSteps = values.task_steps
     const steps = (Array.isArray(rawSteps) ? rawSteps : rawSteps != null ? [rawSteps] : []).slice().sort((a, b) => a - b)
     const note = values.task_note?.trim() || ''
-    if (steps.length === 0 && !note) {
-      message.warning('กรุณาระบุหมายเหตุ หรือติ๊กขั้นงานที่ทำเสร็จอย่างน้อย 1 รายการ')
+    const statusId = values.po_next_status
+    if (steps.length === 0 && !note && statusId == null) {
+      message.warning('กรุณาระบุหมายเหตุ ติ๊กขั้นงานที่ทำเสร็จ หรือเลือกสถานะปลายทางอย่างน้อย 1 อย่าง')
       return
     }
     setTaskSubmitting(true)
-    const payload = { note, work_step_ids: steps }
+    // ส่ง process_status_id ไปด้วยเมื่อเลือกเปลี่ยนสถานะปลายทาง — บันทึกความคืบหน้า + เปลี่ยนสถานะในครั้งเดียว
+    const payload = { note, work_step_ids: steps, ...(statusId != null ? { process_status_id: statusId } : {}) }
     const url = `/api/v1/it/repair-requests/${req.apiId}/progress`
     console.log('[progress] POST', url, payload)
     try {
@@ -1198,18 +1265,67 @@ const PageContent = () => {
       }
       // รีโหลดประวัติให้การ์ดแสดงความคืบหน้าล่าสุด
       const entries = await loadProgress(req.apiId)
+      // สถานะใหม่จาก response (ถ้า backend ส่งมา) ไม่งั้นใช้ค่าที่เลือกไว้
+      const apiStatusId = (json.data?.process_status_id as number | undefined) ?? statusId
+      const nextStatus = apiStatusId != null ? STATUS_BY_PROCESS_ID[apiStatusId] : undefined
       setRequests(prev => prev.map(r =>
         r.id === req.id
-          ? { ...r, ...(entries ? progressToUpdates(entries) : { prTaskSteps: steps, prTaskNote: note || undefined }) }
+          ? {
+              ...r,
+              ...(entries ? progressToUpdates(entries) : { prTaskSteps: steps, prTaskNote: note || undefined }),
+              ...(nextStatus ? { status: nextStatus, ...(nextStatus === 'completed' ? { resolvedDate: today } : {}) } : {}),
+            }
           : r
       ))
-      message.success(`อัพเดทงาน ${req.id} — ทำเสร็จ ${steps.length}/${stepsFor(req.status).length} ขั้น`)
+      message.success(nextStatus && nextStatus !== req.status
+        ? `อัพเดทงาน ${req.id} — เปลี่ยนสถานะเป็น "${statusConfig[nextStatus].label}"`
+        : `อัพเดทงาน ${req.id} — ทำเสร็จ ${steps.length}/${stepsFor(req.status).length} ขั้น`)
       setTaskModal(null)
       taskForm.resetFields()
     } catch {
       message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
     } finally {
       setTaskSubmitting(false)
+    }
+  }
+
+  // เปิด modal ปิดงานซ่อม (รับอะไหล่ / เสร็จสิ้น) — ตั้งเวลาเสร็จเป็นตอนนี้ไว้ก่อน
+  const openComplete = (req: ManageRepairRequest) => {
+    setCompleteModal(req)
+    completeForm.setFieldsValue({ completed_at: dayjs(), complete_note: '' })
+  }
+
+  // บันทึกปิดงาน — POST /repair-requests/{id}/complete (completed_at + note) → สถานะ 5 ซ่อมเสร็จแล้ว
+  const handleCompleteRepair = async (values: { completed_at?: Dayjs; complete_note?: string }) => {
+    const req = completeModal!
+    if (!req.apiId) { message.error('ไม่พบ id ของคำร้องนี้'); return }
+    const when = values.completed_at ?? dayjs()
+    const note = values.complete_note?.trim() || ''
+    setCompleteSubmitting(true)
+    try {
+      const res = await fetch(`/api/v1/it/repair-requests/${req.apiId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed_at: when.toISOString(), note }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || json.success === false) {
+        message.error(json.message ?? `ปิดงานไม่สำเร็จ (${res.status})`)
+        return
+      }
+      const resolvedIso = (json.data?.completed_at as string | undefined) ?? when.toISOString()
+      setRequests(prev => prev.map(r =>
+        r.id === req.id
+          ? { ...r, status: 'completed', resolvedDate: fmtDate(resolvedIso), resolvedNote: note || undefined }
+          : r
+      ))
+      message.success(`ปิดงาน ${req.id} — ซ่อมเสร็จเมื่อ ${fmtDateTime(when.toISOString())}`)
+      setCompleteModal(null)
+      completeForm.resetFields()
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้')
+    } finally {
+      setCompleteSubmitting(false)
     }
   }
 
@@ -1350,6 +1466,18 @@ const PageContent = () => {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   // ไม่มีสิทธิ์เข้าหน้านี้ — แสดงหน้าปฏิเสธการเข้าถึง
+  // render แรก (ก่อน mount) ต้องตรงกับฝั่ง server — แสดง loader กลางจอ กัน hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-200">
+        <Navbar />
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
+          <Spin size="large" />
+        </div>
+      </div>
+    )
+  }
+
   if (!hasAccess) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-200">
@@ -1489,7 +1617,7 @@ const PageContent = () => {
               {
                 key: 'po_processing', title: 'ขั้นตอน PO โดยพัสดุ / เสนอผู้อำนวยการ', accent: '#0d9488',
                 items: requests.filter(r => r.status === 'po_processing'),
-                // งานของธุรการ — อัพเดทความคืบหน้าขั้นตอน PO (เช็คลิสต์ + หมายเหตุ + ประวัติ)
+                // งานของธุรการ — อัพเดทความคืบหน้าขั้นตอน PO (เช็คลิสต์ + หมายเหตุ + ประวัติ + เปลี่ยนสถานะใน modal)
                 action: (r) => (
                   <Button size="small" block
                     style={{ background: '#0d9488', borderColor: '#0d9488', color: '#fff', fontSize: 11 }}
@@ -1504,10 +1632,7 @@ const PageContent = () => {
                 action: (r) => (
                   <Button size="small" block
                     style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff', fontSize: 11 }}
-                    onClick={() => {
-                      setRequests(prev => prev.map(x => x.id === r.id ? { ...x, status: 'completed', resolvedDate: today } : x))
-                      message.success(`รับอะไหล่และซ่อมเสร็จ ${r.id} แล้ว`)
-                    }}>
+                    onClick={() => openComplete(r)}>
                     <CheckCircleOutlined /> รับอะไหล่ / เสร็จสิ้น
                   </Button>
                 ),
@@ -2056,6 +2181,18 @@ const PageContent = () => {
                     )
                   })}
                 </div>
+                <Form.Item
+                  name="po_next_status"
+                  label="เปลี่ยนสถานะปลายทาง"
+                  style={{ marginTop: 16, marginBottom: 0 }}
+                  extra={<span style={{ fontSize: 11, color: '#64748b' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
+                >
+                  <Select
+                    allowClear
+                    placeholder="— ไม่เปลี่ยนสถานะ —"
+                    options={poStatusOptions}
+                  />
+                </Form.Item>
               </div>
             ) : (
               <Form.Item
@@ -2071,6 +2208,21 @@ const PageContent = () => {
                     </Checkbox>
                   ))}
                 </Checkbox.Group>
+              </Form.Item>
+            )}
+            {/* เลือกสถานะปลายทางในงานช่าง — ย้ายงานไปสถานะถัดไป เช่น "รอรับของ" พร้อมบันทึกความคืบหน้า */}
+            {taskModal?.status !== 'po_processing' && (
+              <Form.Item
+                name="po_next_status"
+                label="เปลี่ยนสถานะปลายทาง"
+                style={{ marginBottom: 0 }}
+                extra={<span style={{ fontSize: 11, color: '#64748b' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
+              >
+                <Select
+                  allowClear
+                  placeholder="— ไม่เปลี่ยนสถานะ —"
+                  options={taskStatusOptions}
+                />
               </Form.Item>
             )}
           </ConfigProvider>
@@ -2832,6 +2984,70 @@ const PageContent = () => {
           </Form.Item>
           <Form.Item name="reason" label="เหตุผล / ปัญหาที่พบ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
             <TextArea rows={3} placeholder="อธิบายปัญหาที่พบทำให้ต้องขอเพิ่มเวลา..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ══ Complete Modal — ปิดงานซ่อม (รับอะไหล่ / เสร็จสิ้น) ═══════════════════ */}
+      <Modal
+        title={<span><CheckCircleOutlined style={{ color: '#16a34a', marginRight: 8 }} />บันทึกปิดงานซ่อม<code style={{ color: '#a78bfa', fontSize: 12, marginLeft: 8, fontWeight: 400 }}>{completeModal?.id}</code></span>}
+        open={!!completeModal}
+        onCancel={() => { setCompleteModal(null); completeForm.resetFields() }}
+        onOk={() => completeForm.submit()}
+        okText="ยืนยันปิดงาน" cancelText="ยกเลิก"
+        confirmLoading={completeSubmitting}
+        okButtonProps={{ style: { background: '#16a34a', borderColor: '#16a34a' } }}
+        width={480}
+      >
+        {completeModal && (
+          <Alert
+            type="success" showIcon style={{ marginBottom: 16 }}
+            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{completeModal.deviceBrand}</span>}
+            description={
+              <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: '#cbd5e1' }}>{completeModal.requesterName || '-'}</span>
+                </span>
+                {completeModal.assetNo && (
+                  <>
+                    <span style={{ color: '#475569' }}>·</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <BarcodeOutlined style={{ fontSize: 11 }} /> {completeModal.assetNo}
+                    </span>
+                  </>
+                )}
+                {completeModal.assignedTo && (
+                  <>
+                    <span style={{ color: '#475569' }}>·</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <ToolOutlined style={{ fontSize: 11 }} /> ช่าง: <span style={{ color: '#6ee7b7' }}>{completeModal.assignedTo}</span>
+                    </span>
+                  </>
+                )}
+              </div>
+            }
+          />
+        )}
+        <Form form={completeForm} layout="vertical" onFinish={handleCompleteRepair}>
+          <Form.Item
+            name="completed_at"
+            label="วันเวลาที่ซ่อมเสร็จจริง"
+            extra={<span style={{ color: '#64748b', fontSize: 11 }}>ค่าเริ่มต้นเป็นเวลาปัจจุบัน — ปรับได้ตามจริง</span>}
+            rules={[{ required: true, message: 'กรุณาระบุวันเวลาที่ซ่อมเสร็จ' }]}
+          >
+            <DatePicker
+              style={{ width: '100%' }}
+              showTime={{ format: 'HH:mm' }}
+              format="DD/MM/YYYY HH:mm"
+              placeholder="เลือกวันเวลาที่ซ่อมเสร็จ"
+              disabledDate={(d) => d.isAfter(dayjs(), 'day')}
+            />
+          </Form.Item>
+          <Form.Item
+            name="complete_note"
+            label="หมายเหตุปิดงาน / สรุปการรับอะไหล่ (ถ้ามี)"
+          >
+            <TextArea rows={3} placeholder="เช่น รับอะไหล่ครบ ติดตั้งและทดสอบเรียบร้อย ส่งมอบเครื่องคืนผู้ใช้แล้ว" maxLength={500} showCount />
           </Form.Item>
         </Form>
       </Modal>

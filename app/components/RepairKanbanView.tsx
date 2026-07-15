@@ -78,7 +78,7 @@ const COLUMNS: { key: string; ids: number[]; title: string; accent: string }[] =
   { key: 'in_progress', ids: [2],    title: 'กำลังดำเนินการ',                            accent: '#06b6d4' },
   { key: 'approval',    ids: [6, 9], title: 'รออนุมัติหัวหน้า IT / หัวหน้าภารกิจ',       accent: '#a855f7' },
   { key: 'pr',          ids: [3],    title: 'ออกใบ PR เจ้าหน้าที่ IT',                   accent: '#f97316' },
-  { key: 'po',          ids: [7],    title: 'ขั้นตอน PO โดยพัสดุ / เสนอผู้อำนวยการ',     accent: '#6366f1' },
+  { key: 'po',          ids: [7],    title: 'ขั้นตอน PO โดยพัสดุ / เสนอผู้อำนวยการ',     accent: '#0d9488' },
   { key: 'delivery',    ids: [8],    title: 'รอรับของ / รับอะไหล่',                      accent: '#0ea5e9' },
 ]
 
@@ -485,14 +485,19 @@ export default function RepairKanbanView({
                       {r.process_status_id === 2 && renderDue(r, exts)}
                       {/* ประวัติผลัดสัญญา — ต่อท้ายการ์ด */}
                       <ExtensionHistory exts={exts} />
-                      {/* เลขที่ใบ PR — คอลัมน์ PO แสดงเลขที่ในส่วนความคืบหน้าแทน */}
-                      {info.prNumber && r.process_status_id !== 7 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
-                          <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
-                            {info.prNumber}
-                          </code>
-                        </div>
-                      )}
+                      {/* เลขที่ใบ PR บนหัวการ์ด — รวมคอลัมน์ PO ด้วย (ใช้เลขที่บันทึกไว้ หรือ request_no จากพัสดุ) */}
+                      {(() => {
+                        const prNo = info.prNumber ?? (r.process_status_id === 7 ? info.prStatus?.requestNo : undefined)
+                        if (!prNo) return null
+                        return (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
+                            <span style={{ color: '#64748b', fontSize: 10 }}>เลขที่ PR</span>
+                            <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
+                              {prNo}
+                            </code>
+                          </div>
+                        )
+                      })()}
                       {/* ความคืบหน้างาน (ออกเอกสาร / ขั้นตอน PO) — เช็คลิสต์อ่านอย่างเดียว เหมือนหน้า manage */}
                       {(r.process_status_id === 3 || r.process_status_id === 7) && ((info.prTaskSteps && info.prTaskSteps.length > 0) || info.prTaskNote || (r.process_status_id === 7 && (info.prStatus?.found || info.prStatus?.issued))) && (() => {
                         const cardSteps = stepsFor(r.process_status_id)

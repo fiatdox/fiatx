@@ -149,7 +149,7 @@ const statusConfig: Record<number, { color: string; label: string; icon: React.R
 const PageContent = () => {
   const [form] = Form.useForm()
   const [requests, setRequests] = useState<RepairRequest[]>([])
-  const [activeTab, setActiveTab] = useState('form')
+  const [activeTab, setActiveTab] = useState('kanban')
   const [assetModalOpen, setAssetModalOpen] = useState(false)
   const [assetSearch, setAssetSearch] = useState('')
   const [assetResults, setAssetResults] = useState<EquipmentAsset[]>([])

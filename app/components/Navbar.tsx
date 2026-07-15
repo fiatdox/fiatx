@@ -51,6 +51,47 @@ const Navbar: React.FC = () => {
     }
   }, [])
 
+  // ── สิทธิ์การมองเห็นเมนู ────────────────────────────────────────────────
+  // roles ของผู้ใช้ (normalize เป็นตัวพิมพ์ใหญ่)
+  const userRoles = (userData.roles ?? []).map(r => String(r).toUpperCase())
+
+  // กลุ่มสิทธิ์งาน IT ภายใน — ตรงกับ gate ของหน้าจัดการงานซ่อม
+  // (เจ้าหน้าที่ IT, หัวหน้ากลุ่มงาน IT, หัวหน้าภารกิจ, ผู้ดูแลระบบ)
+  const IT_STAFF_ROLES = ['ADMIN', 'CHIEF_GROUP_IT', 'CHIEF_MISSION_IT', 'IT_STAFF']
+
+  // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
+  // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
+  const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
+    // งานซ่อมคอมพิวเตอร์ — หน้าจัดการ (เฉพาะเจ้าหน้าที่ IT)
+    '/information-technology/maintenance/manage': IT_STAFF_ROLES,
+    // HAIT — เครื่องมือภายในของงาน IT (เฉพาะเจ้าหน้าที่ IT)
+    '/information-technology/hait': IT_STAFF_ROLES,
+    '/information-technology/hait/sla': IT_STAFF_ROLES,
+    '/information-technology/hait/incident-reports': IT_STAFF_ROLES,
+    '/information-technology/hait/activity': IT_STAFF_ROLES,
+    '/information-technology/hait/risk-management': IT_STAFF_ROLES,
+  }
+
+  // เห็นเมนูนี้ได้ไหม — route ที่ไม่ได้กำหนดสิทธิ์ = เห็นได้ทุกคน
+  const canSeeMenu = (key: string): boolean => {
+    const req = MENU_ROLE_REQUIREMENTS[key]
+    return !req || req.some(r => userRoles.includes(r))
+  }
+
+  // กรองต้นไม้เมนูตามสิทธิ์ — leaf ตัดตาม canSeeMenu, กลุ่มที่ไม่เหลือลูกให้ตัดทิ้ง
+  // ใช้ any ที่ขอบ antd (โครงสร้าง items แต่ละอันไม่เหมือนกัน) — คืนค่าให้ Menu รับได้เหมือนเดิม
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filterMenuByRole = (items: any[]): any[] =>
+    items.reduce((acc: any[], item: any) => {
+      if (item.children) {
+        const kids = filterMenuByRole(item.children)
+        if (kids.length > 0) acc.push({ ...item, children: kids })
+      } else if (canSeeMenu(item.key)) {
+        acc.push(item)
+      }
+      return acc
+    }, [])
+
   // กางเมนูหลักและ submenu ที่ซ้อนอยู่อัตโนมัติตาม URL ปัจจุบัน
   useEffect(() => {
     const segments = pathname.split('/').filter(Boolean)
@@ -230,7 +271,7 @@ const Navbar: React.FC = () => {
             router.push(e.key)
             setOpenMenu(false) // เลือกเมนูเสร็จให้ปิด Drawer
           }}
-          items={[
+          items={filterMenuByRole([
             { key: '/home', icon: <HomeOutlined />, label: 'หน้าหลัก' },
             { 
               key: 'hr', 
@@ -398,9 +439,9 @@ const Navbar: React.FC = () => {
                 { key: '/accounting/budget',           icon: <FaCoins />,             label: 'งบประมาณรายหน่วยงาน' },
               ]
             },
-            
-            
-          ]}
+
+
+          ])}
         />
       </Drawer>
       </ConfigProvider>
