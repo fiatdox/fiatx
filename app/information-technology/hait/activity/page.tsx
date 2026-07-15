@@ -778,6 +778,24 @@ function ActivityPageContent() {
       messageApi.error('เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น')
       return
     }
+    // เวลาทำงานรวมของเจ้าหน้าที่คนเดียวกันในวันเดียวกันต้องไม่เกิน 8 ชม. (480 นาที)
+    const MAX_DAILY_MINUTES = 8 * 60
+    const ymd = values.log_date.format('YYYY-MM-DD')
+    const existingMinutes = logs
+      .filter(l => l.staff_id === values.staff_id
+        && dayjs(l.log_date).format('YYYY-MM-DD') === ymd
+        && l.log_id !== editingLog?.log_id)   // ตอนแก้ไข ไม่นับรายการเดิมของตัวเอง
+      .reduce((s, l) => s + l.minutes_used, 0)
+    const totalMinutes = existingMinutes + values.minutes_used
+    if (totalMinutes > MAX_DAILY_MINUTES) {
+      const remaining = Math.max(0, MAX_DAILY_MINUTES - existingMinutes)
+      messageApi.error(
+        `เวลาทำงานรวมของเจ้าหน้าที่คนนี้ในวันที่ ${toThaiDate(ymd)} จะเกิน 8 ชม. `
+        + `(บันทึกไว้แล้ว ${formatMinutes(existingMinutes)} + รายการนี้ ${formatMinutes(values.minutes_used)} = ${formatMinutes(totalMinutes)}) — `
+        + `กรอกได้อีกไม่เกิน ${formatMinutes(remaining)}`,
+      )
+      return
+    }
     const payload = {
       log_date: values.log_date.format('YYYY-MM-DD'),
       staff_id: values.staff_id,
