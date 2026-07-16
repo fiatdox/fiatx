@@ -13,6 +13,7 @@ import {
 import { FaUserClock, FaUserCheck } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
 
@@ -27,11 +28,15 @@ interface OnlineUser {
 }
 
 
-const VERSION_COLOR: Record<string, string> = {
-  'v3.12.5': 'green',
-  'v3.11.2': 'gold',
-  'v3.10.0': 'red',
+// สีป้าย Version — กำหนดสีจริงเอง (พื้น/ขอบ/ตัวอักษร) ให้ชัดทั้งโหมด light/dark
+// เดิมใช้ preset ของ antd แล้วถูก token.colorText ทับ ทำให้ตัวอักษรกลายเป็นดำสนิทในโหมด light
+const VERSION_STYLE: Record<string, { c: string; bg: string; b: string }> = {
+  'v3.12.5': { c: '#16a34a', bg: 'rgba(34,197,94,0.14)',  b: 'rgba(34,197,94,0.45)' },
+  'v3.11.2': { c: '#d97706', bg: 'rgba(245,158,11,0.14)', b: 'rgba(245,158,11,0.45)' },
+  'v3.10.0': { c: '#dc2626', bg: 'rgba(239,68,68,0.14)',  b: 'rgba(239,68,68,0.45)' },
 }
+const versionStyle = (v: string) =>
+  VERSION_STYLE[v] ?? { c: 'var(--app-text-2)', bg: 'var(--app-bg)', b: 'var(--app-border-strong)' }
 
 const PageContent = () => {
   const { message } = App.useApp()
@@ -77,14 +82,14 @@ const PageContent = () => {
       cancelButtonColor: '#6b7280',
       confirmButtonText: 'ยืนยัน Clear Session',
       cancelButtonText: 'ยกเลิก',
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
     }).then(async result => {
       if (!result.isConfirmed) return
       await fetch(`/api/v1/his/sessions/${record.onlineid}`, { method: 'DELETE' })
       setUsers(prev => prev.filter(u => u.key !== record.key))
       setSelectedRowKeys(prev => prev.filter(k => k !== record.key))
-      Swal.fire({ title: 'Clear Session สำเร็จ', text: `${record.kskloginname} ออกจากระบบแล้ว`, icon: 'success', timer: 2000, showConfirmButton: false, background: '#1e293b', color: '#e2e8f0' })
+      Swal.fire({ title: 'Clear Session สำเร็จ', text: `${record.kskloginname} ออกจากระบบแล้ว`, icon: 'success', timer: 2000, showConfirmButton: false, background: 'var(--app-surface)', color: 'var(--app-text)' })
     })
   }
 
@@ -102,8 +107,8 @@ const PageContent = () => {
       cancelButtonColor: '#6b7280',
       confirmButtonText: `Clear Session ${selected.length} รายการ`,
       cancelButtonText: 'ยกเลิก',
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
     }).then(async result => {
       if (!result.isConfirmed) return
       await fetch('/api/v1/his/sessions', {
@@ -113,7 +118,7 @@ const PageContent = () => {
       })
       setUsers(prev => prev.filter(u => !selectedRowKeys.includes(u.key)))
       setSelectedRowKeys([])
-      Swal.fire({ title: 'สำเร็จ', text: `Clear Session ${selected.length} รายการแล้ว`, icon: 'success', timer: 2000, showConfirmButton: false, background: '#1e293b', color: '#e2e8f0' })
+      Swal.fire({ title: 'สำเร็จ', text: `Clear Session ${selected.length} รายการแล้ว`, icon: 'success', timer: 2000, showConfirmButton: false, background: 'var(--app-surface)', color: 'var(--app-text)' })
     })
   }
 
@@ -129,7 +134,7 @@ const PageContent = () => {
       key: 'no',
       width: 48,
       align: 'center',
-      render: (_, __, i) => <Text style={{ color: '#475569', fontSize: 12 }}>{i + 1}</Text>,
+      render: (_, __, i) => <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>{i + 1}</Text>,
     },
     {
       title: 'Login Name',
@@ -141,7 +146,7 @@ const PageContent = () => {
           <div style={{ width: 28, height: 28, borderRadius: 6, background: '#2e1065', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <FaUserCheck size={13} color="#a78bfa" />
           </div>
-          <Text strong style={{ color: '#e2e8f0', fontFamily: 'monospace', fontSize: 13 }}>{v}</Text>
+          <Text strong style={{ color: 'var(--app-text)', fontFamily: 'monospace', fontSize: 13 }}>{v}</Text>
         </Space>
       ),
     },
@@ -152,8 +157,8 @@ const PageContent = () => {
       width: 160,
       render: v => (
         <Space size={6}>
-          <DesktopOutlined style={{ color: '#475569' }} />
-          <Text style={{ color: '#94a3b8', fontFamily: 'monospace', fontSize: 13 }}>{v}</Text>
+          <DesktopOutlined style={{ color: 'var(--app-text-3)' }} />
+          <Text style={{ color: 'var(--app-text-2)', fontFamily: 'monospace', fontSize: 13 }}>{v}</Text>
         </Space>
       ),
     },
@@ -164,7 +169,7 @@ const PageContent = () => {
       width: 140,
       render: v => (
         <Space size={6}>
-          <DatabaseOutlined style={{ color: '#475569' }} />
+          <DatabaseOutlined style={{ color: 'var(--app-text-3)' }} />
           <Text style={{ color: '#7dd3fc', fontFamily: 'monospace', fontSize: 13 }}>{v}</Text>
         </Space>
       ),
@@ -175,13 +180,16 @@ const PageContent = () => {
       key: 'client_version',
       width: 100,
       align: 'center',
-      render: v => <Tag color={VERSION_COLOR[v] ?? 'default'} style={{ fontFamily: 'monospace', fontWeight: 600, margin: 0 }}>{v}</Tag>,
+      render: v => {
+        const s = versionStyle(v)
+        return <Tag style={{ fontFamily: 'monospace', fontWeight: 600, margin: 0, color: s.c, background: s.bg, borderColor: s.b }}>{v || '—'}</Tag>
+      },
     },
     {
       title: 'แผนก',
       dataIndex: 'department',
       key: 'department',
-      render: v => <Text style={{ color: '#cbd5e1' }}>{v}</Text>,
+      render: v => <Text style={{ color: 'var(--app-text)' }}>{v}</Text>,
     },
     {
       title: '',
@@ -199,7 +207,7 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
 
@@ -216,15 +224,15 @@ const PageContent = () => {
         <div className="flex items-center gap-3 mb-6">
           <FaUserClock size={26} color="#6B21A8" />
           <div>
-            <Title level={3} style={{ color: '#e2e8f0', margin: 0 }}>HIS User Sessions</Title>
-            <Text style={{ color: '#64748b' }}>ผู้ใช้งานที่ Login อยู่ในระบบ HIS ขณะนี้</Text>
+            <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>HIS User Sessions</Title>
+            <Text style={{ color: 'var(--app-text-3)' }}>ผู้ใช้งานที่ Login อยู่ในระบบ HIS ขณะนี้</Text>
           </div>
         </div>
 
         {/* Toolbar */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
           <Input
-            prefix={<SearchOutlined style={{ color: '#475569' }} />}
+            prefix={<SearchOutlined style={{ color: 'var(--app-text-3)' }} />}
             placeholder="ค้นหา login name, computer, server, แผนก..."
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
@@ -278,40 +286,42 @@ const PageContent = () => {
 }
 
 export default function HisUsersSessionPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           colorPrimary: '#6B21A8',
           borderRadius: 8,
-          colorBgContainer: '#1e293b',
-          colorBgElevated: '#1e293b',
-          colorBorder: '#334155',
-          colorText: '#e2e8f0',
-          colorTextSecondary: '#94a3b8',
+          colorBgContainer: 'var(--app-surface)',
+          colorBgElevated: 'var(--app-elevated)',
+          colorBorder: 'var(--app-border-strong)',
+          colorText: 'var(--app-text)',
+          colorTextSecondary: 'var(--app-text-2)',
         },
         components: {
           Table: {
-            headerBg: '#2e1065',
-            headerColor: '#c4b5fd',
-            rowHoverBg: '#293548',
-            borderColor: '#334155',
-            colorBgContainer: '#1e293b',
-            colorText: '#e2e8f0',
+            headerBg: isDark ? '#2e1065' : '#f3e8ff',
+            headerColor: isDark ? '#c4b5fd' : '#6B21A8',
+            rowHoverBg: isDark ? '#293548' : '#faf5ff',
+            borderColor: 'var(--app-border)',
+            colorBgContainer: 'var(--app-surface)',
+            colorText: 'var(--app-text)',
           },
-          Input: { colorBgContainer: '#0f172a', colorBorder: '#334155', colorText: '#e2e8f0' },
-          Select: { colorBgContainer: '#0f172a', colorBorder: '#334155', colorText: '#e2e8f0', optionSelectedBg: '#4a1d96' },
-          Button: { colorBgContainer: '#1e293b', colorBorder: '#334155', colorText: '#94a3b8' },
-          Pagination: { colorText: '#94a3b8', colorPrimary: '#6B21A8' },
+          Input: { colorBgContainer: 'var(--app-bg)', colorBorder: 'var(--app-border-strong)', colorText: 'var(--app-text)' },
+          Select: { colorBgContainer: 'var(--app-bg)', colorBorder: 'var(--app-border-strong)', colorText: 'var(--app-text)', optionSelectedBg: isDark ? '#4a1d96' : '#ede9fe' },
+          Button: { colorBgContainer: 'var(--app-surface)', colorBorder: 'var(--app-border-strong)', colorText: 'var(--app-text-2)' },
+          Pagination: { colorText: 'var(--app-text-2)', colorPrimary: '#6B21A8' },
         },
       }}
     >
       <App>
         <PageContent />
         <style>{`
-          .ant-table-cell-fix-left, .ant-table-cell-fix-right { background: #1e293b !important; }
-          .ant-table-tbody > tr.ant-table-row-selected > td { background: #2e1065 !important; }
+          .ant-table-cell-fix-left, .ant-table-cell-fix-right { background: var(--app-surface) !important; }
+          .ant-table-tbody > tr.ant-table-row-selected > td { background: ${isDark ? '#2e1065' : '#f3e8ff'} !important; }
         `}</style>
       </App>
     </ConfigProvider>

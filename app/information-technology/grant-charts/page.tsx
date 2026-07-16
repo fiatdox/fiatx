@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Select,
   Button, Modal, Form, Input, InputNumber, DatePicker, Space, Table, Drawer,
-  Descriptions, Progress, Divider, Popconfirm, Timeline, Empty, Statistic, Row, Col,
+  Descriptions, Progress, Divider, Popconfirm, Timeline, Empty, Row, Col,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -15,7 +15,9 @@ import {
 import { FaMicrochip } from 'react-icons/fa'
 import dayjs, { Dayjs } from 'dayjs'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
+import { StatCard, ACCENTS, gBtn } from '@/app/components/StatCard'
 import {
   loadTasks, saveTasks, loadLinks, resetAll,
   DEFAULT_TASKS, DEFAULT_LINKS,
@@ -77,6 +79,10 @@ const sumBudget = (tasks: Task[]) => {
 const newId = () => Math.random().toString(36).slice(2, 10)
 
 const GanttPageContent = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
+  // ม่วงอ่อน (#c4b5fd) อ่านยากบนการ์ดขาว — โหมด light ใช้ม่วงเข้มแทน
+  const cPurple = isDark ? '#c4b5fd' : '#7c3aed'
   const { message } = App.useApp()
 
   const [hydrated, setHydrated] = useState(false)
@@ -282,9 +288,15 @@ const GanttPageContent = () => {
   }
 
   const ganttOption = useMemo(() => {
+    // ECharts วาดบน canvas — ใช้ var(--app-*) ไม่ได้ ต้องเป็นค่าสีจริงและปรับตามโหมด
+    const cAxis      = isDark ? '#e2e8f0' : '#334155'
+    const cMuted     = isDark ? '#64748b' : '#94a3b8'
+    const cGrid      = isDark ? 'rgba(148,163,184,0.14)' : 'rgba(100,116,139,0.16)'
+    const cGridFaint = isDark ? 'rgba(148,163,184,0.06)' : 'rgba(100,116,139,0.09)'
+    const cBarTrack  = isDark ? 'rgba(148,163,184,0.18)' : 'rgba(100,116,139,0.14)'
     const ordered = filteredTasks
     if (!ordered.length) {
-      return { backgroundColor: 'transparent', title: { text: 'ไม่มีข้อมูล', textStyle: { color: '#94a3b8' }, left: 'center', top: 'middle' } }
+      return { backgroundColor: 'transparent', title: { text: 'ไม่มีข้อมูล', textStyle: { color: cMuted }, left: 'center', top: 'middle' } }
     }
     const categories = ordered.map(t => t.text)
     const idToIdx = new Map(ordered.map((t, i) => [t.id, i]))
@@ -350,16 +362,16 @@ const GanttPageContent = () => {
       xAxis: {
         type: 'time', position: 'top',
         min: minTime - DAY * 7, max: maxTime + DAY * 7,
-        splitLine: { show: true, lineStyle: { color: 'rgba(148,163,184,0.12)' } },
-        axisLine: { lineStyle: { color: '#475569' } },
-        axisLabel: { color: '#cbd5e1', fontSize: 11, fontWeight: 600 },
+        splitLine: { show: true, lineStyle: { color: cGrid } },
+        axisLine: { lineStyle: { color: cMuted } },
+        axisLabel: { color: cAxis, fontSize: 11, fontWeight: 600 },
       },
       yAxis: {
         type: 'category', data: categories, inverse: true,
         axisLine: { show: false }, axisTick: { show: false },
-        splitLine: { show: true, lineStyle: { color: 'rgba(148,163,184,0.06)' } },
+        splitLine: { show: true, lineStyle: { color: cGridFaint } },
         axisLabel: {
-          color: '#e2e8f0', fontSize: 12, width: 300, overflow: 'truncate',
+          color: cAxis, fontSize: 12, width: 300, overflow: 'truncate',
           formatter: (v: string, i: number) => {
             const t = ordered[i]
             if (t.type === 'project')   return `{p|■} ${v}`
@@ -369,7 +381,7 @@ const GanttPageContent = () => {
           rich: {
             p: { color: '#a855f7', fontSize: 14, fontWeight: 700 },
             m: { color: '#ef4444', fontSize: 14, fontWeight: 700 },
-            s: { color: '#64748b', fontSize: 12 },
+            s: { color: cMuted, fontSize: 12 },
           },
         },
       },
@@ -425,7 +437,7 @@ const GanttPageContent = () => {
             const progW = (w * progress) / 100
 
             const children: unknown[] = [
-              { type: 'rect', shape: { x, y, width: w, height: barH, r: 4 }, style: { fill: 'rgba(148,163,184,0.18)', stroke: baseColor + '99', lineWidth: 1 } },
+              { type: 'rect', shape: { x, y, width: w, height: barH, r: 4 }, style: { fill: cBarTrack, stroke: baseColor + '99', lineWidth: 1 } },
               { type: 'rect', shape: { x, y, width: progW, height: barH, r: 4 }, style: { fill: baseColor, shadowBlur: 10, shadowColor: baseColor + '70' } },
               { type: 'rect', shape: { x, y, width: w, height: barH, r: 4 }, style: { fill: 'transparent', stroke: baseColor, lineWidth: isProject ? 2 : 1.4 } },
             ]
@@ -452,14 +464,14 @@ const GanttPageContent = () => {
         },
       ],
     }
-  }, [filteredTasks, filteredLinks])
+  }, [filteredTasks, filteredLinks, isDark])
 
   const heightPx = Math.max(420, filteredTasks.length * 38 + 100)
 
   const columns: ColumnsType<Task> = [
     {
       title: 'รหัส', dataIndex: 'code', width: 130,
-      render: (v?: string) => v ? <Text style={{ color: '#c4b5fd', fontWeight: 600 }}>{v}</Text> : <Text type="secondary">-</Text>,
+      render: (v?: string) => v ? <Text style={{ color: cPurple, fontWeight: 600 }}>{v}</Text> : <Text type="secondary">-</Text>,
     },
     {
       title: 'รายการ', dataIndex: 'text',
@@ -469,7 +481,7 @@ const GanttPageContent = () => {
             <Tag color={r.type === 'project' ? 'purple' : r.type === 'milestone' ? 'red' : 'blue'} style={{ margin: 0 }}>
               {r.type === 'project' ? 'โครงการ' : r.type === 'milestone' ? 'Milestone' : 'กิจกรรม'}
             </Tag>
-            <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{r.text}</Text>
+            <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>{r.text}</Text>
           </div>
           {r.kpiCode && (
             <Text type="secondary" style={{ fontSize: 11 }}>
@@ -483,7 +495,7 @@ const GanttPageContent = () => {
       title: 'ผู้รับผิดชอบ', width: 200,
       render: (_, r) => (
         <div>
-          <div style={{ color: '#e2e8f0' }}>{r.owner ?? '-'}</div>
+          <div style={{ color: 'var(--app-text)' }}>{r.owner ?? '-'}</div>
           <Text type="secondary" style={{ fontSize: 11 }}>{r.department ?? ''}</Text>
         </div>
       ),
@@ -502,10 +514,10 @@ const GanttPageContent = () => {
         const pct = budgetUtilization(r.budgetSpent, r.budgetApproved)
         return (
           <div>
-            <div style={{ color: '#e2e8f0', fontSize: 12 }}>{formatTHB(r.budgetApproved)}</div>
+            <div style={{ color: 'var(--app-text)', fontSize: 12 }}>{formatTHB(r.budgetApproved)}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <Progress percent={pct} size="small" showInfo={false} strokeColor={pct > 90 ? '#ef4444' : '#a855f7'} style={{ flex: 1, margin: 0 }} />
-              <Text style={{ fontSize: 11, color: '#94a3b8', minWidth: 36, textAlign: 'right' }}>{pct}%</Text>
+              <Text style={{ fontSize: 11, color: 'var(--app-text-2)', minWidth: 36, textAlign: 'right' }}>{pct}%</Text>
             </div>
           </div>
         )
@@ -542,7 +554,7 @@ const GanttPageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" />
       </div>
@@ -550,7 +562,7 @@ const GanttPageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 pb-12 relative overflow-hidden">
+    <div className="min-h-screen bg-app-bg text-app-text pb-12 relative overflow-hidden">
       <Navbar />
 
       <div className="pointer-events-none absolute inset-0">
@@ -564,9 +576,9 @@ const GanttPageContent = () => {
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { href: '/', title: <span className="text-slate-400 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-              { title: <span className="text-slate-400"><FaMicrochip /> งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
-              { title: <span className="text-slate-100 font-bold">แผนโครงการ IT</span> },
+              { href: '/', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+              { title: <span className="text-app-text-2"><FaMicrochip /> งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
+              { title: <span className="text-app-text font-bold">แผนโครงการ IT</span> },
             ]}
             className="mb-4 text-xs uppercase tracking-tighter"
           />
@@ -577,68 +589,72 @@ const GanttPageContent = () => {
                 <ProjectOutlined />
               </div>
               <div>
-                <Title level={2} style={{ color: '#f8fafc', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
+                <Title level={2} style={{ color: 'var(--app-text)', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
                   IT Project Roadmap 2026
                 </Title>
-                <Text className="text-slate-400 text-sm">แผนโครงการเทคโนโลยีสารสนเทศ ประจำปีงบประมาณ 2569 — กลุ่มงาน IT</Text>
+                <Text className="text-app-text-2 text-sm">แผนโครงการเทคโนโลยีสารสนเทศ ประจำปีงบประมาณ 2569 — กลุ่มงาน IT</Text>
               </div>
             </div>
 
             <Space wrap>
-              <Button icon={<PlusOutlined />} type="primary" onClick={() => openCreate('project')}>เพิ่มโครงการ</Button>
-              <Button icon={<PlusOutlined />} onClick={() => openCreate('task')}>เพิ่มกิจกรรม</Button>
-              <Button icon={<PlusOutlined />} onClick={() => openCreate('milestone')}>เพิ่ม Milestone</Button>
-              <Button icon={<ReloadOutlined />} danger onClick={handleReset}>รีเซ็ตข้อมูล</Button>
+              <Button icon={<PlusOutlined />} type="primary" style={gBtn('#a855f7', '#d946ef')}
+                className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
+                onClick={() => openCreate('project')}>เพิ่มโครงการ</Button>
+              <Button icon={<PlusOutlined />} style={gBtn('#3b82f6', '#06b6d4')}
+                className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
+                onClick={() => openCreate('task')}>เพิ่มกิจกรรม</Button>
+              <Button icon={<FlagOutlined />} style={gBtn('#f43f5e', '#fb7185')}
+                className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
+                onClick={() => openCreate('milestone')}>เพิ่ม Milestone</Button>
+              <Button icon={<ReloadOutlined />} danger ghost
+                className="transition-all duration-200 hover:-translate-y-px"
+                onClick={handleReset}>รีเซ็ตข้อมูล</Button>
             </Space>
           </div>
         </div>
 
         <Row gutter={[16, 16]} className="mb-6">
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">โครงการทั้งหมด</span>}
-                value={filteredTasks.filter(t => t.type === 'project').length}
-                prefix={<ProjectOutlined style={{ color: '#a855f7' }} />}
-                styles={{ content: { color: '#a855f7', fontWeight: 800 } }}
-              />
-            </Card>
+            <StatCard
+              accent="purple" isDark={isDark}
+              label="โครงการทั้งหมด"
+              value={filteredTasks.filter(t => t.type === 'project').length}
+              icon={<ProjectOutlined />}
+              footer={<Text type="secondary" style={{ fontSize: 11 }}>{filteredTasks.filter(t => t.type === 'task').length} กิจกรรม · {filteredTasks.filter(t => t.type === 'milestone').length} milestone</Text>}
+            />
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">งบที่อนุมัติ (รวม)</span>}
-                value={budget.approved} suffix="฿"
-                prefix={<DollarOutlined style={{ color: '#22c55e' }} />}
-                styles={{ content: { color: '#22c55e', fontWeight: 800, fontSize: 22 } }}
-                formatter={(v) => Number(v).toLocaleString('th-TH')}
-              />
-            </Card>
+            <StatCard
+              accent="emerald" isDark={isDark}
+              label="งบที่อนุมัติ (รวม)" suffix="฿"
+              value={Number(budget.approved).toLocaleString('th-TH')}
+              icon={<DollarOutlined />}
+              footer={<Text type="secondary" style={{ fontSize: 11 }}>ขอทั้งหมด {Number(budget.requested).toLocaleString('th-TH')} ฿</Text>}
+            />
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">เบิกจ่ายแล้ว</span>}
-                value={budget.spent} suffix="฿"
-                prefix={<DollarOutlined style={{ color: '#c4b5fd' }} />}
-                styles={{ content: { color: '#c4b5fd', fontWeight: 800, fontSize: 22 } }}
-                formatter={(v) => Number(v).toLocaleString('th-TH')}
-              />
-              <Progress percent={budgetUtilization(budget.spent, budget.approved)} size="small" showInfo={false} strokeColor="#a855f7" />
-            </Card>
+            <StatCard
+              accent="amber" isDark={isDark}
+              label="เบิกจ่ายแล้ว" suffix="฿"
+              value={Number(budget.spent).toLocaleString('th-TH')}
+              icon={<DollarOutlined />}
+              footer={<Progress percent={budgetUtilization(budget.spent, budget.approved)} size="small" showInfo={false} strokeColor={{ from: ACCENTS.amber.from, to: ACCENTS.amber.to }} />}
+            />
           </Col>
           <Col xs={12} md={6}>
-            <Card variant="borderless" className="bg-slate-800/60 border border-slate-700/60">
-              <Statistic title={<span className="text-slate-400">% เสร็จสิ้น</span>}
-                value={stats.total ? Math.round((stats.done / stats.total) * 100) : 0} suffix="%"
-                prefix={<RiseOutlined style={{ color: '#10b981' }} />}
-                styles={{ content: { color: '#10b981', fontWeight: 800 } }}
-              />
-              <Text type="secondary" style={{ fontSize: 11 }}>{stats.done} / {stats.total} กิจกรรม</Text>
-            </Card>
+            <StatCard
+              accent="cyan" isDark={isDark}
+              label="% เสร็จสิ้น" suffix="%"
+              value={stats.total ? Math.round((stats.done / stats.total) * 100) : 0}
+              icon={<RiseOutlined />}
+              footer={<Text type="secondary" style={{ fontSize: 11 }}>{stats.done} / {stats.total} กิจกรรมเสร็จสิ้น</Text>}
+            />
           </Col>
         </Row>
 
-        <div className="flex flex-wrap gap-4 mb-6 p-4 bg-slate-800/60 border border-slate-700/60 rounded-xl backdrop-blur-sm items-center shadow-lg">
+        <div className="flex flex-wrap gap-4 mb-6 p-4 bg-app-surface/70 border border-app-border rounded-xl backdrop-blur-sm items-center shadow-lg">
           <Tag icon={<SyncOutlined spin />} className="font-bold border-0" color="purple">ECharts Gantt</Tag>
-          <div className="h-4 w-px bg-slate-700 mx-1 hidden sm:block" />
+          <div className="h-4 w-px bg-app-border mx-1 hidden sm:block" />
 
           <Select
             value={selectedMission} onChange={setSelectedMission}
@@ -652,19 +668,19 @@ const GanttPageContent = () => {
             className="w-full sm:w-[180px]" popupMatchSelectWidth={false}
           />
 
-          <div className="ml-auto flex items-center gap-2 text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-full text-[10px] border border-slate-700/60">
+          <div className="ml-auto flex items-center gap-2 text-app-text-2 bg-app-bg/60 px-3 py-1.5 rounded-full text-[10px] border border-app-border">
             <InfoCircleOutlined />
             <span>ใช้ตารางด้านล่างเพื่อแก้ไข / อัปเดตความคืบหน้า / ดูรายละเอียดเต็ม</span>
           </div>
         </div>
 
-        <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl mb-6"
+        <Card variant="borderless" className="bg-app-surface/60 border border-app-border backdrop-blur-md rounded-2xl shadow-2xl mb-6"
           styles={{ body: { padding: 12 } }}>
           <EChart option={ganttOption} height={heightPx} />
         </Card>
 
-        <Card variant="borderless" className="bg-slate-800/50 border border-slate-700/60 backdrop-blur-md rounded-2xl shadow-2xl"
-          title={<span className="text-slate-100 font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม IT</span>}
+        <Card variant="borderless" className="bg-app-surface/60 border border-app-border backdrop-blur-md rounded-2xl shadow-2xl"
+          title={<span className="text-app-text font-bold"><FileTextOutlined /> รายการโครงการและกิจกรรม IT</span>}
           styles={{ body: { padding: 12 } }}>
           <Table<Task>
             columns={columns}
@@ -678,7 +694,7 @@ const GanttPageContent = () => {
         </Card>
 
         <style jsx global>{`
-          .ant-breadcrumb-separator { color: #475569 !important; margin: 0 12px; }
+          .ant-breadcrumb-separator { color: var(--app-text-3) !important; margin: 0 12px; }
         `}</style>
       </div>
 
@@ -899,7 +915,7 @@ const GanttPageContent = () => {
             </Space>
 
             {detailTask.type !== 'milestone' && (
-              <Card variant="borderless" className="mb-4 bg-slate-800/40">
+              <Card variant="borderless" className="mb-4 bg-app-surface/40">
                 <div className="flex items-center justify-between mb-2">
                   <Text strong>ความคืบหน้าโดยรวม</Text>
                   <Text strong style={{ color: getProgressColor(detailTask.progress ?? 0).fill, fontSize: 22 }}>
@@ -965,7 +981,7 @@ const GanttPageContent = () => {
                           <Text strong>{dayjs(log.date).format('DD MMM YYYY')}</Text>
                           <Tag color={getProgressColor(log.progress).tagColor}>{log.progress}%</Tag>
                         </div>
-                        <div style={{ color: '#cbd5e1' }}>{log.note}</div>
+                        <div style={{ color: 'var(--app-text)' }}>{log.note}</div>
                         <Text type="secondary" style={{ fontSize: 11 }}>
                           โดย {log.reportedBy}
                           {log.budgetSpentDelta ? ` · เบิก ${formatTHB(log.budgetSpentDelta)}` : ''}
@@ -983,10 +999,13 @@ const GanttPageContent = () => {
   )
 }
 
-const ITGanttPage = () => (
+const ITGanttPage = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
+  return (
   <ConfigProvider
     theme={{
-      algorithm: theme.darkAlgorithm,
+      algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
       token: { colorPrimary: '#a855f7', borderRadius: 12, fontFamily: 'var(--font-sarabun)' },
     }}
   >
@@ -994,6 +1013,7 @@ const ITGanttPage = () => (
       <GanttPageContent />
     </App>
   </ConfigProvider>
-)
+  )
+}
 
 export default ITGanttPage

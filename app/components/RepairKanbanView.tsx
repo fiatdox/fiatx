@@ -92,7 +92,7 @@ const URGENCY_BY_PRIORITY_NAME: Record<string, { color: string; label: string }>
 
 const PROBLEM_CATEGORY_COLOR: Record<string, string> = {
   'ฮาร์ดแวร์': '#f87171', 'ซอฟต์แวร์': '#60a5fa', 'อุปกรณ์ต่อพ่วง': '#34d399',
-  'เครือข่าย': '#fbbf24', 'อื่น ๆ': '#94a3b8',
+  'เครือข่าย': '#fbbf24', 'อื่น ๆ': 'var(--app-text-2)',
 }
 
 // จุดสีระดับความเร่งด่วนที่ช่างประเมิน — เขียว → เหลือง → ส้ม → แดง (โทนเดียวกับหน้า manage)
@@ -171,11 +171,11 @@ const ExtensionHistory = ({ exts }: { exts: Extension[] }) => {
           background: '#f59e0b0d', border: '1px dashed #f59e0b2e',
         }}>
           <span style={{ color: '#f59e0b', fontWeight: 700 }}>+{ex.days} วัน</span>
-          {ex.newDueIso && <span style={{ color: '#94a3b8' }}> → กำหนดใหม่ {fmtDate(ex.newDueIso)}</span>}
-          <span style={{ color: '#475569' }}> · {ex.date}</span>
-          <div style={{ color: '#94a3b8' }}>
+          {ex.newDueIso && <span style={{ color: 'var(--app-text-2)' }}> → กำหนดใหม่ {fmtDate(ex.newDueIso)}</span>}
+          <span style={{ color: 'var(--app-text-3)' }}> · {ex.date}</span>
+          <div style={{ color: 'var(--app-text-2)' }}>
             {ex.reason}
-            {ex.by && <span style={{ color: '#64748b' }}> — {ex.by}</span>}
+            {ex.by && <span style={{ color: 'var(--app-text-3)' }}> — {ex.by}</span>}
           </div>
         </div>
       ))}
@@ -324,24 +324,24 @@ export default function RepairKanbanView({
         <ClockCircleOutlined style={{ fontSize: 10, color: ds.color }} />
         {exts.length > 0 && firstIso ? (
           <>
-            <span style={{ color: '#94a3b8' }}>สัญญาแรก {fmtDate(firstIso)}</span>
-            <span style={{ color: '#475569' }}>·</span>
+            <span style={{ color: 'var(--app-text-2)' }}>สัญญาแรก {fmtDate(firstIso)}</span>
+            <span style={{ color: 'var(--app-text-3)' }}>·</span>
             <span style={{ color: '#f59e0b', fontWeight: 700 }}>ผลัดสัญญา {exts.length} ครั้ง</span>
-            <span style={{ color: '#475569' }}>·</span>
-            {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>ล่าสุด {fmtDate(dueIso)}</span>}
+            <span style={{ color: 'var(--app-text-3)' }}>·</span>
+            {dueIso && <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>ล่าสุด {fmtDate(dueIso)}</span>}
           </>
         ) : (
           <>
             {row.estimated_days != null && (
               <>
-                <span style={{ color: '#94a3b8' }}>ขอเวลา {row.estimated_days} วัน</span>
-                <span style={{ color: '#475569' }}>·</span>
+                <span style={{ color: 'var(--app-text-2)' }}>ขอเวลา {row.estimated_days} วัน</span>
+                <span style={{ color: 'var(--app-text-3)' }}>·</span>
               </>
             )}
-            {dueIso && <span style={{ color: '#94a3b8' }}>กำหนดเสร็จ {fmtDate(dueIso)}</span>}
+            {dueIso && <span style={{ color: 'var(--app-text-2)' }}>กำหนดเสร็จ {fmtDate(dueIso)}</span>}
           </>
         )}
-        <span style={{ color: '#475569' }}>·</span>
+        <span style={{ color: 'var(--app-text-3)' }}>·</span>
         <span style={{ color: ds.color, fontWeight: 600 }}>{ds.label}</span>
       </div>
     )
@@ -359,45 +359,48 @@ export default function RepairKanbanView({
               {/* Column header */}
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '7px 12px', borderRadius: 8, marginBottom: 8,
-                background: '#0f172a', borderLeft: `3px solid ${col.accent}`,
-                boxShadow: `inset 0 0 0 1px ${col.accent}22`,
+                padding: '8px 12px', borderRadius: 10, marginBottom: 8,
+                background: `linear-gradient(135deg, ${col.accent}2e, ${col.accent}0f)`,
+                borderLeft: `3px solid ${col.accent}`,
+                boxShadow: `inset 0 0 0 1px ${col.accent}26, 0 1px 2px rgba(15,23,42,0.06)`,
               }}>
-                <Text style={{ color: col.accent, fontSize: 12, fontWeight: 700 }}>{col.title}</Text>
+                <Text style={{ color: col.accent, fontSize: 12, fontWeight: 800 }}>{col.title}</Text>
                 <span style={{
-                  background: col.accent + '22', color: col.accent,
-                  borderRadius: 10, padding: '0 8px', fontSize: 11, fontWeight: 700,
+                  background: col.accent, color: '#fff',
+                  borderRadius: 10, padding: '1px 9px', fontSize: 11, fontWeight: 700,
+                  boxShadow: `0 2px 6px ${col.accent}55`,
                 }}>{items.length}</span>
               </div>
               {/* Cards */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7, minHeight: 80 }}>
                 {items.length === 0 && (
                   <div style={{
-                    textAlign: 'center', color: '#334155', padding: '24px 0',
-                    border: '1px dashed #1e3a5f', borderRadius: 8, fontSize: 11,
+                    textAlign: 'center', color: 'var(--app-text-3)', padding: '24px 0',
+                    border: '1px dashed var(--app-border-strong)', borderRadius: 8, fontSize: 11,
                   }}>ไม่มีงาน</div>
                 )}
                 {items.map(r => {
                   const days = ![5, 10].includes(r.process_status_id) ? daysSince(r.created_at) : null
                   const urgency = URGENCY_BY_PRIORITY_NAME[r.priority_name ?? ''] ?? { color: 'default', label: r.priority_name ?? '-' }
-                  const catColor = PROBLEM_CATEGORY_COLOR[r.problem_category_name ?? ''] ?? '#94a3b8'
+                  const catColor = PROBLEM_CATEGORY_COLOR[r.problem_category_name ?? ''] ?? 'var(--app-text-2)'
                   const exts = extMap[r.it_repair_request_id] ?? []
                   const info: PrInfo = prMap[r.it_repair_request_id] ?? {}
                   return (
                     <div key={r.it_repair_request_id}
                       onClick={() => onDetail?.(r)}
-                      onMouseEnter={e => (e.currentTarget.style.borderColor = col.accent)}
-                      onMouseLeave={e => (e.currentTarget.style.borderColor = '#1e293b')}
+                      onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 6px 16px ${col.accent}40`; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                      onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)'; e.currentTarget.style.transform = 'none' }}
                       style={{
-                        background: '#0f172a',
-                        border: '1px solid #1e293b',
+                        background: 'var(--app-surface)',
+                        border: '1px solid var(--app-border)',
                         borderLeft: `3px solid ${col.accent}`,
                         borderRadius: 8, padding: '10px 11px',
-                        cursor: 'pointer', transition: 'border-color .15s',
+                        cursor: 'pointer', transition: 'box-shadow .18s, transform .18s',
+                        boxShadow: '0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.04)',
                       }}>
                       {/* Row 1: id + days + urgency */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 4 }}>
-                        <code style={{ color: '#a78bfa', fontSize: 10, fontWeight: 600 }}>
+                        <code style={{ color: '#8b5cf6', fontSize: 10, fontWeight: 700 }}>
                           IT-{String(r.it_repair_request_id).padStart(4, '0')}
                         </code>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -412,10 +415,10 @@ export default function RepairKanbanView({
                         </div>
                       </div>
                       {/* Row 2: brand + type */}
-                      <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12, marginBottom: 2, lineHeight: 1.4 }}>
+                      <div style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: 12, marginBottom: 2, lineHeight: 1.4 }}>
                         {r.brand || r.equipment_type_name}
                         {r.equipment_type_name && r.brand && (
-                          <span style={{ color: '#64748b', fontSize: 10, fontWeight: 400 }}> · {r.equipment_type_name}</span>
+                          <span style={{ color: 'var(--app-text-3)', fontSize: 10, fontWeight: 400 }}> · {r.equipment_type_name}</span>
                         )}
                       </div>
                       {/* Row 3: asset no */}
@@ -426,22 +429,22 @@ export default function RepairKanbanView({
                       )}
                       {/* Row 4: location */}
                       {r.location && (
-                        <div style={{ color: '#94a3b8', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                        <div style={{ color: 'var(--app-text-2)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
                           <EnvironmentOutlined style={{ fontSize: 10 }} />{r.location}
                         </div>
                       )}
                       {/* Row 5: requester + dept */}
                       {r.created_by_name && (
-                        <div style={{ color: '#cbd5e1', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
+                        <div style={{ color: 'var(--app-text)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
                           <UserOutlined style={{ fontSize: 10 }} />{r.created_by_name}
                         </div>
                       )}
                       {r.major_name && (
-                        <div style={{ color: '#64748b', fontSize: 10, marginLeft: 14, marginBottom: 5 }}>{r.major_name}</div>
+                        <div style={{ color: 'var(--app-text-3)', fontSize: 10, marginLeft: 14, marginBottom: 5 }}>{r.major_name}</div>
                       )}
                       {/* วันเวลาที่ส่งคำขอ */}
                       {fmtDateTime(r.created_at) && (
-                        <div style={{ color: '#64748b', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                        <div style={{ color: 'var(--app-text-3)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
                           <ClockCircleOutlined style={{ fontSize: 10 }} />
                           <span>ส่งคำขอ {fmtDateTime(r.created_at)}</span>
                         </div>
@@ -458,26 +461,26 @@ export default function RepairKanbanView({
                         </div>
                       )}
                       {/* Row 7: symptom */}
-                      <div style={{ color: '#94a3b8', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
+                      <div style={{ color: 'var(--app-text-2)', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
                         “{r.problem_description.length > 60 ? r.problem_description.slice(0, 60) + '…' : r.problem_description}”
                       </div>
                       {/* เส้นคั่น — แยกข้อมูลคำร้องออกจากส่วนงานของช่าง (ลำดับเดียวกับหน้า manage) */}
                       {r.assigned_to_name && (
                         <>
-                          <div style={{ borderTop: '1px dashed #334155', margin: '6px 0 7px' }} />
-                          <div style={{ color: '#6ee7b7', fontSize: 10, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <div style={{ borderTop: '1px dashed var(--app-border-strong)', margin: '6px 0 7px' }} />
+                          <div style={{ color: '#10b981', fontSize: 10, fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
                             <ToolOutlined style={{ fontSize: 9 }} />{r.assigned_to_name}
                           </div>
                         </>
                       )}
                       {/* ความเร่งด่วนที่ช่างประเมิน */}
                       {r.technician_priority_name && (() => {
-                        const dot = PRIORITY_DOT[r.technician_priority_name] ?? '#94a3b8'
+                        const dot = PRIORITY_DOT[r.technician_priority_name] ?? 'var(--app-text-2)'
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, fontSize: 10 }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: dot, boxShadow: `0 0 5px ${dot}99`, flexShrink: 0 }} />
-                            <span style={{ color: '#64748b' }}>ช่างประเมิน:</span>
-                            <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{r.technician_priority_name}</span>
+                            <span style={{ color: 'var(--app-text-3)' }}>ช่างประเมิน:</span>
+                            <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>{r.technician_priority_name}</span>
                           </div>
                         )
                       })()}
@@ -491,8 +494,8 @@ export default function RepairKanbanView({
                         if (!prNo) return null
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
-                            <span style={{ color: '#64748b', fontSize: 10 }}>เลขที่ PR</span>
-                            <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
+                            <span style={{ color: 'var(--app-text-3)', fontSize: 10 }}>เลขที่ PR</span>
+                            <code style={{ color: '#ea580c', fontSize: 10, background: 'rgba(249,115,22,0.14)', padding: '1px 5px', borderRadius: 4, fontWeight: 700 }}>
                               {prNo}
                             </code>
                           </div>
@@ -523,7 +526,7 @@ export default function RepairKanbanView({
                           }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                               <ToolOutlined style={{ fontSize: 10, color: accent }} />
-                              <span style={{ color: '#94a3b8' }}>
+                              <span style={{ color: 'var(--app-text-2)' }}>
                                 ความคืบหน้างาน{' '}
                                 <span style={{ color: accent, fontWeight: 700 }}>{done.size}/{cardSteps.length} ขั้น</span>
                               </span>
@@ -536,8 +539,8 @@ export default function RepairKanbanView({
                                 <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.5 }}>
                                   {notFound
                                     ? <CloseCircleOutlined style={{ fontSize: 10, marginTop: 1, color: '#ef4444' }} />
-                                    : <CheckSquareOutlined style={{ fontSize: 10, marginTop: 1, color: checked ? '#22c55e' : '#475569' }} />}
-                                  <span style={{ color: notFound ? '#94a3b8' : (checked ? '#cbd5e1' : '#64748b') }}>
+                                    : <CheckSquareOutlined style={{ fontSize: 10, marginTop: 1, color: checked ? '#22c55e' : 'var(--app-text-3)' }} />}
+                                  <span style={{ color: notFound ? 'var(--app-text-2)' : (checked ? 'var(--app-text)' : 'var(--app-text-3)') }}>
                                     {s.name_th}
                                     {notFound && <span style={{ color: '#ef4444', marginLeft: 4 }}>· ไม่พบข้อมูล</span>}
                                     {isPo && s.step_code === 'pr_approved' && (() => {
@@ -567,8 +570,8 @@ export default function RepairKanbanView({
                               )
                             })}
                             {info.prTaskNote && (
-                              <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px dashed ${accent}33`, color: '#94a3b8', lineHeight: 1.5 }}>
-                                <span style={{ color: '#64748b' }}>หมายเหตุ: </span>{info.prTaskNote}
+                              <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px dashed ${accent}33`, color: 'var(--app-text-2)', lineHeight: 1.5 }}>
+                                <span style={{ color: 'var(--app-text-3)' }}>หมายเหตุ: </span>{info.prTaskNote}
                               </div>
                             )}
                           </div>

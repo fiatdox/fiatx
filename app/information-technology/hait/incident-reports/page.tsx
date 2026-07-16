@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
-  Select, Breadcrumb, message, Tooltip, Row, Col, Statistic, DatePicker,
+  Select, Breadcrumb, message, Tooltip, Row, Col, DatePicker,
   Typography, Radio, theme, Modal, InputNumber, Tabs
 } from 'antd'
 import {
@@ -13,6 +13,8 @@ import {
   BulbOutlined, FireOutlined, WarningOutlined
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, gBtn, type Accent } from '@/app/components/StatCard'
 import EChart from '../../../components/EChart'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
@@ -370,6 +372,8 @@ ${detailCards}
 }
 
 export default function IncidentReportsPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   const [incidents, setIncidents]           = useState<IncidentReport[]>([])
   const [loading, setLoading]               = useState(false)
   const [threatTypeOpts, setThreatTypeOpts] = useState<{ value: number; label: string }[]>([])
@@ -435,11 +439,11 @@ export default function IncidentReportsPage() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', formatter: '{b}: {c} ครั้ง ({d}%)' },
-      legend: { orient: 'vertical', right: '2%', top: 'middle', type: 'scroll', textStyle: { color: '#cbd5e1', fontSize: 10 } },
+      legend: { orient: 'vertical', right: '2%', top: 'middle', type: 'scroll', textStyle: { color: 'var(--app-text)', fontSize: 10 } },
       color: CHART_COLORS,
       series: [{ type: 'pie', radius: ['42%', '68%'], center: ['36%', '50%'],
         data: data.map(([name, value]) => ({ name, value })),
-        label: { show: true, formatter: '{d}%', fontSize: 10, color: '#e2e8f0' },
+        label: { show: true, formatter: '{d}%', fontSize: 10, color: 'var(--app-text)' },
         emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } }
       }],
     }
@@ -455,9 +459,9 @@ export default function IncidentReportsPage() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', formatter: '{b}: {c} ครั้ง ({d}%)' },
-      legend: { bottom: 0, textStyle: { color: '#cbd5e1', fontSize: 10 } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)', fontSize: 10 } },
       series: [{ type: 'pie', radius: ['42%', '68%'], center: ['50%', '44%'], data: d,
-        label: { formatter: '{b}\n{d}%', fontSize: 10, color: '#e2e8f0' },
+        label: { formatter: '{b}\n{d}%', fontSize: 10, color: 'var(--app-text)' },
       }],
     }
   }, [incidents])
@@ -470,11 +474,11 @@ export default function IncidentReportsPage() {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: 120, right: 40, top: 10, bottom: 10 },
-      xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: '#334155' } }, minInterval: 1 },
-      yAxis: { type: 'category', data: sorted.map(([k]) => k), axisLabel: { color: '#cbd5e1', fontSize: 10 } },
+      xAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)', fontSize: 10 }, splitLine: { lineStyle: { color: 'var(--app-border-strong)' } }, minInterval: 1 },
+      yAxis: { type: 'category', data: sorted.map(([k]) => k), axisLabel: { color: 'var(--app-text)', fontSize: 10 } },
       series: [{ type: 'bar', data: sorted.map(([, v]) => v),
         itemStyle: { color: '#a855f7', borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right', color: '#e2e8f0', fontSize: 11 },
+        label: { show: true, position: 'right', color: 'var(--app-text)', fontSize: 11 },
       }],
     }
   }, [incidents])
@@ -487,11 +491,11 @@ export default function IncidentReportsPage() {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
       grid: { left: 20, right: 20, top: 20, bottom: 64 },
-      xAxis: { type: 'category', data: sorted.map(([k]) => k), axisLabel: { color: '#cbd5e1', fontSize: 9, rotate: 30 } },
-      yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: '#334155' } }, minInterval: 1 },
+      xAxis: { type: 'category', data: sorted.map(([k]) => k), axisLabel: { color: 'var(--app-text)', fontSize: 9, rotate: 30 } },
+      yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)', fontSize: 10 }, splitLine: { lineStyle: { color: 'var(--app-border-strong)' } }, minInterval: 1 },
       series: [{ type: 'bar', data: sorted.map(([, v]) => v),
         itemStyle: { color: '#6366f1', borderRadius: [4, 4, 0, 0] },
-        label: { show: true, position: 'top', color: '#e2e8f0', fontSize: 11 },
+        label: { show: true, position: 'top', color: 'var(--app-text)', fontSize: 11 },
       }],
     }
   }, [incidents])
@@ -501,10 +505,10 @@ export default function IncidentReportsPage() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: '#cbd5e1', fontSize: 10 }, data: ['ใช่', 'ไม่ใช่'] },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)', fontSize: 10 }, data: ['ใช่', 'ไม่ใช่'] },
       grid: { left: 150, right: 40, top: 10, bottom: 40 },
-      xAxis: { type: 'value', max: n, axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: '#334155' } } },
-      yAxis: { type: 'category', data: ['ข้อมูลรั่วไหล', 'กระทบความต่อเนื่อง', 'เกี่ยวข้อง SLA', 'แจ้ง สกมช แล้ว'], axisLabel: { color: '#cbd5e1', fontSize: 10 } },
+      xAxis: { type: 'value', max: n, axisLabel: { color: 'var(--app-text-2)', fontSize: 10 }, splitLine: { lineStyle: { color: 'var(--app-border-strong)' } } },
+      yAxis: { type: 'category', data: ['ข้อมูลรั่วไหล', 'กระทบความต่อเนื่อง', 'เกี่ยวข้อง SLA', 'แจ้ง สกมช แล้ว'], axisLabel: { color: 'var(--app-text)', fontSize: 10 } },
       series: [
         { type: 'bar', name: 'ใช่', stack: 'total',
           data: [
@@ -523,8 +527,8 @@ export default function IncidentReportsPage() {
             n - incidents.filter(i => i.isSlaRelated    === 'Y').length,
             n - incidents.filter(i => i.ncsaReported    === 'Y').length,
           ],
-          itemStyle: { color: '#334155', borderRadius: [0, 4, 4, 0] },
-          label: { show: true, color: '#94a3b8', fontSize: 10, formatter: (p: { value: number }) => p.value > 0 ? String(p.value) : '' },
+          itemStyle: { color: 'var(--app-border-strong)', borderRadius: [0, 4, 4, 0] },
+          label: { show: true, color: 'var(--app-text-2)', fontSize: 10, formatter: (p: { value: number }) => p.value > 0 ? String(p.value) : '' },
         },
       ],
     }
@@ -861,9 +865,9 @@ export default function IncidentReportsPage() {
   ]
 
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       {contextHolder}
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb items={[
@@ -880,21 +884,19 @@ export default function IncidentReportsPage() {
             </div>
             <Space>
               <Button icon={<PrinterOutlined />} onClick={() => setIsPdfModalOpen(true)}>รายงานประจำเดือน (PDF)</Button>
-              <Button type="primary" icon={<PlusOutlined />} size="large" onClick={openAddDrawer}>บันทึกเหตุการณ์ใหม่</Button>
+              <Button type="primary" icon={<PlusOutlined />} size="large" style={gBtn('#a855f7', '#d946ef')} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAddDrawer}>บันทึกเหตุการณ์ใหม่</Button>
             </Space>
           </div>
 
           <Row gutter={[16, 16]} className="mb-6">
-            {[
-              { title: 'เหตุการณ์ทั้งหมด', value: incidents.length, color: '#a855f7', prefix: <SecurityScanOutlined /> },
-              { title: 'วิกฤต (ระดับ 1)',   value: incidents.filter(i => i.severity === 'critical').length, color: '#ef4444', prefix: <AlertOutlined /> },
-              { title: 'ยังเปิดอยู่',       value: incidents.filter(i => i.status === 'open' || i.status === 'in_progress').length, color: '#f59e0b', prefix: <ClockCircleOutlined /> },
-              { title: 'แก้ไขแล้ว',         value: incidents.filter(i => i.status === 'resolved' || i.status === 'closed').length, color: '#22c55e', prefix: <CheckCircleOutlined /> },
-            ].map(s => (
+            {([
+              { title: 'เหตุการณ์ทั้งหมด', value: incidents.length, accent: 'purple' as Accent, icon: <SecurityScanOutlined /> },
+              { title: 'วิกฤต (ระดับ 1)',   value: incidents.filter(i => i.severity === 'critical').length, accent: 'rose' as Accent, icon: <AlertOutlined /> },
+              { title: 'ยังเปิดอยู่',       value: incidents.filter(i => i.status === 'open' || i.status === 'in_progress').length, accent: 'amber' as Accent, icon: <ClockCircleOutlined /> },
+              { title: 'แก้ไขแล้ว',         value: incidents.filter(i => i.status === 'resolved' || i.status === 'closed').length, accent: 'emerald' as Accent, icon: <CheckCircleOutlined /> },
+            ]).map(s => (
               <Col xs={12} sm={6} key={s.title}>
-                <Card variant="borderless" style={{ borderBottom: `3px solid ${s.color}` }}>
-                  <Statistic title={s.title} value={s.value} styles={{ content: { color: s.color } }} prefix={s.prefix} />
-                </Card>
+                <StatCard accent={s.accent} isDark={isDark} label={s.title} value={s.value} icon={s.icon} />
               </Col>
             ))}
           </Row>

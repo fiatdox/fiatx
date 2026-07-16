@@ -9,7 +9,6 @@ import {
   Select,
   Tag,
   Card,
-  Statistic,
   Tooltip,
   Typography,
   Divider,
@@ -21,6 +20,8 @@ import {
 } from 'antd'
 import { FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaPrint, FaPlus, FaChartBar } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, gBtn } from '@/app/components/StatCard'
 import EChart from '@/app/components/EChart'
 
 const { Title, Text } = Typography
@@ -58,7 +59,7 @@ function getRiskScore(p: number | null, i: number | null): number | null {
 }
 
 function getRiskLevel(score: number | null): { label: string; color: string; bg: string } {
-  if (score === null) return { label: 'ยังไม่ประเมิน', color: '#64748b', bg: '#1e293b' }
+  if (score === null) return { label: 'ยังไม่ประเมิน', color: 'var(--app-text-3)', bg: 'var(--app-surface)' }
   if (score >= 17) return { label: 'สูงมาก – เร่งด่วน', color: '#ef4444', bg: '#450a0a' }
   if (score >= 9) return { label: 'สูง – ต้องจัดการ', color: '#f97316', bg: '#431407' }
   if (score >= 4) return { label: 'ปานกลาง', color: '#eab308', bg: '#422006' }
@@ -105,9 +106,9 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
 
   return (
     <Card
-      title={<span style={{ color: '#f1f5f9', fontSize: 13 }}>{title}</span>}
-      style={{ background: '#1e293b', border: '1px solid #334155', height: '100%' }}
-      styles={{ header: { background: '#0f172a', borderBottom: '1px solid #334155', padding: '8px 16px' }, body: { padding: '12px 14px' } }}
+      title={<span style={{ color: 'var(--app-text)', fontSize: 13 }}>{title}</span>}
+      style={{ background: 'var(--app-surface)', border: '1px solid #334155', height: '100%' }}
+      styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155', padding: '8px 16px' }, body: { padding: '12px 14px' } }}
     >
       {[...LEVEL_DATA].reverse().map(lvl => {
         const count = items.filter(i => i[field] === lvl.level).length
@@ -126,7 +127,7 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
               }}>{lvl.level}</div>
 
               <div style={{
-                flex: 1, height: 22, background: '#0f172a',
+                flex: 1, height: 22, background: 'var(--app-bg)',
                 borderRadius: 4, overflow: 'hidden', position: 'relative',
                 border: '1px solid #1e293b',
               }}>
@@ -138,7 +139,7 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
                   transition: 'width .3s ease',
                   boxShadow: active ? `0 0 12px ${lvl.color}40` : 'none',
                 }}>
-                  <span style={{ color: '#f1f5f9', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'var(--app-text)', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
                     {lvl.label}
                   </span>
                 </div>
@@ -146,9 +147,9 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
 
               <div style={{
                 minWidth: 26, padding: '2px 6px',
-                background: active ? lvl.bg : '#1e293b',
-                border: `1px solid ${active ? lvl.color : '#334155'}`,
-                color: active ? lvl.color : '#475569',
+                background: active ? lvl.bg : 'var(--app-surface)',
+                border: `1px solid ${active ? lvl.color : 'var(--app-border-strong)'}`,
+                color: active ? lvl.color : 'var(--app-text-3)',
                 borderRadius: 4, fontSize: 11, fontWeight: 700, textAlign: 'center',
                 transition: 'all .2s ease',
               }}>{count}</div>
@@ -161,10 +162,10 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
       <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #334155' }}>
         <div style={{
           display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden',
-          background: '#0f172a', marginBottom: 6,
+          background: 'var(--app-bg)', marginBottom: 6,
         }}>
           {totalAssessed === 0 ? (
-            <div style={{ flex: 1, background: '#1e293b' }} />
+            <div style={{ flex: 1, background: 'var(--app-surface)' }} />
           ) : (
             LEVEL_DATA.map((lvl, i) => {
               const pct = (counts[i] / totalAssessed) * 100
@@ -176,9 +177,9 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
             })
           )}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8' }}>
-          <span>ประเมินแล้ว <strong style={{ color: '#cbd5e1' }}>{totalAssessed}</strong> รายการ</span>
-          <span>เฉลี่ย: <strong style={{ color: '#cbd5e1' }}>{avg}</strong></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--app-text-2)' }}>
+          <span>ประเมินแล้ว <strong style={{ color: 'var(--app-text)' }}>{totalAssessed}</strong> รายการ</span>
+          <span>เฉลี่ย: <strong style={{ color: 'var(--app-text)' }}>{avg}</strong></span>
         </div>
       </div>
     </Card>
@@ -208,6 +209,8 @@ interface DetailItem {
 
 const PageContent = () => {
   const { message } = App.useApp()
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   const [items, setItems] = useState<RiskItem[]>([])
   const [assessment, setAssessment] = useState<AssessmentHeader | null>(null)
   const [loading, setLoading] = useState(true)
@@ -375,9 +378,9 @@ const PageContent = () => {
       tooltip: {
         trigger: 'axis',
         axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a',
-        borderColor: '#334155',
-        textStyle: { color: '#cbd5e1' },
+        backgroundColor: 'var(--app-bg)',
+        borderColor: 'var(--app-border-strong)',
+        textStyle: { color: 'var(--app-text)' },
         formatter: (params: { dataIndex: number; value: number }[]) => {
           const p = params[0]
           const catNo = p.dataIndex + 1
@@ -393,19 +396,19 @@ const PageContent = () => {
       xAxis: {
         type: 'category',
         data: CATEGORY_SHORT.map((s, i) => `ด้าน ${i + 1}\n${s}`),
-        axisLine: { lineStyle: { color: '#334155' } },
+        axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
         axisTick: { show: false },
-        axisLabel: { color: '#94a3b8', fontSize: 11, interval: 0, lineHeight: 14 },
+        axisLabel: { color: 'var(--app-text-2)', fontSize: 11, interval: 0, lineHeight: 14 },
       },
       yAxis: {
         type: 'value',
         min: 0,
         max: 100,
         name: 'ร้อยละ',
-        nameTextStyle: { color: '#64748b', fontSize: 10, padding: [0, 0, 6, -30] },
+        nameTextStyle: { color: 'var(--app-text-3)', fontSize: 10, padding: [0, 0, 6, -30] },
         axisLine: { show: false },
-        axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-        splitLine: { lineStyle: { color: '#1e293b', type: 'dashed' } },
+        axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+        splitLine: { lineStyle: { color: 'var(--app-surface)', type: 'dashed' } },
       },
       series: [
         {
@@ -413,7 +416,7 @@ const PageContent = () => {
           barWidth: '46%',
           data: pctByCategory.map(v => {
             const base =
-              v === 0 ? '#334155' :
+              v === 0 ? 'var(--app-border-strong)' :
               v <= 30 ? '#22c55e' :
               v <= 50 ? '#eab308' :
               v <= 70 ? '#f97316' :
@@ -438,7 +441,7 @@ const PageContent = () => {
           label: {
             show: true,
             position: 'top',
-            color: '#e2e8f0',
+            color: 'var(--app-text)',
             fontWeight: 'bold',
             fontSize: 12,
             formatter: '{c}%',
@@ -470,7 +473,7 @@ const PageContent = () => {
       render: (text: string, record: RiskItem) => (
         <Text
           style={{
-            color: record.key.includes('.') ? '#cbd5e1' : '#f1f5f9',
+            color: record.key.includes('.') ? 'var(--app-text)' : 'var(--app-text)',
             fontWeight: record.key.includes('.') ? 400 : 600,
           }}
         >
@@ -517,7 +520,7 @@ const PageContent = () => {
       render: (_: unknown, record: RiskItem) => {
         const score = getRiskScore(record.probability, record.impact)
         const level = getRiskLevel(score)
-        if (score === null) return <Text style={{ color: '#475569' }}>–</Text>
+        if (score === null) return <Text style={{ color: 'var(--app-text-3)' }}>–</Text>
         return (
           <Tag
             style={{
@@ -536,27 +539,27 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-2">
           <FaShieldAlt size={28} color="#7c3aed" />
-          <Title level={3} style={{ color: '#f1f5f9', margin: 0 }}>
+          <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>
             แบบประเมินความเสี่ยงระบบเทคโนโลยีสารสนเทศ
           </Title>
         </div>
-        <Text style={{ color: '#94a3b8' }}>
+        <Text style={{ color: 'var(--app-text-2)' }}>
           TMI Risk Analysis Worksheet — Hospital IT Risk Management (ISO/IEC 27001:2013)
         </Text>
-        <Text style={{ color: '#64748b', display: 'block', marginTop: 2 }}>
+        <Text style={{ color: 'var(--app-text-3)', display: 'block', marginTop: 2 }}>
           คะแนนความเสี่ยง = โอกาสเกิด (P) × ผลกระทบ (I) &nbsp;|&nbsp; ≥17 เร่งด่วน &nbsp;|&nbsp; 9–16 ต้องจัดการ &nbsp;|&nbsp; 4–8 ปานกลาง &nbsp;|&nbsp; 1–3 ต่ำ
         </Text>
 
         {/* Assessment info banner */}
         <div style={{
-          marginTop: 12, padding: '10px 16px', background: '#0f172a',
+          marginTop: 12, padding: '10px 16px', background: 'var(--app-bg)',
           border: '1px solid #334155', borderRadius: 8,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
@@ -565,13 +568,13 @@ const PageContent = () => {
               <Tag color="purple" style={{ fontSize: 13, padding: '2px 10px', margin: 0 }}>
                 {assessment.assessment_code}
               </Tag>
-              <Text style={{ color: '#cbd5e1' }}>
+              <Text style={{ color: 'var(--app-text)' }}>
                 ปี {assessment.assessment_year} / รอบที่ {assessment.assessment_round}
               </Text>
               {assessment.department && (
-                <Text style={{ color: '#94a3b8' }}>• {assessment.department}</Text>
+                <Text style={{ color: 'var(--app-text-2)' }}>• {assessment.department}</Text>
               )}
-              <Tag style={{ background: '#1e293b', borderColor: '#475569', color: '#94a3b8' }}>
+              <Tag style={{ background: 'var(--app-surface)', borderColor: 'var(--app-text-3)', color: 'var(--app-text-2)' }}>
                 สถานะ: {assessment.status}
               </Tag>
             </div>
@@ -585,20 +588,21 @@ const PageContent = () => {
             size="small"
             loading={creating}
             onClick={handleCreateAssessment}
-            style={{ background: '#6B21A8', border: 'none', color: '#fff' }}
+            style={gBtn('#7c3aed', '#a855f7')}
+            className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
           >
             สร้างรอบประเมินใหม่
           </Button>
         </div>
 
-        <Divider style={{ borderColor: '#334155', margin: '16px 0' }} />
+        <Divider style={{ borderColor: 'var(--app-border-strong)', margin: '16px 0' }} />
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 80 }}>
             <Spin size="large" />
           </div>
         ) : items.length === 0 ? (
-          <Empty description={<span style={{ color: '#94a3b8' }}>ไม่พบข้อมูล</span>} />
+          <Empty description={<span style={{ color: 'var(--app-text-2)' }}>ไม่พบข้อมูล</span>} />
         ) : (
           <>
             {/* Risk Matrix + Scale Reference */}
@@ -610,33 +614,33 @@ const PageContent = () => {
                   title={
                     <div className="flex items-center gap-2">
                       <FaExclamationTriangle color="#eab308" />
-                      <span style={{ color: '#f1f5f9' }}>แผนผังประเมินความเสี่ยง (Risk Matrix)</span>
+                      <span style={{ color: 'var(--app-text)' }}>แผนผังประเมินความเสี่ยง (Risk Matrix)</span>
                     </div>
                   }
-                  style={{ background: '#1e293b', border: '1px solid #334155', height: '100%' }}
-                  styles={{ header: { background: '#0f172a', borderBottom: '1px solid #334155' } }}
+                  style={{ background: 'var(--app-surface)', border: '1px solid #334155', height: '100%' }}
+                  styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' } }}
                 >
                   <div style={{ overflowX: 'auto' }}>
                     <div>
                       <div style={{ display: 'flex', marginBottom: 2, marginLeft: 96 }}>
                         <div style={{ width: 18 }} />
                         {[1, 2, 3, 4, 5].map(p => (
-                          <div key={p} style={{ width: 58, textAlign: 'center', color: '#94a3b8', fontSize: 11, fontWeight: 600 }}>
+                          <div key={p} style={{ width: 58, textAlign: 'center', color: 'var(--app-text-2)', fontSize: 11, fontWeight: 600 }}>
                             {p}
-                            <div style={{ fontSize: 9, color: '#64748b' }}>
+                            <div style={{ fontSize: 9, color: 'var(--app-text-3)' }}>
                               {['ต่ำมาก', 'ต่ำ', 'ปานกลาง', 'สูง', 'สูงมาก'][p - 1]}
                             </div>
                           </div>
                         ))}
                       </div>
                       <div style={{ display: 'flex', gap: 2 }}>
-                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: '#94a3b8', fontWeight: 600, fontSize: 11, textAlign: 'center', width: 14 }}>
+                        <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', color: 'var(--app-text-2)', fontWeight: 600, fontSize: 11, textAlign: 'center', width: 14 }}>
                           ผลกระทบ (Impact)
                         </div>
                         <div>
                           {[5, 4, 3, 2, 1].map(imp => (
                             <div key={imp} style={{ display: 'flex', alignItems: 'center', marginBottom: 2 }}>
-                              <div style={{ width: 80, textAlign: 'right', paddingRight: 6, color: '#94a3b8', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                              <div style={{ width: 80, textAlign: 'right', paddingRight: 6, color: 'var(--app-text-2)', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                                 {imp} {['ต่ำมาก', 'ต่ำ', 'ปานกลาง', 'สูง', 'สูงมาก'][imp - 1]}
                               </div>
                               {[1, 2, 3, 4, 5].map(prob => {
@@ -675,7 +679,7 @@ const PageContent = () => {
                           ))}
                         </div>
                       </div>
-                      <div style={{ textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11, marginTop: 6, marginLeft: 96 }}>
+                      <div style={{ textAlign: 'center', color: 'var(--app-text-2)', fontWeight: 600, fontSize: 11, marginTop: 6, marginLeft: 96 }}>
                         โอกาสเกิด (Probability)
                       </div>
                     </div>
@@ -719,48 +723,20 @@ const PageContent = () => {
             </Row>
 
             {/* Summary Cards */}
-            <Row gutter={16} className="mb-6">
+            <Row gutter={[16, 16]} className="mb-6">
               <Col xs={12} sm={6}>
-                <Card style={{ background: '#1e293b', border: '1px solid #334155' }} styles={{ body: { padding: '16px 20px' } }}>
-                  <Statistic
-                    title={<span style={{ color: '#94a3b8', fontSize: 12 }}>ทั้งหมด</span>}
-                    value={items.length}
-                    suffix="รายการ"
-                    styles={{ content: { color: '#f1f5f9', fontSize: 22 } }}
-                  />
-                </Card>
+                <StatCard accent="slate" isDark={isDark} label="ทั้งหมด" suffix="รายการ" value={items.length} icon={<FaChartBar />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card style={{ background: '#1e293b', border: '1px solid #334155' }} styles={{ body: { padding: '16px 20px' } }}>
-                  <Statistic
-                    title={<span style={{ color: '#94a3b8', fontSize: 12 }}>ประเมินแล้ว</span>}
-                    value={assessed.length}
-                    suffix="รายการ"
-                    styles={{ content: { color: '#a78bfa', fontSize: 22 } }}
-                  />
-                </Card>
+                <StatCard accent="violet" isDark={isDark} label="ประเมินแล้ว" suffix="รายการ" value={assessed.length} icon={<FaShieldAlt />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card style={{ background: '#450a0a', border: '1px solid #7f1d1d' }} styles={{ body: { padding: '16px 20px' } }}>
-                  <Statistic
-                    title={<span style={{ color: '#fca5a5', fontSize: 12 }}>เสี่ยงสูง (≥17)</span>}
-                    value={highRisk.length}
-                    suffix="รายการ"
-                    styles={{ content: { color: '#ef4444', fontSize: 22 } }}
-                    prefix={<FaExclamationTriangle style={{ marginRight: 6 }} />}
-                  />
-                </Card>
+                <StatCard accent="rose" isDark={isDark} label="เสี่ยงสูง (≥17)" suffix="รายการ" value={highRisk.length} icon={<FaExclamationTriangle />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card style={{ background: '#052e16', border: '1px solid #14532d' }} styles={{ body: { padding: '16px 20px' } }}>
-                  <Statistic
-                    title={<span style={{ color: '#86efac', fontSize: 12 }}>ความเสี่ยงต่ำ (≤3)</span>}
-                    value={assessed.filter(i => (getRiskScore(i.probability, i.impact) ?? 99) <= 3).length}
-                    suffix="รายการ"
-                    styles={{ content: { color: '#22c55e', fontSize: 22 } }}
-                    prefix={<FaCheckCircle style={{ marginRight: 6 }} />}
-                  />
-                </Card>
+                <StatCard accent="emerald" isDark={isDark} label="ความเสี่ยงต่ำ (≤3)" suffix="รายการ"
+                  value={assessed.filter(i => (getRiskScore(i.probability, i.impact) ?? 99) <= 3).length}
+                  icon={<FaCheckCircle />} />
               </Col>
             </Row>
 
@@ -772,22 +748,22 @@ const PageContent = () => {
                     <FaChartBar />
                     คะแนนความเสี่ยงเฉลี่ยต่อหมวด (Risk Exposure %)
                   </div>
-                  <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 400, marginTop: 2 }}>
+                  <div style={{ color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400, marginTop: 2 }}>
                     คะแนนเฉลี่ย (P × I) ต่อหมวด เทียบสูงสุด 25 • เป้าหมาย ≤ 30%
                   </div>
                 </div>
               }
-              style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 24 }}
-              styles={{ header: { background: '#0f172a', borderBottom: '1px solid #334155' }, body: { padding: '8px 8px 4px' } }}
+              style={{ background: 'var(--app-surface)', border: '1px solid #334155', marginBottom: 24 }}
+              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' }, body: { padding: '8px 8px 4px' } }}
             >
               <EChart option={categoryChartOption} height={320} showToolbar />
             </Card>
 
             {/* Assessment Table */}
             <Card
-              title={<span style={{ color: '#f1f5f9' }}>ตารางประเมินความเสี่ยง</span>}
-              style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 32 }}
-              styles={{ header: { background: '#0f172a', borderBottom: '1px solid #334155' } }}
+              title={<span style={{ color: 'var(--app-text)' }}>ตารางประเมินความเสี่ยง</span>}
+              style={{ background: 'var(--app-surface)', border: '1px solid #334155', marginBottom: 32 }}
+              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' } }}
               extra={
                 <Button
                   icon={<FaPrint />}
@@ -850,9 +826,11 @@ const PageContent = () => {
 }
 
 export default function Page() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
     <ConfigProvider theme={{
-      algorithm: theme.darkAlgorithm,
+      algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
       token: { colorPrimary: '#6B21A8', borderRadius: 8 },
     }}>
       <App>

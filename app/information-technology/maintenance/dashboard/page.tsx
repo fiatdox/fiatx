@@ -14,11 +14,15 @@ import {
 } from 'react-icons/fa'
 import Link from 'next/link'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, type Accent } from '@/app/components/StatCard'
 import EChart from '../../../components/EChart'
 
 const { Title, Text } = Typography
 
 const PageContent = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   // ── KPI ──
   const totals = {
     all: 248,
@@ -99,13 +103,13 @@ const PageContent = () => {
     xAxis: {
       type: 'category',
       data: deviceTypeData.map(d => d.name),
-      axisLabel: { color: '#cbd5e1', fontSize: 12 }
+      axisLabel: { color: 'var(--app-text)', fontSize: 12 }
     },
-    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     series: [{
       type: 'bar',
       data: deviceTypeData.map(d => ({ value: d.value, itemStyle: { color: d.color, borderRadius: [6, 6, 0, 0] } })),
-      label: { show: true, position: 'top', color: '#e2e8f0', fontWeight: 600 },
+      label: { show: true, position: 'top', color: 'var(--app-text)', fontWeight: 600 },
       barMaxWidth: 48,
     }]
   }), [deviceTypeData])
@@ -115,15 +119,15 @@ const PageContent = () => {
     tooltip: { trigger: 'item', formatter: '{b}: <b>{c}</b> รายการ ({d}%)' },
     legend: {
       bottom: 0,
-      textStyle: { color: '#cbd5e1', fontSize: 12 },
+      textStyle: { color: 'var(--app-text)', fontSize: 12 },
       itemWidth: 10, itemHeight: 10
     },
     series: [{
       type: 'pie',
       radius: ['55%', '78%'],
       center: ['50%', '42%'],
-      itemStyle: { borderColor: '#0f172a', borderWidth: 3 },
-      label: { show: true, color: '#e2e8f0', formatter: '{b}\n{c}', fontSize: 12 },
+      itemStyle: { borderColor: 'var(--app-bg)', borderWidth: 3 },
+      label: { show: true, color: 'var(--app-text)', formatter: '{b}\n{c}', fontSize: 12 },
       data: statusData.map(d => ({ name: d.name, value: d.value, itemStyle: { color: d.color } })),
     }]
   }), [statusData])
@@ -132,16 +136,16 @@ const PageContent = () => {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: 8, right: 28, bottom: 8, top: 8, containLabel: true },
-    xAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    xAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     yAxis: {
       type: 'category',
       data: urgencyData.map(d => d.name),
-      axisLabel: { color: '#cbd5e1', fontSize: 12 }
+      axisLabel: { color: 'var(--app-text)', fontSize: 12 }
     },
     series: [{
       type: 'bar',
       data: urgencyData.map(d => ({ value: d.value, itemStyle: { color: d.color, borderRadius: [0, 6, 6, 0] } })),
-      label: { show: true, position: 'right', color: '#e2e8f0', fontWeight: 600 },
+      label: { show: true, position: 'right', color: 'var(--app-text)', fontWeight: 600 },
       barMaxWidth: 28,
     }]
   }), [urgencyData])
@@ -149,14 +153,14 @@ const PageContent = () => {
   const monthlyOption = useMemo(() => ({
     backgroundColor: 'transparent',
     tooltip: { trigger: 'axis' },
-    legend: { textStyle: { color: '#cbd5e1' }, top: 0 },
+    legend: { textStyle: { color: 'var(--app-text)' }, top: 0 },
     grid: { left: 8, right: 16, bottom: 8, top: 36, containLabel: true },
     xAxis: {
       type: 'category',
       data: monthlyData.map(d => d.m),
-      axisLabel: { color: '#cbd5e1' }
+      axisLabel: { color: 'var(--app-text)' }
     },
-    yAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+    yAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
     series: [
       {
         name: 'รับแจ้ง',
@@ -193,11 +197,11 @@ const PageContent = () => {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: 8, right: 28, bottom: 8, top: 8, containLabel: true },
-      xAxis: { type: 'value', axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'value', axisLabel: { color: 'var(--app-text-2)' } },
       yAxis: {
         type: 'category',
         data: sorted.map(d => d.name),
-        axisLabel: { color: '#cbd5e1', fontSize: 12 }
+        axisLabel: { color: 'var(--app-text)', fontSize: 12 }
       },
       series: [{
         type: 'bar',
@@ -212,14 +216,14 @@ const PageContent = () => {
             ]
           }
         },
-        label: { show: true, position: 'right', color: '#e2e8f0', fontWeight: 600 },
+        label: { show: true, position: 'right', color: 'var(--app-text)', fontWeight: 600 },
         barMaxWidth: 22,
       }]
     }
   }, [departmentData])
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
@@ -271,30 +275,14 @@ const PageContent = () => {
 
         {/* KPI cards */}
         <Row gutter={[16, 16]} className="mb-4">
-          {[
-            { title: 'คำขอทั้งหมด', value: totals.all, icon: <ToolOutlined />, color: '#6B21A8', suffix: 'รายการ' },
-            { title: 'รอดำเนินการ', value: totals.pending, icon: <ClockCircleOutlined />, color: '#f59e0b', suffix: 'รายการ' },
-            { title: 'กำลังซ่อม', value: totals.inProgress, icon: <FaUserCog />, color: '#3b82f6', suffix: 'รายการ' },
-            { title: 'ซ่อมเสร็จ', value: totals.completed, icon: <CheckCircleOutlined />, color: '#22c55e', suffix: 'รายการ' },
-          ].map((stat, i) => (
+          {([
+            { title: 'คำขอทั้งหมด', value: totals.all, icon: <ToolOutlined />, accent: 'violet' as Accent, suffix: 'รายการ' },
+            { title: 'รอดำเนินการ', value: totals.pending, icon: <ClockCircleOutlined />, accent: 'amber' as Accent, suffix: 'รายการ' },
+            { title: 'กำลังซ่อม', value: totals.inProgress, icon: <FaUserCog />, accent: 'cyan' as Accent, suffix: 'รายการ' },
+            { title: 'ซ่อมเสร็จ', value: totals.completed, icon: <CheckCircleOutlined />, accent: 'emerald' as Accent, suffix: 'รายการ' },
+          ]).map((stat, i) => (
             <Col xs={12} md={6} key={i}>
-              <Card style={{ borderRadius: 12, border: 'none' }} styles={{ body: { padding: 20 } }}>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex items-center justify-center rounded-xl"
-                    style={{ width: 48, height: 48, backgroundColor: `${stat.color}1f`, color: stat.color, fontSize: 22 }}
-                  >
-                    {stat.icon}
-                  </div>
-                  <div className="flex-1">
-                    <Text type="secondary" style={{ fontSize: 12 }}>{stat.title}</Text>
-                    <div className="flex items-baseline gap-2">
-                      <Text strong style={{ fontSize: 28, lineHeight: 1.1, color: stat.color }}>{stat.value}</Text>
-                      <Text type="secondary" style={{ fontSize: 13 }}>{stat.suffix}</Text>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+              <StatCard accent={stat.accent} isDark={isDark} label={stat.title} suffix={stat.suffix} value={stat.value} icon={stat.icon} />
             </Col>
           ))}
         </Row>
@@ -306,7 +294,7 @@ const PageContent = () => {
               <div className="flex items-center justify-between mb-2">
                 <Space>
                   <RiseOutlined style={{ color: '#22c55e', fontSize: 18 }} />
-                  <Text strong style={{ color: '#e2e8f0' }}>SLA — งานเสร็จในเวลา</Text>
+                  <Text strong style={{ color: 'var(--app-text)' }}>SLA — งานเสร็จในเวลา</Text>
                 </Space>
                 <Text strong style={{ color: '#22c55e', fontSize: 22 }}>{totals.slaPct}%</Text>
               </div>
@@ -321,7 +309,7 @@ const PageContent = () => {
               <div className="flex items-center justify-between mb-2">
                 <Space>
                   <ClockCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />
-                  <Text strong style={{ color: '#e2e8f0' }}>เวลาเฉลี่ยในการซ่อม</Text>
+                  <Text strong style={{ color: 'var(--app-text)' }}>เวลาเฉลี่ยในการซ่อม</Text>
                 </Space>
                 <div>
                   <Text strong style={{ color: '#3b82f6', fontSize: 22 }}>{totals.avgHours}</Text>
@@ -435,7 +423,7 @@ const PageContent = () => {
                     <div className="flex items-center justify-between mb-1">
                       <Space>
                         <Avatar size="small" style={{ backgroundColor: t.color }} icon={<UserOutlined />} />
-                        <Text style={{ color: '#e2e8f0' }}>{t.name}</Text>
+                        <Text style={{ color: 'var(--app-text)' }}>{t.name}</Text>
                       </Space>
                       <div>
                         <Text strong style={{ color: t.color }}>{t.completed}</Text>
@@ -461,8 +449,10 @@ const PageContent = () => {
 }
 
 export default function ITMaintenanceDashboardPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       <App>
         <PageContent />
       </App>

@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Card, Typography, ConfigProvider, Breadcrumb, Row, Col, Tag,
-  Statistic, Progress, Divider, Space, Button, theme, Empty
+  Progress, Divider, Space, Button, theme, Empty
 } from 'antd'
 import {
   HomeOutlined, DesktopOutlined, EditOutlined, ReloadOutlined,
@@ -11,7 +11,9 @@ import {
 import { FaHospitalAlt } from 'react-icons/fa'
 import Link from 'next/link'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import EChart from '../../../components/EChart'
+import { StatCard } from '@/app/components/StatCard'
 import { defaultDimensions, dimensionTotals, loadDimensions, type Dimension } from '../data'
 
 const { Title, Text } = Typography
@@ -23,6 +25,13 @@ const statusColor = (pct: number) => {
   return '#ef4444'
 }
 
+const statusGrad = (pct: number): [string, string] => {
+  if (pct >= 80) return ['#10b981', '#34d399']
+  if (pct >= 60) return ['#84cc16', '#a3e635']
+  if (pct >= 40) return ['#f59e0b', '#fb923c']
+  return ['#f43f5e', '#fb7185']
+}
+
 const statusTag = (pct: number) => {
   if (pct >= 80) return { label: 'ดีเยี่ยม', color: 'success' as const }
   if (pct >= 60) return { label: 'ดี', color: 'processing' as const }
@@ -31,6 +40,8 @@ const statusTag = (pct: number) => {
 }
 
 const PageContent = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   const [dims, setDims] = useState<Dimension[]>(defaultDimensions)
   const [hydrated, setHydrated] = useState(false)
 
@@ -69,18 +80,18 @@ const PageContent = () => {
         color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
           colorStops: [{ offset: 0, color: '#6B21A8' }, { offset: 1, color: '#a855f7' }] } } },
       pointer: { show: false },
-      axisLine: { lineStyle: { width: 18, color: [[1, '#1e293b']] } },
+      axisLine: { lineStyle: { width: 18, color: [[1, 'var(--app-surface)']] } },
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: { show: false },
       anchor: { show: false },
-      title: { show: true, offsetCenter: [0, '70%'], fontSize: 13, color: '#94a3b8' },
+      title: { show: true, offsetCenter: [0, '70%'], fontSize: 13, color: 'var(--app-text-2)' },
       detail: {
         valueAnimation: true,
         offsetCenter: [0, '0%'],
         fontSize: 42,
         fontWeight: 700,
-        color: '#e2e8f0',
+        color: 'var(--app-text)',
         formatter: (v: number) => `${Math.round(v)}%`
       },
       data: [{ value: overall.pct, name: `${overall.earned} / ${overall.max} คะแนน` }]
@@ -91,7 +102,7 @@ const PageContent = () => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
-      backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' },
+      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' },
       formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
         const p = Array.isArray(params) ? params[0] : params
         const t = totals[p.dataIndex]
@@ -103,14 +114,14 @@ const PageContent = () => {
     xAxis: {
       type: 'category',
       data: dims.map(d => `ด้าน ${d.no}\n${d.short}`),
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1', fontSize: 12, lineHeight: 16 }
+      axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+      axisLabel: { color: 'var(--app-text)', fontSize: 12, lineHeight: 16 }
     },
     yAxis: {
       type: 'value', max: 100, name: 'ร้อยละ',
-      nameTextStyle: { color: '#94a3b8' },
-      axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-      splitLine: { lineStyle: { color: '#1e293b' } }
+      nameTextStyle: { color: 'var(--app-text-2)' },
+      axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+      splitLine: { lineStyle: { color: 'var(--app-surface)' } }
     },
     series: [{
       type: 'bar', barWidth: 48,
@@ -122,7 +133,7 @@ const PageContent = () => {
             colorStops: [{ offset: 0, color: dims[i].color }, { offset: 1, color: dims[i].color + '55' }] }
         }
       })),
-      label: { show: true, position: 'top', color: '#e2e8f0', formatter: '{c}%' },
+      label: { show: true, position: 'top', color: 'var(--app-text)', formatter: '{c}%' },
       markLine: {
         symbol: 'none', silent: true,
         lineStyle: { color: '#22c55e', type: 'dashed' },
@@ -135,7 +146,7 @@ const PageContent = () => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
-      backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' },
+      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' },
       formatter: (params: { dataIndex: number; seriesName: string; value: number }[]) => {
         const i = params[0].dataIndex
         const d = dims[i]
@@ -144,19 +155,19 @@ const PageContent = () => {
         return `<b>${d.short}</b> (ด้าน ${d.no})<br/>คะแนนจำเป็นที่ได้: <b style="color:#22c55e">${t.reqEarned}</b><br/>ส่วนที่ขาด: <b style="color:#ef4444">${gap}</b><br/>คะแนนจำเป็นเต็ม: <b>${t.reqMax}</b><br/>ความสำเร็จ: <b>${t.reqPct}%</b>`
       }
     },
-    legend: { data: ['คะแนนจำเป็นที่ได้', 'ส่วนที่ขาด'], bottom: 0, textStyle: { color: '#cbd5e1' } },
+    legend: { data: ['คะแนนจำเป็นที่ได้', 'ส่วนที่ขาด'], bottom: 0, textStyle: { color: 'var(--app-text)' } },
     grid: { left: 50, right: 30, top: 30, bottom: 50 },
     xAxis: {
       type: 'category',
       data: dims.map(d => `ด้าน ${d.no}\n${d.short}`),
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1', fontSize: 12, lineHeight: 16 }
+      axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+      axisLabel: { color: 'var(--app-text)', fontSize: 12, lineHeight: 16 }
     },
     yAxis: {
       type: 'value', name: 'คะแนน',
-      nameTextStyle: { color: '#94a3b8' },
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#1e293b' } }
+      nameTextStyle: { color: 'var(--app-text-2)' },
+      axisLabel: { color: 'var(--app-text-2)' },
+      splitLine: { lineStyle: { color: 'var(--app-surface)' } }
     },
     series: [
       {
@@ -189,7 +200,7 @@ const PageContent = () => {
     backgroundColor: 'transparent',
     tooltip: {
       trigger: 'axis', axisPointer: { type: 'shadow' },
-      backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' },
+      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' },
       formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
         const p = Array.isArray(params) ? params[0] : params
         const x = reqGapItems[p.dataIndex]
@@ -199,14 +210,14 @@ const PageContent = () => {
     grid: { left: 8, right: 80, top: 10, bottom: 10, containLabel: true },
     xAxis: {
       type: 'value',
-      axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: '#1e293b' } }
+      axisLabel: { color: 'var(--app-text-2)' },
+      splitLine: { lineStyle: { color: 'var(--app-surface)' } }
     },
     yAxis: {
       type: 'category', inverse: true,
       data: reqGapItems.map(x => `${x.item.no} ${x.item.name.length > 26 ? x.item.name.slice(0, 26) + '…' : x.item.name}`),
-      axisLine: { lineStyle: { color: '#334155' } },
-      axisLabel: { color: '#cbd5e1', fontSize: 11 }
+      axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+      axisLabel: { color: 'var(--app-text)', fontSize: 11 }
     },
     series: [{
       type: 'bar', barWidth: 16,
@@ -215,7 +226,7 @@ const PageContent = () => {
         itemStyle: { color: x.dim.color, borderRadius: [0, 4, 4, 0] }
       })),
       label: {
-        show: true, position: 'right', color: '#e2e8f0',
+        show: true, position: 'right', color: 'var(--app-text)',
         formatter: (p: { dataIndex: number; value: number }) => {
           const x = reqGapItems[p.dataIndex]
           return `ขาด ${p.value} (${x.pct}%)`
@@ -227,18 +238,18 @@ const PageContent = () => {
   const radarOption = useMemo(() => ({
     backgroundColor: 'transparent',
     tooltip: {
-      backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' },
+      backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' },
     },
     legend: {
       data: ['ผลการประเมิน', 'คะแนนจำเป็น'],
-      bottom: 0, textStyle: { color: '#cbd5e1' }
+      bottom: 0, textStyle: { color: 'var(--app-text)' }
     },
     radar: {
       indicator: dims.map(d => ({ name: `ด้าน ${d.no} ${d.short}`, max: 100 })),
       splitArea: { areaStyle: { color: ['rgba(168,85,247,0.04)', 'rgba(168,85,247,0.08)'] } },
-      axisLine: { lineStyle: { color: '#334155' } },
-      splitLine: { lineStyle: { color: '#334155' } },
-      axisName: { color: '#cbd5e1' }
+      axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+      splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+      axisName: { color: 'var(--app-text)' }
     },
     series: [{
       type: 'radar',
@@ -267,7 +278,7 @@ const PageContent = () => {
       backgroundColor: 'transparent',
       tooltip: {
         trigger: 'axis', axisPointer: { type: 'shadow' },
-        backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' },
+        backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' },
         formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
           const p = Array.isArray(params) ? params[0] : params
           const it = items[p.dataIndex]
@@ -278,15 +289,15 @@ const PageContent = () => {
       grid: { left: 8, right: 60, top: 10, bottom: 10, containLabel: true },
       xAxis: {
         type: 'value', max: 100,
-        axisLabel: { color: '#94a3b8', formatter: '{value}%' },
-        splitLine: { lineStyle: { color: '#1e293b' } }
+        axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
+        splitLine: { lineStyle: { color: 'var(--app-surface)' } }
       },
       yAxis: {
         type: 'category',
         data: items.map(i => `${i.no}`),
         inverse: true,
-        axisLine: { lineStyle: { color: '#334155' } },
-        axisLabel: { color: '#cbd5e1', fontSize: 11 }
+        axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+        axisLabel: { color: 'var(--app-text)', fontSize: 11 }
       },
       series: [{
         type: 'bar', barWidth: 14,
@@ -298,7 +309,7 @@ const PageContent = () => {
           }
         }),
         label: {
-          show: true, position: 'right', color: '#cbd5e1',
+          show: true, position: 'right', color: 'var(--app-text)',
           formatter: (p: { dataIndex: number; value: number }) => {
             const it = items[p.dataIndex]
             return `${it.earnedScore}/${it.maxScore}`
@@ -310,7 +321,7 @@ const PageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+      <div className="min-h-screen w-full bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8"><Empty description="กำลังโหลด..." /></div>
       </div>
@@ -318,7 +329,7 @@ const PageContent = () => {
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -349,54 +360,46 @@ const PageContent = () => {
         {/* KPI Row */}
         <Row gutter={[16, 16]} className="mb-4">
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless" style={{ borderRadius: 12, borderLeft: `4px solid ${statusColor(overall.pct)}` }}>
-              <Statistic
-                title={<Text type="secondary">ภาพรวมคะแนนประเมิน</Text>}
-                value={overall.pct}
-                suffix="%"
-                prefix={<TrophyOutlined style={{ color: statusColor(overall.pct) }} />}
-                styles={{ content: { color: statusColor(overall.pct), fontSize: 32 } }}
-              />
-              <Progress percent={overall.pct} strokeColor={statusColor(overall.pct)} showInfo={false} className="mt-2" />
-              <Text type="secondary" className="text-xs">{overall.earned} / {overall.max} คะแนน</Text>
-            </Card>
+            <StatCard
+              accent={statusGrad(overall.pct)} isDark={isDark}
+              label="ภาพรวมคะแนนประเมิน" suffix="%"
+              value={overall.pct}
+              icon={<TrophyOutlined />}
+              footer={<>
+                <Progress percent={overall.pct} strokeColor={{ from: statusGrad(overall.pct)[0], to: statusGrad(overall.pct)[1] }} showInfo={false} />
+                <Text type="secondary" className="text-xs">{overall.earned} / {overall.max} คะแนน</Text>
+              </>}
+            />
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless" style={{ borderRadius: 12, borderLeft: '4px solid #22c55e' }}>
-              <Statistic
-                title={<Text type="secondary">คะแนนจำเป็น (Mandatory)</Text>}
-                value={overall.reqPct}
-                suffix="%"
-                prefix={<CheckCircleOutlined style={{ color: '#22c55e' }} />}
-                styles={{ content: { color: '#22c55e', fontSize: 32 } }}
-              />
-              <Progress percent={overall.reqPct} strokeColor="#22c55e" showInfo={false} className="mt-2" />
-              <Text type="secondary" className="text-xs">{overall.reqEarned} / {overall.reqMax} คะแนน</Text>
-            </Card>
+            <StatCard
+              accent="emerald" isDark={isDark}
+              label="คะแนนจำเป็น (Mandatory)" suffix="%"
+              value={overall.reqPct}
+              icon={<CheckCircleOutlined />}
+              footer={<>
+                <Progress percent={overall.reqPct} strokeColor={{ from: '#10b981', to: '#34d399' }} showInfo={false} />
+                <Text type="secondary" className="text-xs">{overall.reqEarned} / {overall.reqMax} คะแนน</Text>
+              </>}
+            />
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless" style={{ borderRadius: 12, borderLeft: '4px solid #3b82f6' }}>
-              <Statistic
-                title={<Text type="secondary">หัวข้อที่ทำได้ดี (≥80%)</Text>}
-                value={goodCount}
-                suffix={`/ ${itemCount}`}
-                prefix={<CheckCircleOutlined style={{ color: '#3b82f6' }} />}
-                styles={{ content: { color: '#3b82f6', fontSize: 32 } }}
-              />
-              <Progress percent={Math.round((goodCount / itemCount) * 100)} strokeColor="#3b82f6" showInfo={false} className="mt-2" />
-            </Card>
+            <StatCard
+              accent="cyan" isDark={isDark}
+              label="หัวข้อที่ทำได้ดี (≥80%)" suffix={`/ ${itemCount}`}
+              value={goodCount}
+              icon={<CheckCircleOutlined />}
+              footer={<Progress percent={Math.round((goodCount / itemCount) * 100)} strokeColor={{ from: '#06b6d4', to: '#3b82f6' }} showInfo={false} />}
+            />
           </Col>
           <Col xs={24} sm={12} lg={6}>
-            <Card variant="borderless" style={{ borderRadius: 12, borderLeft: '4px solid #ef4444' }}>
-              <Statistic
-                title={<Text type="secondary">หัวข้อต้องปรับปรุง (&lt;40%)</Text>}
-                value={riskCount}
-                suffix={`/ ${itemCount}`}
-                prefix={<WarningOutlined style={{ color: '#ef4444' }} />}
-                styles={{ content: { color: '#ef4444', fontSize: 32 } }}
-              />
-              <Progress percent={Math.round((riskCount / itemCount) * 100)} strokeColor="#ef4444" showInfo={false} className="mt-2" />
-            </Card>
+            <StatCard
+              accent="rose" isDark={isDark}
+              label={<span>หัวข้อต้องปรับปรุง (&lt;40%)</span>} suffix={`/ ${itemCount}`}
+              value={riskCount}
+              icon={<WarningOutlined />}
+              footer={<Progress percent={Math.round((riskCount / itemCount) * 100)} strokeColor={{ from: '#f43f5e', to: '#fb7185' }} showInfo={false} />}
+            />
           </Col>
         </Row>
 
@@ -471,7 +474,7 @@ const PageContent = () => {
                       <div className="flex items-center justify-between mb-1">
                         <Space>
                           <Tag color={d.color} style={{ borderColor: d.color, color: '#fff', background: d.color + 'cc' }}>ด้าน {d.no}</Tag>
-                          <Text strong style={{ color: '#e2e8f0' }}>{d.short}</Text>
+                          <Text strong style={{ color: 'var(--app-text)' }}>{d.short}</Text>
                           <Tag color={tag.color}>{tag.label}</Tag>
                         </Space>
                         <Text strong style={{ color: statusColor(t.pct) }}>{t.pct}%</Text>
@@ -506,7 +509,7 @@ const PageContent = () => {
                     <div className="flex items-center justify-between">
                       <Space>
                         <Tag color={d.color} style={{ borderColor: d.color, color: '#fff', background: d.color + 'cc' }}>ด้าน {d.no}</Tag>
-                        <Text strong style={{ color: '#e2e8f0' }}>{d.short}</Text>
+                        <Text strong style={{ color: 'var(--app-text)' }}>{d.short}</Text>
                       </Space>
                       <Text strong style={{ color: statusColor(t.pct) }}>{t.pct}%</Text>
                     </div>
@@ -525,8 +528,10 @@ const PageContent = () => {
 }
 
 export default function SmartHospitalDashboardPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       <PageContent />
     </ConfigProvider>
   )

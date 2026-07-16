@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, type ReactNode } from 'react'
 import Cookies from 'js-cookie'
 import {
   Table, Tag, Card, Typography, Breadcrumb, Button, Form, Input,
@@ -16,7 +16,8 @@ import {
 import { FaUserShield, FaHospital, FaBoxes, FaBed, FaBuilding, FaMoneyBillWave, FaWifi } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import EChart from '@/app/components/EChart'
-import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, gBtn, type Accent } from '@/app/components/StatCard'
 
 const { Title, Text } = Typography
 
@@ -135,6 +136,8 @@ const fmtDateTime = (s?: string | null) => {
 
 const PageContent = () => {
   const { message, modal } = App.useApp()
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
 
   // ผู้ดำเนินการ (จาก cookie login) — ส่งเป็น "id" ของผู้ใช้ ไม่ใช่ชื่อ/username
   const actor = useMemo(() => {
@@ -296,7 +299,7 @@ const PageContent = () => {
       series: [{
         type: 'pie', radius: ['55%', '78%'], avoidLabelOverlap: false,
         itemStyle: { borderRadius: 6, borderColor: 'transparent', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{c}', color: '#cbd5e1' },
+        label: { show: true, formatter: '{b}\n{c}', color: '#64748b' },
         data: rows.map(r => ({
           value: r.count,
           name: map[r.status]?.name ?? r.status,
@@ -317,7 +320,7 @@ const PageContent = () => {
         type: 'bar', barWidth: 16,
         data: rows.map(r => r.count),
         itemStyle: { color: PURPLE, borderRadius: [0, 6, 6, 0] },
-        label: { show: true, position: 'right', color: '#cbd5e1' },
+        label: { show: true, position: 'right', color: '#64748b' },
       }],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,7 +337,7 @@ const PageContent = () => {
         type: 'bar', barWidth: 14,
         data: rows.map(r => r.count),
         itemStyle: { color: '#22d3ee', borderRadius: [0, 6, 6, 0] },
-        label: { show: true, position: 'right', color: '#cbd5e1' },
+        label: { show: true, position: 'right', color: '#64748b' },
       }],
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -624,11 +627,11 @@ const PageContent = () => {
   // ── แดชบอร์ด ──
   const kpiData = dashboard?.kpi
   const issuedRate = kpiData?.issued_rate ?? 0
-  const kpis = [
-    { label: 'คำร้องทั้งหมด', value: kpiData?.total ?? summary.total,     icon: <UnorderedListOutlined />, color: '#7c3aed' },
-    { label: 'รอออกรหัส',     value: kpiData?.pending ?? summary.pending, icon: <ClockCircleOutlined />,   color: '#f59e0b' },
-    { label: 'ออกรหัสแล้ว',   value: kpiData?.issued ?? summary.issued,   icon: <CheckCircleOutlined />,   color: '#10b981' },
-    { label: 'ปฏิเสธ',        value: kpiData?.rejected ?? 0,              icon: <CloseCircleOutlined />,   color: '#ef4444' },
+  const kpis: { label: string; value: ReactNode; icon: ReactNode; accent: Accent }[] = [
+    { label: 'คำร้องทั้งหมด', value: kpiData?.total ?? summary.total,     icon: <UnorderedListOutlined />, accent: 'violet' },
+    { label: 'รอออกรหัส',     value: kpiData?.pending ?? summary.pending, icon: <ClockCircleOutlined />,   accent: 'amber' },
+    { label: 'ออกรหัสแล้ว',   value: kpiData?.issued ?? summary.issued,   icon: <CheckCircleOutlined />,   accent: 'emerald' },
+    { label: 'ปฏิเสธ',        value: kpiData?.rejected ?? 0,              icon: <CloseCircleOutlined />,   accent: 'rose' },
   ]
 
   const DashboardPanel = () => {
@@ -640,15 +643,7 @@ const PageContent = () => {
         <Row gutter={[16, 16]} className="mb-6">
           {kpis.map((k, i) => (
             <Col xs={12} md={6} key={i}>
-              <Card variant="borderless" className="rounded-xl" style={{ borderTop: `3px solid ${k.color}` }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 13 }}>{k.label}</Text>
-                    <div style={{ fontSize: 30, fontWeight: 800, color: k.color, lineHeight: 1.2 }}>{k.value}</div>
-                  </div>
-                  <div style={{ fontSize: 30, color: k.color, opacity: 0.55 }}>{k.icon}</div>
-                </div>
-              </Card>
+              <StatCard accent={k.accent} isDark={isDark} label={k.label} value={k.value} icon={k.icon} />
             </Col>
           ))}
         </Row>
@@ -724,7 +719,7 @@ const PageContent = () => {
             </Title>
             <Text type="secondary">ออกบัญชีผู้ใช้ให้บุคลากร — ส่ง username / password ผ่านหมอพร้อม (ไม่บันทึกรหัสในระบบ)</Text>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={openAdd}>
+          <Button type="primary" icon={<PlusOutlined />} size="large" style={gBtn('#7c3aed', '#a855f7')} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAdd}>
             เพิ่ม (IT ออกรหัสเอง)
           </Button>
         </div>

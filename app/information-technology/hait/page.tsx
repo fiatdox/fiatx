@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons'
 import { FaMicrochip } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import EChart from '../../components/EChart'
 import Link from 'next/link'
 
@@ -140,7 +141,7 @@ const STATUS_CFG: Record<AssessStatus, { label: string; tagColor: string; icon: 
 }
 
 const BORDER: Record<AssessStatus, string> = {
-  none: '#475569', partial: '#f59e0b', done: '#22c55e',
+  none: 'var(--app-text-3)', partial: '#f59e0b', done: '#22c55e',
 }
 
 function hexRgb(hex: string) {
@@ -171,14 +172,14 @@ function SectionContent({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: 8 }}>
           <Space size={10} align="center" style={{ flex: 1, minWidth: 0 }}>
             <Tag style={{ background: color, color: '#fff', border: 'none', fontWeight: 700, minWidth: 44, textAlign: 'center', flexShrink: 0 }}>{item.no}</Tag>
-            <Text strong style={{ color: '#e2e8f0', fontSize: 13 }}>{item.title}</Text>
+            <Text strong style={{ color: 'var(--app-text)', fontSize: 13 }}>{item.title}</Text>
           </Space>
           <Tag icon={STATUS_CFG[st].icon} color={STATUS_CFG[st].tagColor} style={{ flexShrink: 0, marginLeft: 12 }}>
             {STATUS_CFG[st].label}
           </Tag>
         </div>
       ),
-      style: { marginBottom: 8, borderRadius: 10, background: '#1e293b', border: '1px solid #334155', borderLeftColor: BORDER[st], borderLeftWidth: 4 },
+      style: { marginBottom: 8, borderRadius: 10, background: 'var(--app-surface)', border: '1px solid #334155', borderLeftColor: BORDER[st], borderLeftWidth: 4 },
       children: (
         <div style={{ paddingTop: 4 }}>
           {item.description && (
@@ -187,7 +188,7 @@ function SectionContent({
           <Row gutter={[24, 16]}>
             <Col xs={24} lg={14}>
               <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>อธิบายรายละเอียดและหลักฐานที่มีในเอกสาร:</Text>
-              <TextArea rows={4} placeholder="อธิบายรายละเอียดและหลักฐาน..." value={detailMap[item.key] || ''} onChange={e => onDetail(item.key, e.target.value)} style={{ background: '#0f172a', borderColor: '#334155' }} />
+              <TextArea rows={4} placeholder="อธิบายรายละเอียดและหลักฐาน..." value={detailMap[item.key] || ''} onChange={e => onDetail(item.key, e.target.value)} style={{ background: 'var(--app-bg)', borderColor: 'var(--app-border-strong)' }} />
             </Col>
             <Col xs={24} lg={10}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -227,9 +228,9 @@ function SectionContent({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Tag style={{ background: color, color: '#fff', border: 'none', fontWeight: 700 }}>{section.no}</Tag>
-                <Title level={4} style={{ margin: 0, color: '#e2e8f0' }}>{section.title}</Title>
+                <Title level={4} style={{ margin: 0, color: 'var(--app-text)' }}>{section.title}</Title>
               </div>
-              <Text style={{ color: '#94a3b8', fontSize: 12 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                 {section.subtitle} • {typeof section.documentCount === 'number' ? `${section.documentCount} เล่ม` : section.documentCount}
               </Text>
             </div>
@@ -238,7 +239,7 @@ function SectionContent({
             {[{ v: done, c: '#22c55e', l: 'ทำแล้ว' }, { v: partial, c: '#f59e0b', l: 'บางส่วน' }, { v: none, c: '#ef4444', l: 'ไม่ได้ทำ' }].map(s => (
               <div key={s.l} style={{ textAlign: 'center', minWidth: 48 }}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: s.c }}>{s.v}</div>
-                <div style={{ fontSize: 10, color: '#64748b' }}>{s.l}</div>
+                <div style={{ fontSize: 10, color: 'var(--app-text-3)' }}>{s.l}</div>
               </div>
             ))}
           </div>
@@ -247,8 +248,8 @@ function SectionContent({
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12, gap: 8 }}>
-        <Button size="small" type="text" style={{ color: '#94a3b8' }} onClick={() => setActiveKeys(items.map(i => i.key))}>ขยายทั้งหมด</Button>
-        <Button size="small" type="text" style={{ color: '#94a3b8' }} onClick={() => setActiveKeys([])}>ยุบทั้งหมด</Button>
+        <Button size="small" type="text" style={{ color: 'var(--app-text-2)' }} onClick={() => setActiveKeys(items.map(i => i.key))}>ขยายทั้งหมด</Button>
+        <Button size="small" type="text" style={{ color: 'var(--app-text-2)' }} onClick={() => setActiveKeys([])}>ยุบทั้งหมด</Button>
       </div>
 
       <Collapse activeKey={activeKeys} onChange={k => setActiveKeys(k as string[])} items={collapseItems} ghost expandIcon={({ isActive }) => <RightOutlined rotate={isActive ? 90 : 0} style={{ color }} />} style={{ background: 'transparent' }} />
@@ -287,9 +288,9 @@ function HaitPageContent() {
           { label: 'ยังไม่ได้ทำ',   value: totalNone,       color: '#ef4444' },
         ].map(s => (
           <Col xs={12} md={6} key={s.label}>
-            <Card size="small" style={{ textAlign: 'center', background: '#1e293b', border: `1px solid ${s.color}33`, borderRadius: 10 }}>
+            <Card size="small" style={{ textAlign: 'center', background: 'var(--app-surface)', border: `1px solid ${s.color}33`, borderRadius: 10 }}>
               <div style={{ fontSize: 28, fontWeight: 700, color: s.color }}>{s.value}</div>
-              <div style={{ color: '#94a3b8', fontSize: 12 }}>{s.label}</div>
+              <div style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{s.label}</div>
             </Card>
           </Col>
         ))}
@@ -297,32 +298,32 @@ function HaitPageContent() {
 
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} md={8}>
-          <Card variant="borderless" style={{ background: '#1e293b', borderRadius: 12 }}>
+          <Card variant="borderless" style={{ background: 'var(--app-surface)', borderRadius: 12 }}>
             <Text type="secondary" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginBottom: 4 }}>ความคืบหน้ารวม</Text>
             <EChart height={220} option={{
               backgroundColor: 'transparent',
               series: [{
                 type: 'gauge', startAngle: 210, endAngle: -30, min: 0, max: 100,
                 progress: { show: true, width: 16, roundCap: true, itemStyle: { color: { type: 'linear', x: 0, y: 0, x2: 1, y2: 1, colorStops: [{ offset: 0, color: '#6B21A8' }, { offset: 1, color: '#a855f7' }] } } },
-                axisLine: { lineStyle: { width: 16, color: [[1, '#334155']] } },
+                axisLine: { lineStyle: { width: 16, color: [[1, 'var(--app-border-strong)']] } },
                 pointer: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, anchor: { show: false },
                 detail: { valueAnimation: true, formatter: '{value}%', fontSize: 32, fontWeight: 700, color: '#a855f7', offsetCenter: [0, '0%'] },
-                title: { offsetCenter: [0, '38%'], color: '#94a3b8', fontSize: 11 },
+                title: { offsetCenter: [0, '38%'], color: 'var(--app-text-2)', fontSize: 11 },
                 data: [{ value: totalPct, name: `${totalDone}/${allItems.length} ข้อ` }],
               }],
             }} />
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card variant="borderless" style={{ background: '#1e293b', borderRadius: 12 }}>
+          <Card variant="borderless" style={{ background: 'var(--app-surface)', borderRadius: 12 }}>
             <Text type="secondary" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginBottom: 4 }}>สัดส่วนสถานะ</Text>
             <EChart height={220} option={{
               backgroundColor: 'transparent',
-              tooltip: { trigger: 'item', backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' }, formatter: (p: { name: string; value: number; percent: number }) => `${p.name}: ${p.value} ข้อ (${p.percent}%)` },
-              legend: { bottom: 0, left: 'center', textStyle: { color: '#94a3b8', fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+              tooltip: { trigger: 'item', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' }, formatter: (p: { name: string; value: number; percent: number }) => `${p.name}: ${p.value} ข้อ (${p.percent}%)` },
+              legend: { bottom: 0, left: 'center', textStyle: { color: 'var(--app-text-2)', fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
               series: [{
                 type: 'pie', radius: ['48%', '70%'], center: ['50%', '42%'],
-                itemStyle: { borderColor: '#1e293b', borderWidth: 2 }, label: { show: false }, labelLine: { show: false },
+                itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 }, label: { show: false }, labelLine: { show: false },
                 data: [
                   { name: 'ทำแล้ว', value: totalDone, itemStyle: { color: '#22c55e' } },
                   { name: 'บางส่วน', value: totalPartial, itemStyle: { color: '#f59e0b' } },
@@ -333,28 +334,28 @@ function HaitPageContent() {
           </Card>
         </Col>
         <Col xs={24} md={8}>
-          <Card variant="borderless" style={{ background: '#1e293b', borderRadius: 12 }}>
+          <Card variant="borderless" style={{ background: 'var(--app-surface)', borderRadius: 12 }}>
             <Text type="secondary" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginBottom: 4 }}>ความคืบหน้าแต่ละหมวด (%)</Text>
             <EChart height={220} option={{
               backgroundColor: 'transparent',
-              tooltip: { trigger: 'axis', backgroundColor: '#0f172a', borderColor: '#334155', textStyle: { color: '#e2e8f0' } },
+              tooltip: { trigger: 'axis', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' } },
               grid: { left: 56, right: 36, top: 8, bottom: 16 },
-              xAxis: { type: 'value', max: 100, axisLabel: { color: '#64748b', fontSize: 9, formatter: '{value}%' }, splitLine: { lineStyle: { color: '#334155' } }, axisLine: { show: false } },
-              yAxis: { type: 'category', data: SECTIONS.map(s => s.no), axisLabel: { color: '#94a3b8', fontSize: 10 }, axisTick: { show: false }, axisLine: { show: false } },
-              series: [{ type: 'bar', barMaxWidth: 14, label: { show: true, position: 'right', color: '#94a3b8', fontSize: 9, formatter: '{c}%' }, data: secStats.map(s => ({ value: s.pct, itemStyle: { color: s.color } })) }],
+              xAxis: { type: 'value', max: 100, axisLabel: { color: 'var(--app-text-3)', fontSize: 9, formatter: '{value}%' }, splitLine: { lineStyle: { color: 'var(--app-border-strong)' } }, axisLine: { show: false } },
+              yAxis: { type: 'category', data: SECTIONS.map(s => s.no), axisLabel: { color: 'var(--app-text-2)', fontSize: 10 }, axisTick: { show: false }, axisLine: { show: false } },
+              series: [{ type: 'bar', barMaxWidth: 14, label: { show: true, position: 'right', color: 'var(--app-text-2)', fontSize: 9, formatter: '{c}%' }, data: secStats.map(s => ({ value: s.pct, itemStyle: { color: s.color } })) }],
             }} />
           </Card>
         </Col>
       </Row>
 
-      <Card variant="borderless" style={{ background: '#1e293b', borderRadius: 12 }}>
-        <Title level={5} style={{ color: '#e2e8f0', marginTop: 0, marginBottom: 20 }}>ความคืบหน้าแต่ละหมวด</Title>
+      <Card variant="borderless" style={{ background: 'var(--app-surface)', borderRadius: 12 }}>
+        <Title level={5} style={{ color: 'var(--app-text)', marginTop: 0, marginBottom: 20 }}>ความคืบหน้าแต่ละหมวด</Title>
         {secStats.map(s => (
           <div key={s.key} style={{ marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
               <Space size={8}>
                 <span style={{ color: s.color }}>{s.icon}</span>
-                <Text style={{ color: '#e2e8f0', fontSize: 13 }}>
+                <Text style={{ color: 'var(--app-text)', fontSize: 13 }}>
                   <Text style={{ color: s.color, fontWeight: 700 }}>{s.no}</Text> — {s.title}
                 </Text>
                 <Text type="secondary" style={{ fontSize: 11 }}>({s.items.length} ข้อ)</Text>
@@ -410,7 +411,7 @@ function HaitPageContent() {
   ]
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -430,10 +431,10 @@ function HaitPageContent() {
               <span style={{ color: '#a855f7', fontSize: 36 }}><FaMicrochip /></span>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <Title level={3} style={{ color: '#e2e8f0', margin: 0 }}>HAIT Star V1</Title>
+                  <Title level={3} style={{ color: 'var(--app-text)', margin: 0 }}>HAIT Star V1</Title>
                   <Tag icon={<StarFilled />} color="purple">การประเมินมาตรฐาน</Tag>
                 </div>
-                <Text style={{ color: '#94a3b8' }}>สมาคมเวชสารสนเทศไทย (TMI) • 7 หมวด • {allItems.length} หัวข้อ</Text>
+                <Text style={{ color: 'var(--app-text-2)' }}>สมาคมเวชสารสนเทศไทย (TMI) • 7 หมวด • {allItems.length} หัวข้อ</Text>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 20 }}>
@@ -444,7 +445,7 @@ function HaitPageContent() {
               ].map(s => (
                 <div key={s.l} style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: 26, fontWeight: 700, color: s.c }}>{s.v}</div>
-                  <div style={{ color: '#64748b', fontSize: 11 }}>{s.l}</div>
+                  <div style={{ color: 'var(--app-text-3)', fontSize: 11 }}>{s.l}</div>
                 </div>
               ))}
             </div>
@@ -454,7 +455,7 @@ function HaitPageContent() {
 
         <Tabs activeKey={activeTab} onChange={setActiveTab} type="card" items={tabItems} />
 
-        <Divider style={{ borderColor: '#334155', marginTop: 24 }} />
+        <Divider style={{ borderColor: 'var(--app-border-strong)', marginTop: 24 }} />
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button type="primary" icon={<SaveOutlined />} size="large" onClick={() => messageApi.success('บันทึกผลการประเมินเรียบร้อยแล้ว')} style={{ backgroundColor: '#6B21A8', borderColor: '#6B21A8', minWidth: 180 }}>
             บันทึกผลการประเมินทั้งหมด
@@ -466,8 +467,10 @@ function HaitPageContent() {
 }
 
 export default function HaitPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       <App>
         <HaitPageContent />
       </App>

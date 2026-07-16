@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
-  Select, Breadcrumb, message, Tooltip, Row, Col, Statistic, InputNumber,
+  Select, Breadcrumb, message, Tooltip, Row, Col, InputNumber,
   Tabs, Progress, Typography, Divider, DatePicker, theme
 } from 'antd'
 import {
@@ -11,6 +11,8 @@ import {
   SaveOutlined, FileTextOutlined
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, gBtn } from '@/app/components/StatCard'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 
@@ -79,6 +81,8 @@ const getStatusTag = (status: string) => {
 }
 
 export default function SLAPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   const [slas, setSlas] = useState<SLAItem[]>(initialSLAs)
   const [logs, setLogs] = useState<SLALog[]>(initialLogs)
   const [searchText, setSearchText] = useState('')
@@ -222,9 +226,9 @@ export default function SLAPage() {
   ]
 
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       {contextHolder}
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb
@@ -246,29 +250,20 @@ export default function SLAPage() {
             {/* Stats */}
             <Row gutter={[16, 16]} className="mb-6">
               <Col xs={12} sm={6}>
-                <Card variant="borderless" className="shadow-sm" style={{ borderBottom: '3px solid #a855f7' }}>
-                  <Statistic title="SLA ทั้งหมด" value={slas.length} />
-                </Card>
+                <StatCard accent="purple" isDark={isDark} label="SLA ทั้งหมด" value={slas.length} icon={<FileTextOutlined />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card variant="borderless" className="shadow-sm" style={{ borderBottom: '3px solid #22c55e' }}>
-                  <Statistic title="ประกาศใช้งาน" value={activeCount} styles={{ content: { color: '#22c55e' } }} />
-                </Card>
+                <StatCard accent="emerald" isDark={isDark} label="ประกาศใช้งาน" value={activeCount} icon={<CheckCircleOutlined />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card variant="borderless" className="shadow-sm" style={{ borderBottom: '3px solid #3b82f6' }}>
-                  <Statistic title="บันทึกผล" value={logs.length} suffix="ครั้ง" />
-                </Card>
+                <StatCard accent="cyan" isDark={isDark} label="บันทึกผล" suffix="ครั้ง" value={logs.length} icon={<ClockCircleOutlined />} />
               </Col>
               <Col xs={12} sm={6}>
-                <Card variant="borderless" className="shadow-sm" style={{ borderBottom: `3px solid ${slaMetRate >= 80 ? '#22c55e' : '#ef4444'}` }}>
-                  <Statistic
-                    title="อัตราผ่าน SLA"
-                    value={slaMetRate}
-                    suffix="%"
-                    styles={{ content: { color: slaMetRate >= 80 ? '#22c55e' : '#ef4444' } }}
-                  />
-                </Card>
+                <StatCard
+                  accent={slaMetRate >= 80 ? ['#10b981', '#34d399'] : ['#f43f5e', '#fb7185']}
+                  isDark={isDark} label="อัตราผ่าน SLA" suffix="%" value={slaMetRate}
+                  icon={slaMetRate >= 80 ? <CheckCircleOutlined /> : <WarningOutlined />}
+                />
               </Col>
             </Row>
 
@@ -288,7 +283,7 @@ export default function SLAPage() {
                           onChange={e => setSearchText(e.target.value)}
                           style={{ maxWidth: 300 }}
                         />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={openAddDrawer}>
+                        <Button type="primary" icon={<PlusOutlined />} style={gBtn('#7c3aed', '#a855f7')} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAddDrawer}>
                           เพิ่ม SLA ใหม่
                         </Button>
                       </div>
@@ -316,7 +311,7 @@ export default function SLAPage() {
                             style={{ width: 300, marginTop: 4 }}
                           />
                         </div>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsLogDrawerOpen(true)}>
+                        <Button type="primary" icon={<PlusOutlined />} style={gBtn('#06b6d4', '#3b82f6')} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={() => setIsLogDrawerOpen(true)}>
                           บันทึกผล SLA
                         </Button>
                       </div>

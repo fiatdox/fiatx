@@ -15,6 +15,7 @@ import {
   ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
 
 // ตัวแสดง PDF ใบส่งซ่อม — โหลดฝั่ง client เท่านั้น (react-pdf ใช้ใน browser)
@@ -195,12 +196,12 @@ const PROBLEM_CATEGORY_LABEL: Record<string, { label: string; color: string }> =
   software:        { label: 'ซอฟต์แวร์',     color: '#60a5fa' },
   peripheral:      { label: 'อุปกรณ์ต่อพ่วง', color: '#34d399' },
   network:         { label: 'เครือข่าย',     color: '#fbbf24' },
-  other:           { label: 'อื่น ๆ',         color: '#94a3b8' },
+  other:           { label: 'อื่น ๆ',         color: 'var(--app-text-2)' },
   'ฮาร์ดแวร์':     { label: 'ฮาร์ดแวร์',     color: '#f87171' },
   'ซอฟต์แวร์':     { label: 'ซอฟต์แวร์',     color: '#60a5fa' },
   'อุปกรณ์ต่อพ่วง': { label: 'อุปกรณ์ต่อพ่วง', color: '#34d399' },
   'เครือข่าย':     { label: 'เครือข่าย',     color: '#fbbf24' },
-  'อื่น ๆ':         { label: 'อื่น ๆ',         color: '#94a3b8' },
+  'อื่น ๆ':         { label: 'อื่น ๆ',         color: 'var(--app-text-2)' },
 }
 
 interface ApiRepairRequest {
@@ -440,24 +441,24 @@ const renderDue = (r: ManageRepairRequest) => {
       <ClockCircleOutlined style={{ fontSize: 10, color: ds.color }} />
       {extCount > 0 && firstIso ? (
         <>
-          <span style={{ color: '#94a3b8' }}>สัญญาแรก {fmtDate(firstIso)}</span>
-          <span style={{ color: '#475569' }}>·</span>
+          <span style={{ color: 'var(--app-text-2)' }}>สัญญาแรก {fmtDate(firstIso)}</span>
+          <span style={{ color: 'var(--app-text-3)' }}>·</span>
           <span style={{ color: '#f59e0b', fontWeight: 700 }}>ผลัดสัญญา {extCount} ครั้ง</span>
-          <span style={{ color: '#475569' }}>·</span>
-          {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>ล่าสุด {fmtDate(dueIso)}</span>}
+          <span style={{ color: 'var(--app-text-3)' }}>·</span>
+          {dueIso && <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>ล่าสุด {fmtDate(dueIso)}</span>}
         </>
       ) : (
         <>
           {r.estimatedDays != null && (
             <>
-              <span style={{ color: '#94a3b8' }}>ขอเวลา {r.estimatedDays} วัน</span>
-              <span style={{ color: '#475569' }}>·</span>
+              <span style={{ color: 'var(--app-text-2)' }}>ขอเวลา {r.estimatedDays} วัน</span>
+              <span style={{ color: 'var(--app-text-3)' }}>·</span>
             </>
           )}
-          {dueIso && <span style={{ color: '#94a3b8' }}>กำหนดเสร็จ {fmtDate(dueIso)}</span>}
+          {dueIso && <span style={{ color: 'var(--app-text-2)' }}>กำหนดเสร็จ {fmtDate(dueIso)}</span>}
         </>
       )}
-      <span style={{ color: '#475569' }}>·</span>
+      <span style={{ color: 'var(--app-text-3)' }}>·</span>
       <span style={{ color: ds.color, fontWeight: 600 }}>{ds.label}</span>
     </div>
   )
@@ -477,11 +478,11 @@ const ExtensionHistory = ({ exts }: { exts?: RepairExtension[] }) => {
           background: '#f59e0b0d', border: '1px dashed #f59e0b2e',
         }}>
           <span style={{ color: '#f59e0b', fontWeight: 700 }}>+{ex.days} วัน</span>
-          {ex.newDueIso && <span style={{ color: '#94a3b8' }}> → กำหนดใหม่ {fmtDate(ex.newDueIso)}</span>}
-          <span style={{ color: '#475569' }}> · {ex.date}</span>
-          <div style={{ color: '#94a3b8' }}>
+          {ex.newDueIso && <span style={{ color: 'var(--app-text-2)' }}> → กำหนดใหม่ {fmtDate(ex.newDueIso)}</span>}
+          <span style={{ color: 'var(--app-text-3)' }}> · {ex.date}</span>
+          <div style={{ color: 'var(--app-text-2)' }}>
             {ex.reason}
-            {ex.by && <span style={{ color: '#64748b' }}> — {ex.by}</span>}
+            {ex.by && <span style={{ color: 'var(--app-text-3)' }}> — {ex.by}</span>}
           </div>
         </div>
       ))}
@@ -598,6 +599,8 @@ const ROLE_CONFIG: Record<UserRole, { label: string; color: string; name: string
 // ── PageContent ────────────────────────────────────────────────────────────────
 
 const PageContent = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   // roles ดิบจาก cookie (normalize เป็นตัวพิมพ์ใหญ่) — ใช้ทั้งตรวจสิทธิ์เข้าหน้าและ map เป็น role ในหน้า
   const apiRoles = useMemo<string[]>(() => {
     try {
@@ -1422,8 +1425,8 @@ const PageContent = () => {
   const colId     = { title: 'รหัส', dataIndex: 'id', key: 'id', width: 120, render: (v: string) => <code style={{ color: '#a78bfa', fontSize: 11 }}>{v}</code> }
   const colDevice = { title: 'อุปกรณ์', key: 'device', render: (_: unknown, r: ManageRepairRequest) => (
     <div>
-      <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12 }}>{r.deviceBrand}</div>
-      <div style={{ color: '#64748b', fontSize: 11 }}>{r.department}</div>
+      <div style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: 12 }}>{r.deviceBrand}</div>
+      <div style={{ color: 'var(--app-text-3)', fontSize: 11 }}>{r.department}</div>
     </div>
   )}
   const colUrgency = { title: 'ความเร่งด่วน', dataIndex: 'urgency', key: 'urgency', width: 110,
@@ -1440,7 +1443,7 @@ const PageContent = () => {
   // ── Job card for technician ───────────────────────────────────────────────────
 
   const jobCard = (r: ManageRepairRequest, action: React.ReactNode) => (
-    <Card key={r.id} size="small" style={{ background: '#0f172a', border: '1px solid #334155', marginBottom: 10 }}>
+    <Card key={r.id} size="small" style={{ background: 'var(--app-bg)', border: '1px solid #334155', marginBottom: 10 }}>
       <Row gutter={8} align="middle" wrap={false}>
         <Col flex="1" style={{ minWidth: 0 }}>
           <Space size={4} wrap>
@@ -1448,9 +1451,9 @@ const PageContent = () => {
             <Tag color={urgencyConfig[r.urgency].color} style={{ margin: 0 }}>{urgencyConfig[r.urgency].label}</Tag>
             <Tag color={statusConfig[r.status].color} style={{ margin: 0 }}>{statusConfig[r.status].label}</Tag>
           </Space>
-          <div style={{ color: '#e2e8f0', fontWeight: 600, marginTop: 6, fontSize: 13 }}>{r.deviceBrand}</div>
-          <div style={{ color: '#94a3b8', fontSize: 12 }}>{r.department} · {r.deviceLocation}</div>
-          <div style={{ color: '#64748b', fontSize: 11, marginTop: 4, marginBottom: 6 }}>
+          <div style={{ color: 'var(--app-text)', fontWeight: 600, marginTop: 6, fontSize: 13 }}>{r.deviceBrand}</div>
+          <div style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{r.department} · {r.deviceLocation}</div>
+          <div style={{ color: 'var(--app-text-3)', fontSize: 11, marginTop: 4, marginBottom: 6 }}>
             {r.symptom.length > 90 ? r.symptom.slice(0, 90) + '…' : r.symptom}
           </div>
           {renderDue(r)}
@@ -1461,7 +1464,7 @@ const PageContent = () => {
     </Card>
   )
 
-  const emptyText = (text: string) => ({ emptyText: <div style={{ color: '#64748b', padding: '24px 0' }}>{text}</div> })
+  const emptyText = (text: string) => ({ emptyText: <div style={{ color: 'var(--app-text-3)', padding: '24px 0' }}>{text}</div> })
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -1469,7 +1472,7 @@ const PageContent = () => {
   // render แรก (ก่อน mount) ต้องตรงกับฝั่ง server — แสดง loader กลางจอ กัน hydration mismatch
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
           <Spin size="large" />
@@ -1480,13 +1483,13 @@ const PageContent = () => {
 
   if (!hasAccess) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
         <div className="p-6 md:p-8" style={{ display: 'flex', justifyContent: 'center' }}>
-          <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, maxWidth: 480, marginTop: 60, textAlign: 'center' }}>
+          <Card style={{ background: 'var(--app-surface)', border: '1px solid #334155', borderRadius: 10, maxWidth: 480, marginTop: 60, textAlign: 'center' }}>
             <CloseCircleOutlined style={{ fontSize: 48, color: '#ef4444', marginBottom: 16 }} />
-            <Title level={4} style={{ color: '#e2e8f0', marginTop: 0 }}>ไม่มีสิทธิ์เข้าถึง</Title>
-            <Text style={{ color: '#94a3b8' }}>
+            <Title level={4} style={{ color: 'var(--app-text)', marginTop: 0 }}>ไม่มีสิทธิ์เข้าถึง</Title>
+            <Text style={{ color: 'var(--app-text-2)' }}>
               หน้าจัดการงานซ่อมนี้เปิดให้เฉพาะเจ้าหน้าที่ IT, หัวหน้ากลุ่มงาน IT, หัวหน้าภารกิจ และผู้ดูแลระบบเท่านั้น
             </Text>
             <div style={{ marginTop: 20 }}>
@@ -1501,29 +1504,29 @@ const PageContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
 
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: <span style={{ color: '#94a3b8' }}>หน้าหลัก</span> },
-            { title: <span style={{ color: '#94a3b8' }}>งานเทคโนโลยีสารสนเทศ</span> },
-            { href: '/information-technology/maintenance', title: <span style={{ color: '#94a3b8' }}>แจ้งซ่อมคอมพิวเตอร์</span> },
+            { href: '/', title: <span style={{ color: 'var(--app-text-2)' }}>หน้าหลัก</span> },
+            { title: <span style={{ color: 'var(--app-text-2)' }}>งานเทคโนโลยีสารสนเทศ</span> },
+            { href: '/information-technology/maintenance', title: <span style={{ color: 'var(--app-text-2)' }}>แจ้งซ่อมคอมพิวเตอร์</span> },
             { title: <span style={{ color: '#a78bfa' }}>จัดการงานซ่อม</span> },
           ]}
         />
 
         <div style={{ marginBottom: 20 }}>
-          <Title level={4} style={{ color: '#e2e8f0', margin: 0 }}>
+          <Title level={4} style={{ color: 'var(--app-text)', margin: 0 }}>
             <AuditOutlined style={{ color: '#a78bfa', marginRight: 10 }} />
             ระบบจัดการงานซ่อมคอมพิวเตอร์และอุปกรณ์ IT
           </Title>
         </div>
 
         {/* Panel Card */}
-        <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+        <Card style={{ background: 'var(--app-surface)', border: '1px solid #334155', borderRadius: 10 }}>
 
           {/* ── IT Officer / หัวหน้า IT / หัวหน้าภารกิจ — kanban board เดียวกัน
                ระดับหัวหน้าเห็นบอร์ดเหมือนเจ้าหน้าที่ เพิ่มเฉพาะปุ่มพิจารณาอนุมัติตาม role ── */}
@@ -1659,7 +1662,7 @@ const PageContent = () => {
                             <div style={{
                               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                               padding: '7px 12px', borderRadius: 8, marginBottom: 8,
-                              background: '#0f172a', borderLeft: `3px solid ${col.accent}`,
+                              background: 'var(--app-bg)', borderLeft: `3px solid ${col.accent}`,
                               boxShadow: `inset 0 0 0 1px ${col.accent}22`,
                             }}>
                               <Text style={{ color: col.accent, fontSize: 12, fontWeight: 700 }}>{col.title}</Text>
@@ -1672,16 +1675,16 @@ const PageContent = () => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, minHeight: 80 }}>
                               {col.items.length === 0 && (
                                 <div style={{
-                                  textAlign: 'center', color: '#334155', padding: '24px 0',
+                                  textAlign: 'center', color: 'var(--app-border-strong)', padding: '24px 0',
                                   border: '1px dashed #1e3a5f', borderRadius: 8, fontSize: 11,
                                 }}>ไม่มีงาน</div>
                               )}
                               {col.items.map(r => {
                                 const days = daysSince(r.createdAtIso ?? r.requestDate)
-                                const cat = PROBLEM_CATEGORY_LABEL[r.problemCategory] ?? { label: r.problemCategory, color: '#94a3b8' }
+                                const cat = PROBLEM_CATEGORY_LABEL[r.problemCategory] ?? { label: r.problemCategory, color: 'var(--app-text-2)' }
                                 return (
                                 <div key={r.id} style={{
-                                  background: '#0f172a',
+                                  background: 'var(--app-bg)',
                                   border: '1px solid #1e293b',
                                   borderLeft: `3px solid ${col.accent}`,
                                   borderRadius: 8, padding: '10px 11px',
@@ -1703,9 +1706,9 @@ const PageContent = () => {
                                     </div>
                                   </div>
                                   {/* Row 2: brand + type */}
-                                  <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 12, marginBottom: 2, lineHeight: 1.4 }}>
+                                  <div style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: 12, marginBottom: 2, lineHeight: 1.4 }}>
                                     {r.deviceBrand}
-                                    {r.deviceType && <span style={{ color: '#64748b', fontSize: 10, fontWeight: 400 }}> · {DEVICE_TYPE_LABEL[r.deviceType] ?? r.deviceType}</span>}
+                                    {r.deviceType && <span style={{ color: 'var(--app-text-3)', fontSize: 10, fontWeight: 400 }}> · {DEVICE_TYPE_LABEL[r.deviceType] ?? r.deviceType}</span>}
                                   </div>
                                   {/* Row 3: asset no */}
                                   {r.assetNo && (
@@ -1715,18 +1718,18 @@ const PageContent = () => {
                                   )}
                                   {/* Row 4: location */}
                                   {r.deviceLocation && (
-                                    <div style={{ color: '#94a3b8', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
+                                    <div style={{ color: 'var(--app-text-2)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
                                       <EnvironmentOutlined style={{ fontSize: 10 }} />{r.deviceLocation}
                                     </div>
                                   )}
                                   {/* Row 5: requester + dept */}
-                                  <div style={{ color: '#cbd5e1', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
+                                  <div style={{ color: 'var(--app-text)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 1 }}>
                                     <UserOutlined style={{ fontSize: 10 }} />{r.requesterName}
                                   </div>
-                                  <div style={{ color: '#64748b', fontSize: 10, marginLeft: 14, marginBottom: 5 }}>{r.department}</div>
+                                  <div style={{ color: 'var(--app-text-3)', fontSize: 10, marginLeft: 14, marginBottom: 5 }}>{r.department}</div>
                                   {/* วันเวลาที่ส่งคำขอ */}
                                   {fmtDateTime(r.createdAtIso ?? r.requestDate) && (
-                                    <div style={{ color: '#64748b', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                                    <div style={{ color: 'var(--app-text-3)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
                                       <ClockCircleOutlined style={{ fontSize: 10 }} />
                                       <span>ส่งคำขอ {fmtDateTime(r.createdAtIso ?? r.requestDate)}</span>
                                     </div>
@@ -1741,7 +1744,7 @@ const PageContent = () => {
                                     </Tag>
                                   </div>
                                   {/* Row 7: symptom */}
-                                  <div style={{ color: '#94a3b8', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
+                                  <div style={{ color: 'var(--app-text-2)', fontSize: 10, marginBottom: 5, lineHeight: 1.45, fontStyle: 'italic' }}>
                                     “{r.symptom.length > 60 ? r.symptom.slice(0, 60) + '…' : r.symptom}”
                                   </div>
                                   {/* เส้นคั่น — แยกข้อมูลคำร้องออกจากส่วนงานของช่าง */}
@@ -1757,12 +1760,12 @@ const PageContent = () => {
                                   {/* Technician-assessed priority */}
                                   {r.status !== 'pending' && r.technicianPriorityName && (() => {
                                     const lvl = priorityLevels.find(l => l.it_priority_level_id === r.technicianPriorityId)
-                                    const color = lvl ? URGENCY_DOT[urgencyByOrder(lvl.display_order)] : '#94a3b8'
+                                    const color = lvl ? URGENCY_DOT[urgencyByOrder(lvl.display_order)] : 'var(--app-text-2)'
                                     return (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6, fontSize: 10 }}>
                                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, boxShadow: `0 0 5px ${color}99`, flexShrink: 0 }} />
-                                        <span style={{ color: '#64748b' }}>ช่างประเมิน:</span>
-                                        <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{r.technicianPriorityName}</span>
+                                        <span style={{ color: 'var(--app-text-3)' }}>ช่างประเมิน:</span>
+                                        <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>{r.technicianPriorityName}</span>
                                       </div>
                                     )
                                   })()}
@@ -1776,7 +1779,7 @@ const PageContent = () => {
                                     if (!prNo) return null
                                     return (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4, flexWrap: 'wrap' }}>
-                                        <span style={{ color: '#64748b', fontSize: 10 }}>เลขที่ PR</span>
+                                        <span style={{ color: 'var(--app-text-3)', fontSize: 10 }}>เลขที่ PR</span>
                                         <code style={{ color: '#fb923c', fontSize: 10, background: '#1c0f00', padding: '1px 5px', borderRadius: 4 }}>
                                           {prNo}
                                         </code>
@@ -1819,7 +1822,7 @@ const PageContent = () => {
                                       }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                                           <ToolOutlined style={{ fontSize: 10, color: accent }} />
-                                          <span style={{ color: '#94a3b8' }}>
+                                          <span style={{ color: 'var(--app-text-2)' }}>
                                             ความคืบหน้างาน{' '}
                                             <span style={{ color: accent, fontWeight: 700 }}>{done.size}/{cardSteps.length} ขั้น</span>
                                           </span>
@@ -1833,8 +1836,8 @@ const PageContent = () => {
                                             <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 4, lineHeight: 1.5 }}>
                                               {notFound
                                                 ? <CloseCircleOutlined style={{ fontSize: 10, marginTop: 1, color: '#ef4444' }} />
-                                                : <CheckSquareOutlined style={{ fontSize: 10, marginTop: 1, color: checked ? '#22c55e' : '#475569' }} />}
-                                              <span style={{ color: notFound ? '#94a3b8' : (checked ? '#cbd5e1' : '#64748b') }}>
+                                                : <CheckSquareOutlined style={{ fontSize: 10, marginTop: 1, color: checked ? '#22c55e' : 'var(--app-text-3)' }} />}
+                                              <span style={{ color: notFound ? 'var(--app-text-2)' : (checked ? 'var(--app-text)' : 'var(--app-text-3)') }}>
                                                 {s.name_th}
                                                 {notFound && <span style={{ color: '#ef4444', marginLeft: 4 }}>· ไม่พบข้อมูล</span>}
                                                 {isPo && s.step_code === 'pr_approved' && (
@@ -1860,8 +1863,8 @@ const PageContent = () => {
                                           )
                                         })}
                                         {r.prTaskNote && (
-                                          <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px dashed ${accent}33`, color: '#94a3b8', lineHeight: 1.5 }}>
-                                            <span style={{ color: '#64748b' }}>หมายเหตุ: </span>{r.prTaskNote}
+                                          <div style={{ marginTop: 4, paddingTop: 4, borderTop: `1px dashed ${accent}33`, color: 'var(--app-text-2)', lineHeight: 1.5 }}>
+                                            <span style={{ color: 'var(--app-text-3)' }}>หมายเหตุ: </span>{r.prTaskNote}
                                           </div>
                                         )}
                                       </div>
@@ -1918,7 +1921,7 @@ const PageContent = () => {
                         { title: 'ช่าง', dataIndex: 'assignedTo', key: 'assignedTo', width: 150,
                           render: (v?: string) => v
                             ? <Text style={{ color: '#6ee7b7', fontSize: 12 }}>{v}</Text>
-                            : <Text style={{ color: '#334155' }}>-</Text> },
+                            : <Text style={{ color: 'var(--app-border-strong)' }}>-</Text> },
                         colDetail,
                       ]}
                     />
@@ -1936,7 +1939,7 @@ const PageContent = () => {
                 label: <Badge count={waitingJobs.length} size="small" offset={[6, -2]}><span>รองานใหม่</span></Badge>,
                 children: (
                   <div>
-                    {waitingJobs.length === 0 && <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>ไม่มีงานที่รอรับ</div>}
+                    {waitingJobs.length === 0 && <div style={{ textAlign: 'center', color: 'var(--app-text-3)', padding: 40 }}>ไม่มีงานที่รอรับ</div>}
                     {waitingJobs.map(r => jobCard(r,
                       <Space direction="vertical" size={6} style={{ width: '100%' }}>
                         <Button block type="primary" icon={<CheckCircleOutlined />} onClick={() => handleTakeJob(r)}>รับงาน</Button>
@@ -1951,7 +1954,7 @@ const PageContent = () => {
                 label: <Badge count={activeJobs.length} size="small" offset={[6, -2]}><span>กำลังซ่อม</span></Badge>,
                 children: (
                   <div>
-                    {activeJobs.length === 0 && <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>ไม่มีงานที่กำลังดำเนินการ</div>}
+                    {activeJobs.length === 0 && <div style={{ textAlign: 'center', color: 'var(--app-text-3)', padding: 40 }}>ไม่มีงานที่กำลังดำเนินการ</div>}
                     {activeJobs.map(r => jobCard(r,
                       <Space direction="vertical" size={6}>
                         <Button block
@@ -1988,7 +1991,7 @@ const PageContent = () => {
                           ? <Tag style={{ color: repairResultConfig[v].color, borderColor: repairResultConfig[v].color + '44', fontSize: 11 }}>{repairResultConfig[v].label}</Tag>
                           : '-' },
                       { title: 'วันที่เสร็จ', dataIndex: 'resolvedDate', key: 'resolvedDate', width: 110,
-                        render: (v?: string) => <Text style={{ color: '#94a3b8', fontSize: 11 }}>{v ?? '-'}</Text> },
+                        render: (v?: string) => <Text style={{ color: 'var(--app-text-2)', fontSize: 11 }}>{v ?? '-'}</Text> },
                       colDetail,
                     ]}
                   />
@@ -2016,31 +2019,31 @@ const PageContent = () => {
           return (
             <Alert
               type="info" showIcon style={{ marginBottom: 16 }}
-              title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{taskModal.deviceBrand}</span>}
+              title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{taskModal.deviceBrand}</span>}
               description={
-                <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--app-text-2)', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: '#cbd5e1' }}>{taskModal.requesterName || '-'}</span>
+                    <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: 'var(--app-text)' }}>{taskModal.requesterName || '-'}</span>
                   </span>
                   {taskModal.deviceLocation && (
                     <>
-                      <span style={{ color: '#475569' }}>·</span>
+                      <span style={{ color: 'var(--app-text-3)' }}>·</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <EnvironmentOutlined style={{ fontSize: 11 }} /> ตำแหน่ง: <span style={{ color: '#cbd5e1' }}>{taskModal.deviceLocation}</span>
+                        <EnvironmentOutlined style={{ fontSize: 11 }} /> ตำแหน่ง: <span style={{ color: 'var(--app-text)' }}>{taskModal.deviceLocation}</span>
                       </span>
                     </>
                   )}
-                  <span style={{ color: '#475569' }}>·</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>·</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <BarcodeOutlined style={{ fontSize: 11 }} /> เลขครุภัณฑ์: <span style={{ color: '#cbd5e1' }}>{taskModal.assetNo || '-'}</span>
+                    <BarcodeOutlined style={{ fontSize: 11 }} /> เลขครุภัณฑ์: <span style={{ color: 'var(--app-text)' }}>{taskModal.assetNo || '-'}</span>
                   </span>
-                  <span style={{ color: '#475569' }}>·</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>·</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <EnvironmentOutlined style={{ fontSize: 11 }} /> {taskModal.department}
                   </span>
                   {waited != null && (
                     <>
-                      <span style={{ color: '#475569' }}>·</span>
+                      <span style={{ color: 'var(--app-text-3)' }}>·</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <ClockCircleOutlined style={{ fontSize: 11, color: daysColor(waited) }} />
                         รอมาแล้ว <span style={{ color: daysColor(waited), fontWeight: 700 }}>{waited} วัน</span>
@@ -2049,7 +2052,7 @@ const PageContent = () => {
                   )}
                   {taskModal.prNumber && (
                     <>
-                      <span style={{ color: '#475569' }}>·</span>
+                      <span style={{ color: 'var(--app-text-3)' }}>·</span>
                       <span>PR <code style={{ color: '#fb923c' }}>{taskModal.prNumber}</code></span>
                     </>
                   )}
@@ -2064,8 +2067,8 @@ const PageContent = () => {
             title={
               <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                 <FileTextOutlined style={{ fontSize: 11 }} /> เอกสารที่เจ้าหน้าที่ IT เสนอ
-                {taskModal.prNumber && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· PR <code style={{ color: '#2dd4bf' }}>{taskModal.prNumber}</code></span>}
-                {taskModal.prIssuedBy && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· โดย {taskModal.prIssuedBy}</span>}
+                {taskModal.prNumber && <span style={{ color: 'var(--app-text-2)', fontWeight: 400 }}>· PR <code style={{ color: '#2dd4bf' }}>{taskModal.prNumber}</code></span>}
+                {taskModal.prIssuedBy && <span style={{ color: 'var(--app-text-2)', fontWeight: 400 }}>· โดย {taskModal.prIssuedBy}</span>}
               </span>
             }
             description={
@@ -2081,7 +2084,7 @@ const PageContent = () => {
                   })}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>ยังไม่มีรายการเอกสารที่บันทึกไว้</div>
+                <div style={{ fontSize: 11, color: 'var(--app-text-3)', marginTop: 4 }}>ยังไม่มีรายการเอกสารที่บันทึกไว้</div>
               )
             }
           />
@@ -2094,40 +2097,40 @@ const PageContent = () => {
               type="warning" showIcon style={{ marginBottom: 16 }}
               title={
                 <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{taskModal.assignedTo || '-'}</span>
-                  {taskModal.assignedDate && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· รับงาน {taskModal.assignedDate}</span>}
+                  <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>{taskModal.assignedTo || '-'}</span>
+                  {taskModal.assignedDate && <span style={{ color: 'var(--app-text-2)', fontWeight: 400 }}>· รับงาน {taskModal.assignedDate}</span>}
                 </span>
               }
               description={
-                <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--app-text-2)', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
                   {(() => {
                     const used = techWorkingDays(taskModal)
                     if (used == null) return null
                     return (
                       <div>
-                        <span style={{ color: '#64748b' }}>ช่างใช้เวลาดำเนินการ: </span>
+                        <span style={{ color: 'var(--app-text-3)' }}>ช่างใช้เวลาดำเนินการ: </span>
                         <span style={{ color: daysColor(used), fontWeight: 700 }}>{used} วัน</span>
-                        {taskModal.estimatedDays != null && <span style={{ color: '#64748b' }}> / ขอไว้ {taskModal.estimatedDays} วัน</span>}
+                        {taskModal.estimatedDays != null && <span style={{ color: 'var(--app-text-3)' }}> / ขอไว้ {taskModal.estimatedDays} วัน</span>}
                       </div>
                     )
                   })()}
                   {rr && (
                     <div>
-                      <span style={{ color: '#64748b' }}>ผลการประเมิน: </span>
+                      <span style={{ color: 'var(--app-text-3)' }}>ผลการประเมิน: </span>
                       <span style={{ color: rr.color, fontWeight: 700 }}>{rr.label}</span>
                     </div>
                   )}
                   {taskModal.technicianNote && (
-                    <div><span style={{ color: '#64748b' }}>บันทึกของช่าง: </span><span style={{ color: '#cbd5e1' }}>{taskModal.technicianNote}</span></div>
+                    <div><span style={{ color: 'var(--app-text-3)' }}>บันทึกของช่าง: </span><span style={{ color: 'var(--app-text)' }}>{taskModal.technicianNote}</span></div>
                   )}
                   {taskModal.partsUsed && (
-                    <div><span style={{ color: '#64748b' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: '#cbd5e1' }}>{taskModal.partsUsed}</span></div>
+                    <div><span style={{ color: 'var(--app-text-3)' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: 'var(--app-text)' }}>{taskModal.partsUsed}</span></div>
                   )}
                   {taskModal.replacementNote && (
-                    <div><span style={{ color: '#64748b' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: '#cbd5e1' }}>{taskModal.replacementNote}</span></div>
+                    <div><span style={{ color: 'var(--app-text-3)' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: 'var(--app-text)' }}>{taskModal.replacementNote}</span></div>
                   )}
                   {taskModal.externalServiceNote && (
-                    <div><span style={{ color: '#64748b' }}>ส่งซ่อมภายนอก: </span><span style={{ color: '#cbd5e1' }}>{taskModal.externalServiceNote}</span></div>
+                    <div><span style={{ color: 'var(--app-text-3)' }}>ส่งซ่อมภายนอก: </span><span style={{ color: 'var(--app-text)' }}>{taskModal.externalServiceNote}</span></div>
                   )}
                 </div>
               }
@@ -2138,8 +2141,8 @@ const PageContent = () => {
           <ConfigProvider theme={{ token: { colorPrimary: taskAccent } }}>
             {taskModal?.status === 'po_processing' ? (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ marginBottom: 8, fontWeight: 600, color: '#e2e8f0' }}>สถานะการติดตาม PO</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px', borderRadius: 8, background: '#0f172a', border: '1px solid #1e293b' }}>
+                <div style={{ marginBottom: 8, fontWeight: 600, color: 'var(--app-text)' }}>สถานะการติดตาม PO</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--app-bg)', border: '1px solid #1e293b' }}>
                   {stepsFor(taskModal?.status).map(s => {
                     const ps = taskModal?.prStatus
                     const notFound = !ps?.found
@@ -2148,8 +2151,8 @@ const PageContent = () => {
                       <div key={s.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, lineHeight: 1.5 }}>
                         {notFound
                           ? <CloseCircleOutlined style={{ fontSize: 13, marginTop: 2, color: '#ef4444' }} />
-                          : <CheckSquareOutlined style={{ fontSize: 13, marginTop: 2, color: done ? '#22c55e' : '#475569' }} />}
-                        <span style={{ color: notFound ? '#94a3b8' : (done ? '#e2e8f0' : '#94a3b8'), fontSize: 13 }}>
+                          : <CheckSquareOutlined style={{ fontSize: 13, marginTop: 2, color: done ? '#22c55e' : 'var(--app-text-3)' }} />}
+                        <span style={{ color: notFound ? 'var(--app-text-2)' : (done ? 'var(--app-text)' : 'var(--app-text-2)'), fontSize: 13 }}>
                           {s.name_th}
                           {s.step_code === 'pr_approved' && (() => {
                             const prNo = taskModal?.prNumber ?? ps?.requestNo
@@ -2185,7 +2188,7 @@ const PageContent = () => {
                   name="po_next_status"
                   label="เปลี่ยนสถานะปลายทาง"
                   style={{ marginTop: 16, marginBottom: 0 }}
-                  extra={<span style={{ fontSize: 11, color: '#64748b' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
+                  extra={<span style={{ fontSize: 11, color: 'var(--app-text-3)' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
                 >
                   <Select
                     allowClear
@@ -2198,13 +2201,13 @@ const PageContent = () => {
               <Form.Item
                 name="task_steps"
                 label="ขั้นงานที่ทำเสร็จแล้ว"
-                extra={<span style={{ fontSize: 11, color: '#64748b' }}>ติ๊กขั้นงานที่ดำเนินการเสร็จแล้ว (เลือกได้หลายขั้น)</span>}
+                extra={<span style={{ fontSize: 11, color: 'var(--app-text-3)' }}>ติ๊กขั้นงานที่ดำเนินการเสร็จแล้ว (เลือกได้หลายขั้น)</span>}
               >
                 <Checkbox.Group style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
                   {stepsFor(taskModal?.status).map(s => (
                     <Checkbox key={s.id} value={s.id}>
                       <span style={{ color: taskAccent, fontWeight: 700, marginRight: 6 }}>{s.sort_order}.</span>
-                      <span style={{ color: '#e2e8f0' }}>{s.name_th}</span>
+                      <span style={{ color: 'var(--app-text)' }}>{s.name_th}</span>
                     </Checkbox>
                   ))}
                 </Checkbox.Group>
@@ -2216,7 +2219,7 @@ const PageContent = () => {
                 name="po_next_status"
                 label="เปลี่ยนสถานะปลายทาง"
                 style={{ marginBottom: 0 }}
-                extra={<span style={{ fontSize: 11, color: '#64748b' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
+                extra={<span style={{ fontSize: 11, color: 'var(--app-text-3)' }}>เลือกเพื่อย้ายงานไปสถานะถัดไป (ไม่เลือก = คงสถานะเดิม)</span>}
               >
                 <Select
                   allowClear
@@ -2241,25 +2244,25 @@ const PageContent = () => {
 
         {/* ประวัติการอัพเดทความคืบหน้า (ล่าสุด → เก่า) */}
         <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontSize: 12, color: 'var(--app-text-2)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
             <ClockCircleOutlined style={{ fontSize: 12 }} /> ประวัติการอัพเดท
             {taskHistoryLoading && <Spin size="small" />}
           </div>
           {!taskHistoryLoading && taskHistory.length === 0 && (
-            <div style={{ fontSize: 12, color: '#475569' }}>ยังไม่มีประวัติการอัพเดท</div>
+            <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>ยังไม่มีประวัติการอัพเดท</div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {taskHistory.map((e, i) => (
               <div key={e.id} style={{
                 fontSize: 11, lineHeight: 1.6, padding: '8px 10px', borderRadius: 8,
-                background: i === 0 ? `${taskAccent}10` : '#0f172a',
-                border: `1px solid ${i === 0 ? `${taskAccent}40` : '#1e293b'}`,
+                background: i === 0 ? `${taskAccent}10` : 'var(--app-bg)',
+                border: `1px solid ${i === 0 ? `${taskAccent}40` : 'var(--app-surface)'}`,
               }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 6px', marginBottom: 4 }}>
                   {i === 0 && <Tag color={taskAccent} style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>ล่าสุด</Tag>}
-                  <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{e.created_by_name}</span>
-                  <span style={{ color: '#475569' }}>·</span>
-                  <span style={{ color: '#64748b' }}>{fmtDateTime(e.created_at)}</span>
+                  <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>{e.created_by_name}</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>·</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>{fmtDateTime(e.created_at)}</span>
                 </div>
                 {e.completed_steps.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: e.note ? 4 : 0 }}>
@@ -2270,7 +2273,7 @@ const PageContent = () => {
                     ))}
                   </div>
                 )}
-                {e.note && <div style={{ color: '#94a3b8' }}>{e.note}</div>}
+                {e.note && <div style={{ color: 'var(--app-text-2)' }}>{e.note}</div>}
               </div>
             ))}
           </div>
@@ -2292,31 +2295,31 @@ const PageContent = () => {
           return (
             <Alert
               type="info" showIcon style={{ marginBottom: 12 }}
-              title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{prModal.deviceBrand}</span>}
+              title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{prModal.deviceBrand}</span>}
               description={
-                <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--app-text-2)', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: '#cbd5e1' }}>{prModal.requesterName || '-'}</span>
+                    <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: 'var(--app-text)' }}>{prModal.requesterName || '-'}</span>
                   </span>
                   {prModal.deviceLocation && (
                     <>
-                      <span style={{ color: '#475569' }}>·</span>
+                      <span style={{ color: 'var(--app-text-3)' }}>·</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <EnvironmentOutlined style={{ fontSize: 11 }} /> ตำแหน่ง: <span style={{ color: '#cbd5e1' }}>{prModal.deviceLocation}</span>
+                        <EnvironmentOutlined style={{ fontSize: 11 }} /> ตำแหน่ง: <span style={{ color: 'var(--app-text)' }}>{prModal.deviceLocation}</span>
                       </span>
                     </>
                   )}
-                  <span style={{ color: '#475569' }}>·</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>·</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <BarcodeOutlined style={{ fontSize: 11 }} /> เลขครุภัณฑ์: <span style={{ color: '#cbd5e1' }}>{prModal.assetNo || '-'}</span>
+                    <BarcodeOutlined style={{ fontSize: 11 }} /> เลขครุภัณฑ์: <span style={{ color: 'var(--app-text)' }}>{prModal.assetNo || '-'}</span>
                   </span>
-                  <span style={{ color: '#475569' }}>·</span>
+                  <span style={{ color: 'var(--app-text-3)' }}>·</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     <EnvironmentOutlined style={{ fontSize: 11 }} /> {prModal.department}
                   </span>
                   {waited != null && (
                     <>
-                      <span style={{ color: '#475569' }}>·</span>
+                      <span style={{ color: 'var(--app-text-3)' }}>·</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                         <ClockCircleOutlined style={{ fontSize: 11, color: daysColor(waited) }} />
                         รอมาแล้ว <span style={{ color: daysColor(waited), fontWeight: 700 }}>{waited} วัน</span>
@@ -2359,40 +2362,40 @@ const PageContent = () => {
                   type="warning" showIcon style={{ height: '100%' }}
                   title={
                     <span style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{prModal.assignedTo || '-'}</span>
-                      {prModal.assignedDate && <span style={{ color: '#94a3b8', fontWeight: 400 }}>· รับงาน {prModal.assignedDate}</span>}
+                      <UserOutlined style={{ fontSize: 11 }} /> ช่างผู้ซ่อม: <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>{prModal.assignedTo || '-'}</span>
+                      {prModal.assignedDate && <span style={{ color: 'var(--app-text-2)', fontWeight: 400 }}>· รับงาน {prModal.assignedDate}</span>}
                     </span>
                   }
                   description={
-                    <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                    <div style={{ fontSize: 11, color: 'var(--app-text-2)', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
                       {(() => {
                         const used = techWorkingDays(prModal)
                         if (used == null) return null
                         return (
                           <div>
-                            <span style={{ color: '#64748b' }}>ช่างใช้เวลาดำเนินการ: </span>
+                            <span style={{ color: 'var(--app-text-3)' }}>ช่างใช้เวลาดำเนินการ: </span>
                             <span style={{ color: daysColor(used), fontWeight: 700 }}>{used} วัน</span>
-                            {prModal.estimatedDays != null && <span style={{ color: '#64748b' }}> / ขอไว้ {prModal.estimatedDays} วัน</span>}
+                            {prModal.estimatedDays != null && <span style={{ color: 'var(--app-text-3)' }}> / ขอไว้ {prModal.estimatedDays} วัน</span>}
                           </div>
                         )
                       })()}
                       {rr && (
                         <div>
-                          <span style={{ color: '#64748b' }}>ผลการประเมิน: </span>
+                          <span style={{ color: 'var(--app-text-3)' }}>ผลการประเมิน: </span>
                           <span style={{ color: rr.color, fontWeight: 700 }}>{rr.label}</span>
                         </div>
                       )}
                       {prModal.technicianNote && (
-                        <div><span style={{ color: '#64748b' }}>บันทึกของช่าง: </span><span style={{ color: '#cbd5e1' }}>{prModal.technicianNote}</span></div>
+                        <div><span style={{ color: 'var(--app-text-3)' }}>บันทึกของช่าง: </span><span style={{ color: 'var(--app-text)' }}>{prModal.technicianNote}</span></div>
                       )}
                       {prModal.partsUsed && (
-                        <div><span style={{ color: '#64748b' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: '#cbd5e1' }}>{prModal.partsUsed}</span></div>
+                        <div><span style={{ color: 'var(--app-text-3)' }}>อะไหล่ที่ใช้/ต้องซื้อ: </span><span style={{ color: 'var(--app-text)' }}>{prModal.partsUsed}</span></div>
                       )}
                       {prModal.replacementNote && (
-                        <div><span style={{ color: '#64748b' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: '#cbd5e1' }}>{prModal.replacementNote}</span></div>
+                        <div><span style={{ color: 'var(--app-text-3)' }}>ข้อเสนอแนะซื้อทดแทน: </span><span style={{ color: 'var(--app-text)' }}>{prModal.replacementNote}</span></div>
                       )}
                       {prModal.externalServiceNote && (
-                        <div><span style={{ color: '#64748b' }}>ส่งซ่อมภายนอก: </span><span style={{ color: '#cbd5e1' }}>{prModal.externalServiceNote}</span></div>
+                        <div><span style={{ color: 'var(--app-text-3)' }}>ส่งซ่อมภายนอก: </span><span style={{ color: 'var(--app-text)' }}>{prModal.externalServiceNote}</span></div>
                       )}
                     </div>
                   }
@@ -2403,18 +2406,18 @@ const PageContent = () => {
                 <Col xs={24} md={12}>
                   <Alert
                     type="success" showIcon style={{ height: '100%' }}
-                    title={<span style={{ fontSize: 12, color: '#e2e8f0' }}>ความเห็น / ผลพิจารณาของหัวหน้า</span>}
+                    title={<span style={{ fontSize: 12, color: 'var(--app-text)' }}>ความเห็น / ผลพิจารณาของหัวหน้า</span>}
                     description={
-                      <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--app-text-2)', display: 'flex', flexDirection: 'column', gap: 5, marginTop: 4 }}>
                         {headRows.map(({ label, icon, decision, by, date, note }) => {
-                          const color = decision === 'approved' ? '#22c55e' : decision === 'rejected' ? '#ef4444' : '#94a3b8'
+                          const color = decision === 'approved' ? '#22c55e' : decision === 'rejected' ? '#ef4444' : 'var(--app-text-2)'
                           return (
                             <div key={label} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 6px' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#64748b' }}>{icon}{label}:</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--app-text-3)' }}>{icon}{label}:</span>
                               {decision && <span style={{ color, fontWeight: 700 }}>{decision === 'approved' ? 'อนุมัติ' : 'ไม่อนุมัติ'}</span>}
-                              {by && <><span style={{ color: '#475569' }}>·</span><span style={{ color: '#cbd5e1' }}>{by}</span></>}
-                              {date && <><span style={{ color: '#475569' }}>·</span><span>{date}</span></>}
-                              {note && <div style={{ width: '100%', color: '#94a3b8' }}><span style={{ color: '#64748b' }}>ความเห็น: </span>{note}</div>}
+                              {by && <><span style={{ color: 'var(--app-text-3)' }}>·</span><span style={{ color: 'var(--app-text)' }}>{by}</span></>}
+                              {date && <><span style={{ color: 'var(--app-text-3)' }}>·</span><span>{date}</span></>}
+                              {note && <div style={{ width: '100%', color: 'var(--app-text-2)' }}><span style={{ color: 'var(--app-text-3)' }}>ความเห็น: </span>{note}</div>}
                             </div>
                           )
                         })}
@@ -2426,7 +2429,7 @@ const PageContent = () => {
             </Row>
           )
         })()}
-        <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#f97316', colorPrimaryHover: '#fb923c', colorPrimaryActive: '#ea580c' } }}>
+        <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#f97316', colorPrimaryHover: '#fb923c', colorPrimaryActive: '#ea580c' } }}>
           <Form form={prForm} layout="vertical" onFinish={handleIssuePR}>
             <Form.Item name="prNumber" label="เลขที่ใบ PR" rules={[{ required: true, message: 'กรุณาระบุเลขที่ใบ PR' }]}>
               <Input placeholder="เช่น PR-2026-00123" />
@@ -2463,15 +2466,15 @@ const PageContent = () => {
       >
         {resultModal && (() => {
           const devTypeLabel = DEVICE_TYPE_LABEL[resultModal.deviceType] ?? resultModal.deviceType
-          const probCat = PROBLEM_CATEGORY_LABEL[resultModal.problemCategory] ?? { label: resultModal.problemCategory, color: '#94a3b8' }
+          const probCat = PROBLEM_CATEGORY_LABEL[resultModal.problemCategory] ?? { label: resultModal.problemCategory, color: 'var(--app-text-2)' }
           return (
             <Descriptions
               column={4}
               size="small"
               bordered
               styles={{
-                label:   { color: '#94a3b8', background: '#0f172a', fontSize: 11, padding: '6px 10px', width: 100 },
-                content: { background: '#1e293b', color: '#e2e8f0', fontSize: 12, padding: '6px 10px' },
+                label:   { color: 'var(--app-text-2)', background: 'var(--app-bg)', fontSize: 11, padding: '6px 10px', width: 100 },
+                content: { background: 'var(--app-surface)', color: 'var(--app-text)', fontSize: 12, padding: '6px 10px' },
               }}
               style={{ marginBottom: 16 }}
             >
@@ -2487,11 +2490,11 @@ const PageContent = () => {
 
               <Descriptions.Item label="ผู้แจ้ง">{resultModal.requesterName}</Descriptions.Item>
               <Descriptions.Item label="หน่วยงาน" span={2}>{resultModal.department}</Descriptions.Item>
-              <Descriptions.Item label="เบอร์"><code style={{ color: '#cbd5e1' }}>{resultModal.phone}</code></Descriptions.Item>
+              <Descriptions.Item label="เบอร์"><code style={{ color: 'var(--app-text)' }}>{resultModal.phone}</code></Descriptions.Item>
 
               <Descriptions.Item label="ประเภท">{devTypeLabel}</Descriptions.Item>
               <Descriptions.Item label="ยี่ห้อ / รุ่น" span={3}>
-                <Text style={{ color: '#e2e8f0', fontWeight: 600 }}>{resultModal.deviceBrand}</Text>
+                <Text style={{ color: 'var(--app-text)', fontWeight: 600 }}>{resultModal.deviceBrand}</Text>
               </Descriptions.Item>
 
               {resultModal.assetNo && (
@@ -2513,7 +2516,7 @@ const PageContent = () => {
                   {probCat.label}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="อาการที่แจ้ง" span={4} styles={{ content: { whiteSpace: 'pre-wrap', lineHeight: 1.6, color: '#e2e8f0', fontSize: 12, padding: '6px 10px', background: '#1e293b' } }}>
+              <Descriptions.Item label="อาการที่แจ้ง" span={4} styles={{ content: { whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'var(--app-text)', fontSize: 12, padding: '6px 10px', background: 'var(--app-surface)' } }}>
                 {resultModal.symptom}
               </Descriptions.Item>
             </Descriptions>
@@ -2523,21 +2526,21 @@ const PageContent = () => {
               {/* ── Result options 2×2 grid ── */}
               <Form.Item
                 name="repair_assessment_id"
-                label={<span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: 13 }}>ประเมินการซ่อม</span>}
+                label={<span style={{ color: 'var(--app-text)', fontWeight: 600, fontSize: 13 }}>ประเมินการซ่อม</span>}
                 rules={[{ required: true, message: 'กรุณาเลือกผลการซ่อม' }]}
               >
                 <Radio.Group style={{ width: '100%' }}>
                   <Row gutter={[8, 8]}>
                     {assessments.map(a => {
                       const key = ASSESSMENT_ID_TO_RESULT[a.repair_assessment_id]
-                      const cfg = key ? repairResultConfig[key] : { color: '#94a3b8', label: a.assessment_name }
+                      const cfg = key ? repairResultConfig[key] : { color: 'var(--app-text-2)', label: a.assessment_name }
                       const desc = key ? ASSESSMENT_DESC[key] : ''
                       return (
                         <Col span={12} key={a.repair_assessment_id}>
-                          <Radio value={a.repair_assessment_id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', border: `1px solid #1e293b`, borderRadius: 8, width: '100%', margin: 0, background: '#0f172a', cursor: 'pointer' }}>
+                          <Radio value={a.repair_assessment_id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', border: `1px solid #1e293b`, borderRadius: 8, width: '100%', margin: 0, background: 'var(--app-bg)', cursor: 'pointer' }}>
                             <div>
                               <div style={{ color: cfg.color, fontWeight: 700, fontSize: 12, lineHeight: 1.5 }}>{a.assessment_name}</div>
-                              {desc && <div style={{ color: '#475569', fontSize: 10, marginTop: 2 }}>{desc}</div>}
+                              {desc && <div style={{ color: 'var(--app-text-3)', fontSize: 10, marginTop: 2 }}>{desc}</div>}
                             </div>
                           </Radio>
                         </Col>
@@ -2545,7 +2548,7 @@ const PageContent = () => {
                     })}
                     {assessments.length === 0 && (
                       <Col span={24}>
-                        <div style={{ color: '#475569', fontSize: 11, padding: '12px 0', textAlign: 'center' }}>
+                        <div style={{ color: 'var(--app-text-3)', fontSize: 11, padding: '12px 0', textAlign: 'center' }}>
                           กำลังโหลดตัวเลือก…
                         </div>
                       </Col>
@@ -2582,7 +2585,7 @@ const PageContent = () => {
                           </Form.Item>
                           <Form.Item
                             name="return_status_id"
-                            label={<span style={{ color: '#e2e8f0', fontWeight: 600 }}>การส่งคืนครุภัณฑ์ที่ซ่อมไม่ได้</span>}
+                            label={<span style={{ color: 'var(--app-text)', fontWeight: 600 }}>การส่งคืนครุภัณฑ์ที่ซ่อมไม่ได้</span>}
                             rules={[{ required: true, message: 'กรุณาเลือกการจัดการครุภัณฑ์' }]}
                             extra={
                               <span style={{ color: '#f59e0b', fontSize: 11 }}>
@@ -2597,7 +2600,7 @@ const PageContent = () => {
                                   const cfg = REPLACEMENT_HANDOVER_CONFIG[key]
                                   return (
                                     <Col span={12} key={id}>
-                                      <Radio value={id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '1px solid #1e293b', borderRadius: 8, width: '100%', margin: 0, background: '#0f172a', cursor: 'pointer' }}>
+                                      <Radio value={id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', border: '1px solid #1e293b', borderRadius: 8, width: '100%', margin: 0, background: 'var(--app-bg)', cursor: 'pointer' }}>
                                         <span style={{ color: cfg.color, fontWeight: 600, fontSize: 12 }}>{cfg.label}</span>
                                       </Radio>
                                     </Col>
@@ -2616,7 +2619,7 @@ const PageContent = () => {
               {/* ── Repair note ── */}
               <Form.Item
                 name="assessment_detail"
-                label={<span style={{ color: '#e2e8f0', fontWeight: 600 }}>บันทึกรายละเอียดการซ่อม</span>}
+                label={<span style={{ color: 'var(--app-text)', fontWeight: 600 }}>บันทึกรายละเอียดการซ่อม</span>}
                 rules={[{ required: true, message: 'กรุณาบันทึกรายละเอียด' }]}
               >
                 <TextArea
@@ -2652,7 +2655,7 @@ const PageContent = () => {
           return (
           <>
           <Descriptions column={1} size="small" bordered
-            styles={{ label: { color: '#94a3b8', background: '#0f172a', width: 130 }, content: { background: '#1e293b', color: '#e2e8f0' } }}
+            styles={{ label: { color: 'var(--app-text-2)', background: 'var(--app-bg)', width: 130 }, content: { background: 'var(--app-surface)', color: 'var(--app-text)' } }}
             style={{ marginBottom: 16 }}
           >
             <Descriptions.Item label="อุปกรณ์">
@@ -2660,13 +2663,13 @@ const PageContent = () => {
               {req.assetNo && <code style={{ color: '#fb923c', fontSize: 11, marginLeft: 8 }}>{req.assetNo}</code>}
             </Descriptions.Item>
             <Descriptions.Item label="หน่วยงาน">{req.department}{req.deviceLocation ? ` · ${req.deviceLocation}` : ''}</Descriptions.Item>
-            <Descriptions.Item label="อาการ" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+            <Descriptions.Item label="อาการ" styles={{ content: { fontSize: 12, color: 'var(--app-text-2)', whiteSpace: 'pre-wrap' } }}>
               {req.symptom}
             </Descriptions.Item>
             {req.assignedTo && (
               <Descriptions.Item label="ช่างผู้รับผิดชอบ">
                 <ToolOutlined style={{ color: '#6ee7b7', marginRight: 6 }} />{req.assignedTo}
-                {req.assignedDate && <span style={{ color: '#64748b', fontSize: 11, marginLeft: 8 }}>รับงาน {req.assignedDate}</span>}
+                {req.assignedDate && <span style={{ color: 'var(--app-text-3)', fontSize: 11, marginLeft: 8 }}>รับงาน {req.assignedDate}</span>}
               </Descriptions.Item>
             )}
             {(req.estimatedDays != null || dueIso || exts.length > 0) && (
@@ -2678,13 +2681,13 @@ const PageContent = () => {
                     </Tag>
                   )}
                   {exts.length > 0 && firstIso ? (
-                    <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                    <span style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                       สัญญาแรก {fmtDate(firstIso)}
                       <span style={{ color: '#f59e0b', fontWeight: 600, margin: '0 6px' }}>ผลัดสัญญา {exts.length} ครั้ง</span>
-                      {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
+                      {dueIso && <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
                     </span>
                   ) : (
-                    dueIso && <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
+                    dueIso && <span style={{ color: 'var(--app-text-2)', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
                   )}
                   {ds && <Tag style={{ color: ds.color, borderColor: ds.color + '55', background: 'transparent', margin: 0 }}>{ds.label}</Tag>}
                 </Space>
@@ -2697,11 +2700,11 @@ const PageContent = () => {
                     <div key={i} style={{ fontSize: 12 }}>
                       <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{ex.days} วัน</span>
                       {ex.prevDueIso && ex.newDueIso && (
-                        <span style={{ color: '#94a3b8', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
+                        <span style={{ color: 'var(--app-text-2)', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
                       )}
-                      <span style={{ color: '#475569', margin: '0 6px' }}>({ex.date})</span>
-                      <span style={{ color: '#94a3b8' }}>{ex.reason}</span>
-                      {ex.by && <span style={{ color: '#64748b', marginLeft: 6 }}>— {ex.by}</span>}
+                      <span style={{ color: 'var(--app-text-3)', margin: '0 6px' }}>({ex.date})</span>
+                      <span style={{ color: 'var(--app-text-2)' }}>{ex.reason}</span>
+                      {ex.by && <span style={{ color: 'var(--app-text-3)', marginLeft: 6 }}>— {ex.by}</span>}
                     </div>
                   ))}
                 </div>
@@ -2714,11 +2717,11 @@ const PageContent = () => {
                 </Tag>
               )}
             </Descriptions.Item>
-            <Descriptions.Item label="ความเห็นช่าง" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+            <Descriptions.Item label="ความเห็นช่าง" styles={{ content: { fontSize: 12, color: 'var(--app-text-2)', whiteSpace: 'pre-wrap' } }}>
               {req.replacementNote || req.prNote || req.technicianNote}
             </Descriptions.Item>
             {req.partsUsed && (
-              <Descriptions.Item label="อะไหล่ที่ใช้" styles={{ content: { fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' } }}>
+              <Descriptions.Item label="อะไหล่ที่ใช้" styles={{ content: { fontSize: 12, color: 'var(--app-text-2)', whiteSpace: 'pre-wrap' } }}>
                 {req.partsUsed}
               </Descriptions.Item>
             )}
@@ -2739,14 +2742,14 @@ const PageContent = () => {
             {approvalModal.level === 'mission_head' && req.itHeadApproval && (
               <Descriptions.Item label="มติหัวหน้า IT">
                 <Tag color="success">อนุมัติแล้ว</Tag>
-                <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 8 }}>{req.itHeadApproval.note}</span>
+                <span style={{ color: 'var(--app-text-2)', fontSize: 11, marginLeft: 8 }}>{req.itHeadApproval.note}</span>
               </Descriptions.Item>
             )}
           </Descriptions>
 
           {(approvalImagesLoading || approvalImages.length > 0) && (
             <div style={{ marginBottom: 16 }}>
-              <Text style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
               {approvalImagesLoading ? (
                 <Spin size="small" />
               ) : (
@@ -2810,8 +2813,8 @@ const PageContent = () => {
         {takeModal && (
           <Alert
             type="info" showIcon style={{ marginBottom: 16 }}
-            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{takeModal.deviceBrand}</span>}
-            description={<span style={{ fontSize: 12, color: '#94a3b8' }}>{takeModal.department}{takeModal.deviceLocation ? ' · ' + takeModal.deviceLocation : ''}</span>}
+            title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{takeModal.deviceBrand}</span>}
+            description={<span style={{ fontSize: 12, color: 'var(--app-text-2)' }}>{takeModal.department}{takeModal.deviceLocation ? ' · ' + takeModal.deviceLocation : ''}</span>}
           />
         )}
         <Form
@@ -2827,7 +2830,7 @@ const PageContent = () => {
           <Form.Item
             name="it_priority_level_id"
             label="ความเร่งด่วน (ช่างประเมิน)"
-            extra={<span style={{ color: '#64748b', fontSize: 11 }}>ช่างกำหนดระดับความเร่งด่วนของงานนี้เอง</span>}
+            extra={<span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>ช่างกำหนดระดับความเร่งด่วนของงานนี้เอง</span>}
             rules={[{ required: true, message: 'กรุณาเลือกความเร่งด่วน' }]}
           >
             <Select
@@ -2839,8 +2842,8 @@ const PageContent = () => {
                   label: (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: URGENCY_DOT[u], boxShadow: `0 0 6px ${URGENCY_DOT[u]}99`, flexShrink: 0 }} />
-                      <span style={{ color: '#e2e8f0' }}>{p.name}</span>
-                      {p.description && <span style={{ color: '#64748b', fontSize: 11 }}>· {p.description}</span>}
+                      <span style={{ color: 'var(--app-text)' }}>{p.name}</span>
+                      {p.description && <span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>· {p.description}</span>}
                     </span>
                   ),
                 }
@@ -2850,7 +2853,7 @@ const PageContent = () => {
           <Form.Item
             name="dueDate"
             label="กำหนดวันที่จะซ่อมเสร็จ"
-            extra={<span style={{ color: '#64748b', fontSize: 11 }}>เลือกวันที่ — ระบบจะคำนวณจำนวนวันให้อัตโนมัติ</span>}
+            extra={<span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>เลือกวันที่ — ระบบจะคำนวณจำนวนวันให้อัตโนมัติ</span>}
             rules={[{ required: true, message: 'กรุณาเลือกวันที่จะเสร็จ' }]}
           >
             <DatePicker
@@ -2869,10 +2872,10 @@ const PageContent = () => {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: color + '14', border: `1px solid ${color}33`, marginBottom: 8 }}>
                   <ClockCircleOutlined style={{ color }} />
-                  <span style={{ color: '#94a3b8', fontSize: 13 }}>ระยะเวลาซ่อม</span>
+                  <span style={{ color: 'var(--app-text-2)', fontSize: 13 }}>ระยะเวลาซ่อม</span>
                   <span style={{ color, fontWeight: 700, fontSize: 16 }}>{days}</span>
-                  <span style={{ color: '#94a3b8', fontSize: 13 }}>วัน</span>
-                  <span style={{ color: '#475569', fontSize: 12, marginLeft: 'auto' }}>ครบกำหนด {due.format('DD/MM/YYYY')}</span>
+                  <span style={{ color: 'var(--app-text-2)', fontSize: 13 }}>วัน</span>
+                  <span style={{ color: 'var(--app-text-3)', fontSize: 12, marginLeft: 'auto' }}>ครบกำหนด {due.format('DD/MM/YYYY')}</span>
                 </div>
               )
             }}
@@ -2893,8 +2896,8 @@ const PageContent = () => {
         {rejectModal && (
           <Alert
             type="warning" showIcon style={{ marginBottom: 16 }}
-            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{rejectModal.deviceBrand}</span>}
-            description={<span style={{ fontSize: 12, color: '#94a3b8' }}>{rejectModal.department}{rejectModal.deviceLocation ? ' · ' + rejectModal.deviceLocation : ''}</span>}
+            title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{rejectModal.deviceBrand}</span>}
+            description={<span style={{ fontSize: 12, color: 'var(--app-text-2)' }}>{rejectModal.department}{rejectModal.deviceLocation ? ' · ' + rejectModal.deviceLocation : ''}</span>}
           />
         )}
         <Form form={rejectForm} layout="vertical" onFinish={submitRejectJob}>
@@ -2924,15 +2927,15 @@ const PageContent = () => {
           return (
             <Alert
               type="warning" showIcon style={{ marginBottom: 16 }}
-              title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{extendModal.deviceBrand}</span>}
+              title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{extendModal.deviceBrand}</span>}
               description={
-                <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                <span style={{ fontSize: 12, color: 'var(--app-text-2)' }}>
                   {dueIso
                     ? extCount > 0 && firstIso
                       ? <>
                           สัญญาแรก {fmtDate(firstIso)}
                           <span style={{ color: '#f59e0b', fontWeight: 600 }}> · ผลัดมาแล้ว {extCount} ครั้ง</span>
-                          {' · '}<span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>
+                          {' · '}<span style={{ color: 'var(--app-text)', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>
                           {ds && <> · <span style={{ color: ds.color }}>{ds.label}</span></>}
                         </>
                       : <>
@@ -2949,7 +2952,7 @@ const PageContent = () => {
           <Form.Item
             name="newDueDate"
             label="กำหนดวันที่จะเสร็จใหม่"
-            extra={<span style={{ color: '#64748b', fontSize: 11 }}>เลือกวันที่ใหม่ — ระบบจะคำนวณจำนวนวันที่เพิ่มให้อัตโนมัติ</span>}
+            extra={<span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>เลือกวันที่ใหม่ — ระบบจะคำนวณจำนวนวันที่เพิ่มให้อัตโนมัติ</span>}
             rules={[{ required: true, message: 'กรุณาเลือกวันที่จะเสร็จใหม่' }]}
           >
             <DatePicker
@@ -2974,10 +2977,10 @@ const PageContent = () => {
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, background: '#f59e0b14', border: '1px solid #f59e0b33', marginBottom: 16 }}>
                   <ClockCircleOutlined style={{ color: '#f59e0b' }} />
-                  <span style={{ color: '#94a3b8', fontSize: 13 }}>เพิ่มอีก</span>
+                  <span style={{ color: 'var(--app-text-2)', fontSize: 13 }}>เพิ่มอีก</span>
                   <span style={{ color: '#f59e0b', fontWeight: 700, fontSize: 16 }}>{days}</span>
-                  <span style={{ color: '#94a3b8', fontSize: 13 }}>วัน</span>
-                  <span style={{ color: '#475569', fontSize: 12, marginLeft: 'auto' }}>กำหนดใหม่ {nd.format('DD/MM/YYYY')}</span>
+                  <span style={{ color: 'var(--app-text-2)', fontSize: 13 }}>วัน</span>
+                  <span style={{ color: 'var(--app-text-3)', fontSize: 12, marginLeft: 'auto' }}>กำหนดใหม่ {nd.format('DD/MM/YYYY')}</span>
                 </div>
               )
             }}
@@ -3002,15 +3005,15 @@ const PageContent = () => {
         {completeModal && (
           <Alert
             type="success" showIcon style={{ marginBottom: 16 }}
-            title={<span style={{ fontSize: 13, color: '#e2e8f0' }}>{completeModal.deviceBrand}</span>}
+            title={<span style={{ fontSize: 13, color: 'var(--app-text)' }}>{completeModal.deviceBrand}</span>}
             description={
-              <div style={{ fontSize: 12, color: '#94a3b8', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--app-text-2)', display: 'flex', flexWrap: 'wrap', gap: '2px 6px', marginTop: 2 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: '#cbd5e1' }}>{completeModal.requesterName || '-'}</span>
+                  <UserOutlined style={{ fontSize: 11 }} /> ผู้ส่งซ่อม: <span style={{ color: 'var(--app-text)' }}>{completeModal.requesterName || '-'}</span>
                 </span>
                 {completeModal.assetNo && (
                   <>
-                    <span style={{ color: '#475569' }}>·</span>
+                    <span style={{ color: 'var(--app-text-3)' }}>·</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <BarcodeOutlined style={{ fontSize: 11 }} /> {completeModal.assetNo}
                     </span>
@@ -3018,7 +3021,7 @@ const PageContent = () => {
                 )}
                 {completeModal.assignedTo && (
                   <>
-                    <span style={{ color: '#475569' }}>·</span>
+                    <span style={{ color: 'var(--app-text-3)' }}>·</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                       <ToolOutlined style={{ fontSize: 11 }} /> ช่าง: <span style={{ color: '#6ee7b7' }}>{completeModal.assignedTo}</span>
                     </span>
@@ -3032,7 +3035,7 @@ const PageContent = () => {
           <Form.Item
             name="completed_at"
             label="วันเวลาที่ซ่อมเสร็จจริง"
-            extra={<span style={{ color: '#64748b', fontSize: 11 }}>ค่าเริ่มต้นเป็นเวลาปัจจุบัน — ปรับได้ตามจริง</span>}
+            extra={<span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>ค่าเริ่มต้นเป็นเวลาปัจจุบัน — ปรับได้ตามจริง</span>}
             rules={[{ required: true, message: 'กรุณาระบุวันเวลาที่ซ่อมเสร็จ' }]}
           >
             <DatePicker
@@ -3071,7 +3074,7 @@ const PageContent = () => {
         {detailModal && (
             <>
               <Descriptions column={2} size="small" bordered
-                styles={{ label: { color: '#94a3b8', background: '#0f172a', width: 130 }, content: { background: '#1e293b', color: '#e2e8f0' } }}
+                styles={{ label: { color: 'var(--app-text-2)', background: 'var(--app-bg)', width: 130 }, content: { background: 'var(--app-surface)', color: 'var(--app-text)' } }}
               >
             <Descriptions.Item label="เลขที่คำร้อง">
               <Text style={{ color: '#a78bfa', fontWeight: 700 }}>{detailModal.id}</Text>
@@ -3085,11 +3088,11 @@ const PageContent = () => {
             {detailModal.assetNo && <Descriptions.Item label="เลขครุภัณฑ์" span={detailModal.deviceLocation ? 1 : 2}><code style={{ color: '#a78bfa' }}>{detailModal.assetNo}</code></Descriptions.Item>}
             {detailModal.deviceLocation && <Descriptions.Item label="สถานที่" span={detailModal.assetNo ? 1 : 2}>{detailModal.deviceLocation}</Descriptions.Item>}
             <Descriptions.Item label="อาการ" span={2}
-              styles={{ content: { whiteSpace: 'pre-wrap', color: '#e2e8f0' } }}>{detailModal.symptom}</Descriptions.Item>
+              styles={{ content: { whiteSpace: 'pre-wrap', color: 'var(--app-text)' } }}>{detailModal.symptom}</Descriptions.Item>
             <Descriptions.Item label="ผู้รับงาน" span={detailModal.assignedDate ? 1 : 2}>
               {detailModal.assignedTo
                 ? <Text style={{ color: '#6ee7b7' }}>{detailModal.assignedTo}</Text>
-                : <Text style={{ color: '#475569' }}>— ยังไม่มีผู้รับงาน</Text>}
+                : <Text style={{ color: 'var(--app-text-3)' }}>— ยังไม่มีผู้รับงาน</Text>}
             </Descriptions.Item>
             {detailModal.assignedDate && <Descriptions.Item label="วันที่รับงาน" span={1}>{detailModal.assignedDate}</Descriptions.Item>}
             {(detailModal.estimatedDays != null || !!effectiveDueIso(detailModal) || (detailModal.extensions?.length ?? 0) > 0) && (() => {
@@ -3107,13 +3110,13 @@ const PageContent = () => {
                       </Tag>
                     )}
                     {extCount > 0 && firstIso ? (
-                      <span style={{ color: '#94a3b8', fontSize: 12 }}>
+                      <span style={{ color: 'var(--app-text-2)', fontSize: 12 }}>
                         สัญญาแรก {fmtDate(firstIso)}
                         <span style={{ color: '#f59e0b', fontWeight: 600, margin: '0 6px' }}>ผลัดสัญญา {extCount} ครั้ง</span>
-                        {dueIso && <span style={{ color: '#e2e8f0', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
+                        {dueIso && <span style={{ color: 'var(--app-text)', fontWeight: 600 }}>กำหนดล่าสุด {fmtDate(dueIso)}</span>}
                       </span>
                     ) : (
-                      dueIso && <span style={{ color: '#94a3b8', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
+                      dueIso && <span style={{ color: 'var(--app-text-2)', fontSize: 12 }}>ครบกำหนด {fmtDate(dueIso)}</span>
                     )}
                     {ds && detailModal.status === 'in_progress' && (
                       <Tag style={{ color: ds.color, borderColor: ds.color + '55', background: 'transparent', margin: 0 }}>{ds.label}</Tag>
@@ -3129,11 +3132,11 @@ const PageContent = () => {
                     <div key={i} style={{ fontSize: 12 }}>
                       <span style={{ color: '#f59e0b', fontWeight: 600 }}>+{ex.days} วัน</span>
                       {ex.prevDueIso && ex.newDueIso && (
-                        <span style={{ color: '#94a3b8', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
+                        <span style={{ color: 'var(--app-text-2)', marginLeft: 6 }}>{fmtDate(ex.prevDueIso)} → {fmtDate(ex.newDueIso)}</span>
                       )}
-                      <span style={{ color: '#475569', margin: '0 6px' }}>({ex.date})</span>
-                      <span style={{ color: '#94a3b8' }}>{ex.reason}</span>
-                      {ex.by && <span style={{ color: '#64748b', marginLeft: 6 }}>— {ex.by}</span>}
+                      <span style={{ color: 'var(--app-text-3)', margin: '0 6px' }}>({ex.date})</span>
+                      <span style={{ color: 'var(--app-text-2)' }}>{ex.reason}</span>
+                      {ex.by && <span style={{ color: 'var(--app-text-3)', marginLeft: 6 }}>— {ex.by}</span>}
                     </div>
                   ))}
                 </div>
@@ -3157,7 +3160,7 @@ const PageContent = () => {
                   <div style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <code style={{ color: '#f97316', fontWeight: 700, fontSize: 13 }}>{detailModal.prNumber}</code>
                     {detailModal.prIssuedDate && (
-                      <span style={{ color: '#475569', fontSize: 11 }}>ออกวันที่ {detailModal.prIssuedDate}</span>
+                      <span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>ออกวันที่ {detailModal.prIssuedDate}</span>
                     )}
                   </div>
                 )}
@@ -3173,7 +3176,7 @@ const PageContent = () => {
                     })}
                   </div>
                 )}
-                {detailModal.prNote && <span style={{ color: '#94a3b8' }}>{detailModal.prNote}</span>}
+                {detailModal.prNote && <span style={{ color: 'var(--app-text-2)' }}>{detailModal.prNote}</span>}
               </Descriptions.Item>
             )}
             {detailModal.replacementNote && (
@@ -3198,7 +3201,7 @@ const PageContent = () => {
                 <Tag color={detailModal.itHeadApproval.status === 'approved' ? 'success' : 'error'}>
                   {detailModal.itHeadApproval.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'}
                 </Tag>
-                <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 8 }}>{detailModal.itHeadApproval.note}</span>
+                <span style={{ color: 'var(--app-text-2)', fontSize: 11, marginLeft: 8 }}>{detailModal.itHeadApproval.note}</span>
               </Descriptions.Item>
             )}
             {detailModal.missionHeadApproval && (
@@ -3206,21 +3209,21 @@ const PageContent = () => {
                 <Tag color={detailModal.missionHeadApproval.status === 'approved' ? 'success' : 'error'}>
                   {detailModal.missionHeadApproval.status === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'}
                 </Tag>
-                <span style={{ color: '#94a3b8', fontSize: 11, marginLeft: 8 }}>{detailModal.missionHeadApproval.note}</span>
+                <span style={{ color: 'var(--app-text-2)', fontSize: 11, marginLeft: 8 }}>{detailModal.missionHeadApproval.note}</span>
               </Descriptions.Item>
             )}
             {detailModal.resolvedNote && (
               <Descriptions.Item label="ผลสำเร็จ" span={2}
                 styles={{ content: { color: '#6ee7b7', whiteSpace: 'pre-wrap' } }}>
                 {detailModal.resolvedNote}
-                {detailModal.resolvedDate && <span style={{ color: '#475569', marginLeft: 8 }}>({detailModal.resolvedDate})</span>}
+                {detailModal.resolvedDate && <span style={{ color: 'var(--app-text-3)', marginLeft: 8 }}>({detailModal.resolvedDate})</span>}
               </Descriptions.Item>
             )}
               </Descriptions>
 
               {(detailImagesLoading || detailImages.length > 0) && (
                 <div style={{ marginTop: 16 }}>
-                  <Text style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
+                  <Text style={{ color: 'var(--app-text-2)', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
                   {detailImagesLoading ? (
                     <Spin size="small" />
                   ) : (
@@ -3269,8 +3272,10 @@ const PageContent = () => {
 }
 
 export default function Page() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#7c3aed', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#7c3aed', borderRadius: 8 } }}>
       <App>
         <PageContent />
       </App>

@@ -11,6 +11,7 @@ import {
 import { FaHospitalAlt } from 'react-icons/fa'
 import Link from 'next/link'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import {
   defaultDimensions, dimensionTotals, loadDimensions, saveDimensions,
   type AssessItem, type Dimension
@@ -80,7 +81,7 @@ const PageContent = () => {
       },
       {
         title: 'หัวข้อประเมิน', dataIndex: 'name',
-        render: (v: string) => <Text style={{ color: '#e2e8f0' }}>{v}</Text>
+        render: (v: string) => <Text style={{ color: 'var(--app-text)' }}>{v}</Text>
       },
       {
         title: 'คะแนนเต็ม', dataIndex: 'maxScore', width: 130, align: 'center' as const,
@@ -142,7 +143,7 @@ const PageContent = () => {
 
   if (!hydrated) {
     return (
-      <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+      <div className="min-h-screen w-full bg-app-bg text-app-text">
         <Navbar /><div className="p-6 md:p-8" />
       </div>
     )
@@ -156,7 +157,7 @@ const PageContent = () => {
   const grandPct = grand.max > 0 ? Math.round((grand.earned / grand.max) * 100) : 0
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -211,7 +212,7 @@ const PageContent = () => {
               return (
                 <Col xs={12} md={4} key={d.key}>
                   <Tag color={d.color} style={{ borderColor: d.color, color: '#fff', background: d.color + 'cc' }}>ด้าน {d.no}</Tag>
-                  <div className="mt-1"><Text style={{ color: '#e2e8f0' }}>{d.short}</Text></div>
+                  <div className="mt-1"><Text style={{ color: 'var(--app-text)' }}>{d.short}</Text></div>
                   <Text strong style={{ color: statusColor(t.pct), fontSize: 20 }}>{t.pct}%</Text>
                   <div><Text type="secondary" className="text-xs">{t.earned}/{t.max}</Text></div>
                   <Progress percent={t.pct} size="small" strokeColor={d.color} showInfo={false} />
@@ -265,8 +266,10 @@ const PageContent = () => {
 }
 
 export default function SmartHospitalEditPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       <App>
         <PageContent />
       </App>

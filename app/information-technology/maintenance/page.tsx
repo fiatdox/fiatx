@@ -17,6 +17,7 @@ import { FaMicrochip, FaPrint, FaLaptop, FaDesktop, FaNetworkWired } from 'react
 import Swal from 'sweetalert2'
 import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import RepairKanbanView from '@/app/components/RepairKanbanView'
 import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
 
@@ -124,7 +125,7 @@ interface RepairRequestImage {
 }
 
 
-const PROBLEM_CATEGORY_COLORS = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#94a3b8']
+const PROBLEM_CATEGORY_COLORS = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', 'var(--app-text-2)']
 
 interface PriorityLevel {
   it_priority_level_id: number
@@ -193,9 +194,9 @@ const PageContent = () => {
       'ด่วนมาก': { color: 'error',      borderColor: '#ef4444' },
       'ด่วน':    { color: 'warning',    borderColor: '#f97316' },
       'ปานกลาง': { color: 'processing', borderColor: '#3b82f6' },
-      'ปกติ':    { color: 'default',    borderColor: '#475569' },
+      'ปกติ':    { color: 'default',    borderColor: 'var(--app-text-3)' },
     }
-    return map[name] ?? { color: 'default', borderColor: '#475569' }
+    return map[name] ?? { color: 'default', borderColor: 'var(--app-text-3)' }
   }
 
   const getProblemCategoryColor = (name: string) => {
@@ -364,8 +365,8 @@ const PageContent = () => {
         html: msgs || 'มีช่องที่จำเป็นต้องกรอกยังไม่ได้ระบุ',
         icon: 'warning',
         confirmButtonText: 'ตกลง',
-        background: '#1e293b',
-        color: '#e2e8f0',
+        background: 'var(--app-surface)',
+        color: 'var(--app-text)',
         confirmButtonColor: '#6d28d9',
       })
       return
@@ -378,17 +379,17 @@ const PageContent = () => {
       showCancelButton: true,
       confirmButtonText: 'ยืนยัน',
       cancelButtonText: 'ยกเลิก',
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
       confirmButtonColor: '#6d28d9',
-      cancelButtonColor: '#475569',
+      cancelButtonColor: 'var(--app-text-3)',
     })
     if (!isConfirmed) return
 
     // ดึง user_id จาก cookie
     const userId = (() => { try { return JSON.parse(Cookies.get('user_data') ?? '')?.id ?? null } catch { return null } })()
     if (!userId) {
-      Swal.fire({ title: 'ไม่พบข้อมูลผู้ใช้', text: 'กรุณาเข้าสู่ระบบใหม่', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#6d28d9' })
+      Swal.fire({ title: 'ไม่พบข้อมูลผู้ใช้', text: 'กรุณาเข้าสู่ระบบใหม่', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#6d28d9' })
       return
     }
 
@@ -401,12 +402,12 @@ const PageContent = () => {
         const uploadRes = await fetch('/api/v1/it/maintenance/upload', { method: 'POST', body: uploadData })
         const uploadJson = await uploadRes.json()
         if (!uploadJson.success) {
-          Swal.fire({ title: 'อัปโหลดรูปไม่สำเร็จ', text: uploadJson.message ?? 'เกิดข้อผิดพลาด', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#6d28d9' })
+          Swal.fire({ title: 'อัปโหลดรูปไม่สำเร็จ', text: uploadJson.message ?? 'เกิดข้อผิดพลาด', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#6d28d9' })
           return
         }
         // files saved to public/it/maintenance/ with UUID names
       } catch {
-        Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถอัปโหลดรูปได้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#6d28d9' })
+        Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถอัปโหลดรูปได้', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#6d28d9' })
         return
       }
     }
@@ -432,12 +433,12 @@ const PageContent = () => {
       const res = await fetch('/api/v1/it/repair-requests', { method: 'POST', body: formData })
       const json = await res.json()
       if (!json.success) {
-        Swal.fire({ title: 'บันทึกไม่สำเร็จ', text: json.message ?? 'เกิดข้อผิดพลาด', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#6d28d9' })
+        Swal.fire({ title: 'บันทึกไม่สำเร็จ', text: json.message ?? 'เกิดข้อผิดพลาด', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#6d28d9' })
         return
       }
       repairId = json.data?.it_repair_request_id ?? null
     } catch {
-      Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', background: '#1e293b', color: '#e2e8f0', confirmButtonColor: '#6d28d9' })
+      Swal.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', icon: 'error', background: 'var(--app-surface)', color: 'var(--app-text)', confirmButtonColor: '#6d28d9' })
       return
     }
 
@@ -451,8 +452,8 @@ const PageContent = () => {
       text: repairId ? `เลขที่คำร้อง #${repairId}` : 'ส่งคำร้องแจ้งซ่อมเรียบร้อยแล้ว',
       icon: 'success',
       confirmButtonText: 'ตกลง',
-      background: '#1e293b',
-      color: '#e2e8f0',
+      background: 'var(--app-surface)',
+      color: 'var(--app-text)',
       confirmButtonColor: '#6d28d9',
     })
   }
@@ -483,7 +484,7 @@ const PageContent = () => {
           <Avatar size={30} icon={<UserOutlined />} style={{ background: '#4c1d95', flexShrink: 0 }} />
           <div>
             <div style={{ fontWeight: 500, fontSize: 13 }}>{r.created_by_name}</div>
-            <Text style={{ fontSize: 11, color: '#94a3b8' }}>{r.major_name}</Text>
+            <Text style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{r.major_name}</Text>
           </div>
         </div>
       ),
@@ -495,8 +496,8 @@ const PageContent = () => {
       render: (_: unknown, r: RepairRequest) => (
         <div>
           <Tag color="purple" style={{ marginBottom: 2 }}>{r.equipment_type_name}</Tag>
-          <div style={{ fontSize: 12, color: '#cbd5e1', marginTop: 2 }}>{r.brand || '-'}</div>
-          {r.equipment_number && <Text style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{r.equipment_number}</Text>}
+          <div style={{ fontSize: 12, color: 'var(--app-text)', marginTop: 2 }}>{r.brand || '-'}</div>
+          {r.equipment_number && <Text style={{ fontSize: 11, color: 'var(--app-text-3)', fontFamily: 'monospace' }}>{r.equipment_number}</Text>}
         </div>
       ),
     },
@@ -516,7 +517,7 @@ const PageContent = () => {
       key: 'problem_description',
       render: (v: string) => (
         <Tooltip title={v}>
-          <Text style={{ color: '#cbd5e1', fontSize: 13 }}>
+          <Text style={{ color: 'var(--app-text)', fontSize: 13 }}>
             {v.length > 45 ? v.slice(0, 45) + '…' : v}
           </Text>
         </Tooltip>
@@ -565,14 +566,14 @@ const PageContent = () => {
   ]
 
   return (
-    <div className="min-h-screen w-full bg-slate-900 text-slate-200">
+    <div className="min-h-screen w-full bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: <HomeOutlined style={{ color: '#94a3b8' }} /> },
-            { title: <span style={{ color: '#94a3b8' }}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
+            { href: '/', title: <HomeOutlined style={{ color: 'var(--app-text-2)' }} /> },
+            { title: <span style={{ color: 'var(--app-text-2)' }}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
             { title: <span style={{ color: '#a78bfa' }}>แจ้งซ่อมคอมพิวเตอร์</span> },
           ]}
         />
@@ -580,8 +581,8 @@ const PageContent = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           <DesktopOutlined style={{ fontSize: 28, color: '#a78bfa' }} />
           <div>
-            <Title level={3} style={{ margin: 0, color: '#f1f5f9' }}>แจ้งซ่อมคอมพิวเตอร์และอุปกรณ์ IT</Title>
-            <Text style={{ color: '#64748b', fontSize: 13 }}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ โรงพยาบาล</Text>
+            <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>แจ้งซ่อมคอมพิวเตอร์และอุปกรณ์ IT</Title>
+            <Text style={{ color: 'var(--app-text-3)', fontSize: 13 }}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ โรงพยาบาล</Text>
           </div>
         </div>
 
@@ -591,7 +592,7 @@ const PageContent = () => {
           activeKey={activeTab}
           onChange={setActiveTab}
           type="card"
-          style={{ color: '#cbd5e1' }}
+          style={{ color: 'var(--app-text)' }}
           items={[
             {
               key: 'form',
@@ -601,18 +602,18 @@ const PageContent = () => {
                 </span>
               ),
               children: (
-                <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+                <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 12, boxShadow: '0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.05)' }}>
                   <Form
                     form={form}
                     layout="vertical"
                     initialValues={{ urgency: 2, problemCategory: 1 }}
-                    style={{ color: '#cbd5e1' }}
+                    style={{ color: 'var(--app-text)' }}
                   >
                     {/* ── SECTION 2: อุปกรณ์ ───────────────────────────────────────────── */}
-                    <div style={{ background: '#0f172a', borderRadius: 8, padding: '16px 20px', marginBottom: 24, border: '1px solid #1e3a5f' }}>
+                    <div style={{ background: 'linear-gradient(135deg, rgba(2,132,199,0.08), rgba(2,132,199,0.02))', borderRadius: 10, padding: '16px 20px', marginBottom: 24, border: '1px solid rgba(2,132,199,0.28)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                        <div style={{ width: 3, height: 18, background: '#0284c7', borderRadius: 2 }} />
-                        <Text style={{ color: '#38bdf8', fontWeight: 600, fontSize: 15 }}>
+                        <div style={{ width: 4, height: 18, background: 'linear-gradient(#0ea5e9,#0284c7)', borderRadius: 2 }} />
+                        <Text style={{ color: '#0284c7', fontWeight: 700, fontSize: 15 }}>
                           <DesktopOutlined style={{ marginRight: 6 }} />ข้อมูลอุปกรณ์
                         </Text>
                       </div>
@@ -620,7 +621,7 @@ const PageContent = () => {
                         <Col xs={24} md={5}>
                           <Form.Item
                             name="deviceType"
-                            label={<span style={{ color: '#94a3b8' }}>ประเภทอุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>ประเภทอุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
                             rules={[{ required: true, message: 'กรุณาเลือกประเภทอุปกรณ์' }]}
                           >
                             <Select
@@ -634,7 +635,7 @@ const PageContent = () => {
                           </Form.Item>
                         </Col>
                         <Col xs={24} md={5}>
-                          <Form.Item label={<span style={{ color: '#94a3b8' }}>เลขครุภัณฑ์ <span style={{ color: '#f87171' }}>*</span></span>}>
+                          <Form.Item label={<span style={{ color: 'var(--app-text-2)' }}>เลขครุภัณฑ์ <span style={{ color: '#f87171' }}>*</span></span>}>
                             <Space.Compact style={{ width: '100%' }}>
                               <Form.Item name="assetNo" noStyle rules={[{ required: true, message: 'กรุณาระบุเลขครุภัณฑ์' }]}>
                                 <Input placeholder="เช่น IT-67-001" style={{ fontFamily: 'monospace' }} />
@@ -652,7 +653,7 @@ const PageContent = () => {
                         <Col xs={24} md={7}>
                           <Form.Item
                             name="assetNames"
-                            label={<span style={{ color: '#94a3b8' }}>ชื่ออุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>ชื่ออุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
                             rules={[{ required: true, message: 'กรุณาระบุชื่ออุปกรณ์' }]}
                           >
                             <Input placeholder="ชื่อครุภัณฑ์" />
@@ -661,7 +662,7 @@ const PageContent = () => {
                         <Col xs={24} md={4}>
                           <Form.Item
                             name="assetCompany"
-                            label={<span style={{ color: '#94a3b8' }}>บริษัท</span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>บริษัท</span>}
                           >
                             <Input placeholder="บริษัทผู้ผลิต" />
                           </Form.Item>
@@ -669,7 +670,7 @@ const PageContent = () => {
                         <Col xs={24} md={3}>
                           <Form.Item
                             name="assetFy"
-                            label={<span style={{ color: '#94a3b8' }}>ปีงบ</span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>ปีงบ</span>}
                           >
                             <Input placeholder="เช่น 67" style={{ fontFamily: 'monospace' }} />
                           </Form.Item>
@@ -679,7 +680,7 @@ const PageContent = () => {
                         <Col xs={24} md={6}>
                           <Form.Item
                             name="deviceBrand"
-                            label={<span style={{ color: '#94a3b8' }}>ยี่ห้อ / รุ่น</span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>ยี่ห้อ / รุ่น</span>}
                           >
                             <Input placeholder="เช่น DELL OptiPlex 7090" />
                           </Form.Item>
@@ -687,7 +688,7 @@ const PageContent = () => {
                         <Col xs={24} md={8}>
                           <Form.Item
                             name="deviceLocation"
-                            label={<span style={{ color: '#94a3b8' }}><EnvironmentOutlined style={{ marginRight: 4 }} />สถานที่ติดตั้งอุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}><EnvironmentOutlined style={{ marginRight: 4 }} />สถานที่ติดตั้งอุปกรณ์ <span style={{ color: '#f87171' }}>*</span></span>}
                             rules={[{ required: true, message: 'กรุณาระบุสถานที่ติดตั้ง' }]}
                           >
                             <Input placeholder="เช่น ห้องการเงิน ชั้น 2 อาคาร A" />
@@ -696,7 +697,7 @@ const PageContent = () => {
 <Col xs={24} md={4}>
                           <Form.Item
                             name="price"
-                            label={<span style={{ color: '#94a3b8' }}>ราคา (บาท)</span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>ราคา (บาท)</span>}
                           >
                             <InputNumber
                               style={{ width: '100%' }}
@@ -711,10 +712,10 @@ const PageContent = () => {
                     </div>
 
                     {/* ── SECTION 3: รายละเอียดปัญหา ────────────────────────────────────── */}
-                    <div style={{ background: '#0f172a', borderRadius: 8, padding: '16px 20px', marginBottom: 24, border: '1px solid #1e3a5f' }}>
+                    <div style={{ background: 'linear-gradient(135deg, rgba(5,150,105,0.08), rgba(5,150,105,0.02))', borderRadius: 10, padding: '16px 20px', marginBottom: 24, border: '1px solid rgba(5,150,105,0.28)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                        <div style={{ width: 3, height: 18, background: '#059669', borderRadius: 2 }} />
-                        <Text style={{ color: '#6ee7b7', fontWeight: 600, fontSize: 15 }}>
+                        <div style={{ width: 4, height: 18, background: 'linear-gradient(#10b981,#059669)', borderRadius: 2 }} />
+                        <Text style={{ color: '#059669', fontWeight: 700, fontSize: 15 }}>
                           <FileTextOutlined style={{ marginRight: 6 }} />รายละเอียดปัญหา
                         </Text>
                       </div>
@@ -723,7 +724,7 @@ const PageContent = () => {
                         <Col xs={24} md={24}>
                           <Form.Item
                             name="problemCategory"
-                            label={<span style={{ color: '#94a3b8' }}>หมวดหมู่ปัญหา <span style={{ color: '#f87171' }}>*</span></span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>หมวดหมู่ปัญหา <span style={{ color: '#f87171' }}>*</span></span>}
                             rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่ปัญหา' }]}
                           >
                             <Radio.Group>
@@ -735,7 +736,7 @@ const PageContent = () => {
                                       <Radio.Button value={cat.it_problem_category_id} style={{ height: 'auto', padding: '6px 14px' }}>
                                         <div>
                                           <div style={{ color: cfg.color, fontWeight: 600, fontSize: 13 }}>{cfg.label}</div>
-                                          <div style={{ color: '#64748b', fontSize: 11 }}>{cfg.desc}</div>
+                                          <div style={{ color: 'var(--app-text-3)', fontSize: 11 }}>{cfg.desc}</div>
                                         </div>
                                       </Radio.Button>
                                     </Col>
@@ -751,9 +752,9 @@ const PageContent = () => {
                         <Col xs={24} md={16}>
                           <Form.Item
                             name="symptom"
-                            label={<span style={{ color: '#94a3b8' }}>อาการที่พบ / รายละเอียดปัญหา <span style={{ color: '#f87171' }}>*</span></span>}
+                            label={<span style={{ color: 'var(--app-text-2)' }}>อาการที่พบ / รายละเอียดปัญหา <span style={{ color: '#f87171' }}>*</span></span>}
                             rules={[{ required: true, message: 'กรุณาระบุอาการที่พบ' }]}
-                            extra={<span style={{ color: '#475569', fontSize: 11 }}>อธิบายให้ละเอียดเพื่อให้เจ้าหน้าที่ IT ดำเนินการได้รวดเร็วขึ้น</span>}
+                            extra={<span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>อธิบายให้ละเอียดเพื่อให้เจ้าหน้าที่ IT ดำเนินการได้รวดเร็วขึ้น</span>}
                           >
                             <TextArea
                               rows={5}
@@ -767,7 +768,7 @@ const PageContent = () => {
                           <Form.Item
                             name="urgency"
                             label={
-                              <span style={{ color: '#94a3b8' }}>
+                              <span style={{ color: 'var(--app-text-2)' }}>
                                 <WarningOutlined style={{ marginRight: 4 }} />ระดับความเร่งด่วน <span style={{ color: '#f87171' }}>*</span>
                               </span>
                             }
@@ -780,7 +781,7 @@ const PageContent = () => {
                                   <Radio key={level.it_priority_level_id} value={level.it_priority_level_id}>
                                     <div>
                                       <Tag color={cfg.color} style={{ marginRight: 6 }}>{cfg.label}</Tag>
-                                      <Text style={{ color: '#94a3b8', fontSize: 12 }}>{cfg.sla}</Text>
+                                      <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{cfg.sla}</Text>
                                     </div>
                                   </Radio>
                                 )
@@ -791,7 +792,7 @@ const PageContent = () => {
                       </Row>
 
                       <Form.Item
-                        label={<span style={{ color: '#94a3b8' }}><PaperClipOutlined style={{ marginRight: 4 }} />ภาพถ่ายอาการ (ถ้ามี) <span style={{ color: '#64748b', fontSize: 11 }}>สูงสุด 3 รูป · JPG, PNG, WEBP เท่านั้น</span></span>}
+                        label={<span style={{ color: 'var(--app-text-2)' }}><PaperClipOutlined style={{ marginRight: 4 }} />ภาพถ่ายอาการ (ถ้ามี) <span style={{ color: 'var(--app-text-3)', fontSize: 11 }}>สูงสุด 3 รูป · JPG, PNG, WEBP เท่านั้น</span></span>}
                       >
                         <Upload
                           listType="picture-card"
@@ -829,7 +830,8 @@ const PageContent = () => {
                         type="primary"
                         size="large"
                         icon={<ToolOutlined />}
-                        style={{ minWidth: 180, background: '#6d28d9' }}
+                        className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
+                        style={{ minWidth: 180, background: 'linear-gradient(135deg, #7c3aed, #a855f7)', border: 'none', boxShadow: '0 4px 14px rgba(124,58,237,0.4)' }}
                         onClick={handleSubmit}
                       >
                         ส่งคำร้องแจ้งซ่อม
@@ -850,11 +852,11 @@ const PageContent = () => {
                 </span>
               ),
               children: (
-                <Card style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10 }}>
+                <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: 12, boxShadow: '0 1px 3px rgba(15,23,42,0.06), 0 4px 16px rgba(15,23,42,0.05)' }}>
                   <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <Input
                       allowClear
-                      prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                      prefix={<SearchOutlined style={{ color: 'var(--app-text-2)' }} />}
                       placeholder="ค้นหาเลขที่ เช่น IT-0032 หรือเลขครุภัณฑ์"
                       style={{ width: 280 }}
                       value={searchText}
@@ -884,7 +886,7 @@ const PageContent = () => {
                     rowKey="it_repair_request_id"
                     scroll={{ x: 1100 }}
                     pagination={{ pageSize: 10, showSizeChanger: false }}
-                    style={{ color: '#cbd5e1' }}
+                    style={{ color: 'var(--app-text)' }}
                     onRow={(r) => ({ onClick: () => setDetailModal(r), style: { cursor: 'pointer' } })}
                   />
                 </Card>
@@ -902,7 +904,7 @@ const PageContent = () => {
                   <div style={{ marginBottom: 12 }}>
                     <Input
                       allowClear
-                      prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                      prefix={<SearchOutlined style={{ color: 'var(--app-text-2)' }} />}
                       placeholder="ค้นหาเลขที่ เช่น IT-0032 หรือเลขครุภัณฑ์"
                       style={{ width: 280 }}
                       value={searchText}
@@ -938,7 +940,7 @@ const PageContent = () => {
         destroyOnHidden
       >
         <Input
-          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+          prefix={<SearchOutlined style={{ color: 'var(--app-text-2)' }} />}
           placeholder="ค้นหาจากเลขครุภัณฑ์ ชื่ออุปกรณ์ Serial Number หรือหน่วยงาน..."
           value={assetSearch}
           onChange={e => setAssetSearch(e.target.value)}
@@ -958,13 +960,13 @@ const PageContent = () => {
             { title: 'ชื่ออุปกรณ์',  dataIndex: 'names',       key: 'names' },
             { title: 'รุ่น',          dataIndex: 'models',      key: 'models',      width: 140 },
             { title: 'บริษัท',        dataIndex: 'companyname', key: 'companyname', width: 140 },
-            { title: 'สถานที่',       dataIndex: 'locates',     key: 'locates',     width: 160, render: (v: string) => <Text style={{ color: '#94a3b8' }}>{v}</Text> },
+            { title: 'สถานที่',       dataIndex: 'locates',     key: 'locates',     width: 160, render: (v: string) => <Text style={{ color: 'var(--app-text-2)' }}>{v}</Text> },
             { title: 'ปีงบ',          dataIndex: 'fy',          key: 'fy',          width: 60  },
             {
               title: 'ราคา/หน่วย', dataIndex: 'perunits', key: 'perunits', width: 110, align: 'right' as const,
               render: (v: number | null) => v != null
                 ? <Text style={{ color: '#6ee7b7', fontFamily: 'monospace' }}>{v.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</Text>
-                : <Text style={{ color: '#475569' }}>-</Text>,
+                : <Text style={{ color: 'var(--app-text-3)' }}>-</Text>,
             },
             {
               title: 'เลือก', key: 'action', width: 70, align: 'center' as const,
@@ -1003,7 +1005,7 @@ const PageContent = () => {
               column={2}
               size="small"
               bordered
-              styles={{ label: { color: '#94a3b8', background: '#0f172a', width: 130 }, content: { background: '#1e293b', color: '#e2e8f0' } }}
+              styles={{ label: { color: 'var(--app-text-2)', background: 'var(--app-bg)', width: 130 }, content: { background: 'var(--app-surface)', color: 'var(--app-text)' } }}
             >
               <Descriptions.Item label="เลขที่คำร้อง" span={1}>
                 <Text style={{ color: '#a78bfa', fontWeight: 600 }}>IT-{String(detailModal.it_repair_request_id).padStart(4, '0')}</Text>
@@ -1031,17 +1033,17 @@ const PageContent = () => {
             </Descriptions>
 
             <div style={{ marginTop: 16 }}>
-              <Text style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 8 }}>ความคืบหน้า</Text>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 12, display: 'block', marginBottom: 8 }}>ความคืบหน้า</Text>
               <Timeline
                 items={[
-                  { color: 'blue', content: <Text style={{ color: '#cbd5e1' }}>รับคำร้อง — {new Date(detailModal.created_at).toLocaleDateString('th-TH')}</Text> },
+                  { color: 'blue', content: <Text style={{ color: 'var(--app-text)' }}>รับคำร้อง — {new Date(detailModal.created_at).toLocaleDateString('th-TH')}</Text> },
                 ]}
               />
             </div>
 
             {(detailImagesLoading || detailImages.length > 0) && (
               <div style={{ marginTop: 16 }}>
-                <Text style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
+                <Text style={{ color: 'var(--app-text-2)', fontSize: 12, display: 'block', marginBottom: 8 }}>ภาพถ่ายอาการ</Text>
                 {detailImagesLoading ? (
                   <Spin size="small" />
                 ) : (
@@ -1053,7 +1055,7 @@ const PageContent = () => {
                           src={`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`}
                           width={80}
                           height={80}
-                          style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid #334155' }}
+                          style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid var(--app-border)' }}
                         />
                       ))}
                     </Space>
@@ -1090,11 +1092,27 @@ const PageContent = () => {
 }
 
 export default function Page() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
     <ConfigProvider
       theme={{
-        algorithm: theme.darkAlgorithm,
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: { colorPrimary: '#7c3aed', borderRadius: 8 },
+        components: {
+          Table: {
+            headerBg: isDark ? 'rgba(124,58,237,0.16)' : 'rgba(124,58,237,0.08)',
+            headerColor: isDark ? '#c4b5fd' : '#6d28d9',
+            headerSplitColor: 'transparent',
+            rowHoverBg: isDark ? 'rgba(124,58,237,0.10)' : 'rgba(124,58,237,0.05)',
+            borderColor: 'var(--app-border)',
+          },
+          Tabs: {
+            itemActiveColor: '#7c3aed',
+            itemSelectedColor: '#7c3aed',
+            inkBarColor: '#7c3aed',
+          },
+        },
       }}
     >
       <App>

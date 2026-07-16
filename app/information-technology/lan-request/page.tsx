@@ -13,6 +13,8 @@ import {
 } from '@ant-design/icons'
 import { FaNetworkWired } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { gBtn } from '@/app/components/StatCard'
 
 const { Title, Text } = Typography
 
@@ -337,7 +339,7 @@ const LanRequestContent = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-app-bg">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -356,7 +358,7 @@ const LanRequestContent = () => {
             </Title>
             <Text type="secondary">ยื่นคำขอ อนุมัติ และมอบหมายการติดตั้งจุดเชื่อมต่อเครือข่าย LAN</Text>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => setFormModal(true)}>
+          <Button type="primary" icon={<PlusOutlined />} size="large" style={gBtn('#7c3aed', '#a855f7')} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={() => setFormModal(true)}>
             ยื่นคำขอใหม่
           </Button>
         </div>
@@ -400,7 +402,7 @@ const LanRequestContent = () => {
         cancelText="ยกเลิก"
       >
         <Form form={form} layout="vertical" className="mt-4" initialValues={{ urgency: 'medium', cableType: 'Cat6' }}>
-          <Divider style={{ color: '#a78bfa', borderColor: '#334155' }}>ข้อมูลผู้ขอ</Divider>
+          <Divider style={{ color: '#a78bfa', borderColor: 'var(--app-border-strong)' }}>ข้อมูลผู้ขอ</Divider>
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item name="requester" label="ชื่อ-นามสกุล" rules={[{ required: true, message: 'กรุณากรอกชื่อ' }]}>
@@ -419,7 +421,7 @@ const LanRequestContent = () => {
             </Col>
           </Row>
 
-          <Divider style={{ color: '#a78bfa', borderColor: '#334155' }}>สถานที่ติดตั้ง</Divider>
+          <Divider style={{ color: '#a78bfa', borderColor: 'var(--app-border-strong)' }}>สถานที่ติดตั้ง</Divider>
           <Row gutter={16}>
             <Col xs={24} md={10}>
               <Form.Item name="building" label="อาคาร" rules={[{ required: true, message: 'กรุณาระบุอาคาร' }]}>
@@ -445,7 +447,7 @@ const LanRequestContent = () => {
             </Col>
           </Row>
 
-          <Divider style={{ color: '#a78bfa', borderColor: '#334155' }}>รายละเอียดการติดตั้ง</Divider>
+          <Divider style={{ color: '#a78bfa', borderColor: 'var(--app-border-strong)' }}>รายละเอียดการติดตั้ง</Divider>
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item name="portCount" label="จำนวนจุด LAN (พอร์ต)" rules={[{ required: true, message: 'กรุณาระบุจำนวน' }]}>
@@ -524,7 +526,7 @@ const LanRequestContent = () => {
             </Descriptions>
 
             {/* Approval History */}
-            <Divider style={{ borderColor: '#334155' }}>ประวัติการดำเนินการ</Divider>
+            <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการดำเนินการ</Divider>
             <Timeline
               items={selected.approvalHistory.map(h => ({
                 color: h.action.includes('ไม่อนุมัติ') ? 'red'
@@ -542,7 +544,7 @@ const LanRequestContent = () => {
             />
 
             {/* Action Zone */}
-            <Divider style={{ borderColor: '#334155' }}>การดำเนินการ</Divider>
+            <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
             {/* pending: approve / reject */}
             {selected.status === 'pending' && !rejectMode && (
@@ -631,10 +633,13 @@ const LanRequestContent = () => {
   )
 }
 
-const LanRequestPage = () => (
+const LanRequestPage = () => {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
+  return (
   <ConfigProvider
     theme={{
-      algorithm: theme.darkAlgorithm,
+      algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
       token: { colorPrimary: '#7c3aed', borderRadius: 8, fontFamily: 'var(--font-sarabun)' },
     }}
   >
@@ -642,6 +647,7 @@ const LanRequestPage = () => (
       <LanRequestContent />
     </App>
   </ConfigProvider>
-)
+  )
+}
 
 export default LanRequestPage

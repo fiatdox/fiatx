@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
-  Select, Breadcrumb, Tooltip, Row, Col, DatePicker, Statistic,
+  Select, Breadcrumb, Tooltip, Row, Col, DatePicker,
   Typography, InputNumber, Tabs, Progress, Alert, theme, Empty, App, Spin,
 } from 'antd'
 import {
@@ -10,8 +10,11 @@ import {
   DesktopOutlined, UserOutlined, BarChartOutlined, CalendarOutlined,
   WarningOutlined, BulbOutlined, RiseOutlined, FallOutlined, FireOutlined,
   TableOutlined, DashboardOutlined, PieChartOutlined,
+  FileTextOutlined, ClockCircleOutlined,
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
+import { useThemeMode } from '@/app/components/ThemeProvider'
+import { StatCard, gBtn } from '@/app/components/StatCard'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
 import EChart from '@/app/components/EChart'
@@ -144,6 +147,8 @@ const toThaiDate = (ymd: string) => {
 // =============================================================================
 function ActivityPageContent() {
   const { message: messageApi } = App.useApp()
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
 
   // ----- Master + logs state -----
   const [master, setMaster] = useState<MasterData | null>(null)
@@ -376,8 +381,8 @@ function ActivityPageContent() {
         radius: ['45%', '72%'],
         center: ['50%', '44%'],
         avoidLabelOverlap: true,
-        itemStyle: { borderRadius: 6, borderColor: '#0f172a', borderWidth: 2 },
-        label: { formatter: '{d}%', fontSize: 11, color: '#e2e8f0' },
+        itemStyle: { borderRadius: 6, borderColor: 'var(--app-bg)', borderWidth: 2 },
+        label: { formatter: '{d}%', fontSize: 11, color: 'var(--app-text)' },
         labelLine: { length: 8, length2: 8 },
         data,
       }],
@@ -397,8 +402,8 @@ function ActivityPageContent() {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { name: string; value: number }[]) => `${p[0].name}: ${p[0].value.toFixed(1)} ชม.` },
       grid: { left: 90, right: 50, top: 20, bottom: 30 },
-      xAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' } },
-      yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { color: '#e2e8f0', fontSize: 11 } },
+      xAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { color: 'var(--app-text)', fontSize: 11 } },
       series: [{
         type: 'bar',
         data: data.map((d, i) => ({
@@ -411,7 +416,7 @@ function ActivityPageContent() {
             borderRadius: [0, 6, 6, 0],
           },
         })),
-        label: { show: true, position: 'right', formatter: '{c} ชม.', color: '#e2e8f0', fontSize: 11 },
+        label: { show: true, position: 'right', formatter: '{c} ชม.', color: 'var(--app-text)', fontSize: 11 },
         barWidth: '60%',
       }],
     }
@@ -437,10 +442,10 @@ function ActivityPageContent() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis' },
-      legend: { bottom: 0, textStyle: { color: '#e2e8f0' } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: FY_MONTH_LABELS, boundaryGap: false, axisLabel: { color: '#94a3b8' } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'category', data: FY_MONTH_LABELS, boundaryGap: false, axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
       series: [
         {
           name: 'ชั่วโมงรวม',
@@ -487,10 +492,10 @@ function ActivityPageContent() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: '#e2e8f0' } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: FY_MONTH_LABELS, axisLabel: { color: '#94a3b8' } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'category', data: FY_MONTH_LABELS, axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
       series: [
         { name: 'เชิงรับ',  type: 'bar', stack: 'nat', data: seriesData[0], itemStyle: { color: '#ef4444', borderRadius: [0, 0, 0, 0] }, barWidth: '60%' },
         { name: 'เชิงรุก',  type: 'bar', stack: 'nat', data: seriesData[1], itemStyle: { color: '#22c55e' } },
@@ -520,10 +525,10 @@ function ActivityPageContent() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: '#e2e8f0' } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: staffArr.map(s => s.full_name_th), axisLabel: { color: '#e2e8f0', fontSize: 11, interval: 0 } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' } },
+      xAxis: { type: 'category', data: staffArr.map(s => s.full_name_th), axisLabel: { color: 'var(--app-text)', fontSize: 11, interval: 0 } },
+      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
       series,
     }
   }, [master, fyLogs, statusLabel])
@@ -555,8 +560,8 @@ function ActivityPageContent() {
         formatter: (p: { data: [number, number, number] }) => `${dayLabels[p.data[1]]} ${hourLabels[p.data[0]]}<br/>มี <b>${p.data[2]}</b> งาน`,
       },
       grid: { left: 50, right: 20, top: 20, bottom: 70 },
-      xAxis: { type: 'category', data: hourLabels, splitArea: { show: true }, axisLabel: { color: '#94a3b8', fontSize: 10 } },
-      yAxis: { type: 'category', data: dayLabels, splitArea: { show: true }, axisLabel: { color: '#e2e8f0' } },
+      xAxis: { type: 'category', data: hourLabels, splitArea: { show: true }, axisLabel: { color: 'var(--app-text-2)', fontSize: 10 } },
+      yAxis: { type: 'category', data: dayLabels, splitArea: { show: true }, axisLabel: { color: 'var(--app-text)' } },
       visualMap: {
         min: 0,
         max: Math.max(maxCount, 1),
@@ -564,8 +569,8 @@ function ActivityPageContent() {
         orient: 'horizontal',
         left: 'center',
         bottom: 5,
-        textStyle: { color: '#94a3b8' },
-        inRange: { color: ['#1e293b', '#6B21A8', '#ec4899', '#ef4444'] },
+        textStyle: { color: 'var(--app-text-2)' },
+        inRange: { color: ['var(--app-surface)', '#6B21A8', '#ec4899', '#ef4444'] },
       },
       series: [{
         type: 'heatmap',
@@ -586,14 +591,14 @@ function ActivityPageContent() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', formatter: '{b}: {c} งาน ({d}%)' },
-      legend: { bottom: 0, textStyle: { color: '#e2e8f0' } },
+      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
       series: [{
         type: 'pie',
         roseType: 'radius',
         radius: ['25%', '70%'],
         center: ['50%', '44%'],
-        itemStyle: { borderRadius: 4, borderColor: '#0f172a', borderWidth: 2 },
-        label: { color: '#e2e8f0', formatter: '{b}\n{c}' },
+        itemStyle: { borderRadius: 4, borderColor: 'var(--app-bg)', borderWidth: 2 },
+        label: { color: 'var(--app-text)', formatter: '{b}\n{c}' },
         data,
       }],
     }
@@ -613,19 +618,19 @@ function ActivityPageContent() {
     return {
       backgroundColor: 'transparent',
       tooltip: { trigger: 'item', formatter: '{b}: {c} งาน ({d}%)' },
-      legend: { bottom: 0, type: 'scroll', textStyle: { color: '#e2e8f0', fontSize: 10 } },
+      legend: { bottom: 0, type: 'scroll', textStyle: { color: 'var(--app-text)', fontSize: 10 } },
       title: {
         text: `วางแผน ${plannedCount} | ขัดจังหวะ ${interruptCount}`,
         left: 'center',
         top: '40%',
-        textStyle: { color: '#94a3b8', fontSize: 12, fontWeight: 'normal' },
+        textStyle: { color: 'var(--app-text-2)', fontSize: 12, fontWeight: 'normal' },
       },
       series: [{
         type: 'pie',
         radius: ['45%', '70%'],
         center: ['50%', '44%'],
-        itemStyle: { borderRadius: 6, borderColor: '#0f172a', borderWidth: 2 },
-        label: { color: '#e2e8f0', formatter: '{d}%' },
+        itemStyle: { borderRadius: 6, borderColor: 'var(--app-bg)', borderWidth: 2 },
+        label: { color: 'var(--app-text)', formatter: '{d}%' },
         data: sources,
       }],
     }
@@ -654,8 +659,8 @@ function ActivityPageContent() {
         },
       },
       grid: { left: 110, right: 50, top: 20, bottom: 30 },
-      xAxis: { type: 'value', name: 'ครั้ง', nameTextStyle: { color: '#94a3b8' }, axisLabel: { color: '#94a3b8' } },
-      yAxis: { type: 'category', data: arr.map(a => a.code), axisLabel: { color: '#e2e8f0', fontSize: 10 } },
+      xAxis: { type: 'value', name: 'ครั้ง', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
+      yAxis: { type: 'category', data: arr.map(a => a.code), axisLabel: { color: 'var(--app-text)', fontSize: 10 } },
       series: [{
         type: 'bar',
         barWidth: '60%',
@@ -669,7 +674,7 @@ function ActivityPageContent() {
             borderRadius: [0, 6, 6, 0],
           },
         })),
-        label: { show: true, position: 'right', formatter: '{c}', color: '#e2e8f0' },
+        label: { show: true, position: 'right', formatter: '{c}', color: 'var(--app-text)' },
       }],
     }
   }, [fyLogs])
@@ -685,7 +690,6 @@ function ActivityPageContent() {
       minutes_used: 60,
       status_code: 'done',
       priority_code: 'normal',
-      source_code: 'other',
       affected_users: 0,
       is_overtime: false,
     })
@@ -981,14 +985,14 @@ function ActivityPageContent() {
   // ก่อน mount เรนเดอร์เฉพาะโครงหน้า เพื่อให้ HTML ฝั่ง server ตรงกับ client เป๊ะ ๆ
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-200">
+      <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
+    <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb
@@ -1007,7 +1011,7 @@ function ActivityPageContent() {
               <Title level={2} style={{ color: '#6B21A8', margin: 0 }}>บันทึกกิจกรรมการทำงาน IT</Title>
               <Text type="secondary">ข้อมูลกิจกรรมและการทำงานของเจ้าหน้าที่ฝ่าย IT ทุกคน</Text>
             </div>
-            <Button type="primary" icon={<PlusOutlined />} size="large" onClick={openAddDrawer} disabled={!master}>
+            <Button type="primary" icon={<PlusOutlined />} size="large" style={master ? gBtn('#7c3aed', '#a855f7') : undefined} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAddDrawer} disabled={!master}>
               บันทึกกิจกรรมใหม่
             </Button>
           </div>
@@ -1041,28 +1045,40 @@ function ActivityPageContent() {
 
                     <Row gutter={[16, 16]}>
                       <Col xs={12} sm={6}>
-                        <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12, borderBottom: '3px solid #a855f7' }}>
-                          <Statistic title="รายการบันทึก" value={fyLogs.length} suffix="รายการ" styles={{ content: { color: '#a855f7' } }} />
-                          <Text type="secondary" className="text-xs">{fyDistinctDays} วันทำงาน</Text>
-                        </Card>
+                        <StatCard
+                          accent="purple" isDark={isDark}
+                          label="รายการบันทึก" suffix="รายการ"
+                          value={fyLogs.length}
+                          icon={<FileTextOutlined />}
+                          footer={<Text type="secondary" className="text-xs">{fyDistinctDays} วันทำงาน</Text>}
+                        />
                       </Col>
                       <Col xs={12} sm={6}>
-                        <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12, borderBottom: '3px solid #22c55e' }}>
-                          <Statistic title="ชั่วโมงรวม" value={fyTotalHours.toFixed(1)} suffix="ชม." styles={{ content: { color: '#22c55e' } }} />
-                          <Text type="secondary" className="text-xs">{fyTotalMinutes.toLocaleString()} นาที</Text>
-                        </Card>
+                        <StatCard
+                          accent="emerald" isDark={isDark}
+                          label="ชั่วโมงรวม" suffix="ชม."
+                          value={fyTotalHours.toFixed(1)}
+                          icon={<ClockCircleOutlined />}
+                          footer={<Text type="secondary" className="text-xs">{fyTotalMinutes.toLocaleString()} นาที</Text>}
+                        />
                       </Col>
                       <Col xs={12} sm={6}>
-                        <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12, borderBottom: '3px solid #3b82f6' }}>
-                          <Statistic title="ประเภทงานยอดนิยม" value={fyTopType.type} styles={{ content: { color: '#3b82f6', fontSize: 20 } }} />
-                          <Text type="secondary" className="text-xs">{(fyTopType.minutes / 60).toFixed(1)} ชม. ใช้กับงานนี้</Text>
-                        </Card>
+                        <StatCard
+                          accent="cyan" isDark={isDark}
+                          label="ประเภทงานยอดนิยม"
+                          value={<span className="text-lg">{fyTopType.type}</span>}
+                          icon={<FireOutlined />}
+                          footer={<Text type="secondary" className="text-xs">{(fyTopType.minutes / 60).toFixed(1)} ชม. ใช้กับงานนี้</Text>}
+                        />
                       </Col>
                       <Col xs={12} sm={6}>
-                        <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12, borderBottom: '3px solid #ef4444' }}>
-                          <Statistic title="งานยังไม่ปิด" value={fyOpenCount} suffix="งาน" styles={{ content: { color: '#ef4444' } }} />
-                          <Text type="secondary" className="text-xs">in_progress / waiting / pending</Text>
-                        </Card>
+                        <StatCard
+                          accent="rose" isDark={isDark}
+                          label="งานยังไม่ปิด" suffix="งาน"
+                          value={fyOpenCount}
+                          icon={<WarningOutlined />}
+                          footer={<Text type="secondary" className="text-xs">in_progress / waiting / pending</Text>}
+                        />
                       </Col>
                     </Row>
 
@@ -1197,14 +1213,14 @@ function ActivityPageContent() {
                   <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12 }}>
                     <div className="mb-5 flex flex-wrap items-center gap-4 justify-between">
                       <div className="flex flex-wrap items-center gap-3">
-                        <span className="text-sm font-medium text-slate-300">เลือกวันที่:</span>
+                        <span className="text-sm font-medium text-app-text">เลือกวันที่:</span>
                         <DatePicker
                           value={scheduleDate}
                           onChange={d => d && setScheduleDate(d)}
                           format="DD/MM/YYYY"
                           allowClear={false}
                         />
-                        <span className="text-sm text-slate-400">
+                        <span className="text-sm text-app-text-2">
                           {logsForDate.length > 0
                             ? `${logsForDate.length} งาน · ${staffInDate.length} เจ้าหน้าที่ · ${formatMinutes(dayTotalMinutes)} รวม`
                             : 'ไม่มีข้อมูลในวันนี้'}
@@ -1212,7 +1228,7 @@ function ActivityPageContent() {
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         {(Object.keys(STATUS_META) as TaskStatus[]).map(k => (
-                          <span key={k} className="inline-flex items-center gap-1.5 text-xs text-slate-300">
+                          <span key={k} className="inline-flex items-center gap-1.5 text-xs text-app-text">
                             <span className="w-3 h-3 rounded-full" style={{ background: STATUS_META[k].color, boxShadow: `0 0 8px ${STATUS_META[k].ring}` }} />
                             {statusLabel[k] || k}
                           </span>
@@ -1244,8 +1260,8 @@ function ActivityPageContent() {
                                     <UserOutlined style={{ color: '#a855f7' }} />
                                   </div>
                                   <div>
-                                    <div className="text-sm font-semibold text-slate-100">{name}</div>
-                                    <div className="text-[10px] text-slate-400">{tasks.length} งาน · {formatMinutes(totalMin)}</div>
+                                    <div className="text-sm font-semibold text-app-text">{name}</div>
+                                    <div className="text-[10px] text-app-text-2">{tasks.length} งาน · {formatMinutes(totalMin)}</div>
                                   </div>
                                 </div>
                               )
@@ -1255,7 +1271,7 @@ function ActivityPageContent() {
                             title: (
                               <div className="text-center font-mono text-xs font-semibold" style={{ color: '#a855f7' }}>
                                 {`${String(slot).padStart(2, '0')}:00`}
-                                <div className="font-normal" style={{ fontSize: 10, color: '#94a3b8' }}>
+                                <div className="font-normal" style={{ fontSize: 10, color: 'var(--app-text-2)' }}>
                                   –{`${String(slot + 1).padStart(2, '0')}:00`}
                                 </div>
                               </div>
@@ -1312,7 +1328,7 @@ function ActivityPageContent() {
                                               )}
                                             </div>
                                             <div
-                                              className="text-[10px] text-slate-300 leading-snug mt-0.5"
+                                              className="text-[10px] text-app-text leading-snug mt-0.5"
                                               style={{
                                                 display: '-webkit-box',
                                                 WebkitLineClamp: 2,
@@ -1410,7 +1426,7 @@ function ActivityPageContent() {
                                       <Tag color={typeColor[item.code] || 'default'} className="m-0">{item.label}</Tag>
                                       <Text type="secondary" className="text-xs">{item.count} รายการ</Text>
                                     </div>
-                                    <Text strong className={isTop ? 'text-red-500' : 'text-slate-300'}>
+                                    <Text strong className={isTop ? 'text-red-500' : 'text-app-text'}>
                                       {item.hours.toFixed(1)} ชม. ({pct}%)
                                     </Text>
                                   </div>
@@ -1435,10 +1451,10 @@ function ActivityPageContent() {
                                   <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
                                       {isTop && <WarningOutlined style={{ color: '#f59e0b' }} />}
-                                      <Text className={isTop ? 'text-amber-500 font-semibold' : 'text-slate-200'}>{item.label}</Text>
+                                      <Text className={isTop ? 'text-amber-500 font-semibold' : 'text-app-text'}>{item.label}</Text>
                                       <Text type="secondary" className="text-xs">{item.count} ครั้ง</Text>
                                     </div>
-                                    <Text strong className={isTop ? 'text-amber-500' : 'text-slate-300'}>
+                                    <Text strong className={isTop ? 'text-amber-500' : 'text-app-text'}>
                                       {item.hours.toFixed(1)} ชม. ({pct}%)
                                     </Text>
                                   </div>
@@ -1519,11 +1535,11 @@ function ActivityPageContent() {
                               {painPointSystem.map((item, idx) => (
                                 <div key={item.system} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
                                   <div className="flex items-center gap-2">
-                                    <span className={`text-sm font-bold w-5 text-center ${idx === 0 ? 'text-red-500' : 'text-slate-400'}`}>{idx + 1}</span>
-                                    <Text className={idx === 0 ? 'text-red-500 font-semibold' : 'text-slate-200'}>{item.system}</Text>
+                                    <span className={`text-sm font-bold w-5 text-center ${idx === 0 ? 'text-red-500' : 'text-app-text-2'}`}>{idx + 1}</span>
+                                    <Text className={idx === 0 ? 'text-red-500 font-semibold' : 'text-app-text'}>{item.system}</Text>
                                   </div>
                                   <div className="text-right">
-                                    <Text strong className={idx === 0 ? 'text-red-500' : 'text-slate-300'}>{item.count} ครั้ง</Text>
+                                    <Text strong className={idx === 0 ? 'text-red-500' : 'text-app-text'}>{item.count} ครั้ง</Text>
                                     <Text type="secondary" className="text-xs block">{item.hours.toFixed(1)} ชม.</Text>
                                   </div>
                                 </div>
@@ -1546,10 +1562,10 @@ function ActivityPageContent() {
                                   <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
                                       <UserOutlined className={isTop ? 'text-orange-500' : 'text-purple-400'} />
-                                      <Text className={isTop ? 'text-orange-500 font-semibold' : 'text-slate-200'}>{s.name}</Text>
+                                      <Text className={isTop ? 'text-orange-500 font-semibold' : 'text-app-text'}>{s.name}</Text>
                                     </div>
                                     <div className="text-right">
-                                      <Text strong className={isTop ? 'text-orange-500' : 'text-slate-300'}>{s.hours.toFixed(1)} ชม.</Text>
+                                      <Text strong className={isTop ? 'text-orange-500' : 'text-app-text'}>{s.hours.toFixed(1)} ชม.</Text>
                                       <Tag color={typeColor[s.topTypeCode] || 'default'} className="ml-2 text-xs">{s.topType}</Tag>
                                     </div>
                                   </div>
@@ -1621,7 +1637,7 @@ function ActivityPageContent() {
             </Col>
             <Col span={12}>
               <Form.Item label="ระบบที่เกี่ยวข้อง" name="system_code" rules={[{ required: true }]}>
-                <Select options={systemOptions} placeholder="เลือกระบบ" showSearch />
+                <Select options={systemOptions} placeholder="เลือกระบบ" showSearch optionFilterProp="label" />
               </Form.Item>
             </Col>
           </Row>
@@ -1648,8 +1664,8 @@ function ActivityPageContent() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="ที่มาของงาน" name="source_code" rules={[{ required: true }]} initialValue="other">
-                <Select options={sourceOptions} placeholder="เลือกที่มา" />
+              <Form.Item label="ที่มาของงาน" name="source_code" rules={[{ required: true, message: 'กรุณาเลือกที่มาของงาน' }]}>
+                <Select options={sourceOptions} placeholder="เลือกที่มา" showSearch optionFilterProp="label" allowClear />
               </Form.Item>
             </Col>
           </Row>
@@ -1660,7 +1676,7 @@ function ActivityPageContent() {
             <TextArea rows={2} placeholder="ระบุผลลัพธ์ หรือถ้ายังไม่เสร็จ ระบุสิ่งที่กำลังรอ เช่น รออะไหล่ รอผู้ใช้ทดสอบ" />
           </Form.Item>
 
-          <div className="text-xs text-slate-400 mb-2 border-t border-slate-700 pt-3">รายละเอียดเพิ่มเติม (ไม่บังคับ)</div>
+          <div className="text-xs text-app-text-2 mb-2 border-t border-slate-700 pt-3">รายละเอียดเพิ่มเติม (ไม่บังคับ)</div>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="สถานที่ / ห้อง" name="location">
@@ -1702,8 +1718,10 @@ function ActivityPageContent() {
 }
 
 export default function ActivityPage() {
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
+    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#6B21A8', borderRadius: 8 } }}>
       <App>
         <ActivityPageContent />
       </App>
