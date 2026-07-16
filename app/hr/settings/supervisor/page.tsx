@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   Button, Card, Tag, Avatar, Drawer, Input, Breadcrumb,
-  Table, Empty, Tooltip, Select, Row, Col, Typography, App, Tabs, Badge, Spin
+  Table, Empty, Tooltip, Select, Row, Col, Typography, App, Tabs, Badge, Spin,
+  ConfigProvider
 } from 'antd'
 import {
   SearchOutlined, UserOutlined, HomeOutlined, PlusOutlined,
@@ -11,9 +12,16 @@ import {
 } from '@ant-design/icons'
 import { FaUsersCog, FaSitemap } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
-import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 
 const { Text, Title } = Typography
+
+// จำนวนตัวอักษรขั้นต่ำก่อนเริ่มค้นหา + จำนวนผลลัพธ์สูงสุดที่เรนเดอร์ต่อครั้ง
+const MIN_SEARCH = 3
+const MAX_SHOWN = 50
+
+// map prefix ของ slotKey → entity ของ API (m=ภารกิจ, w=กลุ่มงาน, u=หน่วยงาน)
+const SLOT_API: Record<string, string> = { m: 'missions', w: 'majors', u: 'submajors' }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -23,12 +31,14 @@ interface UserInfo {
   fname: string
   lname: string
   position?: string
+  userType?: string
 }
 
 interface Mission {
   id: number
   mission_name: string
   supervisor_id?: number | null
+  acting_supervisor_id?: number | null
 }
 
 interface Major {
@@ -37,6 +47,7 @@ interface Major {
   mission_id?: number
   mission_name?: string
   supervisor_id?: number | null
+  acting_supervisor_id?: number | null
 }
 
 interface Submajor {
@@ -47,6 +58,7 @@ interface Submajor {
   submajor_name?: string
   name?: string
   supervisor_id?: number | null
+  acting_supervisor_id?: number | null
 }
 
 type SlotType = 'ผู้อำนวยการ' | 'หัวหน้ากลุ่มภารกิจ' | 'หัวหน้ากลุ่มงาน' | 'หัวหน้าหน่วยงาน'
@@ -76,37 +88,42 @@ const TAB_TYPES: { key: SlotType; label: string }[] = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizeMissions = (data: any[]): Mission[] =>
   data.map((r, i) => ({
-    id:            r.id           ?? r.mission_id ?? i,
-    mission_name:  r.mission_name ?? r.name       ?? `ภารกิจ ${i + 1}`,
-    supervisor_id: r.supervisor_id ?? null,
+    id:                   r.id           ?? r.mission_id ?? i,
+    mission_name:         r.mission_name ?? r.name       ?? `ภารกิจ ${i + 1}`,
+    supervisor_id:        r.supervisor_id ?? null,
+    acting_supervisor_id: r.acting_supervisor_id ?? null,
   }))
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizeMajors = (data: any[]): Major[] =>
   data.map((r, i) => ({
-    id:            r.id           ?? r.major_id    ?? i,
-    major_name:    r.major_name   ?? r.name        ?? `กลุ่มงาน ${i + 1}`,
-    mission_id:    r.mission_id   ?? r.mission?.id ?? undefined,
-    mission_name:  r.mission_name ?? r.mission?.mission_name ?? undefined,
-    supervisor_id: r.supervisor_id ?? null,
+    id:                   r.id           ?? r.major_id    ?? i,
+    major_name:           r.major_name   ?? r.name        ?? `กลุ่มงาน ${i + 1}`,
+    mission_id:           r.mission_id   ?? r.mission?.id ?? undefined,
+    mission_name:         r.mission_name ?? r.mission?.mission_name ?? undefined,
+    supervisor_id:        r.supervisor_id ?? null,
+    acting_supervisor_id: r.acting_supervisor_id ?? null,
   }))
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const normalizeSubmajors = (data: any[]): Submajor[] =>
   data.map((r, i) => ({
-    id:            r.id            ?? r.submajor_id ?? r.major_id ?? i,
-    major_name:    r.major_name    ?? r.submajor_name ?? r.name  ?? `หน่วยงาน ${i + 1}`,
-    submajor_name: r.submajor_name ?? r.name          ?? undefined,
-    major_id:      r.major_id      ?? r.major?.id     ?? undefined,
-    mission_id:    r.mission_id    ?? r.mission?.id   ?? undefined,
-    name:          r.name          ?? undefined,
-    supervisor_id: r.supervisor_id ?? null,
+    id:                   r.id            ?? r.submajor_id ?? r.major_id ?? i,
+    major_name:           r.major_name    ?? r.submajor_name ?? r.name  ?? `หน่วยงาน ${i + 1}`,
+    submajor_name:        r.submajor_name ?? r.name          ?? undefined,
+    major_id:             r.major_id      ?? r.major?.id     ?? undefined,
+    mission_id:           r.mission_id    ?? r.mission?.id   ?? undefined,
+    name:                 r.name          ?? undefined,
+    supervisor_id:        r.supervisor_id ?? null,
+    acting_supervisor_id: r.acting_supervisor_id ?? null,
   }))
 
 // ── Page Component ─────────────────────────────────────────────────────────────
 
 const PageContent = () => {
   const { message } = App.useApp()
+  const { mode } = useThemeMode()
+  const isDark = mode === 'dark'
 
   // org data from API
   const [missions,   setMissions]   = useState<Mission[]>([])
@@ -153,9 +170,9 @@ const PageContent = () => {
         setMajors(mjs)
         setSubmajors(sms)
         const initSupv: Record<string, SupervisorState> = {}
-        ms.forEach(r  => { if (r.supervisor_id) initSupv[`m-${r.id}`] = { employeeId: r.supervisor_id, actingEmployeeId: null } })
-        mjs.forEach(r => { if (r.supervisor_id) initSupv[`w-${r.id}`] = { employeeId: r.supervisor_id, actingEmployeeId: null } })
-        sms.forEach(r => { if (r.supervisor_id) initSupv[`u-${r.id}`] = { employeeId: r.supervisor_id, actingEmployeeId: null } })
+        ms.forEach(r  => { if (r.supervisor_id || r.acting_supervisor_id) initSupv[`m-${r.id}`] = { employeeId: r.supervisor_id ?? null, actingEmployeeId: r.acting_supervisor_id ?? null } })
+        mjs.forEach(r => { if (r.supervisor_id || r.acting_supervisor_id) initSupv[`w-${r.id}`] = { employeeId: r.supervisor_id ?? null, actingEmployeeId: r.acting_supervisor_id ?? null } })
+        sms.forEach(r => { if (r.supervisor_id || r.acting_supervisor_id) initSupv[`u-${r.id}`] = { employeeId: r.supervisor_id ?? null, actingEmployeeId: r.acting_supervisor_id ?? null } })
         setSupervisors(initSupv)
       })
       .catch(() => message.error('ไม่สามารถโหลดข้อมูลหน่วยงานได้'))
@@ -176,7 +193,8 @@ const PageContent = () => {
           pname:    u.pname    ?? '',
           fname:    u.fname    ?? '',
           lname:    u.lname    ?? '',
-          position: u.position ?? u.pos_name ?? '',
+          position: u.position ?? u.position_name ?? u.pos_name ?? '',
+          userType: u.user_type_name ?? u.userType ?? '',
         }))
         setAllUsers(list)
         const cache: Record<number, UserInfo> = {}
@@ -234,12 +252,46 @@ const PageContent = () => {
     setIsAssignOpen(true)
   }
 
-  const handleAssignEmployee = (employeeId: number | null) => {
+  // บันทึกการแต่งตั้งหัวหน้า/รักษาการลงฐานข้อมูล (PATCH) — รองรับ ภารกิจ/กลุ่มงาน/หน่วยงาน
+  // slotKey: m-* = missions, w-* = majors, u-* = submajors — คืน true ถ้าสำเร็จ
+  const persistSupervisor = async (
+    slotKey: string, mode: 'main' | 'acting', employeeId: number | null,
+  ): Promise<boolean> => {
+    const [type, idStr] = slotKey.split('-')
+    const entity = SLOT_API[type]
+    if (!entity) return false
+    const path  = mode === 'main' ? 'supervisor'    : 'acting-supervisor'
+    const field = mode === 'main' ? 'supervisor_id' : 'acting_supervisor_id'
+    try {
+      const res = await fetch(`/api/v1/hr/${entity}/${idStr}/${path}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: employeeId }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.success) {
+        message.error(json.message || 'บันทึกการแต่งตั้งไม่สำเร็จ')
+        return false
+      }
+      setSupv(slotKey, { [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: employeeId })
+      message.success(employeeId != null ? 'แต่งตั้งเรียบร้อย' : 'ยกเลิกการแต่งตั้งเรียบร้อย')
+      return true
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+      return false
+    }
+  }
+
+  const handleAssignEmployee = async (employeeId: number | null) => {
     if (!activeRef) return
-    if (activeRef.slotKey === 'dir') {
-      setDirSupervisor(prev => ({ ...prev, [activeRef.mode === 'main' ? 'employeeId' : 'actingEmployeeId']: employeeId }))
+    const { slotKey, mode } = activeRef
+    if (slotKey === 'dir') {
+      // ผู้อำนวยการ = slot คงที่ (ยังไม่ผูกตาราง) — เก็บใน state
+      setDirSupervisor(prev => ({ ...prev, [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: employeeId }))
     } else {
-      setSupv(activeRef.slotKey, { [activeRef.mode === 'main' ? 'employeeId' : 'actingEmployeeId']: employeeId })
+      // ภารกิจ/กลุ่มงาน/หน่วยงาน บันทึกผ่าน API + กันซ้ำ — ถ้าไม่สำเร็จ (เช่นซ้ำ) ค้าง drawer ให้เลือกใหม่
+      const ok = await persistSupervisor(slotKey, mode, employeeId)
+      if (!ok) return
     }
     setIsAssignOpen(false)
     setActiveRef(null)
@@ -271,10 +323,12 @@ const PageContent = () => {
     if (!user) return (
       <div
         className="flex items-center gap-2 py-2 px-3 rounded-lg cursor-pointer transition-all"
-        style={{ border: '1px dashed rgba(255,255,255,0.1)' }}
+        style={{ border: '1px dashed var(--app-border-strong)', background: 'var(--app-bg)' }}
         onClick={() => handleOpenAssign(slotKey, mode)}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = '#0d9488'; e.currentTarget.style.background = 'rgba(13,148,136,0.07)' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--app-border-strong)'; e.currentTarget.style.background = 'var(--app-bg)' }}
       >
-        <Avatar size={32} icon={<PlusOutlined />} style={{ backgroundColor: 'rgba(255,255,255,0.05)', color: 'var(--app-text-3)' }} />
+        <Avatar size={32} icon={<PlusOutlined />} style={{ backgroundColor: 'rgba(13,148,136,0.14)', color: '#0d9488' }} />
         <Text type="secondary" style={{ fontSize: 12, fontStyle: 'italic' }}>
           {empId != null ? `รหัส ${empId} (กำลังโหลด...)` : `คลิกเพื่อแต่งตั้ง${isActing ? 'รักษาการ' : ''}`}
         </Text>
@@ -307,7 +361,7 @@ const PageContent = () => {
                 if (slotKey === 'dir') {
                   setDirSupervisor(prev => ({ ...prev, [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: null }))
                 } else {
-                  setSupv(slotKey, { [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: null })
+                  persistSupervisor(slotKey, mode, null)
                 }
               }} />
           </Tooltip>
@@ -412,11 +466,14 @@ const PageContent = () => {
 
   // ── Tab items ──────────────────────────────────────────────────────────────
 
-  const filteredEmployees = useMemo(() =>
-    allUsers.filter(u =>
-      `${u.pname}${u.fname} ${u.lname} ${u.position ?? ''}`.toLowerCase().includes(empSearch.toLowerCase())
-    ),
-  [allUsers, empSearch])
+  // ค้นหาเมื่อพิมพ์ครบ MIN_SEARCH ตัวอักษรขึ้นไป (กันการเรนเดอร์รายชื่อทั้งหมดพร้อมกัน = ช้า)
+  const filteredEmployees = useMemo(() => {
+    const q = empSearch.trim().toLowerCase()
+    if (q.length < MIN_SEARCH) return []
+    return allUsers.filter(u =>
+      `${u.pname}${u.fname} ${u.lname} ${u.position ?? ''} ${u.userType ?? ''}`.toLowerCase().includes(q)
+    )
+  }, [allUsers, empSearch])
 
   const tabItems = TAB_TYPES.map(tab => {
     const config = SLOT_TYPE_CONFIG[tab.key]
@@ -621,9 +678,30 @@ const PageContent = () => {
         </Row>
 
         {/* Tabs */}
-        <Card style={{ borderRadius: 12, border: 'none' }} styles={{ body: { paddingTop: 0 } }}>
-          <Tabs activeKey={activeTab} onChange={handleTabChange} items={tabItems} size="large" />
-        </Card>
+        <ConfigProvider
+          theme={{
+            components: {
+              Tabs: {
+                itemColor: 'var(--app-text-2)',
+                itemSelectedColor: isDark ? '#34d399' : '#047857',
+                itemHoverColor: isDark ? '#5eead4' : '#0d9488',
+                inkBarColor: isDark ? '#34d399' : '#006a5a',
+                titleFontSize: 15,
+              },
+              Table: {
+                headerBg: isDark ? 'rgba(0,106,90,0.20)' : 'rgba(0,106,90,0.08)',
+                headerColor: isDark ? '#5eead4' : '#006a5a',
+                headerSplitColor: 'transparent',
+                rowHoverBg: isDark ? 'rgba(0,106,90,0.10)' : 'rgba(0,106,90,0.05)',
+                borderColor: 'var(--app-border)',
+              },
+            },
+          }}
+        >
+          <Card style={{ borderRadius: 12, border: '1px solid var(--app-border)' }} styles={{ body: { paddingTop: 0 } }}>
+            <Tabs activeKey={activeTab} onChange={handleTabChange} items={tabItems} size="large" />
+          </Card>
+        </ConfigProvider>
 
         {/* Note */}
         <div className="mt-6 p-4 rounded-xl flex gap-3 items-start"
@@ -660,7 +738,7 @@ const PageContent = () => {
 
         <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <Input
-            placeholder="ค้นหาชื่อ หรือ ตำแหน่ง..."
+            placeholder="ค้นหาชื่อ, ตำแหน่ง หรือ ประเภทเจ้าหน้าที่..."
             prefix={<SearchOutlined className="text-app-text-2" />}
             value={empSearch}
             onChange={e => setEmpSearch(e.target.value)}
@@ -671,26 +749,52 @@ const PageContent = () => {
 
         <Spin spinning={usersLoading}>
           <div className="px-4 py-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
-            {filteredEmployees.map((u: UserInfo) => (
-              <div key={u.id}
-                className="group flex items-center gap-3 p-4 cursor-pointer rounded-xl transition-all"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                onClick={() => handleAssignEmployee(u.id)}
-              >
-                <Avatar size={44} icon={<UserOutlined />}
-                  style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
-                <div className="flex-1 min-w-0">
-                  <Text strong style={{ fontSize: 14 }}>{u.pname}{u.fname} {u.lname}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>{u.position}</Text>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Tag color="green" style={{ borderRadius: 12, margin: 0, fontSize: 11 }}>เลือก</Tag>
-                </div>
+            {empSearch.trim().length < MIN_SEARCH ? (
+              <div className="py-16 flex flex-col items-center gap-2 text-center px-6">
+                <SearchOutlined style={{ fontSize: 30, color: 'var(--app-text-3)' }} />
+                <Text type="secondary">พิมพ์อย่างน้อย {MIN_SEARCH} ตัวอักษร เพื่อค้นหาชื่อหรือตำแหน่ง</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>({allUsers.length.toLocaleString()} รายชื่อ)</Text>
               </div>
-            ))}
-            {!usersLoading && filteredEmployees.length === 0 && (
-              <Empty description="ไม่พบรายชื่อบุคลากร" className="py-12" />
+            ) : filteredEmployees.length === 0 ? (
+              !usersLoading && <Empty description="ไม่พบรายชื่อบุคลากร" className="py-12" />
+            ) : (
+              <>
+                {filteredEmployees.slice(0, MAX_SHOWN).map((u: UserInfo) => (
+                  <div key={u.id}
+                    className="group flex items-center gap-3 p-4 cursor-pointer rounded-xl transition-all"
+                    style={{ borderBottom: '1px solid var(--app-border)' }}
+                    onClick={() => handleAssignEmployee(u.id)}
+                  >
+                    <Avatar size={44} icon={<UserOutlined />}
+                      style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <Text strong style={{ fontSize: 14 }}>{u.pname}{u.fname} {u.lname}</Text>
+                      <br />
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        {u.position && (
+                          <Tag color="cyan" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.position}</Tag>
+                        )}
+                        {u.userType && (
+                          <Tag color="geekblue" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.userType}</Tag>
+                        )}
+                        {!u.position && !u.userType && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>ไม่ระบุตำแหน่ง</Text>
+                        )}
+                      </div>
+                    </div>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Tag color="green" style={{ borderRadius: 12, margin: 0, fontSize: 11 }}>เลือก</Tag>
+                    </div>
+                  </div>
+                ))}
+                {filteredEmployees.length > MAX_SHOWN && (
+                  <div className="py-3 text-center">
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      แสดง {MAX_SHOWN} จาก {filteredEmployees.length.toLocaleString()} รายการ — พิมพ์เพิ่มเพื่อค้นให้แคบลง
+                    </Text>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </Spin>

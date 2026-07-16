@@ -36,9 +36,11 @@ export default function LoginPage() {
         setError(json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
         return
       }
-      Cookies.set('auth_token', json.token, { expires: 7, sameSite: 'Lax' })
-      Cookies.set('user_data', JSON.stringify(json.data), { expires: 7, sameSite: 'Lax' })
-      Cookies.set('user_type_id', String(json.data.user_type_id), { expires: 7, sameSite: 'Lax' })
+      // อายุ cookie = 8 ชม. ให้ตรงกับอายุ JWT ฝั่ง backend (exp: '8h')
+      const COOKIE_HOURS = 8 / 24
+      Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
+      Cookies.set('user_data', JSON.stringify(json.data), { expires: COOKIE_HOURS, sameSite: 'Lax' })
+      Cookies.set('user_type_id', String(json.data.user_type_id), { expires: COOKIE_HOURS, sameSite: 'Lax' })
       router.push('/home')
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')

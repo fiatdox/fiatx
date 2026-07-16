@@ -13,24 +13,21 @@ export async function proxy(
   method = 'GET',
   body?: unknown,
 ) {
-  const token = req.cookies.get('auth_token')?.value
   const url = `${BASE}${path}`
-  console.log(`[proxy] ${method} ${url} | token: ${token ? token.slice(0, 20) + '…' : 'MISSING'}`)
   const res = await fetch(url, {
     method,
     headers: { 'Content-Type': 'application/json', ...authHeader(req) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const data = await res.json().catch(() => ({}))
-  console.log(`[proxy] response ${res.status}`, JSON.stringify(data).slice(0, 120))
+  // log เฉพาะ request ที่ผิดพลาด และไม่ log token / response body (กัน PII รั่วลง log)
+  if (!res.ok) console.error(`[proxy] ${method} ${path} → ${res.status}`)
   return NextResponse.json(data, { status: res.status })
 }
 
 export async function proxyForm(req: NextRequest, path: string) {
-  const token = req.cookies.get('auth_token')?.value
   const url = `${BASE}${path}`
   const contentType = req.headers.get('content-type') ?? ''
-  console.log(`[proxy] POST ${url} | multipart | token: ${token ? token.slice(0, 20) + '…' : 'MISSING'}`)
   const bodyBlob = await req.blob()
   const res = await fetch(url, {
     method: 'POST',
@@ -38,6 +35,7 @@ export async function proxyForm(req: NextRequest, path: string) {
     body: bodyBlob,
   })
   const data = await res.json().catch(() => ({}))
-  console.log(`[proxy] response ${res.status}`, JSON.stringify(data).slice(0, 120))
+  // log เฉพาะ request ที่ผิดพลาด และไม่ log token / response body (กัน PII รั่วลง log)
+  if (!res.ok) console.error(`[proxy] POST ${path} (multipart) → ${res.status}`)
   return NextResponse.json(data, { status: res.status })
 }
