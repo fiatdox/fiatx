@@ -150,9 +150,6 @@ const PageContent = () => {
   const [filterMajor,    setFilterMajor]    = useState<string>('all')
   const [slotSearch,     setSlotSearch]     = useState('')
 
-  // director fixed slot
-  const [dirSupervisor, setDirSupervisor] = useState<SupervisorState>({ employeeId: null, actingEmployeeId: null })
-
   // ── Fetch org data (แสดงผลก่อน) ──────────────────────────────────────────
 
   useEffect(() => {
@@ -177,6 +174,25 @@ const PageContent = () => {
       })
       .catch(() => message.error('ไม่สามารถโหลดข้อมูลหน่วยงานได้'))
       .finally(() => setLoading(false))
+  }, [message])
+
+  // ── Fetch ผอ. / รักษาการ ผอ. ปัจจุบันจาก hr_settings ──────────────────────
+
+  useEffect(() => {
+    fetch('/api/v1/hr/director')
+      .then(r => r.json())
+      .then(json => {
+        if (!json.success) return
+        // ผอ. ใช้ slotKey 'dir' ใน map เดียวกับหัวหน้าระดับอื่น
+        setSupervisors(prev => ({
+          ...prev,
+          dir: {
+            employeeId:       json.data.director_id        ?? null,
+            actingEmployeeId: json.data.acting_director_id ?? null,
+          },
+        }))
+      })
+      .catch(() => message.error('ไม่สามารถโหลดข้อมูลผู้อำนวยการได้'))
   }, [message])
 
   // ── Fetch users แยกต่างหาก ไม่ block org data ─────────────────────────────
@@ -252,18 +268,24 @@ const PageContent = () => {
     setIsAssignOpen(true)
   }
 
-  // บันทึกการแต่งตั้งหัวหน้า/รักษาการลงฐานข้อมูล (PATCH) — รองรับ ภารกิจ/กลุ่มงาน/หน่วยงาน
-  // slotKey: m-* = missions, w-* = majors, u-* = submajors — คืน true ถ้าสำเร็จ
+  // บันทึกการแต่งตั้งหัวหน้า/รักษาการลงฐานข้อมูล (PATCH) — รองรับ ผอ./ภารกิจ/กลุ่มงาน/หน่วยงาน
+  // slotKey: dir = ผอ. (hr_settings), m-* = missions, w-* = majors, u-* = submajors — คืน true ถ้าสำเร็จ
   const persistSupervisor = async (
     slotKey: string, mode: 'main' | 'acting', employeeId: number | null,
   ): Promise<boolean> => {
-    const [type, idStr] = slotKey.split('-')
-    const entity = SLOT_API[type]
-    if (!entity) return false
     const path  = mode === 'main' ? 'supervisor'    : 'acting-supervisor'
     const field = mode === 'main' ? 'supervisor_id' : 'acting_supervisor_id'
+    let url: string
+    if (slotKey === 'dir') {
+      url = `/api/v1/hr/director/${path}`
+    } else {
+      const [type, idStr] = slotKey.split('-')
+      const entity = SLOT_API[type]
+      if (!entity) return false
+      url = `/api/v1/hr/${entity}/${idStr}/${path}`
+    }
     try {
-      const res = await fetch(`/api/v1/hr/${entity}/${idStr}/${path}`, {
+      const res = await fetch(url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: employeeId }),
@@ -285,14 +307,9 @@ const PageContent = () => {
   const handleAssignEmployee = async (employeeId: number | null) => {
     if (!activeRef) return
     const { slotKey, mode } = activeRef
-    if (slotKey === 'dir') {
-      // ผู้อำนวยการ = slot คงที่ (ยังไม่ผูกตาราง) — เก็บใน state
-      setDirSupervisor(prev => ({ ...prev, [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: employeeId }))
-    } else {
-      // ภารกิจ/กลุ่มงาน/หน่วยงาน บันทึกผ่าน API + กันซ้ำ — ถ้าไม่สำเร็จ (เช่นซ้ำ) ค้าง drawer ให้เลือกใหม่
-      const ok = await persistSupervisor(slotKey, mode, employeeId)
-      if (!ok) return
-    }
+    // ทุกระดับ (ผอ./ภารกิจ/กลุ่มงาน/หน่วยงาน) บันทึกผ่าน API + กันซ้ำ — ถ้าไม่สำเร็จค้าง drawer ให้เลือกใหม่
+    const ok = await persistSupervisor(slotKey, mode, employeeId)
+    if (!ok) return
     setIsAssignOpen(false)
     setActiveRef(null)
   }
@@ -301,13 +318,13 @@ const PageContent = () => {
 
   const totalSlots = 1 + missions.length + majors.length + submajors.length
   const filledSlots = [
-    dirSupervisor.employeeId !== null ? 1 : 0,
+    getSupv('dir').employeeId !== null ? 1 : 0,
     ...missions.map(m  => getSupv(getSlotKey('m', m.id)).employeeId !== null ? 1 : 0),
     ...majors.map(m    => getSupv(getSlotKey('w', m.id)).employeeId !== null ? 1 : 0),
     ...submajors.map(s => getSupv(getSlotKey('u', s.id)).employeeId !== null ? 1 : 0),
   ].reduce((a, b) => a + b, 0)
   const actingSlots = [
-    dirSupervisor.actingEmployeeId !== null ? 1 : 0,
+    getSupv('dir').actingEmployeeId !== null ? 1 : 0,
     ...missions.map(m  => getSupv(getSlotKey('m', m.id)).actingEmployeeId !== null ? 1 : 0),
     ...majors.map(m    => getSupv(getSlotKey('w', m.id)).actingEmployeeId !== null ? 1 : 0),
     ...submajors.map(s => getSupv(getSlotKey('u', s.id)).actingEmployeeId !== null ? 1 : 0),
@@ -356,14 +373,7 @@ const PageContent = () => {
           </Tooltip>
           <Tooltip title="ลบออก">
             <Button size="small" type="text" danger icon={<DeleteOutlined style={{ fontSize: 12 }} />}
-              onClick={e => {
-                e.stopPropagation()
-                if (slotKey === 'dir') {
-                  setDirSupervisor(prev => ({ ...prev, [mode === 'main' ? 'employeeId' : 'actingEmployeeId']: null }))
-                } else {
-                  persistSupervisor(slotKey, mode, null)
-                }
-              }} />
+              onClick={e => { e.stopPropagation(); persistSupervisor(slotKey, mode, null) }} />
           </Tooltip>
         </div>
       </div>
@@ -483,7 +493,7 @@ const PageContent = () => {
 
     if (tab.key === 'ผู้อำนวยการ') {
       count = 1
-      vacant = dirSupervisor.employeeId === null && dirSupervisor.actingEmployeeId === null ? 1 : 0
+      vacant = getSupv('dir').employeeId === null && getSupv('dir').actingEmployeeId === null ? 1 : 0
     } else if (tab.key === 'หัวหน้ากลุ่มภารกิจ') {
       count = missions.length
       vacant = missions.filter(m => { const s = getSupv(getSlotKey('m', m.id)); return s.employeeId === null && s.actingEmployeeId === null }).length

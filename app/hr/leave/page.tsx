@@ -26,8 +26,18 @@ import {
   UserOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
-  UploadOutlined
+  UploadOutlined,
+  MedicineBoxOutlined,
+  HeartOutlined,
+  CoffeeOutlined,
+  GlobalOutlined,
+  ReadOutlined,
+  SafetyOutlined,
+  TeamOutlined,
+  UserSwitchOutlined,
+  SmileOutlined
 } from '@ant-design/icons'
+import { GiPrayerBeads, GiWalkingBoot } from 'react-icons/gi'
 import dayjs from 'dayjs'
 import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
@@ -37,7 +47,24 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 const { TextArea } = Input
 
-type LeaveType = { id: number; name_th: string; requires_document_after_days: number | null }
+// ไอคอน + สีของแต่ละประเภทการลา (key = hr_leave_types.code)
+const LEAVE_TYPE_STYLE: Record<string, { icon: React.ReactNode; color: string }> = {
+  SICK:   { icon: <MedicineBoxOutlined />, color: '#ef4444' },
+  MAT:    { icon: <HeartOutlined />,       color: '#ec4899' },
+  PERS:   { icon: <UserOutlined />,        color: '#6366f1' },
+  ANNUAL: { icon: <CoffeeOutlined />,      color: '#0d9488' },
+  PAT:    { icon: <TeamOutlined />,        color: '#3b82f6' },
+  ORDAIN: { icon: <GiPrayerBeads />,       color: '#d97706' },
+  MIL:    { icon: <SafetyOutlined />,      color: '#64748b' },
+  STUDY:  { icon: <ReadOutlined />,        color: '#7c3aed' },
+  INTL:   { icon: <GlobalOutlined />,      color: '#0ea5e9' },
+  FOLLOW: { icon: <UserSwitchOutlined />,  color: '#f59e0b' },
+  REHAB:  { icon: <GiWalkingBoot />,       color: '#16a34a' },
+}
+const DEFAULT_LEAVE_STYLE = { icon: <SmileOutlined />, color: '#6b7280' }
+const getLeaveStyle = (code?: string) => (code && LEAVE_TYPE_STYLE[code]) || DEFAULT_LEAVE_STYLE
+
+type LeaveType = { id: number; code?: string; name_th: string; requires_document_after_days: number | null }
 type Entitlement = {
   id: number
   leave_type_id: number
@@ -54,13 +81,69 @@ const LeavePageContent = () => {
   const [isHalfDay, setIsHalfDay] = useState(false)
   const [leaveType, setLeaveType] = useState(1)
   const [isAbroad, setIsAbroad] = useState(false)
-  const [totalLeaveDays, setTotalLeaveDays] = useState(0)
+  const [totalLeaveDays, setTotalLeaveDays] = useState(1)
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false)
   const [entitlements, setEntitlements] = useState<Entitlement[]>([])
-  const [missionSupervisors, setMissionSupervisors] = useState<{ id: number; mission_name: string; mission_supervisor: string }[]>([])
-  const [majorSupervisors, setMajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string }[]>([])
-  const [submajorSupervisors, setSubmajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string }[]>([])
+  const [staffType, setStaffType] = useState('')
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (!raw) return
+    try { setStaffType(JSON.parse(raw)?.user_type_name || '') } catch { /* ignore malformed cookie */ }
+  }, [])
+  // role: 'supervisor' = ตัวจริง | 'acting' = รักษาการ (API เรียงตัวจริงมาก่อน)
+  const [missionSupervisors, setMissionSupervisors] = useState<{ id: number; mission_name: string; mission_supervisor: string; role?: string }[]>([])
+  const [majorSupervisors, setMajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
+  const [submajorSupervisors, setSubmajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
+
+  // เพื่อนร่วมหน่วยงาน — ใช้เลือกผู้ปฏิบัติงานแทน (หน่วยย่อยก่อน ไม่มีจึงใช้กลุ่มงาน)
+  const [colleagues, setColleagues] = useState<{ id: number; pname?: string; fname: string; lname: string; position_name?: string }[]>([])
+  const [colleaguesLoading, setColleaguesLoading] = useState(false)
+
+  useEffect(() => {
+    setColleaguesLoading(true)
+    fetch('/api/v1/users/me/colleagues')
+      .then(res => res.json())
+      .then(json => { if (json.success) setColleagues(json.data.colleagues) })
+      .catch(() => message.error('ไม่สามารถโหลดรายชื่อเพื่อนร่วมหน่วยงานได้'))
+      .finally(() => setColleaguesLoading(false))
+  }, [message])
+
+  // ถ้าผู้ login เป็นหัวหน้า/รักษาการกลุ่มภารกิจ → สายอนุมัติเปลี่ยนเป็นเสนอ ผอ. โดยตรง
+  const [isMissionHead, setIsMissionHead] = useState(false)
+  const [directorOptions, setDirectorOptions] = useState<{ value: string; label: string; role: string }[]>([])
+
+  useEffect(() => {
+    const raw = Cookies.get('user_data')
+    if (!raw) return
+    const id = JSON.parse(raw)?.id
+    if (!id) return
+    fetch(`/api/v1/hr/mission-head-check/${id}`)
+      .then(res => res.json())
+      .then(json => {
+        if (!json.success || !json.data.is_mission_head) return
+        setIsMissionHead(true)
+        // โหลด ผอ. / รักษาการ ผอ. จาก hr_settings มาเป็นผู้อนุมัติ
+        return fetch('/api/v1/hr/director')
+          .then(res => res.json())
+          .then(dj => {
+            if (!dj.success) return
+            const opts: { value: string; label: string; role: string }[] = []
+            if (dj.data.director_id != null) {
+              opts.push({ value: String(dj.data.director_id), label: `${dj.data.director_name ?? dj.data.director_id} — ผู้อำนวยการ`, role: 'supervisor' })
+            }
+            if (dj.data.acting_director_id != null) {
+              opts.push({ value: String(dj.data.acting_director_id), label: `${dj.data.acting_director_name ?? dj.data.acting_director_id} — ผู้อำนวยการ (รักษาการ)`, role: 'acting' })
+            }
+            setDirectorOptions(opts)
+            // auto-select ผอ. ตัวจริงก่อน ถ้าไม่มีใช้รักษาการ
+            const main = opts.find(o => o.role === 'supervisor') ?? opts[0]
+            if (main) form.setFieldsValue({ approverDirector: main.value })
+          })
+      })
+      .catch(() => message.error('ไม่สามารถตรวจสอบสายอนุมัติได้'))
+  }, [message, form])
 
   useEffect(() => {
     setLeaveTypesLoading(true)
@@ -90,9 +173,9 @@ const LeavePageContent = () => {
       .then(json => {
         if (json.success) {
           setMissionSupervisors(json.data)
-          if (json.data.length === 1) {
-            form.setFieldsValue({ approver3: String(json.data[0].id) })
-          }
+          // auto-select ตัวจริงก่อน ถ้าไม่มีค่อยใช้รักษาการ
+          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
+          if (main) form.setFieldsValue({ approver3: String(main.id) })
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มภารกิจได้'))
@@ -108,9 +191,8 @@ const LeavePageContent = () => {
       .then(json => {
         if (json.success) {
           setMajorSupervisors(json.data)
-          if (json.data.length === 1) {
-            form.setFieldsValue({ approver2: String(json.data[0].id) })
-          }
+          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
+          if (main) form.setFieldsValue({ approver2: String(main.id) })
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มงานได้'))
@@ -126,9 +208,8 @@ const LeavePageContent = () => {
       .then(json => {
         if (json.success) {
           setSubmajorSupervisors(json.data)
-          if (json.data.length === 1) {
-            form.setFieldsValue({ approver1: String(json.data[0].id) })
-          }
+          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
+          if (main) form.setFieldsValue({ approver1: String(main.id) })
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้าหน่วยงาน/ตึกได้'))
@@ -136,6 +217,10 @@ const LeavePageContent = () => {
 
   const currentLeaveTypeInfo = leaveTypes.find(t => t.id === leaveType) ?? null
   const requiresDoc = currentLeaveTypeInfo?.requires_document_after_days
+
+  // ลาพักผ่อน (ANNUAL) ต้องยื่นล่วงหน้า — เลือกวันที่ย้อนหลังไม่ได้ (ประเภทลาอื่น เช่น ลาป่วย ยื่นย้อนหลังได้ตามระเบียบ)
+  const isAnnualLeave = currentLeaveTypeInfo?.code === 'ANNUAL'
+  const disabledPastDate = (current: dayjs.Dayjs) => isAnnualLeave && current.isBefore(dayjs(), 'day')
 
   // หา entitlement ของประเภทการลาที่เลือก (ใช้ min_service_months น้อยที่สุดเป็นฐาน)
   const currentEntitlement = entitlements
@@ -146,6 +231,14 @@ const LeavePageContent = () => {
   const handleValuesChange = (changedValues: any, allValues: any) => {
     if ('leaveType' in changedValues) {
       setLeaveType(changedValues.leaveType)
+      // สลับมาเป็นลาพักผ่อน (ANNUAL) แต่วันที่เลือกไว้เดิมย้อนหลังไปแล้ว → ล้างช่วงวันที่ทิ้ง กันเลือกวันย้อนหลังหลุดมาได้
+      const newIsAnnual = leaveTypes.find(t => t.id === changedValues.leaveType)?.code === 'ANNUAL'
+      const dr = allValues.dateRange
+      if (newIsAnnual && dr && dr[0] && dr[0].isBefore(dayjs(), 'day')) {
+        form.setFieldsValue({ dateRange: undefined, totalLeaveDays: 0 })
+        setTotalLeaveDays(0)
+        message.warning('ลาพักผ่อนไม่สามารถเลือกวันที่ย้อนหลังได้ กรุณาเลือกวันที่ใหม่')
+      }
     }
     if ('halfDay' in changedValues) {
       setIsHalfDay(changedValues.halfDay)
@@ -203,7 +296,7 @@ const LeavePageContent = () => {
             layout="vertical"
             onFinish={onFinish}
             onValuesChange={handleValuesChange}
-            initialValues={{ leaveType: 1, halfDay: false, totalLeaveDays: 0 }}
+            initialValues={{ leaveType: 1, halfDay: false, dateRange: [dayjs(), dayjs()], totalLeaveDays: 1 }}
             requiredMark="optional"
           >
             <Row gutter={24}>
@@ -222,7 +315,37 @@ const LeavePageContent = () => {
                     <Select
                       placeholder="เลือกประเภทการลา"
                       loading={leaveTypesLoading}
-                      options={leaveTypes.map(t => ({ value: t.id, label: t.name_th }))}
+                      optionLabelProp="label"
+                      options={leaveTypes.map(t => {
+                        const style = getLeaveStyle(t.code)
+                        return {
+                          value: t.id,
+                          // label = แสดงในกล่องหลังเลือกแล้ว (มีไอคอนสีตามประเภท)
+                          label: (
+                            <span className="flex items-center gap-2">
+                              <span style={{ color: style.color }}>{style.icon}</span>
+                              {t.name_th}
+                            </span>
+                          ),
+                          // ตัวเลือกในดรอปดาวน์ — พื้นหลังไอคอนเป็นวงกลมให้ดูสวยขึ้น
+                          text: t.name_th,
+                          rawLabel: (
+                            <span className="flex items-center gap-2">
+                              <span
+                                className="flex items-center justify-center rounded-full"
+                                style={{ width: 22, height: 22, backgroundColor: `${style.color}1f`, color: style.color, fontSize: 12 }}
+                              >
+                                {style.icon}
+                              </span>
+                              {t.name_th}
+                            </span>
+                          ),
+                        }
+                      })}
+                      optionRender={(option) => (option.data as any).rawLabel}
+                      filterOption={(input, option) =>
+                        ((option as any)?.text as string ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
                     />
                   </Form.Item>
 
@@ -285,9 +408,19 @@ const LeavePageContent = () => {
                       <Form.Item
                         name="dateRange"
                         label="วันที่ลา (เริ่มต้น - สิ้นสุด)"
-                        rules={[{ required: true, message: 'กรุณาเลือกช่วงวันที่ลา' }]}
+                        rules={[
+                          { required: true, message: 'กรุณาเลือกช่วงวันที่ลา' },
+                          {
+                            validator: (_, value) => {
+                              if (isAnnualLeave && value?.[0] && value[0].isBefore(dayjs(), 'day')) {
+                                return Promise.reject('ลาพักผ่อนไม่สามารถเลือกวันที่ย้อนหลังได้')
+                              }
+                              return Promise.resolve()
+                            },
+                          },
+                        ]}
                       >
-                        <RangePicker className="w-full" format="DD/MM/YYYY" />
+                        <RangePicker className="w-full" format="DD/MM/YYYY" disabledDate={disabledPastDate} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
@@ -321,17 +454,22 @@ const LeavePageContent = () => {
 
                   <Form.Item
                     name="substitute"
-                    label="ผู้ปฏิบัติงานแทน"
-                    rules={[{ required: true, message: 'กรุณาระบุผู้ปฏิบัติงานแทน' }]}
+                    label="ผู้ปฏิบัติงานแทน (ถ้ามี)"
                   >
                     <Select
                       showSearch
-                      placeholder="ค้นหาชื่อผู้ปฏิบัติงานแทน"
+                      allowClear
+                      placeholder="ค้นหาชื่อผู้ปฏิบัติงานแทน — ไม่ระบุก็ได้"
                       prefix={<UserOutlined className="text-app-text-2" />}
-                      options={[
-                        { value: '1', label: 'นายสมชาย ใจดี' },
-                        { value: '2', label: 'นางสาวสมหญิง รักเรียน' },
-                      ]}
+                      loading={colleaguesLoading}
+                      notFoundContent={colleaguesLoading ? undefined : 'ไม่พบบุคลากรในหน่วยงานเดียวกัน'}
+                      filterOption={(input, option) =>
+                        (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+                      }
+                      options={colleagues.map(c => ({
+                        value: String(c.id),
+                        label: `${c.pname ?? ''}${c.fname} ${c.lname}${c.position_name ? ` — ${c.position_name}` : ''}`,
+                      }))}
                     />
                   </Form.Item>
                 </Card>
@@ -340,7 +478,10 @@ const LeavePageContent = () => {
               {/* ส่วนผู้อนุมัติและสรุป */}
               <Col xs={24} lg={8}>
                 <Card variant="borderless" className="shadow-sm mb-6 bg-primary/5 border-primary/10">
-                  <Title level={4} className="mb-4">สรุปวันลา</Title>
+                  <Title level={4} className="mb-4">
+                    สรุปวันลา
+                    {staffType && <Text type="secondary" style={{ fontSize: 14, fontWeight: 400 }}> · {staffType}</Text>}
+                  </Title>
                   <Form.Item
                     name="totalLeaveDays"
                     label="จำนวนวันที่ใช้ลา (สามารถแก้ไขได้)"
@@ -348,6 +489,12 @@ const LeavePageContent = () => {
                       { required: true, message: 'กรุณาระบุจำนวนวันลา' },
                       {
                         validator: (_, value) => {
+                          if (value != null && value < 0.5) {
+                            return Promise.reject('ขั้นต่ำ 0.5 วัน (ครึ่งวัน)')
+                          }
+                          if (value != null && Math.abs(value * 2 - Math.round(value * 2)) > 1e-9) {
+                            return Promise.reject('กรอกได้เป็นจำนวนเต็มหรือครึ่งวันเท่านั้น')
+                          }
                           const max = currentEntitlement?.max_days_per_year
                           if (max != null && value > max) {
                             return Promise.reject(`เกินสิทธิ์การลาสูงสุด ${max} วัน/ปี`)
@@ -358,7 +505,7 @@ const LeavePageContent = () => {
                     ]}
                   >
                     <InputNumber
-                      min={0}
+                      min={0.5}
                       max={currentEntitlement?.max_days_per_year ?? undefined}
                       step={0.5}
                       className="w-full"
@@ -373,7 +520,7 @@ const LeavePageContent = () => {
                       type={currentEntitlement.max_days_per_year != null ? 'info' : 'warning'}
                       showIcon
                       className="mt-4"
-                      title="สิทธิ์การลาประเภทนี้"
+                      title={`สิทธิ์การลาประเภทนี้${staffType ? ` (${staffType})` : ''}`}
                       description={
                         <div className="text-sm space-y-1">
                           <div>
@@ -384,6 +531,15 @@ const LeavePageContent = () => {
                                 : 'ไม่จำกัด'}
                             </strong>
                           </div>
+                          {currentEntitlement.max_days_per_year != null && (
+                            <div>
+                              คงเหลือหลังคำขอนี้:{' '}
+                              <strong>
+                                {Math.max(currentEntitlement.max_days_per_year - totalLeaveDays, 0)} วัน
+                              </strong>
+                              <Text type="secondary" style={{ fontSize: 11 }}> (คำนวณจากสิทธิ์ต่อปี ยังไม่หักวันลาที่เคยใช้ไปก่อนหน้า)</Text>
+                            </div>
+                          )}
                           {currentEntitlement.carry_over && (
                             <div>
                               สะสมข้ามปีได้สูงสุด:{' '}
@@ -408,40 +564,76 @@ const LeavePageContent = () => {
                     <CheckCircleOutlined className="text-primary" /> ลำดับการอนุมัติ
                   </Title>
 
+                  {isMissionHead ? (
+                    /* หัวหน้า/รักษาการกลุ่มภารกิจ → ลากับ ผอ. โดยตรง */
+                    <>
+                      <Alert
+                        type="info"
+                        showIcon
+                        className="mb-4"
+                        title="ท่านดำรงตำแหน่งหัวหน้า/รักษาการกลุ่มภารกิจ"
+                        description="คำขอลาจะเสนอผู้อำนวยการอนุมัติโดยตรง"
+                      />
+                      <Form.Item
+                        name="approverDirector"
+                        label="ผู้อนุมัติ: ผู้อำนวยการ"
+                        rules={[{ required: directorOptions.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
+                      >
+                        <Select
+                          placeholder={directorOptions.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งผู้อำนวยการ'}
+                          disabled={directorOptions.length === 0}
+                          options={directorOptions.map(o => ({ value: o.value, label: o.label }))}
+                        />
+                      </Form.Item>
+                    </>
+                  ) : (
                   <Space orientation="vertical" className="w-full" size="large">
                     <Form.Item
                       name="approver1"
                       label="1. หัวหน้าหน่วยงาน/ตึก"
-                      rules={[{ required: true, message: 'กรุณาเลือกผู้อนุมัติ' }]}
+                      rules={[{ required: submajorSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
                     >
                       <Select
-                        placeholder="เลือกผู้อนุมัติ"
-                        options={submajorSupervisors.map(s => ({ value: String(s.id), label: `${s.major_supervisor} — ${s.major_name}` }))}
+                        placeholder={submajorSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้าหน่วยงาน'}
+                        disabled={submajorSupervisors.length === 0}
+                        options={submajorSupervisors.map(s => ({
+                          value: String(s.id),
+                          label: `${s.major_supervisor} — ${s.major_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
+                        }))}
                       />
                     </Form.Item>
 
                     <Form.Item
                       name="approver2"
                       label="2. หัวหน้ากลุ่มงาน"
-                      rules={[{ required: true, message: 'กรุณาเลือกผู้อนุมัติ' }]}
+                      rules={[{ required: majorSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
                     >
                       <Select
-                        placeholder="เลือกผู้อนุมัติ"
-                        options={majorSupervisors.map(s => ({ value: String(s.id), label: `${s.major_supervisor} — ${s.major_name}` }))}
+                        placeholder={majorSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้ากลุ่มงาน'}
+                        disabled={majorSupervisors.length === 0}
+                        options={majorSupervisors.map(s => ({
+                          value: String(s.id),
+                          label: `${s.major_supervisor} — ${s.major_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
+                        }))}
                       />
                     </Form.Item>
 
                     <Form.Item
                       name="approver3"
                       label="3. หัวหน้ากลุ่มภารกิจ"
-                      rules={[{ required: true, message: 'กรุณาเลือกผู้อนุมัติ' }]}
+                      rules={[{ required: missionSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
                     >
                       <Select
-                        placeholder="เลือกผู้อนุมัติ"
-                        options={missionSupervisors.map(s => ({ value: String(s.id), label: `${s.mission_supervisor} — ${s.mission_name}` }))}
+                        placeholder={missionSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้ากลุ่มภารกิจ'}
+                        disabled={missionSupervisors.length === 0}
+                        options={missionSupervisors.map(s => ({
+                          value: String(s.id),
+                          label: `${s.mission_supervisor} — ${s.mission_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
+                        }))}
                       />
                     </Form.Item>
                   </Space>
+                  )}
 
                   <Divider />
 

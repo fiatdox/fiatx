@@ -12,7 +12,8 @@ import {
   LogoutOutlined,
   BellOutlined,
   SunOutlined,
-  MoonOutlined
+  MoonOutlined,
+  HistoryOutlined
 } from '@ant-design/icons'
 import { useThemeMode } from './ThemeProvider'
 import {
@@ -62,6 +63,10 @@ const Navbar: React.FC = () => {
   // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
   // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
   const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
+    // กำหนดสิทธิ์การลา — แก้กฎการลาทั้งองค์กร (เฉพาะ ADMIN/HR — ตรงกับ requireRoles ฝั่ง backend)
+    '/hr/leave/policy': ['ADMIN', 'HR'],
+    // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
+    '/hr/leave/balance': ['ADMIN', 'HR'],
     // งานซ่อมคอมพิวเตอร์ — หน้าจัดการ (เฉพาะเจ้าหน้าที่ IT)
     '/information-technology/maintenance/manage': IT_STAFF_ROLES,
     // HAIT — เครื่องมือภายในของงาน IT (เฉพาะเจ้าหน้าที่ IT)
@@ -289,6 +294,8 @@ const Navbar: React.FC = () => {
                     { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
                     { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปรายการลา' },
                     { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
+                    { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
+                    { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
                   ]
                 },
                 { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
