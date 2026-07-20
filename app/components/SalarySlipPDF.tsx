@@ -186,13 +186,6 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
 
-  // ── ลายเซ็น ──
-  sigRow:   { flexDirection: 'row', marginTop: 22, gap: 16 },
-  sigBlock: { flex: 1, alignItems: 'center' },
-  sigLine:  { borderBottom: '0.7px solid #6b7280', width: '78%', height: 26, marginBottom: 4 },
-  sigLabel: { fontSize: 8.5, color: '#374151', fontWeight: 'bold' },
-  sigSub:   { fontSize: 8, color: '#6b7280', marginTop: 1 },
-
   footNote: {
     fontSize: 7,
     color: '#9ca3af',
@@ -335,22 +328,6 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
             </Text>
           </View>
         )}
-
-        {/* ── Signatures ── */}
-        <View style={s.sigRow}>
-          {[
-            { label: 'ผู้รับเงิน',  sub: employee.name },
-            { label: 'ผู้จัดทำ',    sub: 'เจ้าหน้าที่การเงิน' },
-            { label: 'ผู้อนุมัติ',  sub: 'ผู้อำนวยการ' },
-          ].map((sig, i) => (
-            <View key={i} style={s.sigBlock}>
-              <View style={s.sigLine} />
-              <Text style={s.sigLabel}>{sig.label}</Text>
-              <Text style={s.sigSub}>({sig.sub})</Text>
-              <Text style={s.sigSub}>วันที่ ........./........./.........</Text>
-            </View>
-          ))}
-        </View>
 
         <Text style={s.footNote}>
           เอกสารฉบับนี้จัดทำโดยระบบอัตโนมัติและถือเป็นความลับระหว่างโรงพยาบาลกับพนักงาน

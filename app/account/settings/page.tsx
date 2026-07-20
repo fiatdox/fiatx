@@ -40,12 +40,16 @@ interface UserInfo {
   user_type_name?: string
   user_level_name?: string
   user_status_name?: string
+  salary_id?: number | null
+  attendance_id?: number | null
 }
 
-const banks = [
-  'ธนาคารกรุงไทย', 'ธนาคารกรุงเทพ', 'ธนาคารกสิกรไทย', 'ธนาคารไทยพาณิชย์',
-  'ธนาคารกรุงศรีอยุธยา', 'ธนาคารทหารไทยธนชาต (ttb)', 'ธนาคารออมสิน', 'ธ.ก.ส.'
-]
+// ข้อมูลบัญชีธนาคารจากระบบเงินเดือน (dgpn_payroll) — อ่านอย่างเดียว
+interface PayrollProfile {
+  bank?: string | null
+  bankbranch?: string | null
+  accno?: string | null
+}
 
 const SettingsContent = () => {
   const [profileForm] = Form.useForm()
@@ -74,13 +78,75 @@ const SettingsContent = () => {
           gender: u.gender === 'M' ? 'male' : u.gender === 'F' ? 'female' : undefined,
           birthdate: u.birthday ? dayjs(u.birthday) : undefined,
         })
+        // รหัสประจำตัวจริงจากตาราง users — เปลี่ยนเองได้
+        codesForm.setFieldsValue({
+          salaryCode:     u.salary_id     != null ? String(u.salary_id)     : '',
+          attendanceCode: u.attendance_id != null ? String(u.attendance_id) : '',
+        })
       } catch {
         // เงียบ — แสดง '-' หากดึงไม่สำเร็จ
       } finally {
         setLoading(false)
       }
     })()
-  }, [profileForm])
+  }, [profileForm, codesForm])
+
+  // ── บัญชีธนาคารรับเงินเดือนจากระบบเงินเดือน (อ่านอย่างเดียว) ──
+  const [payProfile, setPayProfile] = useState<PayrollProfile | null>(null)
+
+  useEffect(() => {
+    fetch('/api/v1/accounting/salary/summary')
+      .then(r => r.json())
+      .then(json => { if (json.success) setPayProfile(json.data?.profile ?? null) })
+      .catch(() => { /* ยังไม่ผูกเลขที่เงินเดือน/โหลดไม่ได้ — แสดง '—' */ })
+  }, [])
+
+  // ── บันทึกรหัสประจำตัว (salary_id / attendance_id) ลง users จริง ──
+  const saveCodes = async (values: { salaryCode?: string; attendanceCode?: string }) => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/v1/users/me/codes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          salary_id:     values.salaryCode?.trim()     ? Number(values.salaryCode)     : null,
+          attendance_id: values.attendanceCode?.trim() ? Number(values.attendanceCode) : null,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.success) {
+        Swal.fire({
+          title: 'บันทึกไม่สำเร็จ',
+          text: json.message || 'ไม่สามารถบันทึกรหัสประจำตัวได้',
+          icon: 'error',
+          background: 'var(--app-surface)',
+          color: 'var(--app-text)',
+          confirmButtonColor: '#006a5a',
+        })
+        return
+      }
+      setInfo(prev => prev ? { ...prev, salary_id: json.data.salary_id, attendance_id: json.data.attendance_id } : prev)
+      Swal.fire({
+        title: 'บันทึกข้อมูลสำเร็จ',
+        text: 'รหัสประจำตัวถูกบันทึกเรียบร้อยแล้ว',
+        icon: 'success',
+        background: 'var(--app-surface)',
+        color: 'var(--app-text)',
+        confirmButtonColor: '#006a5a',
+      })
+    } catch {
+      Swal.fire({
+        title: 'บันทึกไม่สำเร็จ',
+        text: 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ',
+        icon: 'error',
+        background: 'var(--app-surface)',
+        color: 'var(--app-text)',
+        confirmButtonColor: '#006a5a',
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
 
   // แปลงข้อมูล API → ฟิลด์ที่หน้านี้ใช้ (ส่วนที่ HR กำหนด)
   const fullName =
@@ -107,16 +173,6 @@ const SettingsContent = () => {
     religion: 'พุทธ',
     maritalStatus: 'single',
     bloodType: 'O',
-  }
-  const initialCodes = {
-    salaryCode: 'PAY-44091',
-    attendanceCode: 'ATT-0428',
-    cardNo: 'IC-100428',
-    taxId: '1-1099-00428-12-3',
-    ssoNo: '1-1099-00428-12-3',
-    bank: 'ธนาคารกรุงไทย',
-    bankBranch: 'พญาไท',
-    bankAccount: '123-4-56789-0',
   }
   const initialContact = {
     email: 'somchai.j@hospital.go.th',
@@ -225,7 +281,7 @@ const SettingsContent = () => {
               </div>
             </div>
             <div className="hidden md:block">
-              <Tag color="green" icon={<CheckCircleFilled />} className="!m-0">
+              <Tag color="green" icon={<CheckCircleFilled />} className="m-0!">
                 บัญชียืนยันตัวตนแล้ว
               </Tag>
             </div>
@@ -367,100 +423,107 @@ const SettingsContent = () => {
               {
                 key: 'codes',
                 label: <Space><IdcardOutlined />รหัสและบัญชีธนาคาร</Space>,
+                forceRender: true, // ให้ Form mount ตั้งแต่แรก — setFieldsValue จาก useEffect จะได้ไม่เตือน useForm not connected
                 children: (
                   <Form
                     form={codesForm}
                     layout="vertical"
-                    initialValues={initialCodes}
-                    onFinish={() => handleSave('รหัสและบัญชีธนาคาร')}
+                    onFinish={saveCodes}
                   >
                     <Title level={5} style={{ color: 'var(--app-text-2)', marginTop: 0 }}>
-                      <NumberOutlined /> รหัสประจำตัวระบบ
+                      <NumberOutlined /> รหัสประจำตัวระบบ · เปลี่ยนเองได้
                     </Title>
                     <Row gutter={[16, 0]}>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item
-                          label={<span>รหัสเลขที่เงินเดือน <Tooltip title="ใช้สำหรับออกสลิปเงินเดือน"><InfoCircleOutlined className="text-app-text-3" /></Tooltip></span>}
+                          label={<span>รหัสเลขที่เงินเดือน <Tooltip title="ใช้สำหรับดูข้อมูลเงินเดือนและออกสลิป"><InfoCircleOutlined className="text-app-text-3" /></Tooltip></span>}
                           name="salaryCode"
-                          rules={[{ required: true, message: 'กรุณาระบุรหัสเลขที่เงินเดือน' }]}
+                          rules={[{ pattern: /^\d+$/, message: 'กรอกเป็นตัวเลขเท่านั้น' }]}
                         >
-                          <Input prefix={<SolutionOutlined className="text-app-text-3" />} placeholder="เช่น PAY-44091" />
+                          <Input
+                            prefix={<SolutionOutlined className="text-app-text-3" />}
+                            placeholder="เช่น 10106"
+                            inputMode="numeric"
+                            maxLength={10}
+                          />
                         </Form.Item>
                       </Col>
                       <Col xs={24} sm={12} md={8}>
                         <Form.Item
                           label={<span>รหัสเข้าออกงาน <Tooltip title="ใช้กับเครื่องสแกนนิ้ว/บัตร"><InfoCircleOutlined className="text-app-text-3" /></Tooltip></span>}
                           name="attendanceCode"
-                          rules={[{ required: true, message: 'กรุณาระบุรหัสเข้าออกงาน' }]}
+                          rules={[{ pattern: /^\d+$/, message: 'กรอกเป็นตัวเลขเท่านั้น' }]}
                         >
-                          <Input prefix={<ClockCircleOutlined className="text-app-text-3" />} placeholder="เช่น ATT-0428" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item label="เลขที่บัตรพนักงาน" name="cardNo">
-                          <Input prefix={<IdcardOutlined className="text-app-text-3" />} placeholder="เช่น IC-100428" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item
-                          label="เลขประจำตัวผู้เสียภาษี"
-                          name="taxId"
-                          rules={[{ pattern: /^[0-9-]{13,17}$/, message: 'รูปแบบไม่ถูกต้อง' }]}
-                        >
-                          <Input placeholder="X-XXXX-XXXXX-XX-X" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item label="เลขที่ประกันสังคม" name="ssoNo">
-                          <Input placeholder="X-XXXX-XXXXX-XX-X" />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
-
-                    <Title level={5} style={{ color: 'var(--app-text-2)' }}>
-                      <BankOutlined /> บัญชีธนาคารรับเงินเดือน
-                    </Title>
-                    <Row gutter={[16, 0]}>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item label="ธนาคาร" name="bank" rules={[{ required: true, message: 'กรุณาเลือกธนาคาร' }]}>
-                          <Select
-                            options={banks.map(b => ({ value: b, label: b }))}
-                            placeholder="เลือกธนาคาร"
+                          <Input
+                            prefix={<ClockCircleOutlined className="text-app-text-3" />}
+                            placeholder="เช่น 428"
+                            inputMode="numeric"
+                            maxLength={10}
                           />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item label="สาขา" name="bankBranch">
-                          <Input placeholder="ชื่อสาขา" />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item
-                          label="เลขที่บัญชี"
-                          name="bankAccount"
-                          rules={[{ required: true, message: 'กรุณากรอกเลขบัญชี' }]}
-                        >
-                          <Input placeholder="XXX-X-XXXXX-X" />
                         </Form.Item>
                       </Col>
                     </Row>
 
                     <Alert
+                      type="info"
+                      showIcon
+                      className="mb-4"
+                      title="รหัสเลขที่เงินเดือนต้องตรงกับเอกสารการเงินของท่าน — หากกรอกเลขที่มีผู้อื่นใช้อยู่ ระบบจะไม่บันทึกให้"
+                      style={{ background: 'rgba(30,41,59,0.6)', borderColor: 'var(--app-surface)' }}
+                    />
+
+                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
+
+                    <Title level={5} style={{ color: 'var(--app-text-2)' }}>
+                      <BankOutlined /> บัญชีธนาคารรับเงินเดือน · อ่านอย่างเดียว
+                    </Title>
+                    <Row gutter={[12, 12]}>
+                      {[
+                        { label: 'ธนาคาร', value: payProfile?.bank ? `ธนาคาร${payProfile.bank}` : '—', icon: <BankOutlined /> },
+                        { label: 'สาขา', value: payProfile?.bankbranch || '—', icon: <EnvironmentOutlined /> },
+                        { label: 'เลขที่บัญชี', value: payProfile?.accno || '—', icon: <NumberOutlined /> },
+                      ].map(f => (
+                        <Col xs={24} sm={12} md={8} key={f.label}>
+                          <div
+                            style={{
+                              background: 'var(--app-surface)',
+                              border: '1px solid var(--app-border)',
+                              borderRadius: 10,
+                              padding: '10px 14px',
+                              height: '100%',
+                            }}
+                          >
+                            <div style={{ fontSize: 12, color: 'var(--app-text-3)', marginBottom: 3 }}>
+                              <span style={{ marginRight: 6 }}>{f.icon}</span>{f.label}
+                            </div>
+                            <div style={{ color: 'var(--app-text)', fontWeight: 600, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                              {f.value}
+                            </div>
+                          </div>
+                        </Col>
+                      ))}
+                    </Row>
+
+                    <Alert
                       type="warning"
                       showIcon
-                      className="mt-2 mb-4"
-                      title="การแก้ไขเลขที่บัญชีธนาคารต้องผ่านการยืนยันจากงานการเงิน"
+                      className="mt-3 mb-4"
+                      title="ข้อมูลบัญชีธนาคารอ้างอิงจากระบบเงินเดือน — การแก้ไขต้องติดต่องานการเงิน"
                       style={{ background: 'rgba(146,64,14,0.18)', borderColor: '#92400e' }}
                     />
 
                     <div className="flex justify-end gap-2">
-                      <Button icon={<ReloadOutlined />} onClick={() => codesForm.resetFields()}>
+                      <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => codesForm.setFieldsValue({
+                          salaryCode:     info?.salary_id     != null ? String(info.salary_id)     : '',
+                          attendanceCode: info?.attendance_id != null ? String(info.attendance_id) : '',
+                        })}
+                      >
                         คืนค่าเดิม
                       </Button>
                       <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
-                        ส่งคำขอแก้ไขให้ HR
+                        บันทึกรหัสประจำตัว
                       </Button>
                     </div>
                   </Form>
