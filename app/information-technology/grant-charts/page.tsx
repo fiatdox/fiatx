@@ -3,14 +3,14 @@ import React, { useEffect, useMemo, useState } from 'react'
 import {
   ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Select,
   Button, Modal, Form, Input, InputNumber, DatePicker, Space, Table, Drawer,
-  Descriptions, Progress, Divider, Popconfirm, Timeline, Empty, Row, Col,
+  Descriptions, Progress, Divider, Popconfirm, Timeline, Empty, Row, Col, Switch,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   HomeOutlined, ProjectOutlined, InfoCircleOutlined,
   SyncOutlined, PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined,
   RiseOutlined, ReloadOutlined, DollarOutlined, FlagOutlined, TeamOutlined,
-  FileTextOutlined,
+  FileTextOutlined, SettingOutlined,
 } from '@ant-design/icons'
 import { FaMicrochip } from 'react-icons/fa'
 import dayjs, { Dayjs } from 'dayjs'
@@ -19,14 +19,14 @@ import { useThemeMode } from '@/app/components/ThemeProvider'
 import EChart from '@/app/components/EChart'
 import { StatCard, ACCENTS, gBtn } from '@/app/components/StatCard'
 import {
-  loadTasks, saveTasks, loadLinks, resetAll,
-  DEFAULT_TASKS, DEFAULT_LINKS,
+  fetchRoadmap, fetchMeta, apiCreateTask, apiUpdateTask, apiDeleteTask, apiAddProgress, apiResetRoadmap,
+  apiCreateKpi, apiUpdateKpi, apiDeleteKpi,
   MISSION_OPTIONS, STATUS_OPTIONS, PRIORITY_OPTIONS,
   DEPARTMENT_OPTIONS, KPI_OPTIONS,
-  formatTHB, budgetUtilization,
+  formatTHB, budgetUtilization, taskFiscalYear, fiscalYearOf,
   getProgressColor, getStatusMeta, getMissionMeta, getPriorityMeta,
   type Task, type LinkRow, type TaskType, type Mission, type ProjectStatus,
-  type Priority, type ProgressLogEntry,
+  type Priority, type RoadmapMeta,
 } from './data'
 
 const { Title, Text } = Typography
@@ -40,11 +40,12 @@ type FormShape = {
   code?: string
   parent?: string
   mission: Mission
+  fiscalYear?: number
   status?: ProjectStatus
   priority?: Priority
   range: [Dayjs, Dayjs]
   progress?: number
-  owner?: string
+  ownerUserId?: number
   ownerPosition?: string
   department?: string
   contact?: string
@@ -76,18 +77,19 @@ const sumBudget = (tasks: Task[]) => {
   return { requested, approved, spent }
 }
 
-const newId = () => Math.random().toString(36).slice(2, 10)
 
 const GanttPageContent = () => {
   const { mode } = useThemeMode()
   const isDark = mode === 'dark'
   // ม่วงอ่อน (#c4b5fd) อ่านยากบนการ์ดขาว — โหมด light ใช้ม่วงเข้มแทน
   const cPurple = isDark ? '#c4b5fd' : '#7c3aed'
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
   const [hydrated, setHydrated] = useState(false)
-  const [tasks, setTasks] = useState<Task[]>(DEFAULT_TASKS)
-  const [links, setLinks] = useState<LinkRow[]>(DEFAULT_LINKS)
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [links, setLinks] = useState<LinkRow[]>([])
+  const [meta, setMeta] = useState<RoadmapMeta | null>(null)
+  const [selectedFY, setSelectedFY] = useState<string>('all')
   const [selectedMission, setSelectedMission] = useState<string>('all')
   const [selectedStatus, setSelectedStatus] = useState<string>('all')
 
@@ -102,24 +104,109 @@ const GanttPageContent = () => {
   const [form] = Form.useForm<FormShape>()
   const [progressForm] = Form.useForm<{ progress: number; note: string; reportedBy: string; budgetSpentDelta?: number }>()
   const watchedType = Form.useWatch('type', form)
+  const watchedFY = Form.useWatch('fiscalYear', form)
+  const watchedKpi = Form.useWatch('kpiCode', form)
+
+  // KPI master manager
+  type KpiFormShape = { code: string; name: string; target?: string; years?: number[]; active?: boolean }
+  const [kpiMgrOpen, setKpiMgrOpen] = useState(false)
+  const [editingKpiCode, setEditingKpiCode] = useState<string | null>(null)
+  const [kpiForm] = Form.useForm<KpiFormShape>()
+
+  const reload = async () => {
+    try {
+      const { tasks: t, links: l } = await fetchRoadmap()
+      setTasks(t)
+      setLinks(l)
+    } catch {
+      message.error('โหลดข้อมูลแผนงานไม่สำเร็จ')
+    }
+  }
+
+  const reloadMeta = () => fetchMeta().then(setMeta).catch(() => {})
 
   useEffect(() => {
-    setTasks(loadTasks())
-    setLinks(loadLinks())
-    setHydrated(true)
+    Promise.all([reload(), reloadMeta()]).finally(() => setHydrated(true))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const persistTasks = (next: Task[]) => {
-    setTasks(next)
-    saveTasks(next)
+  const staffOptions = useMemo(
+    () => (meta?.staff ?? []).map(s => ({
+      value: s.id,
+      label: s.position ? `${s.name} — ${s.position}` : s.name,
+      staff: s,
+    })),
+    [meta]
+  )
+
+  // ตัวเลือกปีงบสำหรับ multi-select ของ KPI (ช่วงรอบปีปัจจุบัน + ปีที่มีข้อมูลจริง)
+  const yearOptions = useMemo(() => {
+    const cur = fiscalYearOf(dayjs().toISOString())
+    const set = new Set<number>()
+    for (let y = cur - 1; y <= cur + 5; y++) set.add(y)
+    ;(meta?.kpis ?? []).forEach(k => k.years.forEach(y => set.add(y)))
+    tasks.forEach(t => set.add(taskFiscalYear(t)))
+    return Array.from(set).sort((a, b) => a - b).map(y => ({ value: y, label: `ปีงบ ${y}` }))
+  }, [meta, tasks])
+
+  // KPI ที่เลือกได้ในฟอร์มงาน — กรองตามปีงบของงาน (years ว่าง = ใช้ได้ทุกปี)
+  const kpiChoices = useMemo(() => {
+    const fy = watchedFY ? Number(watchedFY) : undefined
+    const all = meta?.kpis ?? []
+    let list = all.filter(k => !fy || k.years.length === 0 || k.years.includes(fy))
+    if (watchedKpi && !list.some(k => k.code === watchedKpi)) {
+      const cur = all.find(k => k.code === watchedKpi)
+      if (cur) list = [cur, ...list]   // คง KPI เดิมของงานไว้แม้ไม่ตรงปีงบ
+    }
+    return list
+  }, [meta, watchedFY, watchedKpi])
+
+  const openKpiCreate = () => {
+    setEditingKpiCode(null)
+    kpiForm.resetFields()
+    kpiForm.setFieldsValue({ active: true, years: [] })
   }
+  const openKpiEdit = (k: { code: string; name: string; target: string; years: number[] }) => {
+    setEditingKpiCode(k.code)
+    kpiForm.setFieldsValue({ code: k.code, name: k.name, target: k.target, years: k.years, active: true })
+  }
+  const submitKpi = async () => {
+    const v = await kpiForm.validateFields()
+    try {
+      if (editingKpiCode) await apiUpdateKpi(editingKpiCode, { name: v.name, target: v.target, years: v.years, active: v.active })
+      else await apiCreateKpi({ code: v.code, name: v.name, target: v.target, years: v.years, active: v.active })
+      await reloadMeta()
+      message.success(editingKpiCode ? 'อัปเดต KPI สำเร็จ' : 'เพิ่ม KPI สำเร็จ')
+      setEditingKpiCode(null)
+      kpiForm.resetFields()
+      kpiForm.setFieldsValue({ active: true, years: [] })
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+  const deleteKpiRow = async (code: string) => {
+    try {
+      await apiDeleteKpi(code)
+      await reloadMeta()
+      message.success('ลบ KPI เรียบร้อย')
+    } catch (e) {
+      message.error((e as Error).message)
+    }
+  }
+
+  // ปีงบที่มีข้อมูล (พ.ศ.) เรียงมาก→น้อย สำหรับตัวกรอง
+  const fiscalYears = useMemo(
+    () => Array.from(new Set(tasks.map(taskFiscalYear))).sort((a, b) => b - a),
+    [tasks]
+  )
 
   const filteredTasks = useMemo(() => {
     let t = tasks
+    if (selectedFY !== 'all')      t = t.filter(x => taskFiscalYear(x) === Number(selectedFY))
     if (selectedMission !== 'all') t = t.filter(x => x.mission === selectedMission)
     if (selectedStatus !== 'all')  t = t.filter(x => x.status === selectedStatus)
     return t
-  }, [tasks, selectedMission, selectedStatus])
+  }, [tasks, selectedFY, selectedMission, selectedStatus])
 
   const filteredLinks = useMemo(() => {
     const ids = new Set(filteredTasks.map(t => t.id))
@@ -141,6 +228,7 @@ const GanttPageContent = () => {
     form.setFieldsValue({
       type,
       mission: 'application',
+      fiscalYear: fiscalYearOf(dayjs().toISOString()),
       status: 'draft',
       priority: 'medium',
       progress: type === 'milestone' ? undefined : 0,
@@ -161,11 +249,12 @@ const GanttPageContent = () => {
       code: t.code,
       parent: t.parent,
       mission: t.mission,
+      fiscalYear: taskFiscalYear(t),
       status: t.status ?? 'draft',
       priority: t.priority ?? 'medium',
       range: [dayjs(t.start), dayjs(t.end)],
       progress: t.progress,
-      owner: t.owner,
+      ownerUserId: t.ownerUserId,
       ownerPosition: t.ownerPosition,
       department: t.department,
       contact: t.contact,
@@ -185,22 +274,25 @@ const GanttPageContent = () => {
   const submitEditor = async () => {
     const values = await form.validateFields()
     const kpi = KPI_OPTIONS.find(k => k.code === values.kpiCode)
+    const staff = meta?.staff.find(s => s.id === values.ownerUserId)
     const start = values.range[0].toISOString()
     const end = (values.type === 'milestone' ? values.range[0] : values.range[1]).toISOString()
 
-    const base: Task = {
-      id: editingId ?? newId(),
+    const existing = editingId ? tasks.find(t => t.id === editingId) : undefined
+    const payload: Partial<Task> = {
       text: values.text,
       code: values.code,
       type: values.type,
       parent: values.type === 'project' ? undefined : values.parent,
       mission: values.mission,
+      fiscalYear: values.fiscalYear ?? fiscalYearOf(start),
       start, end,
       progress: values.type === 'milestone' ? undefined : (values.progress ?? 0),
       status: values.status,
       priority: values.priority,
-      owner: values.owner,
-      ownerPosition: values.ownerPosition,
+      owner: staff?.name ?? existing?.owner,
+      ownerUserId: values.ownerUserId,
+      ownerPosition: values.ownerPosition ?? staff?.position,
       department: values.department,
       contact: values.contact,
       budgetRequested: values.budgetRequested,
@@ -214,23 +306,30 @@ const GanttPageContent = () => {
       expectedOutcome: values.expectedOutcome,
       vendor: values.vendor,
       riskNote: values.riskNote,
-      progressLog: editingId ? tasks.find(t => t.id === editingId)?.progressLog ?? [] : [],
-      documents: editingId ? tasks.find(t => t.id === editingId)?.documents : [],
-      team:      editingId ? tasks.find(t => t.id === editingId)?.team : [],
+      // team/documents ไม่ได้แก้ในฟอร์ม — ส่งค่าเดิมกลับเพื่อไม่ให้ถูกล้างตอนอัปเดต
+      team: existing?.team,
+      documents: existing?.documents,
     }
 
-    const next = editingId
-      ? tasks.map(t => t.id === editingId ? base : t)
-      : [...tasks, base]
-    persistTasks(next)
-    setEditorOpen(false)
-    message.success(editingId ? 'อัปเดตข้อมูลสำเร็จ' : 'เพิ่มรายการสำเร็จ')
+    try {
+      if (editingId) await apiUpdateTask(editingId, payload)
+      else await apiCreateTask(payload)
+      await reload()
+      setEditorOpen(false)
+      message.success(editingId ? 'อัปเดตข้อมูลสำเร็จ' : 'เพิ่มรายการสำเร็จ')
+    } catch (e) {
+      message.error((e as Error).message)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    const next = tasks.filter(t => t.id !== id && t.parent !== id)
-    persistTasks(next)
-    message.success('ลบรายการเรียบร้อย')
+  const handleDelete = async (id: string) => {
+    try {
+      await apiDeleteTask(id)
+      await reload()
+      message.success('ลบรายการเรียบร้อย')
+    } catch (e) {
+      message.error((e as Error).message)
+    }
   }
 
   const openProgress = (id: string) => {
@@ -245,26 +344,19 @@ const GanttPageContent = () => {
   const submitProgress = async () => {
     if (!progressTargetId) return
     const values = await progressForm.validateFields()
-    const next = tasks.map(t => {
-      if (t.id !== progressTargetId) return t
-      const log: ProgressLogEntry = {
-        id: newId(),
-        date: new Date().toISOString(),
+    try {
+      await apiAddProgress(progressTargetId, {
         progress: values.progress,
         note: values.note,
         reportedBy: values.reportedBy,
         budgetSpentDelta: values.budgetSpentDelta,
-      }
-      return {
-        ...t,
-        progress: values.progress,
-        progressLog: [...(t.progressLog ?? []), log],
-        budgetSpent: (t.budgetSpent ?? 0) + (values.budgetSpentDelta ?? 0),
-      }
-    })
-    persistTasks(next)
-    setProgressOpen(false)
-    message.success('บันทึกความคืบหน้าเรียบร้อย')
+      })
+      await reload()
+      setProgressOpen(false)
+      message.success('บันทึกความคืบหน้าเรียบร้อย')
+    } catch (e) {
+      message.error((e as Error).message)
+    }
   }
 
   const openDetail = (id: string) => {
@@ -274,15 +366,18 @@ const GanttPageContent = () => {
   const detailTask = tasks.find(t => t.id === detailId)
 
   const handleReset = () => {
-    Modal.confirm({
+    modal.confirm({
       title: 'รีเซ็ตข้อมูลทั้งหมด?',
-      content: 'จะคืนค่าเป็นข้อมูลตัวอย่าง — ข้อมูลที่แก้ไขจะถูกลบ',
+      content: 'จะคืนค่าเป็นข้อมูลตัวอย่างในฐานข้อมูล — ข้อมูลที่แก้ไขทั้งหมดจะถูกลบ',
       okText: 'รีเซ็ต', okButtonProps: { danger: true }, cancelText: 'ยกเลิก',
-      onOk: () => {
-        resetAll()
-        setTasks(DEFAULT_TASKS)
-        setLinks(DEFAULT_LINKS)
-        message.success('รีเซ็ตเรียบร้อย')
+      onOk: async () => {
+        try {
+          await apiResetRoadmap()
+          await reload()
+          message.success('รีเซ็ตเรียบร้อย')
+        } catch (e) {
+          message.error((e as Error).message)
+        }
       },
     })
   }
@@ -301,8 +396,25 @@ const GanttPageContent = () => {
     const categories = ordered.map(t => t.text)
     const idToIdx = new Map(ordered.map((t, i) => [t.id, i]))
 
-    const minTime = Math.min(...ordered.map(t => new Date(t.start).getTime()))
-    const maxTime = Math.max(...ordered.map(t => new Date(t.end).getTime()))
+    // กรอบแกนเวลาแบบปีงบประมาณ (ต.ค. – ก.ย.) ไม่ใช่ ม.ค. – ธ.ค.
+    // ปีงบ N (พ.ศ.) = 1 ต.ค. (ค.ศ. N-543-1) ถึง 30 ก.ย. (ค.ศ. N-543)
+    const fys = ordered.map(taskFiscalYear)
+    const fyStart = new Date(Math.min(...fys) - 543 - 1, 9, 1).getTime()          // 1 ต.ค. ปีงบแรก
+    const fyEnd   = new Date(Math.max(...fys) - 543, 8, 30, 23, 59, 59).getTime() // 30 ก.ย. ปีงบสุดท้าย
+    const dataMin = Math.min(...ordered.map(t => new Date(t.start).getTime()))
+    const dataMax = Math.max(...ordered.map(t => new Date(t.end).getTime()))
+    // เริ่มที่ ต.ค. ของปีงบ แต่ไม่ตัดงานที่ล้นออกนอกกรอบ
+    const minTime = Math.min(fyStart, dataMin)
+    const maxTime = Math.max(fyEnd, dataMax)
+
+    const TH_MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    const fyAxisLabel = (val: number) => {
+      const d = new Date(val)
+      const m = d.getMonth()
+      // ต้นปีงบ (ต.ค.) เน้นด้วยปีงบ พ.ศ.
+      const fyOfMonth = (m >= 9 ? d.getFullYear() + 1 : d.getFullYear()) + 543
+      return m === 9 ? `{fy|ปีงบ ${fyOfMonth}}\n${TH_MON[m]}` : TH_MON[m]
+    }
 
     const barData = ordered.map((t, i) => ({
       value: [
@@ -361,10 +473,15 @@ const GanttPageContent = () => {
       },
       xAxis: {
         type: 'time', position: 'top',
-        min: minTime - DAY * 7, max: maxTime + DAY * 7,
+        min: minTime, max: maxTime,
+        minInterval: 28 * DAY, maxInterval: 31 * DAY,   // ปักหมุดรายเดือน (ตามรอบปีงบ)
         splitLine: { show: true, lineStyle: { color: cGrid } },
         axisLine: { lineStyle: { color: cMuted } },
-        axisLabel: { color: cAxis, fontSize: 11, fontWeight: 600 },
+        axisLabel: {
+          color: cAxis, fontSize: 11, fontWeight: 600,
+          formatter: fyAxisLabel,
+          rich: { fy: { color: cPurple, fontSize: 10, fontWeight: 800, padding: [0, 0, 2, 0] } },
+        },
       },
       yAxis: {
         type: 'category', data: categories, inverse: true,
@@ -472,6 +589,11 @@ const GanttPageContent = () => {
     {
       title: 'รหัส', dataIndex: 'code', width: 130,
       render: (v?: string) => v ? <Text style={{ color: cPurple, fontWeight: 600 }}>{v}</Text> : <Text type="secondary">-</Text>,
+    },
+    {
+      title: 'ปีงบ', width: 90, align: 'center' as const,
+      sorter: (a: Task, b: Task) => taskFiscalYear(a) - taskFiscalYear(b),
+      render: (_: unknown, r: Task) => <Tag color="geekblue" style={{ margin: 0 }}>{taskFiscalYear(r)}</Tag>,
     },
     {
       title: 'รายการ', dataIndex: 'text',
@@ -592,7 +714,7 @@ const GanttPageContent = () => {
                 <Title level={2} style={{ color: 'var(--app-text)', margin: 0, fontWeight: 900, letterSpacing: '-0.02em' }} className="uppercase">
                   IT Project Roadmap 2026
                 </Title>
-                <Text className="text-app-text-2 text-sm">แผนโครงการเทคโนโลยีสารสนเทศ ประจำปีงบประมาณ 2569 — กลุ่มงาน IT</Text>
+                <Text className="text-app-text-2 text-sm">แผนโครงการเทคโนโลยีสารสนเทศ {selectedFY === 'all' ? 'ทุกปีงบประมาณ' : `ประจำปีงบประมาณ ${selectedFY}`} — กลุ่มงาน IT</Text>
               </div>
             </div>
 
@@ -606,6 +728,9 @@ const GanttPageContent = () => {
               <Button icon={<FlagOutlined />} style={gBtn('#f43f5e', '#fb7185')}
                 className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
                 onClick={() => openCreate('milestone')}>เพิ่ม Milestone</Button>
+              <Button icon={<SettingOutlined />} style={gBtn('#0ea5e9', '#22d3ee')}
+                className="transition-all duration-200 hover:-translate-y-px hover:brightness-110"
+                onClick={() => { setEditingKpiCode(null); setKpiMgrOpen(true) }}>จัดการ KPI</Button>
               <Button icon={<ReloadOutlined />} danger ghost
                 className="transition-all duration-200 hover:-translate-y-px"
                 onClick={handleReset}>รีเซ็ตข้อมูล</Button>
@@ -655,6 +780,15 @@ const GanttPageContent = () => {
         <div className="flex flex-wrap gap-4 mb-6 p-4 bg-app-surface/70 border border-app-border rounded-xl backdrop-blur-sm items-center shadow-lg">
           <Tag icon={<SyncOutlined spin />} className="font-bold border-0" color="purple">ECharts Gantt</Tag>
           <div className="h-4 w-px bg-app-border mx-1 hidden sm:block" />
+
+          <Select
+            value={selectedFY} onChange={setSelectedFY}
+            options={[
+              { value: 'all', label: '📅 ทุกปีงบประมาณ' },
+              ...fiscalYears.map(y => ({ value: String(y), label: `ปีงบ ${y}` })),
+            ]}
+            className="w-full sm:w-40" popupMatchSelectWidth={false}
+          />
 
           <Select
             value={selectedMission} onChange={setSelectedMission}
@@ -738,9 +872,14 @@ const GanttPageContent = () => {
           </Row>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={7}>
               <Form.Item label="กลุ่มงาน IT" name="mission" rules={[{ required: true }]}>
                 <Select options={MISSION_OPTIONS.map(m => ({ value: m.value, label: m.label }))} />
+              </Form.Item>
+            </Col>
+            <Col span={5}>
+              <Form.Item label="ปีงบ (พ.ศ.)" name="fiscalYear" tooltip="เว้นว่างได้ ระบบจะคำนวณจากวันที่เริ่มให้อัตโนมัติ">
+                <InputNumber min={2500} max={2700} style={{ width: '100%' }} placeholder="2569" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -774,12 +913,23 @@ const GanttPageContent = () => {
 
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="ผู้รับผิดชอบหลัก" name="owner">
-                <Input prefix={<TeamOutlined />} placeholder="ชื่อ-นามสกุล" />
+              <Form.Item label="ผู้รับผิดชอบหลัก" name="ownerUserId" tooltip="เลือกจากเจ้าหน้าที่กลุ่มงาน IT (role IT_STAFF)">
+                <Select
+                  showSearch allowClear
+                  placeholder="เลือกเจ้าหน้าที่ IT"
+                  suffixIcon={<TeamOutlined />}
+                  options={staffOptions}
+                  filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                  onChange={(v) => {
+                    const s = staffOptions.find(o => o.value === v)?.staff
+                    if (s?.position) form.setFieldValue('ownerPosition', s.position)
+                  }}
+                  notFoundContent={meta ? 'ไม่พบเจ้าหน้าที่ IT' : 'กำลังโหลด...'}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="ตำแหน่ง" name="ownerPosition">
+              <Form.Item label="ตำแหน่ง" name="ownerPosition" tooltip="เติมอัตโนมัติจากผู้รับผิดชอบ แก้ไขได้">
                 <Input placeholder="ตำแหน่ง" />
               </Form.Item>
             </Col>
@@ -834,13 +984,18 @@ const GanttPageContent = () => {
                 </Col>
               </Row>
 
-              <Divider style={{ margin: '8px 0 16px' }}>ตัวชี้วัด IT (KPI)</Divider>
+              <Divider style={{ margin: '8px 0 16px' }}>
+                ตัวชี้วัด IT (KPI)
+                <Button type="link" size="small" icon={<SettingOutlined />} onClick={() => { setEditingKpiCode(null); setKpiMgrOpen(true) }}>จัดการ KPI</Button>
+              </Divider>
               <Row gutter={16}>
                 <Col span={24}>
-                  <Form.Item label="KPI ที่เกี่ยวข้อง" name="kpiCode">
+                  <Form.Item label={`KPI ที่เกี่ยวข้อง${watchedFY ? ` (ใช้ได้ในปีงบ ${watchedFY})` : ''}`} name="kpiCode">
                     <Select
-                      allowClear placeholder="เลือก KPI ที่โครงการนี้สนับสนุน"
-                      options={KPI_OPTIONS.map(k => ({ value: k.code, label: `${k.code} — ${k.name} (เป้า ${k.target})` }))}
+                      allowClear showSearch placeholder="เลือก KPI ที่โครงการนี้สนับสนุน"
+                      filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                      options={kpiChoices.map(k => ({ value: k.code, label: `${k.code} — ${k.name}${k.target ? ` (เป้า ${k.target})` : ''}` }))}
+                      notFoundContent={<span>ไม่มี KPI สำหรับปีงบนี้ — <a onClick={() => { setEditingKpiCode(null); setKpiMgrOpen(true) }}>เพิ่ม KPI</a></span>}
                     />
                   </Form.Item>
                 </Col>
@@ -887,10 +1042,95 @@ const GanttPageContent = () => {
           <Form.Item label="หมายเหตุ / ผลการดำเนินงาน" name="note" rules={[{ required: true, message: 'กรุณาระบุหมายเหตุ' }]}>
             <TextArea rows={3} placeholder="ผลการดำเนินงาน / สิ่งที่เสร็จในรอบนี้" />
           </Form.Item>
-          <Form.Item label="รายงานโดย" name="reportedBy" rules={[{ required: true }]}>
-            <Input />
+          <Form.Item label="รายงานโดย" name="reportedBy" rules={[{ required: true, message: 'กรุณาเลือกผู้รายงาน' }]} tooltip="เลือกจากเจ้าหน้าที่กลุ่มงาน IT (role IT_STAFF)">
+            <Select
+              showSearch allowClear
+              placeholder="เลือกเจ้าหน้าที่ IT"
+              suffixIcon={<TeamOutlined />}
+              options={(meta?.staff ?? []).map(s => ({
+                value: s.name,
+                label: s.position ? `${s.name} — ${s.position}` : s.name,
+              }))}
+              filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+              notFoundContent={meta ? 'ไม่พบเจ้าหน้าที่ IT' : 'กำลังโหลด...'}
+            />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={<><SettingOutlined /> จัดการตัวชี้วัด (KPI) — กำหนดปีงบที่ใช้งาน</>}
+        open={kpiMgrOpen} onCancel={() => setKpiMgrOpen(false)} footer={null}
+        width={860} destroyOnHidden
+      >
+        <Card size="small" variant="borderless" className="bg-app-surface/40 mb-4"
+          title={<span className="text-app-text">{editingKpiCode ? `แก้ไข KPI: ${editingKpiCode}` : 'เพิ่ม KPI ใหม่'}</span>}>
+          <Form form={kpiForm} layout="vertical" initialValues={{ active: true, years: [] }}>
+            <Row gutter={12}>
+              <Col span={7}>
+                <Form.Item label="รหัส KPI" name="code" rules={[{ required: !editingKpiCode, message: 'ระบุรหัส' }]}>
+                  <Input placeholder="IT-009" disabled={!!editingKpiCode} />
+                </Form.Item>
+              </Col>
+              <Col span={11}>
+                <Form.Item label="ชื่อตัวชี้วัด" name="name" rules={[{ required: true, message: 'ระบุชื่อ' }]}>
+                  <Input placeholder="เช่น ร้อยละการใช้งานระบบ e-Document" />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="เป้าหมาย" name="target">
+                  <Input placeholder="≥ 90%" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={12}>
+              <Col span={18}>
+                <Form.Item label="ปีงบที่ใช้งาน (พ.ศ.)" name="years"
+                  tooltip="เว้นว่าง = ใช้ได้ทุกปีงบ / เลือกปี = แสดงเฉพาะโครงการปีนั้น">
+                  <Select mode="multiple" allowClear placeholder="ทุกปีงบ (เว้นว่าง) หรือเลือกปีที่ต้องการ"
+                    options={yearOptions} />
+                </Form.Item>
+              </Col>
+              <Col span={6}>
+                <Form.Item label="เปิดใช้งาน" name="active" valuePropName="checked">
+                  <Switch checkedChildren="ใช้" unCheckedChildren="ปิด" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Space>
+              <Button type="primary" onClick={submitKpi}>{editingKpiCode ? 'บันทึกการแก้ไข' : 'เพิ่ม KPI'}</Button>
+              {editingKpiCode && <Button onClick={openKpiCreate}>ยกเลิกการแก้ไข</Button>}
+            </Space>
+          </Form>
+        </Card>
+
+        <Table
+          size="small" rowKey="code" pagination={false}
+          dataSource={meta?.kpis ?? []}
+          locale={{ emptyText: <Empty description="ยังไม่มี KPI" /> }}
+          columns={[
+            { title: 'รหัส', dataIndex: 'code', width: 90, render: (v: string) => <Text style={{ color: cPurple, fontWeight: 600 }}>{v}</Text> },
+            { title: 'ชื่อตัวชี้วัด', dataIndex: 'name' },
+            { title: 'เป้าหมาย', dataIndex: 'target', width: 110, render: (v?: string) => v ?? '-' },
+            {
+              title: 'ปีงบที่ใช้งาน', dataIndex: 'years', width: 200,
+              render: (ys: number[]) => ys.length
+                ? <Space size={[4, 4]} wrap>{ys.map(y => <Tag key={y} color="geekblue" style={{ margin: 0 }}>{y}</Tag>)}</Space>
+                : <Tag color="green">ทุกปีงบ</Tag>,
+            },
+            {
+              title: '', width: 90, align: 'center' as const,
+              render: (_: unknown, k: { code: string; name: string; target: string; years: number[] }) => (
+                <Space size="small">
+                  <Button size="small" icon={<EditOutlined />} onClick={() => openKpiEdit(k)} />
+                  <Popconfirm title={`ลบ KPI ${k.code}?`} onConfirm={() => deleteKpiRow(k.code)} okText="ลบ" cancelText="ยกเลิก" okButtonProps={{ danger: true }}>
+                    <Button size="small" danger icon={<DeleteOutlined />} />
+                  </Popconfirm>
+                </Space>
+              ),
+            },
+          ]}
+        />
       </Modal>
 
       <Drawer
@@ -932,6 +1172,9 @@ const GanttPageContent = () => {
               </Descriptions.Item>
               <Descriptions.Item label="หน่วยงาน">{detailTask.department ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="ติดต่อ">{detailTask.contact ?? '-'}</Descriptions.Item>
+              <Descriptions.Item label="ปีงบประมาณ">
+                <Tag color="geekblue">ปีงบ {taskFiscalYear(detailTask)}</Tag>
+              </Descriptions.Item>
               <Descriptions.Item label="ระยะเวลา">
                 {dayjs(detailTask.start).format('DD/MM/YYYY')}
                 {detailTask.type !== 'milestone' && ` — ${dayjs(detailTask.end).format('DD/MM/YYYY')}`}

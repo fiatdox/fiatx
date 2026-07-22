@@ -75,6 +75,8 @@ const Navbar: React.FC = () => {
     '/information-technology/hait/incident-reports': IT_STAFF_ROLES,
     '/information-technology/hait/activity': IT_STAFF_ROLES,
     '/information-technology/hait/risk-management': IT_STAFF_ROLES,
+    // ตรวจสอบ/อนุมัติคำขอข้อมูลสถิติ (PDPA) — เฉพาะหัวหน้ากลุ่มงานข้อมูลทางการแพทย์
+    '/medical-data/statistics-review': ['ADMIN', 'CHIEF_GROUP_MEDSTAT'],
   }
 
   // เห็นเมนูนี้ได้ไหม — route ที่ไม่ได้กำหนดสิทธิ์ = เห็นได้ทุกคน
@@ -430,6 +432,9 @@ const Navbar: React.FC = () => {
               children: [
                 { key: '/medical-data/statistics', icon: <FaChartBar />, label: 'เวชสถิติ / สถิติผู้ป่วย' },
                 { key: '/medical-data/statistics-request', icon: <FaClipboardList />, label: 'ขอข้อมูลสถิติ' },
+                { key: '/medical-data/statistics-review', icon: <FaUserShield />, label: 'ตรวจสอบ/อนุมัติคำขอ (หัวหน้ากลุ่ม)' },
+                { key: '/medical-data/statistics-tasks', icon: <FaTasks />, label: 'งานที่ได้รับมอบหมาย' },
+                { key: '/medical-data/statistics-request-dashboard', icon: <FaTachometerAlt />, label: 'Dashboard คำขอข้อมูล' },
               ]
             },
             { 

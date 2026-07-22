@@ -3,11 +3,11 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, Card, Row, Col, Tag,
   Avatar, Drawer, Form, Select, Breadcrumb, Tooltip,
-  App, Typography, Popconfirm, Badge, Spin, DatePicker,
+  App, Typography, Badge, Spin, DatePicker,
 } from 'antd'
 import {
   EditOutlined, SearchOutlined, UserOutlined, PlusOutlined,
-  HomeOutlined, IdcardOutlined, CheckCircleOutlined, StopOutlined,
+  HomeOutlined, IdcardOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
 import { FaUsersCog, FaUsers, FaFilter, FaFileExcel } from 'react-icons/fa'
@@ -48,8 +48,12 @@ interface User {
   attendance_id?: number
   salary_id?: number
   is_active?: string | boolean
+  work_end_date?: string
   hospital_lc_pid?: number
 }
+
+// ชื่อสถานะที่ถือว่า "ยังปฏิบัติงานอยู่" — สถานะอื่น (ลาออก/เกษียณ/โอนย้าย ฯลฯ) ต้องระบุวันสิ้นสุด
+const WORKING_STATUS_NAME = 'ปฏิบัติงาน'
 
 interface SystemOption { id: number; name: string; [k: string]: unknown }
 
@@ -103,6 +107,8 @@ const PageContent = () => {
   const [editing, setEditing] = useState<User | null>(null)
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
+  // เฝ้าดูสถานะที่เลือกในฟอร์ม เพื่อโชว์/บังคับช่องวันที่สิ้นสุดการปฏิบัติงาน
+  const watchedStatusId = Form.useWatch('user_status_id', form) as number | undefined
 
   // system dropdowns
   const [missions, setMissions] = useState<SystemOption[]>([])
@@ -119,6 +125,10 @@ const PageContent = () => {
 
   // ID → name lookup helpers
   const byId = (arr: SystemOption[], id?: number) => arr.find((o) => o.id === id)?.name ?? '-'
+
+  // สถานะที่ไม่ใช่ "ปฏิบัติงาน" -> ต้องระบุวันสิ้นสุด + is_active = 'N'
+  const isNonWorkingStatus = (statusId?: number) =>
+    statusId != null && userStatuses.find((s) => s.id === statusId)?.name !== WORKING_STATUS_NAME
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -196,6 +206,7 @@ const PageContent = () => {
       gender: record.gender === 'M' ? 'ชาย' : record.gender === 'F' ? 'หญิง' : record.gender,
       birthday: record.birthday ? dayjs(record.birthday) : undefined,
       hire_date: record.hire_date ? dayjs(record.hire_date) : undefined,
+      work_end_date: record.work_end_date ? dayjs(record.work_end_date) : undefined,
     })
     if (record.mission_id) {
       apiFetch(`/api/system/missions/${record.mission_id}/majors`).then((d) => {
@@ -223,6 +234,17 @@ const PageContent = () => {
     // map Thai gender display back to API value
     if (values.gender === 'ชาย') values.gender = 'M'
     else if (values.gender === 'หญิง') values.gender = 'F'
+
+    // ── สถานะการปฏิบัติงาน ──────────────────────────────────────────────
+    // ถ้าสถานะไม่ใช่ "ปฏิบัติงาน" -> ต้องมีวันสิ้นสุด และตั้ง is_active = 'N'
+    // ถ้าเป็น "ปฏิบัติงาน" (หรือยังไม่เลือก) -> is_active = 'Y' และล้างวันสิ้นสุด
+    if (isNonWorkingStatus(values.user_status_id as number | undefined)) {
+      values.work_end_date = dayjs(values.work_end_date as dayjs.Dayjs).format('YYYY-MM-DD')
+      values.is_active = 'N'
+    } else {
+      values.work_end_date = null
+      values.is_active = 'Y'
+    }
 
     setSaving(true)
     try {
@@ -270,30 +292,6 @@ const PageContent = () => {
       message.error('บันทึกข้อมูลไม่สำเร็จ')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleToggleActive = async (user: User) => {
-    const action = isActive(user) ? 'deactivate' : 'activate'
-    const label = isActive(user) ? 'ระงับการใช้งาน' : 'เปิดใช้งาน'
-    const result = await Swal.fire({
-      title: `${label}?`,
-      text: `${user.pname ?? ''}${user.fname} ${user.lname}`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonColor: isActive(user) ? '#ef4444' : '#006a5a',
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonText: label,
-      background: 'var(--app-surface)',
-      color: 'var(--app-text)',
-    })
-    if (!result.isConfirmed) return
-    try {
-      await apiFetch(`/api/users/${user.id}/${action}`, { method: 'PATCH' })
-      message.success(`${label}สำเร็จ`)
-      loadUsers()
-    } catch {
-      message.error('ดำเนินการไม่สำเร็จ')
     }
   }
 
@@ -424,17 +422,6 @@ const PageContent = () => {
         <Space size={4}>
           <Tooltip title="แก้ไข">
             <Button type="text" shape="circle" size="small" icon={<EditOutlined style={{ color: '#60a5fa' }} />} onClick={() => handleEdit(u)} />
-          </Tooltip>
-          <Tooltip title={isActive(u) ? 'ระงับการใช้งาน' : 'เปิดใช้งาน'}>
-            <Button
-              type="text"
-              shape="circle"
-              size="small"
-              icon={isActive(u)
-                ? <StopOutlined style={{ color: '#ef4444' }} />
-                : <CheckCircleOutlined style={{ color: '#22c55e' }} />}
-              onClick={() => handleToggleActive(u)}
-            />
           </Tooltip>
         </Space>
       ),
@@ -669,11 +656,40 @@ const PageContent = () => {
               </Col>
               <Col span={12}>
                 <Form.Item name="user_status_id" label="สถานะ">
-                  <Select placeholder="เลือกสถานะ" options={toOpts(userStatuses)} allowClear />
+                  <Select
+                    placeholder="เลือกสถานะ"
+                    options={toOpts(userStatuses)}
+                    allowClear
+                    onChange={(v) => {
+                      // สลับกลับมา "ปฏิบัติงาน" (หรือล้างค่า) -> เคลียร์วันสิ้นสุดทันที
+                      if (!isNonWorkingStatus(v as number | undefined)) {
+                        form.setFieldValue('work_end_date', undefined)
+                      }
+                    }}
+                  />
                 </Form.Item>
               </Col>
             </Row>
 
+            {isNonWorkingStatus(watchedStatusId) && (
+              <Row gutter={12}>
+                <Col span={12}>
+                  <Form.Item
+                    name="work_end_date"
+                    label="วันที่สิ้นสุดการปฏิบัติงาน"
+                    tooltip="วันสุดท้ายที่บุคลากรปฏิบัติงาน (เช่น วันลาออก/เกษียณ/โอนย้าย)"
+                    rules={[{ required: true, message: 'กรุณาระบุวันที่สิ้นสุดการปฏิบัติงาน' }]}
+                  >
+                    <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่สิ้นสุด" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <div className="mt-7 text-xs text-app-text-2">
+                    เมื่อบันทึก สถานะการใช้งานจะถูกตั้งเป็น <Tag color="red" className="ml-1">ระงับ (is_active=N)</Tag>
+                  </div>
+                </Col>
+              </Row>
+            )}
 
           </Form>
         </Drawer>

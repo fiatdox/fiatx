@@ -34,10 +34,12 @@ export type Task = {
   mission: Mission
 
   code?: string
+  fiscalYear?: number
   status?: ProjectStatus
   priority?: Priority
 
   owner?: string
+  ownerUserId?: number
   ownerPosition?: string
   department?: string
   contact?: string
@@ -72,7 +74,9 @@ export type LinkRow = {
 // Mockup constants
 // ──────────────────────────────────────────────────────────────────────────
 
-export const MISSION_OPTIONS: { value: Mission; label: string; color: string }[] = [
+// ตัวเลือกเหล่านี้เป็น "ค่าปัจจุบัน" ที่ถูกแทนที่ด้วยข้อมูลจากตาราง master เมื่อโหลด meta
+// (ค่าเริ่มต้นด้านล่างใช้เป็น fallback ก่อน fetch สำเร็จ)
+export let MISSION_OPTIONS: { value: Mission; label: string; color: string }[] = [
   { value: 'infra',       label: 'โครงสร้างพื้นฐาน (Network/Server)',     color: '#3b82f6' },
   { value: 'security',    label: 'ความปลอดภัยทางไซเบอร์',                   color: '#ef4444' },
   { value: 'application', label: 'พัฒนาระบบงาน / Application',              color: '#a855f7' },
@@ -80,7 +84,7 @@ export const MISSION_OPTIONS: { value: Mission; label: string; color: string }[]
   { value: 'smart',       label: 'Smart Hospital',                           color: '#06b6d4' },
 ]
 
-export const STATUS_OPTIONS: { value: ProjectStatus; label: string; color: string }[] = [
+export let STATUS_OPTIONS: { value: ProjectStatus; label: string; color: string }[] = [
   { value: 'draft',       label: 'ร่าง',                color: 'default'    },
   { value: 'proposed',    label: 'เสนอขออนุมัติ',       color: 'warning'    },
   { value: 'approved',    label: 'อนุมัติแล้ว',         color: 'cyan'       },
@@ -90,13 +94,13 @@ export const STATUS_OPTIONS: { value: ProjectStatus; label: string; color: strin
   { value: 'cancelled',   label: 'ยกเลิก',              color: 'error'      },
 ]
 
-export const PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
+export let PRIORITY_OPTIONS: { value: Priority; label: string; color: string }[] = [
   { value: 'high',   label: 'สูง',     color: 'red'    },
   { value: 'medium', label: 'ปานกลาง', color: 'gold'   },
   { value: 'low',    label: 'ต่ำ',     color: 'green'  },
 ]
 
-export const DEPARTMENT_OPTIONS = [
+export let DEPARTMENT_OPTIONS: string[] = [
   'งานพัฒนาระบบสารสนเทศ',
   'งานเครือข่ายและโครงสร้างพื้นฐาน',
   'งานความปลอดภัยทางไซเบอร์',
@@ -105,7 +109,7 @@ export const DEPARTMENT_OPTIONS = [
   'กลุ่มงานสารสนเทศทางการแพทย์',
 ]
 
-export const KPI_OPTIONS = [
+export let KPI_OPTIONS: { code: string; name: string; target: string }[] = [
   { code: 'IT-001', name: 'ระยะเวลาตอบสนอง Helpdesk เฉลี่ย',                       target: '≤ 4 ชม.' },
   { code: 'IT-002', name: 'อัตราระบบสารสนเทศหลัก Uptime',                            target: '≥ 99.5%' },
   { code: 'IT-003', name: 'จำนวนเหตุการณ์ความปลอดภัยทางไซเบอร์',                    target: '0 ครั้ง' },
@@ -399,7 +403,66 @@ export const DEFAULT_LINKS: LinkRow[] = [
 ]
 
 // ──────────────────────────────────────────────────────────────────────────
-// localStorage helpers (namespace แยกจาก HSS strategy)
+// Backend API helpers (ระบบจริง — ผูกกับ /api/v1/it/roadmap)
+// ──────────────────────────────────────────────────────────────────────────
+
+const jsonReq = async (url: string, method: string, body?: unknown) => {
+  const res = await fetch(url, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  const j = await res.json().catch(() => ({}))
+  if (!res.ok || j?.success === false) throw new Error(j?.message || 'ดำเนินการไม่สำเร็จ')
+  return j
+}
+
+export async function fetchRoadmap(): Promise<{ tasks: Task[]; links: LinkRow[] }> {
+  const j = await jsonReq('/api/v1/it/roadmap', 'GET')
+  return { tasks: j.data?.tasks ?? [], links: j.data?.links ?? [] }
+}
+// ── meta (ตัวเลือกจากตาราง master + รายชื่อเจ้าหน้าที่ IT) ──
+export type StaffOption = { id: number; name: string; position?: string }
+export type RoadmapMeta = {
+  missions: { value: Mission; label: string; color: string }[]
+  statuses: { value: ProjectStatus; label: string; color: string }[]
+  priorities: { value: Priority; label: string; color: string }[]
+  kpis: { code: string; name: string; target: string; years: number[] }[]
+  departments: string[]
+  staff: StaffOption[]
+}
+
+// นำ meta ที่ดึงมาไปแทนที่ค่า option ปัจจุบัน เพื่อให้ helper (getStatusMeta ฯลฯ) ใช้ค่าล่าสุด
+export function applyMeta(meta: RoadmapMeta) {
+  if (meta.missions?.length)   MISSION_OPTIONS  = meta.missions
+  if (meta.statuses?.length)   STATUS_OPTIONS   = meta.statuses
+  if (meta.priorities?.length) PRIORITY_OPTIONS = meta.priorities
+  if (meta.kpis?.length)       KPI_OPTIONS      = meta.kpis
+  if (meta.departments?.length) DEPARTMENT_OPTIONS = meta.departments
+}
+
+export async function fetchMeta(): Promise<RoadmapMeta> {
+  const j = await jsonReq('/api/v1/it/roadmap/meta', 'GET')
+  const m = (j.data ?? {}) as RoadmapMeta
+  applyMeta(m)
+  return m
+}
+
+export const apiCreateTask = (payload: Partial<Task>) => jsonReq('/api/v1/it/roadmap/tasks', 'POST', payload)
+export const apiUpdateTask = (id: string, payload: Partial<Task>) => jsonReq(`/api/v1/it/roadmap/tasks/${id}`, 'PUT', payload)
+export const apiDeleteTask = (id: string) => jsonReq(`/api/v1/it/roadmap/tasks/${id}`, 'DELETE')
+export const apiAddProgress = (id: string, payload: { progress: number; note?: string; reportedBy?: string; budgetSpentDelta?: number }) =>
+  jsonReq(`/api/v1/it/roadmap/tasks/${id}/progress`, 'POST', payload)
+export const apiResetRoadmap = () => jsonReq('/api/v1/it/roadmap/reset', 'POST', {})
+
+// ── KPI master CRUD (กำหนดปีงบที่ active ได้) ──
+export type KpiInput = { code?: string; name: string; target?: string; years?: number[]; active?: boolean; sort?: number }
+export const apiCreateKpi = (payload: KpiInput) => jsonReq('/api/v1/it/roadmap/kpi', 'POST', payload)
+export const apiUpdateKpi = (code: string, payload: KpiInput) => jsonReq(`/api/v1/it/roadmap/kpi/${encodeURIComponent(code)}`, 'PUT', payload)
+export const apiDeleteKpi = (code: string) => jsonReq(`/api/v1/it/roadmap/kpi/${encodeURIComponent(code)}`, 'DELETE')
+
+// ──────────────────────────────────────────────────────────────────────────
+// localStorage helpers (เดิม — คงไว้เผื่อ fallback แต่หน้าใช้ API แล้ว)
 // ──────────────────────────────────────────────────────────────────────────
 
 const TASKS_KEY = 'fiatx.it-grant-charts.tasks.v1'
@@ -448,6 +511,16 @@ export const resetAll = () => {
 // ──────────────────────────────────────────────────────────────────────────
 // Utilities
 // ──────────────────────────────────────────────────────────────────────────
+
+// ปีงบประมาณไทย (พ.ศ.) จากวันที่เริ่ม — เริ่มรอบ 1 ต.ค.
+export const fiscalYearOf = (startISO: string): number => {
+  const d = new Date(startISO)
+  return (d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear()) + 543
+}
+
+// ปีงบของงาน: ใช้ค่าที่บันทึกไว้ ถ้าไม่มีจึงคำนวณจากวันที่เริ่ม
+export const taskFiscalYear = (t: Task): number =>
+  t.fiscalYear ?? fiscalYearOf(t.start)
 
 export const formatTHB = (n?: number) => {
   if (n == null) return '-'

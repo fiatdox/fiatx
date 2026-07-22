@@ -10,7 +10,7 @@ import {
   DesktopOutlined, UserOutlined, BarChartOutlined, CalendarOutlined,
   WarningOutlined, BulbOutlined, RiseOutlined, FallOutlined, FireOutlined,
   TableOutlined, DashboardOutlined, PieChartOutlined,
-  FileTextOutlined, ClockCircleOutlined,
+  FileTextOutlined, ClockCircleOutlined, RadarChartOutlined,
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
 import { useThemeMode } from '@/app/components/ThemeProvider'
@@ -164,6 +164,7 @@ function ActivityPageContent() {
   const [scheduleDate, setScheduleDate] = useState<dayjs.Dayjs>(dayjs())
   const [analysisRange, setAnalysisRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
   const [dashboardYear, setDashboardYear] = useState<number>(getFiscalYearBE(dayjs()))
+  const [radarStaff, setRadarStaff] = useState<number | 'all'>('all')  // เรดาร์: เลือกดูรายคน หรือทั้งทีม
   const [submitting, setSubmitting] = useState(false)
   // กันปัญหา hydration mismatch — state ที่อิงเวลาปัจจุบัน (scheduleDate, dashboardYear)
   // จะถูกเรนเดอร์เฉพาะฝั่ง client หลัง mount เท่านั้น
@@ -186,7 +187,8 @@ function ActivityPageContent() {
   const loadLogs = useCallback(async (fyBE: number) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/v1/it/activity/logs?fiscal_year=${fyBE}&limit=1000`)
+      // ดึงทั้งปีงบเพื่อใช้สรุป Dashboard/กราฟรายเดือน (ไม่ใช่แค่หน้าแรก) — backend cap อยู่ที่ 20000
+      const res = await fetch(`/api/v1/it/activity/logs?fiscal_year=${fyBE}&limit=20000`)
       const json = await res.json()
       if (json?.success) setLogs(json.data || [])
       else messageApi.error(json?.error?.message || 'โหลดรายการกิจกรรมไม่สำเร็จ')
@@ -391,6 +393,11 @@ function ActivityPageContent() {
 
   // ---- Chart 2: Horizontal Bar — ชั่วโมงรวมตามระบบ ----
   const chartSystemBar = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const txt2 = isDark ? '#94a3b8' : '#64748b'
+    const axisLine = isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.35)'
+    const splitLine = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.15)'
     const data = (master?.systems ?? [])
       .map(s => ({
         name: s.system_name_th,
@@ -400,10 +407,29 @@ function ActivityPageContent() {
       .sort((a, b) => a.value - b.value)
     return {
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { name: string; value: number }[]) => `${p[0].name}: ${p[0].value.toFixed(1)} ชม.` },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
+        formatter: (p: { name: string; value: number }[]) => `${p[0].name}: ${p[0].value.toFixed(1)} ชม.`,
+      },
       grid: { left: 90, right: 50, top: 20, bottom: 30 },
-      xAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
-      yAxis: { type: 'category', data: data.map(d => d.name), axisLabel: { color: 'var(--app-text)', fontSize: 11 } },
+      xAxis: {
+        type: 'value',
+        name: 'ชม.',
+        nameTextStyle: { color: txt2 },
+        axisLabel: { color: txt2 },
+        splitLine: { lineStyle: { color: splitLine } },
+      },
+      yAxis: {
+        type: 'category',
+        data: data.map(d => d.name),
+        axisLabel: { color: txt, fontSize: 11 },
+        axisLine: { lineStyle: { color: axisLine } },
+        axisTick: { lineStyle: { color: axisLine } },
+      },
       series: [{
         type: 'bar',
         data: data.map((d, i) => ({
@@ -416,14 +442,19 @@ function ActivityPageContent() {
             borderRadius: [0, 6, 6, 0],
           },
         })),
-        label: { show: true, position: 'right', formatter: '{c} ชม.', color: 'var(--app-text)', fontSize: 11 },
+        label: { show: true, position: 'right', formatter: '{c} ชม.', color: txt, fontSize: 11 },
         barWidth: '60%',
       }],
     }
-  }, [master, fyLogs])
+  }, [master, fyLogs, isDark])
 
   // ---- Chart 3: Line — แนวโน้มชั่วโมงงานรายเดือน ----
   const chartMonthlyLine = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const txt2 = isDark ? '#94a3b8' : '#64748b'
+    const axisLine = isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.35)'
+    const splitLine = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.15)'
     const months = fiscalYearMonths(dashboardYear)
     const totalSeries = months.map(m => {
       const ml = fyLogs.filter(l => {
@@ -441,11 +472,29 @@ function ActivityPageContent() {
     })
     return {
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis' },
-      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
+      },
+      legend: { bottom: 0, textStyle: { color: txt } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: FY_MONTH_LABELS, boundaryGap: false, axisLabel: { color: 'var(--app-text-2)' } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
+      xAxis: {
+        type: 'category',
+        data: FY_MONTH_LABELS,
+        boundaryGap: false,
+        axisLabel: { color: txt2 },
+        axisLine: { lineStyle: { color: axisLine } },
+        axisTick: { lineStyle: { color: axisLine } },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'ชม.',
+        nameTextStyle: { color: txt2 },
+        axisLabel: { color: txt2 },
+        splitLine: { lineStyle: { color: splitLine } },
+      },
       series: [
         {
           name: 'ชั่วโมงรวม',
@@ -475,10 +524,15 @@ function ActivityPageContent() {
         },
       ],
     }
-  }, [fyLogs, dashboardYear])
+  }, [fyLogs, dashboardYear, isDark])
 
   // ---- Chart 4: Stacked Bar — Reactive vs Proactive vs Neutral รายเดือน ----
   const chartNatureStack = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const txt2 = isDark ? '#94a3b8' : '#64748b'
+    const axisLine = isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.35)'
+    const splitLine = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.15)'
     const months = fiscalYearMonths(dashboardYear)
     const seriesData = (['reactive', 'proactive', 'neutral'] as const).map(nat => {
       return months.map(m => {
@@ -491,21 +545,44 @@ function ActivityPageContent() {
     })
     return {
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
+      },
+      legend: { bottom: 0, textStyle: { color: txt } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: FY_MONTH_LABELS, axisLabel: { color: 'var(--app-text-2)' } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
+      xAxis: {
+        type: 'category',
+        data: FY_MONTH_LABELS,
+        axisLabel: { color: txt2 },
+        axisLine: { lineStyle: { color: axisLine } },
+        axisTick: { lineStyle: { color: axisLine } },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'ชม.',
+        nameTextStyle: { color: txt2 },
+        axisLabel: { color: txt2 },
+        splitLine: { lineStyle: { color: splitLine } },
+      },
       series: [
         { name: 'เชิงรับ',  type: 'bar', stack: 'nat', data: seriesData[0], itemStyle: { color: '#ef4444', borderRadius: [0, 0, 0, 0] }, barWidth: '60%' },
         { name: 'เชิงรุก',  type: 'bar', stack: 'nat', data: seriesData[1], itemStyle: { color: '#22c55e' } },
         { name: 'กลาง',     type: 'bar', stack: 'nat', data: seriesData[2], itemStyle: { color: '#a855f7', borderRadius: [6, 6, 0, 0] } },
       ],
     }
-  }, [fyLogs, dashboardYear])
+  }, [fyLogs, dashboardYear, isDark])
 
   // ---- Chart 5: Stacked Bar — ภาระงานรายบุคคลแยกตามสถานะ ----
   const chartStaffStack = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const txt2 = isDark ? '#94a3b8' : '#64748b'
+    const axisLine = isDark ? 'rgba(148,163,184,0.35)' : 'rgba(100,116,139,0.35)'
+    const splitLine = isDark ? 'rgba(148,163,184,0.12)' : 'rgba(100,116,139,0.15)'
     const staffArr = master?.staff ?? []
     const statusArr = (['done', 'in_progress', 'waiting', 'pending'] as TaskStatus[])
     const series = statusArr.map((st, i, arr) => ({
@@ -524,17 +601,91 @@ function ActivityPageContent() {
     }))
     return {
       backgroundColor: 'transparent',
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { bottom: 0, textStyle: { color: 'var(--app-text)' } },
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
+      },
+      legend: { bottom: 0, textStyle: { color: txt } },
       grid: { left: 50, right: 30, top: 20, bottom: 50 },
-      xAxis: { type: 'category', data: staffArr.map(s => s.full_name_th), axisLabel: { color: 'var(--app-text)', fontSize: 11, interval: 0 } },
-      yAxis: { type: 'value', name: 'ชม.', nameTextStyle: { color: 'var(--app-text-2)' }, axisLabel: { color: 'var(--app-text-2)' } },
+      xAxis: {
+        type: 'category',
+        data: staffArr.map(s => s.full_name_th),
+        axisLabel: { color: txt, fontSize: 11, interval: 0 },
+        axisLine: { lineStyle: { color: axisLine } },
+        axisTick: { lineStyle: { color: axisLine } },
+      },
+      yAxis: {
+        type: 'value',
+        name: 'ชม.',
+        nameTextStyle: { color: txt2 },
+        axisLabel: { color: txt2 },
+        splitLine: { lineStyle: { color: splitLine } },
+      },
       series,
     }
-  }, [master, fyLogs, statusLabel])
+  }, [master, fyLogs, statusLabel, isDark])
+
+  // ---- Chart 5b: Radar — โปรไฟล์งานรายบุคคลแยกตามประเภทกิจกรรม ----
+  const chartStaffRadar = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const splitLine = isDark ? 'rgba(148,163,184,0.25)' : 'rgba(100,116,139,0.25)'
+    const splitArea: [string, string] = isDark
+      ? ['rgba(148,163,184,0.03)', 'rgba(148,163,184,0.08)']
+      : ['rgba(100,116,139,0.03)', 'rgba(100,116,139,0.07)']
+    const types = master?.types ?? []
+    const allStaff = master?.staff ?? []
+    const hoursOf = (staffId: number, typeCode: string) =>
+      fyLogs.filter(l => l.staff_id === staffId && l.type_code === typeCode)
+        .reduce((s, l) => s + l.minutes_used, 0) / 60
+    // สเกลแต่ละแกนตามค่าสูงสุดของทีม (คงที่ไม่ว่าเลือกคนไหน จะได้เทียบกันได้)
+    const indicator = types.map(t => {
+      const maxH = Math.max(1, ...allStaff.map(s => hoursOf(s.staff_id, t.type_code)))
+      return { name: t.type_name_th, max: Number((maxH * 1.1).toFixed(1)) }
+    })
+    const shown = radarStaff === 'all' ? allStaff : allStaff.filter(s => s.staff_id === radarStaff)
+    const data = shown.map((s, i) => {
+      const c = CHART_PALETTE[i % CHART_PALETTE.length]
+      return {
+        name: s.full_name_th,
+        value: types.map(t => Number(hoursOf(s.staff_id, t.type_code).toFixed(1))),
+        symbolSize: 4,
+        lineStyle: { color: c, width: 2 },
+        itemStyle: { color: c },
+        areaStyle: { color: c + (radarStaff === 'all' ? '18' : '33') },
+      }
+    })
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
+      },
+      legend: { bottom: 0, type: 'scroll', textStyle: { color: txt }, data: shown.map(s => s.full_name_th) },
+      radar: {
+        indicator: indicator.length ? indicator : [{ name: '-', max: 1 }],
+        center: ['50%', '48%'],
+        radius: '65%',
+        axisName: { color: txt, fontSize: 11 },
+        splitLine: { lineStyle: { color: splitLine } },
+        axisLine: { lineStyle: { color: splitLine } },
+        splitArea: { areaStyle: { color: splitArea } },
+      },
+      series: [{ type: 'radar', data }],
+    }
+  }, [master, fyLogs, radarStaff, isDark])
 
   // ---- Chart 6: Heatmap — slot × วันในสัปดาห์ ----
   const chartHeatmap = useMemo(() => {
+    // ECharts วาดบน canvas -> ใช้ var(--app-*) ไม่ได้ ต้องกำหนดสีจริงตามโหมด
+    const txt = isDark ? '#e2e8f0' : '#334155'
+    const txt2 = isDark ? '#94a3b8' : '#64748b'
+    const lowCell = isDark ? '#1e293b' : '#f1f5f9'   // สีช่องที่ค่าน้อยสุด (แทน var(--app-surface))
     const hourLabels = Array.from({ length: HOUR_RANGE }, (_, i) => `${String(DAY_START + i).padStart(2, '0')}:00`)
     const dayLabels = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
     const data: [number, number, number][] = []
@@ -557,11 +708,14 @@ function ActivityPageContent() {
       backgroundColor: 'transparent',
       tooltip: {
         position: 'top',
+        backgroundColor: isDark ? '#1e293b' : '#ffffff',
+        borderColor: isDark ? '#334155' : '#e2e8f0',
+        textStyle: { color: txt },
         formatter: (p: { data: [number, number, number] }) => `${dayLabels[p.data[1]]} ${hourLabels[p.data[0]]}<br/>มี <b>${p.data[2]}</b> งาน`,
       },
       grid: { left: 50, right: 20, top: 20, bottom: 70 },
-      xAxis: { type: 'category', data: hourLabels, splitArea: { show: true }, axisLabel: { color: 'var(--app-text-2)', fontSize: 10 } },
-      yAxis: { type: 'category', data: dayLabels, splitArea: { show: true }, axisLabel: { color: 'var(--app-text)' } },
+      xAxis: { type: 'category', data: hourLabels, splitArea: { show: true }, axisLabel: { color: txt2, fontSize: 10 } },
+      yAxis: { type: 'category', data: dayLabels, splitArea: { show: true }, axisLabel: { color: txt } },
       visualMap: {
         min: 0,
         max: Math.max(maxCount, 1),
@@ -569,17 +723,18 @@ function ActivityPageContent() {
         orient: 'horizontal',
         left: 'center',
         bottom: 5,
-        textStyle: { color: 'var(--app-text-2)' },
-        inRange: { color: ['var(--app-surface)', '#6B21A8', '#ec4899', '#ef4444'] },
+        textStyle: { color: txt2 },
+        inRange: { color: [lowCell, '#6B21A8', '#ec4899', '#ef4444'] },
       },
       series: [{
         type: 'heatmap',
         data,
-        label: { show: true, fontSize: 10, color: '#fff' },
+        // แสดงตัวเลขเฉพาะช่องที่มีงาน (>0) เพื่อไม่ให้เลข 0 สีขาวจมกับช่องพื้นอ่อนในโหมดสว่าง
+        label: { show: true, fontSize: 10, color: '#fff', formatter: (p: { value: [number, number, number] }) => p.value[2] > 0 ? String(p.value[2]) : '' },
         emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.5)' } },
       }],
     }
-  }, [fyLogs])
+  }, [fyLogs, isDark])
 
   // ---- Chart 7: Pie Rose — ระดับความเร่งด่วน ----
   const chartPriorityRose = useMemo(() => {
@@ -999,7 +1154,7 @@ function ActivityPageContent() {
           items={[
             { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/information-technology', title: <><DesktopOutlined /> งานคอมพิวเตอร์ฯ</> },
-            { href: '/information-technology/hait', title: 'HAIT ข้อ 4' },
+            { href: '/information-technology/hait', title: 'HAIT' },
             { title: 'บันทึกกิจกรรม IT' },
           ]}
           className="mb-6"
@@ -1126,6 +1281,31 @@ function ActivityPageContent() {
                               title={<span><UserOutlined style={{ color: '#22c55e' }} /> ภาระงานรายบุคคล (แยกตามสถานะ)</span>}
                               extra={<Text type="secondary" className="text-xs">ชม.รวม + ratio งานปิด</Text>}>
                               <EChart option={chartStaffStack} height={300} />
+                            </Card>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={[16, 16]}>
+                          <Col xs={24}>
+                            <Card variant="borderless" className="shadow-sm" style={{ borderRadius: 12 }}
+                              title={<span><RadarChartOutlined style={{ color: '#06b6d4' }} /> โปรไฟล์งานรายบุคคล (แยกตามประเภทกิจกรรม)</span>}
+                              extra={
+                                <div className="flex items-center gap-2">
+                                  <Text type="secondary" className="text-xs">ดูรายคน:</Text>
+                                  <Select
+                                    value={radarStaff}
+                                    onChange={v => setRadarStaff(v)}
+                                    style={{ minWidth: 180 }}
+                                    showSearch
+                                    optionFilterProp="label"
+                                    options={[
+                                      { label: 'ทั้งทีม (เปรียบเทียบ)', value: 'all' },
+                                      ...(master?.staff ?? []).map(s => ({ label: s.full_name_th, value: s.staff_id })),
+                                    ]}
+                                  />
+                                </div>
+                              }>
+                              <EChart option={chartStaffRadar} height={360} />
                             </Card>
                           </Col>
                         </Row>

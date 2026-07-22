@@ -1,340 +1,157 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, Button, Drawer, Form, Input,
-  Select, Row, Col, Descriptions, Space, Alert, Steps, Timeline, DatePicker,
-  Avatar, App, Upload,
+  Select, Row, Col, Space, Alert, Steps, Timeline, DatePicker,
+  App, Upload, Spin, Empty,
 } from 'antd'
 import {
-  HomeOutlined, PlusOutlined, EyeOutlined, CheckCircleOutlined,
-  CloseCircleOutlined, AuditOutlined, TeamOutlined, SearchOutlined,
-  UserOutlined, CalendarOutlined, FileExcelOutlined, SendOutlined,
-  UploadOutlined, PaperClipOutlined,
+  HomeOutlined, PlusOutlined, EyeOutlined, SearchOutlined,
+  CalendarOutlined, SendOutlined, UploadOutlined, PaperClipOutlined,
+  DownloadOutlined, MailOutlined,
 } from '@ant-design/icons'
+import { InfoCard, Field } from '../statUI'
 import type { UploadFile } from 'antd'
 import { FaChartBar } from 'react-icons/fa'
-import { Dayjs } from 'dayjs'
+import dayjs, { Dayjs } from 'dayjs'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import {
+  ACCENT, StatRequest, StatMeta, STATUS_CONFIG, STEP_ITEMS, fmtDate, fmtDateTime, apiGet,
+} from '../statShared'
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
-const ACCENT = '#0d9488'
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-type StatStatus = 'pending' | 'approved' | 'processing' | 'delivered' | 'rejected'
-
-interface ApprovalStep {
-  stepName: string
-  actor: string
-  action: string
-  timestamp?: string
-  note?: string
-}
-
-interface StatRequest {
-  id: string
-  requestDate: string
-  requester: string
-  department: string
-  phone?: string
-  email?: string
-  periodFrom: string
-  periodTo: string
-  format: string
-  purpose: string          // จุดประสงค์การขอข้อมูล
-  sampleFile?: string      // ชื่อไฟล์ Excel ตัวอย่างที่แนบ
-  urgency: 'low' | 'medium' | 'high'
-  status: StatStatus
-  assignedTo?: string
-  deliveredNote?: string
-  approvalHistory: ApprovalStep[]
-}
-
-// ── Master data ──────────────────────────────────────────────────────────────
-
-const FORMATS = ['Excel (.xlsx)', 'PDF', 'CSV', 'เอกสาร (พิมพ์)']
-
-const statStaff = [
-  { name: 'นางสาวกนกวรรณ เวชสถิติ', status: 'ว่าง' },
-  { name: 'นายธีรยุทธ ข้อมูลดี', status: 'ว่าง' },
-  { name: 'นางพรทิพย์ รหัสโรค', status: 'ติดภารกิจ' },
-]
-
-const urgencyConfig = {
-  low:    { color: 'default',    label: 'ปกติ' },
-  medium: { color: 'processing', label: 'ปานกลาง' },
-  high:   { color: 'warning',    label: 'เร่งด่วน' },
-}
-
-const statusConfig: Record<StatStatus, { color: string; label: string; step: number }> = {
-  pending:    { color: 'orange',     label: 'รออนุมัติ',        step: 0 },
-  approved:   { color: 'cyan',       label: 'อนุมัติแล้ว',      step: 1 },
-  processing: { color: 'processing', label: 'กำลังจัดทำข้อมูล',  step: 2 },
-  delivered:  { color: 'success',    label: 'ส่งมอบแล้ว',       step: 3 },
-  rejected:   { color: 'error',      label: 'ไม่อนุมัติ',       step: -1 },
-}
-
-const stepItems = [
-  { title: 'ยื่นคำขอ' },
-  { title: 'อนุมัติ' },
-  { title: 'จัดทำข้อมูล' },
-  { title: 'ส่งมอบ' },
-]
-
-// ── Mock data ────────────────────────────────────────────────────────────────
-
-const mockRequests: StatRequest[] = [
-  {
-    id: 'STAT-202606001', requestDate: '12/06/2026',
-    requester: 'นพ.สมชาย ใจดี', department: 'กลุ่มงานอายุรกรรม', phone: '081-111-2222', email: 'somchai@hospital.go.th',
-    periodFrom: '01/10/2025', periodTo: '31/05/2026', format: 'Excel (.xlsx)',
-    purpose: 'ขอสถิติผู้ป่วยเบาหวาน (E11) แยกรายเดือน/ช่วงอายุ เพื่อประกอบงานวิจัยและวางแผนการรักษา',
-    sampleFile: 'ตัวอย่าง_สถิติเบาหวาน.xlsx', urgency: 'medium', status: 'pending',
-    approvalHistory: [
-      { stepName: 'ยื่นคำขอ', actor: 'นพ.สมชาย ใจดี', action: 'ยื่นคำขอข้อมูล', timestamp: '12/06/2026 09:15' },
-    ],
-  },
-  {
-    id: 'STAT-202606002', requestDate: '11/06/2026',
-    requester: 'นางสาวจารุวรรณ บริหาร', department: 'งานยุทธศาสตร์', phone: '082-333-4444',
-    periodFrom: '01/01/2026', periodTo: '31/05/2026', format: 'PDF',
-    purpose: 'ขอสรุปจำนวนผู้ป่วยนอกรายเดือนแยกตามกลุ่มงาน เพื่อจัดทำรายงาน KPI ประจำไตรมาส', urgency: 'high', status: 'approved',
-    approvalHistory: [
-      { stepName: 'ยื่นคำขอ', actor: 'นางสาวจารุวรรณ บริหาร', action: 'ยื่นคำขอข้อมูล', timestamp: '11/06/2026 10:00' },
-      { stepName: 'อนุมัติ', actor: 'หัวหน้างานเวชสถิติ', action: 'อนุมัติ', timestamp: '11/06/2026 14:20', note: 'อนุมัติ ดำเนินการจัดทำได้' },
-    ],
-  },
-  {
-    id: 'STAT-202606003', requestDate: '08/06/2026',
-    requester: 'นางวันดี สาธารณสุข', department: 'งานควบคุมโรค', phone: '083-555-6666',
-    periodFrom: '01/04/2026', periodTo: '31/05/2026', format: 'Excel (.xlsx)',
-    purpose: 'ขอข้อมูลการส่งต่อผู้ป่วยโรคติดต่อ (Refer out) แยกรายโรงพยาบาลปลายทาง เพื่อวิเคราะห์แนวโน้ม',
-    sampleFile: 'แบบฟอร์ม_refer_out.xlsx', urgency: 'medium', status: 'processing',
-    assignedTo: 'นางสาวกนกวรรณ เวชสถิติ',
-    approvalHistory: [
-      { stepName: 'ยื่นคำขอ', actor: 'นางวันดี สาธารณสุข', action: 'ยื่นคำขอข้อมูล', timestamp: '08/06/2026 13:30' },
-      { stepName: 'อนุมัติ', actor: 'หัวหน้างานเวชสถิติ', action: 'อนุมัติ', timestamp: '09/06/2026 09:00' },
-      { stepName: 'จัดทำข้อมูล', actor: 'หัวหน้างานเวชสถิติ', action: 'มอบหมายงาน', timestamp: '09/06/2026 09:30', note: 'มอบหมายให้ นางสาวกนกวรรณ เวชสถิติ' },
-    ],
-  },
-  {
-    id: 'STAT-202605012', requestDate: '28/05/2026',
-    requester: 'ผศ.ดร.วิจัย การศึกษา', department: 'มหาวิทยาลัยพะเยา (ภายนอก)', email: 'research@up.ac.th',
-    periodFrom: '01/10/2024', periodTo: '30/09/2025', format: 'CSV',
-    purpose: 'ขอข้อมูลผู้ป่วยในแบบไม่ระบุตัวตน สำหรับงานวิจัยร่วมด้านระบาดวิทยา (มีหนังสือขอความอนุเคราะห์แนบ)', urgency: 'low', status: 'delivered',
-    assignedTo: 'นายธีรยุทธ ข้อมูลดี', deliveredNote: 'ส่งไฟล์ทางอีเมลราชการ พร้อมหนังสือนำส่ง เลขที่ พย 0033/1245',
-    approvalHistory: [
-      { stepName: 'ยื่นคำขอ', actor: 'ผศ.ดร.วิจัย การศึกษา', action: 'ยื่นคำขอข้อมูล', timestamp: '28/05/2026 11:00' },
-      { stepName: 'อนุมัติ', actor: 'หัวหน้างานเวชสถิติ', action: 'อนุมัติ', timestamp: '29/05/2026 10:00', note: 'อนุมัติ — ข้อมูลไม่ระบุตัวตนผู้ป่วย' },
-      { stepName: 'จัดทำข้อมูล', actor: 'หัวหน้างานเวชสถิติ', action: 'มอบหมายงาน', timestamp: '29/05/2026 10:30' },
-      { stepName: 'ส่งมอบ', actor: 'นายธีรยุทธ ข้อมูลดี', action: 'ส่งมอบข้อมูล', timestamp: '02/06/2026 15:45', note: 'ส่งไฟล์ทางอีเมลราชการ' },
-    ],
-  },
-]
-
-// ── Page ─────────────────────────────────────────────────────────────────────
-
 const PageContent = () => {
   const { message } = App.useApp()
-
-  const [requests, setRequests] = useState<StatRequest[]>(mockRequests)
+  const [meta, setMeta] = useState<StatMeta | null>(null)
+  const [requests, setRequests] = useState<StatRequest[]>([])
+  const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const [formOpen, setFormOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
   const [selected, setSelected] = useState<StatRequest | null>(null)
-  const [rejectMode, setRejectMode] = useState(false)
-
+  const [detailLoading, setDetailLoading] = useState(false)
   const [form] = Form.useForm()
-  const [assignForm] = Form.useForm()
-  const [rejectForm] = Form.useForm()
-  const [deliverForm] = Form.useForm()
 
-  const nowStr = () =>
-    new Date().toLocaleString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  const today = () =>
-    new Date().toLocaleDateString('th-TH', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const loadRequests = useCallback(async () => {
+    setLoading(true)
+    try {
+      const j = await apiGet('/api/v1/medical-stat?scope=mine')
+      if (j.success) setRequests(j.data ?? [])
+    } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => {
+    apiGet('/api/v1/medical-stat/meta').then(j => { if (j.success) setMeta(j.data) })
+    loadRequests()
+  }, [loadRequests])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return requests
     return requests.filter(r =>
-      r.id.toLowerCase().includes(q) ||
-      r.requester.toLowerCase().includes(q) ||
-      r.department.toLowerCase().includes(q) ||
-      r.purpose.toLowerCase().includes(q)
-    )
+      r.request_no.toLowerCase().includes(q) ||
+      (r.purpose_detail ?? '').toLowerCase().includes(q) ||
+      (r.data_detail ?? '').toLowerCase().includes(q) ||
+      (r.purpose_category_name ?? '').toLowerCase().includes(q))
   }, [requests, search])
 
   const summary = useMemo(() => ({
-    pending:    requests.filter(r => r.status === 'pending').length,
-    approved:   requests.filter(r => r.status === 'approved' || r.status === 'processing').length,
-    delivered:  requests.filter(r => r.status === 'delivered').length,
-    total:      requests.length,
+    pending: requests.filter(r => r.status === 'pending').length,
+    processing: requests.filter(r => r.status === 'processing').length,
+    delivered: requests.filter(r => r.status === 'delivered').length,
+    total: requests.length,
   }), [requests])
 
-  const openDetail = (r: StatRequest) => {
-    setSelected(r)
-    setRejectMode(false)
-    assignForm.resetFields()
-    rejectForm.resetFields()
-    deliverForm.resetFields()
-    setDetailOpen(true)
+  const openDetail = async (r: StatRequest) => {
+    setSelected(r); setDetailOpen(true); setDetailLoading(true)
+    try {
+      const j = await apiGet(`/api/v1/medical-stat/${r.id}`)
+      if (j.success) setSelected(j.data)
+    } finally { setDetailLoading(false) }
   }
 
-  const updateRequest = (id: string, patch: Partial<StatRequest>) => {
-    setRequests(prev => {
-      const next = prev.map(r => r.id === id ? { ...r, ...patch } : r)
-      setSelected(next.find(r => r.id === id) ?? null)
-      return next
-    })
-  }
+  const handleSubmit = async () => {
+    let values: any
+    try { values = await form.validateFields() } catch { return }
+    const fileList = (values.sample_files as UploadFile[] | undefined) ?? []
+    if (fileList.length < 1) { message.error('กรุณาแนบไฟล์ Excel ตัวอย่างอย่างน้อย 1 ไฟล์'); return }
 
-  const handleApprove = () => {
-    if (!selected) return
-    updateRequest(selected.id, {
-      status: 'approved',
-      approvalHistory: [...selected.approvalHistory, { stepName: 'อนุมัติ', actor: 'หัวหน้างานเวชสถิติ', action: 'อนุมัติ', timestamp: nowStr() }],
-    })
-    message.success('อนุมัติคำขอแล้ว')
-  }
+    const fd = new FormData()
+    fd.append('email', values.email)
+    fd.append('purpose_category_id', String(values.purpose_category_id))
+    if (values.purpose_detail) fd.append('purpose_detail', values.purpose_detail)
+    fd.append('data_detail', values.data_detail)
+    if (values.format) fd.append('format', values.format)
+    if (values.urgency_id) fd.append('urgency_id', String(values.urgency_id))
+    const period = values.period as [Dayjs, Dayjs] | undefined
+    if (period?.[0] && period?.[1]) {
+      fd.append('period_from', period[0].format('YYYY-MM-DD'))
+      fd.append('period_to', period[1].format('YYYY-MM-DD'))
+    }
+    fileList.forEach(f => { if (f.originFileObj) fd.append('sample_files', f.originFileObj) })
 
-  const handleReject = () => {
-    rejectForm.validateFields().then(values => {
-      if (!selected) return
-      updateRequest(selected.id, {
-        status: 'rejected',
-        approvalHistory: [...selected.approvalHistory, { stepName: 'อนุมัติ', actor: 'หัวหน้างานเวชสถิติ', action: 'ไม่อนุมัติ', timestamp: nowStr(), note: values.rejectReason }],
-      })
-      setRejectMode(false)
-      rejectForm.resetFields()
-      message.error('ปฏิเสธคำขอแล้ว')
-    })
-  }
-
-  const handleAssign = () => {
-    assignForm.validateFields().then(values => {
-      if (!selected) return
-      updateRequest(selected.id, {
-        status: 'processing',
-        assignedTo: values.assignedTo,
-        approvalHistory: [...selected.approvalHistory, {
-          stepName: 'จัดทำข้อมูล', actor: 'หัวหน้างานเวชสถิติ', action: 'มอบหมายงาน', timestamp: nowStr(),
-          note: `มอบหมายให้ ${values.assignedTo}${values.assignNote ? ' — ' + values.assignNote : ''}`,
-        }],
-      })
-      assignForm.resetFields()
-      message.success(`มอบหมายให้ ${values.assignedTo} แล้ว`)
-    })
-  }
-
-  const handleDeliver = () => {
-    deliverForm.validateFields().then(values => {
-      if (!selected) return
-      updateRequest(selected.id, {
-        status: 'delivered',
-        deliveredNote: values.deliveredNote,
-        approvalHistory: [...selected.approvalHistory, { stepName: 'ส่งมอบ', actor: selected.assignedTo ?? 'เจ้าหน้าที่เวชสถิติ', action: 'ส่งมอบข้อมูล', timestamp: nowStr(), note: values.deliveredNote }],
-      })
-      deliverForm.resetFields()
-      message.success('บันทึกการส่งมอบข้อมูลแล้ว')
-    })
-  }
-
-  const handleNewRequest = () => {
-    form.validateFields().then(values => {
-      const [from, to] = (values.period ?? []) as [Dayjs, Dayjs]
-      const sample = (values.sampleFile as UploadFile[] | undefined)?.[0]?.name
-      const newReq: StatRequest = {
-        id: `STAT-${Date.now()}`,
-        requestDate: today(),
-        requester: values.requester,
-        department: values.department,
-        phone: values.phone,
-        email: values.email,
-        periodFrom: from ? from.format('DD/MM/YYYY') : '-',
-        periodTo: to ? to.format('DD/MM/YYYY') : '-',
-        format: values.format,
-        purpose: values.purpose,
-        sampleFile: sample,
-        urgency: values.urgency ?? 'medium',
-        status: 'pending',
-        approvalHistory: [{ stepName: 'ยื่นคำขอ', actor: values.requester, action: 'ยื่นคำขอข้อมูล', timestamp: nowStr() }],
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/v1/medical-stat', { method: 'POST', body: fd })
+      const j = await res.json()
+      if (res.ok && j.success) {
+        message.success('ยื่นคำขอข้อมูลสถิติเรียบร้อยแล้ว')
+        form.resetFields(); setFormOpen(false); loadRequests()
+      } else {
+        message.error(j?.error?.message || 'ยื่นคำขอไม่สำเร็จ')
       }
-      setRequests(prev => [newReq, ...prev])
-      message.success('ยื่นคำขอข้อมูลสถิติเรียบร้อยแล้ว')
-      form.resetFields()
-      setFormOpen(false)
-    })
+    } catch { message.error('ยื่นคำขอไม่สำเร็จ') }
+    finally { setSubmitting(false) }
   }
+
+  const urgencyOptions = (meta?.urgency_levels ?? []).map(u => ({
+    value: u.id,
+    label: <span><span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 8, background: u.color_hex, marginRight: 8 }} />{u.name}</span>,
+  }))
 
   const columns = [
-    { title: 'เลขที่คำขอ', dataIndex: 'id', key: 'id', width: 160,
-      render: (v: string) => <Text style={{ color: ACCENT, fontWeight: 600 }}>{v}</Text> },
-    { title: 'วันที่', dataIndex: 'requestDate', key: 'requestDate', width: 110 },
-    { title: 'ผู้ขอ', key: 'requester',
-      render: (_: unknown, r: StatRequest) => (
-        <div>
-          <div style={{ fontWeight: 600 }}>{r.requester}</div>
-          <Text type="secondary" style={{ fontSize: 12 }}>{r.department}</Text>
-        </div>
-      ) },
-    { title: 'จุดประสงค์การขอข้อมูล', dataIndex: 'purpose', key: 'purpose',
-      render: (v: string, r: StatRequest) => (
-        <div>
-          <Text style={{ fontSize: 13 }}>{v}</Text>
-          {r.sampleFile && (
-            <div><Text type="secondary" style={{ fontSize: 11 }}><PaperClipOutlined /> {r.sampleFile}</Text></div>
-          )}
-        </div>
-      ) },
-    { title: 'ช่วงข้อมูล', key: 'period', width: 180,
-      render: (_: unknown, r: StatRequest) => <Text style={{ fontSize: 12 }}>{r.periodFrom} – {r.periodTo}</Text> },
-    { title: 'ความเร่งด่วน', dataIndex: 'urgency', key: 'urgency', width: 110,
-      render: (v: keyof typeof urgencyConfig) => <Tag color={urgencyConfig[v].color}>{urgencyConfig[v].label}</Tag> },
-    { title: 'สถานะ', dataIndex: 'status', key: 'status', width: 150,
-      render: (v: StatStatus) => <Tag color={statusConfig[v].color}>{statusConfig[v].label}</Tag> },
-    { title: 'จัดการ', key: 'action', align: 'center' as const, width: 120,
-      render: (_: unknown, r: StatRequest) => (
-        <Button size="small" type="primary" icon={<EyeOutlined />} onClick={() => openDetail(r)}>พิจารณา</Button>
-      ) },
+    { title: 'เลขที่คำขอ', dataIndex: 'request_no', key: 'request_no', width: 150, render: (v: string) => <Text style={{ color: ACCENT, fontWeight: 600 }}>{v}</Text> },
+    { title: 'วันที่ขอ', dataIndex: 'created_at', key: 'created_at', width: 110, render: fmtDate },
+    { title: 'จุดประสงค์', key: 'purpose', render: (_: unknown, r: StatRequest) => (
+      <div><Tag color={ACCENT}>{r.purpose_category_name ?? '-'}</Tag><div><Text style={{ fontSize: 12 }} type="secondary">{r.purpose_detail}</Text></div></div>
+    ) },
+    { title: 'ช่วงข้อมูล', key: 'period', width: 170, render: (_: unknown, r: StatRequest) => <Text style={{ fontSize: 12 }}>{fmtDate(r.period_from)} – {fmtDate(r.period_to)}</Text> },
+    { title: 'ความเร่งด่วน', key: 'urgency', width: 120, render: (_: unknown, r: StatRequest) => r.urgency_name ? <Tag color={r.urgency_color ?? undefined}>{r.urgency_name}</Tag> : '-' },
+    { title: 'สถานะ', dataIndex: 'status', key: 'status', width: 150, render: (v: StatRequest['status']) => <Tag color={STATUS_CONFIG[v].color}>{STATUS_CONFIG[v].label}</Tag> },
+    { title: '', key: 'action', align: 'center' as const, width: 110, render: (_: unknown, r: StatRequest) => <Button size="small" type="primary" icon={<EyeOutlined />} onClick={() => openDetail(r)}>ดู</Button> },
   ]
+
+  const stepCurrent = (s: StatRequest['status']) => s === 'delivered' ? 4 : STATUS_CONFIG[s].step
 
   return (
     <div className="min-h-screen bg-app-bg">
       <Navbar />
       <div className="p-6 md:p-8">
-        <Breadcrumb
-          items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
-            { title: 'งานข้อมูลทางการแพทย์' },
-            { title: 'ขอข้อมูลสถิติ' },
-          ]}
-          className="mb-6"
-        />
+        <Breadcrumb items={[
+          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { title: 'งานข้อมูลทางการแพทย์' },
+          { title: 'ขอข้อมูลสถิติ' },
+        ]} className="mb-6" />
 
         <div className="mb-8 flex items-start justify-between flex-wrap gap-4">
           <div>
-            <Title level={2} className="m-0" style={{ display: 'flex', alignItems: 'center', gap: 10, color: ACCENT }}>
-              <FaChartBar /> ขอข้อมูลสถิติ
-            </Title>
-            <Text type="secondary">ยื่นคำขอ อนุมัติ จัดทำ และส่งมอบข้อมูลสถิติทางการแพทย์</Text>
+            <Title level={2} className="m-0" style={{ display: 'flex', alignItems: 'center', gap: 10, color: ACCENT }}><FaChartBar /> ขอข้อมูลสถิติ</Title>
+            <Text type="secondary">ยื่นคำขอข้อมูลสถิติทางการแพทย์ และติดตามสถานะคำขอของคุณ</Text>
           </div>
-          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => { form.resetFields(); setFormOpen(true) }}>
-            ยื่นคำขอใหม่
-          </Button>
+          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={() => { form.resetFields(); setFormOpen(true) }}>ยื่นคำขอใหม่</Button>
         </div>
 
-        {/* Summary */}
         <Row gutter={16} className="mb-6">
           {[
-            { label: 'รออนุมัติ',        count: summary.pending,   color: '#f59e0b' },
-            { label: 'กำลังดำเนินการ',    count: summary.approved,  color: ACCENT },
-            { label: 'ส่งมอบแล้ว',       count: summary.delivered, color: '#10b981' },
-            { label: 'คำขอทั้งหมด',      count: summary.total,     color: '#0891b2' },
+            { label: 'รอตรวจสอบ', count: summary.pending, color: '#f59e0b' },
+            { label: 'กำลังจัดทำ', count: summary.processing, color: ACCENT },
+            { label: 'ส่งมอบแล้ว', count: summary.delivered, color: '#10b981' },
+            { label: 'คำขอทั้งหมด', count: summary.total, color: '#0891b2' },
           ].map((s, i) => (
             <Col xs={12} md={6} key={i}>
               <Card variant="borderless" className="rounded-xl text-center">
@@ -347,85 +164,32 @@ const PageContent = () => {
 
         <Card variant="borderless" className="rounded-xl">
           <div className="mb-4" style={{ maxWidth: 380 }}>
-            <Input
-              allowClear
-              prefix={<SearchOutlined />}
-              placeholder="ค้นหา เลขที่คำขอ / ผู้ขอ / หน่วยงาน / ประเภทข้อมูล"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
+            <Input allowClear prefix={<SearchOutlined />} placeholder="ค้นหา เลขที่คำขอ / จุดประสงค์" value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <Table columns={columns} dataSource={filtered} rowKey="id" pagination={{ pageSize: 10 }} scroll={{ x: 1100 }} />
+          <Table columns={columns} dataSource={filtered} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} scroll={{ x: 1000 }}
+            locale={{ emptyText: <Empty description="ยังไม่มีคำขอของคุณ" /> }} />
         </Card>
       </div>
 
-      {/* ─── Drawer: ยื่นคำขอใหม่ ─── */}
-      <Drawer
-        title={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center rounded-lg" style={{ width: 36, height: 36, backgroundColor: `${ACCENT}20`, color: ACCENT }}>
-              <PlusOutlined />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600 }}>ยื่นคำขอข้อมูลสถิติ</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>กรอกรายละเอียดข้อมูลที่ต้องการ</Text>
-            </div>
-          </div>
-        }
-        size="large"
-        open={formOpen}
-        onClose={() => setFormOpen(false)}
-        styles={{ body: { paddingBottom: 80 } }}
-        extra={
-          <Space>
-            <Button onClick={() => setFormOpen(false)}>ยกเลิก</Button>
-            <Button type="primary" icon={<SendOutlined />} onClick={handleNewRequest}>ยื่นคำขอ</Button>
-          </Space>
-        }
-      >
-        <Form form={form} layout="vertical" requiredMark="optional" initialValues={{ urgency: 'medium', format: 'Excel (.xlsx)' }}>
-          <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3">ข้อมูลผู้ขอ</div>
-          <Row gutter={12}>
-            <Col xs={24} md={12}>
-              <Form.Item name="requester" label="ชื่อ-นามสกุล ผู้ขอ" rules={[{ required: true, message: 'กรุณาระบุชื่อ' }]}>
-                <Input placeholder="ชื่อ-นามสกุล" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="department" label="หน่วยงาน / สังกัด" rules={[{ required: true, message: 'กรุณาระบุหน่วยงาน' }]}>
-                <Input placeholder="เช่น งานยุทธศาสตร์ / มหาวิทยาลัย (ภายนอก)" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="phone" label="เบอร์โทรติดต่อ">
-                <Input placeholder="หมายเลขโทรศัพท์" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item name="email" label="อีเมล">
-                <Input placeholder="อีเมลสำหรับรับข้อมูล" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3 mt-2">รายละเอียดข้อมูลที่ขอ</div>
-          <Form.Item name="purpose" label="จุดประสงค์การขอข้อมูล" rules={[{ required: true, message: 'กรุณาระบุจุดประสงค์การขอข้อมูล' }]}>
-            <Input.TextArea rows={3} placeholder="อธิบายว่าต้องการข้อมูลอะไร แยกตามอะไร และจะนำไปใช้เพื่ออะไร..." />
+      {/* ── ยื่นคำขอใหม่ ── */}
+      <Drawer title="ยื่นคำขอข้อมูลสถิติ" size="large" open={formOpen} onClose={() => setFormOpen(false)} styles={{ body: { paddingBottom: 80 } }}
+        extra={<Space><Button onClick={() => setFormOpen(false)}>ยกเลิก</Button><Button type="primary" icon={<SendOutlined />} loading={submitting} onClick={handleSubmit}>ยื่นคำขอ</Button></Space>}>
+        <Alert type="info" showIcon className="mb-4" title="ข้อมูลผู้ขอดึงจากบัญชีที่เข้าสู่ระบบโดยอัตโนมัติ" description="ไม่ต้องกรอกชื่อ-นามสกุล/หน่วยงาน — ระบบใช้ข้อมูลจากผู้ที่ล็อกอิน" />
+        <Form form={form} layout="vertical" requiredMark="optional" initialValues={{ format: 'Excel (.xlsx)' }}>
+          <Form.Item name="email" label={<span><MailOutlined className="mr-1" />อีเมลสำหรับรับข้อมูล</span>}
+            rules={[{ required: true, message: 'กรุณาระบุอีเมล' }, { type: 'email', message: 'รูปแบบอีเมลไม่ถูกต้อง' }]}
+            extra="ผู้ประมวลผลจะตอบกลับ/ส่งข้อมูลผ่านอีเมลนี้">
+            <Input placeholder="name@hospital.go.th" />
           </Form.Item>
-          <Form.Item
-            name="sampleFile"
-            label="ไฟล์ Excel ตัวอย่างข้อมูลที่ต้องการ (ถ้ามี)"
-            valuePropName="fileList"
-            getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
-            extra="แนบไฟล์ตัวอย่างเพื่อให้เจ้าหน้าที่เห็นรูปแบบ/คอลัมน์ข้อมูลที่ต้องการ"
-          >
-            <Upload
-              maxCount={1}
-              beforeUpload={() => false}
-              accept=".xlsx,.xls,.csv"
-            >
-              <Button icon={<UploadOutlined />}>เลือกไฟล์ Excel ตัวอย่าง</Button>
-            </Upload>
+          <Form.Item name="purpose_category_id" label="จุดประสงค์การขอข้อมูล (ประเภท)" rules={[{ required: true, message: 'กรุณาเลือกจุดประสงค์' }]}>
+            <Select placeholder="เลือกว่าจะนำข้อมูลไปทำอะไร" options={(meta?.purpose_categories ?? []).map(p => ({ value: p.id, label: p.name }))} />
+          </Form.Item>
+          <Form.Item name="purpose_detail" label="อธิบายจุดประสงค์เพิ่มเติม">
+            <Input.TextArea rows={2} placeholder="เช่น ประกอบงานวิจัยเรื่อง... / จัดทำรายงาน KPI ไตรมาส..." />
+          </Form.Item>
+          <Form.Item name="data_detail" label="รายละเอียดข้อมูลที่ขอ" rules={[{ required: true, message: 'กรุณาระบุรายละเอียดข้อมูลที่ขอ' }]}
+            extra="ระบุให้ชัด เช่น ต้องการข้อมูลอะไร รหัสโรค (ICD-10) แยกตามอะไร ช่วงอายุ ฯลฯ">
+            <Input.TextArea rows={3} placeholder="เช่น ผู้ป่วยเบาหวาน E10-E14 แยกรายเดือน/ช่วงอายุ เฉพาะเพศชาย..." />
           </Form.Item>
           <Row gutter={12}>
             <Col xs={24} md={14}>
@@ -435,175 +199,79 @@ const PageContent = () => {
             </Col>
             <Col xs={24} md={10}>
               <Form.Item name="format" label="รูปแบบไฟล์ที่ต้องการรับ">
-                <Select options={FORMATS.map(f => ({ value: f, label: f }))} />
+                <Select options={(meta?.formats ?? []).map(f => ({ value: f, label: f }))} />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="urgency" label="ความเร่งด่วน">
-            <Select options={[
-              { value: 'low', label: 'ปกติ' },
-              { value: 'medium', label: 'ปานกลาง' },
-              { value: 'high', label: 'เร่งด่วน' },
-            ]} />
+          <Form.Item name="urgency_id" label="ความเร่งด่วน">
+            <Select placeholder="เลือกระดับความเร่งด่วน" options={urgencyOptions} />
+          </Form.Item>
+          <Form.Item name="sample_files" label="ไฟล์ Excel ตัวอย่างข้อมูลที่ต้องการ (จำเป็น 1–5 ไฟล์)"
+            valuePropName="fileList" getValueFromEvent={(e) => (Array.isArray(e) ? e : e?.fileList)}
+            rules={[{ required: true, message: 'กรุณาแนบไฟล์ตัวอย่างอย่างน้อย 1 ไฟล์' }]}
+            extra="แนบไฟล์ตัวอย่างเพื่อให้เจ้าหน้าที่เห็นรูปแบบ/คอลัมน์ข้อมูลที่ต้องการ (สูงสุด 5 ไฟล์)">
+            <Upload maxCount={5} multiple beforeUpload={() => false} accept=".xlsx,.xls,.csv">
+              <Button icon={<UploadOutlined />}>เลือกไฟล์ตัวอย่าง</Button>
+            </Upload>
           </Form.Item>
         </Form>
       </Drawer>
 
-      {/* ─── Drawer: พิจารณา / ดำเนินการ ─── */}
-      <Drawer
-        title={
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center rounded-lg" style={{ width: 36, height: 36, backgroundColor: `${ACCENT}20`, color: ACCENT }}>
-              <AuditOutlined />
-            </div>
-            <div>
-              <div style={{ fontWeight: 600 }}>พิจารณาคำขอข้อมูล</div>
-              <Text type="secondary" style={{ fontSize: 12 }}>{selected?.id}</Text>
-            </div>
-          </div>
-        }
-        size="large"
-        open={detailOpen}
-        onClose={() => { setDetailOpen(false); setRejectMode(false) }}
-        styles={{ body: { paddingBottom: 80 } }}
-      >
+      {/* ── รายละเอียดคำขอ ── */}
+      <Drawer title={<span>รายละเอียดคำขอ <Text type="secondary" style={{ fontSize: 12 }}>{selected?.request_no}</Text></span>}
+        size="large" open={detailOpen} onClose={() => setDetailOpen(false)} styles={{ body: { paddingBottom: 40 } }}>
         {selected && (
-          <>
-            <Steps
-              current={selected.status === 'rejected' ? -1 : statusConfig[selected.status].step}
-              status={selected.status === 'rejected' ? 'error' : 'process'}
-              items={stepItems}
-              size="small"
-              className="mb-6"
-            />
+          <Spin spinning={detailLoading}>
+            <Steps current={stepCurrent(selected.status)} status={selected.status === 'rejected' ? 'error' : 'process'} items={STEP_ITEMS} size="small" className="mb-6" />
+            <InfoCard name={selected.requester_name} department={selected.requester_department}>
+              <Field label={<><MailOutlined /> อีเมลรับข้อมูล</>}>{selected.email}</Field>
+              <Field label={<><CalendarOutlined /> ช่วงข้อมูล</>}>{fmtDate(selected.period_from)} – {fmtDate(selected.period_to)}</Field>
+              <Field label="รูปแบบไฟล์">{selected.format}</Field>
+              <Field label="ความเร่งด่วน">{selected.urgency_name ? <Tag color={selected.urgency_color ?? undefined}>{selected.urgency_name}</Tag> : '-'}</Field>
+              {selected.assigned_to_name && <Field label="ผู้จัดทำ"><Text style={{ color: ACCENT, fontWeight: 600 }}>{selected.assigned_to_name}</Text></Field>}
+              <Field label="จุดประสงค์" full><Tag color={ACCENT}>{selected.purpose_category_name}</Tag> {selected.purpose_detail}</Field>
+              <Field label="รายละเอียดข้อมูลที่ขอ" full>{selected.data_detail}</Field>
+            </InfoCard>
 
-            <Card variant="borderless" className="rounded-xl mb-4" styles={{ body: { padding: 16 } }}
-              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border)' }}>
-              <div className="flex items-center gap-3 mb-3">
-                <Avatar size={46} style={{ backgroundColor: ACCENT }} icon={<UserOutlined />} />
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{selected.requester}</div>
-                  <Text type="secondary" style={{ fontSize: 13 }}>{selected.department}</Text>
+            {(selected.files ?? []).length > 0 && (
+              <div className="mb-4">
+                <Text strong><PaperClipOutlined /> ไฟล์แนบ</Text>
+                <div className="mt-2 flex flex-col gap-1">
+                  {(selected.files ?? []).map(f => (
+                    <a key={f.id} href={`/api/v1/medical-stat/${selected.id}/files/${f.id}`}>
+                      <Tag color={f.kind === 'result' ? 'green' : 'blue'} icon={<DownloadOutlined />}>{f.kind === 'result' ? '[ผลลัพธ์] ' : ''}{f.original_name}</Tag>
+                    </a>
+                  ))}
                 </div>
               </div>
-              <Descriptions column={{ xs: 1, sm: 2 }} size="small">
-                <Descriptions.Item label="จุดประสงค์การขอข้อมูล" span={{ xs: 1, sm: 2 }}>{selected.purpose}</Descriptions.Item>
-                {selected.sampleFile && (
-                  <Descriptions.Item label="ไฟล์ตัวอย่าง" span={{ xs: 1, sm: 2 }}>
-                    <a><PaperClipOutlined /> {selected.sampleFile}</a>
-                  </Descriptions.Item>
-                )}
-                <Descriptions.Item label={<><CalendarOutlined /> ช่วงข้อมูล</>}>{selected.periodFrom} – {selected.periodTo}</Descriptions.Item>
-                <Descriptions.Item label="รูปแบบไฟล์">{selected.format}</Descriptions.Item>
-                <Descriptions.Item label="ความเร่งด่วน">
-                  <Tag color={urgencyConfig[selected.urgency].color}>{urgencyConfig[selected.urgency].label}</Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="ติดต่อ">{selected.phone ?? selected.email ?? '-'}</Descriptions.Item>
-                {selected.assignedTo && (
-                  <Descriptions.Item label="ผู้จัดทำ" span={{ xs: 1, sm: 2 }}>
-                    <Text style={{ color: ACCENT, fontWeight: 600 }}>{selected.assignedTo}</Text>
-                  </Descriptions.Item>
-                )}
-                {selected.deliveredNote && (
-                  <Descriptions.Item label="การส่งมอบ" span={{ xs: 1, sm: 2 }}>{selected.deliveredNote}</Descriptions.Item>
-                )}
-              </Descriptions>
-            </Card>
-
-            <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3">ประวัติการดำเนินการ</div>
-            <Timeline
-              items={selected.approvalHistory.map(h => ({
-                color: h.action.includes('ไม่อนุมัติ') ? 'red'
-                  : h.action.includes('อนุมัติ') || h.action.includes('ส่งมอบ') ? 'green'
-                  : ACCENT,
-                content: (
-                  <div>
-                    <Text strong>{h.stepName}</Text>
-                    <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{h.timestamp}</Text>
-                    <div><Text type="secondary">โดย {h.actor} — {h.action}</Text></div>
-                    {h.note && <div style={{ color: '#d97706', fontSize: 12, marginTop: 2 }}>{h.note}</div>}
-                  </div>
-                ),
-              }))}
-            />
-
-            <div className="text-xs font-semibold text-app-text-2 uppercase tracking-wider mb-3 mt-2">การดำเนินการ</div>
-
-            {/* pending → approve / reject */}
-            {selected.status === 'pending' && !rejectMode && (
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <Button block type="primary" icon={<CheckCircleOutlined />} onClick={handleApprove}>อนุมัติคำขอ</Button>
-                <Button block danger icon={<CloseCircleOutlined />} onClick={() => setRejectMode(true)}>ไม่อนุมัติ</Button>
-              </Space>
-            )}
-            {selected.status === 'pending' && rejectMode && (
-              <Form form={rejectForm} layout="vertical">
-                <Form.Item name="rejectReason" label="เหตุผลที่ไม่อนุมัติ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
-                  <Input.TextArea rows={3} placeholder="ระบุเหตุผล..." />
-                </Form.Item>
-                <Space>
-                  <Button danger icon={<CloseCircleOutlined />} onClick={handleReject}>ยืนยันการปฏิเสธ</Button>
-                  <Button onClick={() => setRejectMode(false)}>ยกเลิก</Button>
-                </Space>
-              </Form>
             )}
 
-            {/* approved → assign */}
-            {selected.status === 'approved' && (
-              <>
-                <Alert type="info" showIcon className="mb-4" title="อนุมัติแล้ว — มอบหมายผู้จัดทำข้อมูล" />
-                <Form form={assignForm} layout="vertical">
-                  <Row gutter={12}>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="assignedTo" label="มอบหมายให้เจ้าหน้าที่" rules={[{ required: true, message: 'กรุณาเลือกเจ้าหน้าที่' }]}>
-                        <Select placeholder="เลือกเจ้าหน้าที่เวชสถิติ"
-                          options={statStaff.map(s => ({ value: s.name, label: `${s.name} (${s.status})`, disabled: s.status === 'ติดภารกิจ' }))} />
-                      </Form.Item>
-                    </Col>
-                    <Col xs={24} md={12}>
-                      <Form.Item name="assignNote" label="หมายเหตุ">
-                        <Input placeholder="เช่น ให้เสร็จภายใน 3 วัน" />
-                      </Form.Item>
-                    </Col>
-                  </Row>
-                  <Button type="primary" icon={<TeamOutlined />} onClick={handleAssign}>มอบหมายงาน</Button>
-                </Form>
-              </>
+            {(selected.restricted_fields ?? []).length > 0 && (
+              <Alert type="warning" showIcon className="mb-4" title="ฟิลด์ที่ถูกจำกัดตาม PDPA (ไม่ส่งให้)"
+                description={<Space wrap size={4}>{(selected.restricted_fields ?? []).map(r => <Tag key={r.id} color="red">{r.field_name}{r.note ? ` (${r.note})` : ''}</Tag>)}</Space>} />
             )}
 
-            {/* processing → deliver */}
-            {selected.status === 'processing' && (
-              <>
-                <Alert type="warning" showIcon className="mb-4"
-                  title={`กำลังจัดทำโดย ${selected.assignedTo}`}
-                  description="เมื่อจัดทำเสร็จ บันทึกการส่งมอบข้อมูล" />
-                <Form form={deliverForm} layout="vertical">
-                  <Form.Item name="deliveredNote" label="รายละเอียดการส่งมอบ" rules={[{ required: true, message: 'กรุณาระบุการส่งมอบ' }]}>
-                    <Input.TextArea rows={3} placeholder="เช่น ส่งไฟล์ทางอีเมล / เลขที่หนังสือนำส่ง..." />
-                  </Form.Item>
-                  <Button type="primary" icon={<FileExcelOutlined />} onClick={handleDeliver}>บันทึกการส่งมอบ</Button>
-                </Form>
-              </>
-            )}
+            {selected.status === 'delivered' && <Alert type="success" showIcon className="mb-4" title="ส่งมอบข้อมูลเรียบร้อยแล้ว" description={selected.delivered_note} />}
+            {selected.status === 'rejected' && <Alert type="error" showIcon className="mb-4" title="คำขอนี้ไม่ได้รับอนุมัติ" description={selected.review_note} />}
 
-            {selected.status === 'delivered' && (
-              <Alert type="success" showIcon title="ส่งมอบข้อมูลเรียบร้อยแล้ว" description={selected.deliveredNote} />
-            )}
-            {selected.status === 'rejected' && (
-              <Alert type="error" showIcon title="คำขอนี้ถูกปฏิเสธ"
-                description={selected.approvalHistory.findLast(h => h.action === 'ไม่อนุมัติ')?.note} />
-            )}
-          </>
+            <Text strong>ประวัติการดำเนินการ</Text>
+            <Timeline className="mt-3" items={(selected.history ?? []).map(h => ({
+              color: h.action.includes('ปฏิเสธ') || h.action.includes('ไม่อนุมัติ') ? 'red' : (h.action.includes('อนุมัติ') || h.action.includes('ส่งมอบ')) ? 'green' : ACCENT,
+              content: (
+                <div>
+                  <Text strong>{h.step_name}</Text><Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{fmtDateTime(h.created_at)}</Text>
+                  <div><Text type="secondary">โดย {h.actor_name ?? '-'} — {h.action}</Text></div>
+                  {h.note && <div style={{ color: '#d97706', fontSize: 12 }}>{h.note}</div>}
+                </div>
+              ),
+            }))} />
+          </Spin>
         )}
       </Drawer>
     </div>
   )
 }
 
-const StatisticsRequestPage = () => (
-  <AppThemeProvider colorPrimary={ACCENT}>
-    <PageContent />
-  </AppThemeProvider>
-)
-
-export default StatisticsRequestPage
+export default function StatisticsRequestPage() {
+  return <AppThemeProvider colorPrimary={ACCENT}><PageContent /></AppThemeProvider>
+}
