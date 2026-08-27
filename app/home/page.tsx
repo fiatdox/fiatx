@@ -137,6 +137,10 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ]
 
 
+// แบนเนอร์สไลด์ประกาศ/ข่าวสาร — ปิดไว้ก่อน (ข้อมูลยังเป็น mock ยังไม่ได้ต่อ API จริง)
+// เปิดกลับได้โดยเปลี่ยนเป็น true ข้อมูลและโค้ดสไลด์ด้านล่างยังอยู่ครบ
+const SHOW_ANNOUNCEMENT_BANNER = false
+
 // ประกาศ/ข่าวสาร (mock — ต่อ API ภายหลังได้)
 interface Announcement {
   id: number
@@ -425,6 +429,7 @@ const PageContent = () => {
         </div>
 
         {/* ── ประกาศ / ข่าวสาร (carousel) ── */}
+        {SHOW_ANNOUNCEMENT_BANNER && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
@@ -539,6 +544,7 @@ const PageContent = () => {
             ))}
           </Carousel>
         </div>
+        )}
 
         {/* ── เมนูลัด (แสดงตามสิทธิ์) ── */}
         {visibleGroups.map((g) => (

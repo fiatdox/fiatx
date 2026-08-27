@@ -114,6 +114,38 @@ const PRIORITY_TAG: Record<Priority, string> = {
 const FY_MONTH_LABELS = ['ต.ค.', 'พ.ย.', 'ธ.ค.', 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.']
 const CHART_PALETTE = ['#a855f7', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#84cc16']
 
+// ปัดเพดานแกนเรดาร์ขึ้นให้ ECharts แบ่งขีดได้สวย
+//
+// เรดาร์ล็อกทั้ง min (0) และ max ทุกแกน ECharts จึงคำนวณ interval = max / splitNumber (5) ตรง ๆ
+// แล้วเตือน "ticks may be not readable" ถ้าเลขนำหน้าของ interval ไม่ใช่ 1, 2, 3 หรือ 5
+// (ดู echarts/lib/coord/axisAlignTicks.js + isValueNice ใน scale/helper.js)
+//
+// เพดานที่ผ่านเงื่อนไขคือ {1, 1.5, 2.5, 5} x 10^k แต่ตรวจซ้ำด้วยตรรกะเดียวกับ ECharts
+// ไม่เดาเอง เพราะบางค่าพลาดเพราะทศนิยมของ JS (1.5 / 5 ไม่เท่ากับ 0.3 พอดี)
+const RADAR_SPLIT_NUMBER = 5
+const NICE_MANTISSAS = [1, 1.5, 2.5, 5]
+
+/** เลขนำหน้าของ v เป็น 1, 2, 3 หรือ 5 ไหม — ลอกเงื่อนไข isValueNice ของ ECharts มาตรง ๆ */
+const tickIsNice = (v: number): boolean => {
+  let exp = Math.floor(Math.log(v) / Math.LN10)
+  if (v / Math.pow(10, exp) >= 10) exp++
+  const f = Math.abs(v / Math.pow(10, exp))
+  return f === 1 || f === 2 || f === 3 || f === 5
+}
+
+const niceMax = (v: number): number => {
+  if (!Number.isFinite(v) || v <= 0) return 5
+  let mag = Math.pow(10, Math.floor(Math.log10(v)))
+  for (let decade = 0; decade < 12; decade++) {
+    for (const m of NICE_MANTISSAS) {
+      const cand = Number((m * mag).toPrecision(12))
+      if (cand >= v && tickIsNice(cand / RADAR_SPLIT_NUMBER)) return cand
+    }
+    mag *= 10
+  }
+  return v
+}
+
 const getFiscalYearBE = (d: dayjs.Dayjs): number => {
   const calYear = d.year()
   const month = d.month() + 1
@@ -642,9 +674,11 @@ function ActivityPageContent() {
       fyLogs.filter(l => l.staff_id === staffId && l.type_code === typeCode)
         .reduce((s, l) => s + l.minutes_used, 0) / 60
     // สเกลแต่ละแกนตามค่าสูงสุดของทีม (คงที่ไม่ว่าเลือกคนไหน จะได้เทียบกันได้)
+    // ใช้ niceMax ปัดขึ้นเป็นเลขกลม — เดิมคูณ 1.1 ตรง ๆ ได้ค่าอย่าง 147 แล้ว ECharts
+    // แบ่งขีดเป็น 29.4 / 58.8 ... อ่านไม่รู้เรื่อง (ขึ้น warning "ticks may be not readable")
     const indicator = types.map(t => {
       const maxH = Math.max(1, ...allStaff.map(s => hoursOf(s.staff_id, t.type_code)))
-      return { name: t.type_name_th, max: Number((maxH * 1.1).toFixed(1)) }
+      return { name: t.type_name_th, max: niceMax(maxH) }
     })
     const shown = radarStaff === 'all' ? allStaff : allStaff.filter(s => s.staff_id === radarStaff)
     const data = shown.map((s, i) => {
