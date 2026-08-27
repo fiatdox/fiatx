@@ -16,9 +16,13 @@ import {
   FaBriefcaseMedical, FaDesktop, FaKey, FaMoneyCheckAlt,
   FaHospital, FaBoxes, FaBuilding, FaMoneyBillWave, FaWifi, FaUserShield,
   FaUmbrellaBeach, FaUserClock, FaChevronLeft, FaChevronRight,
+  FaCalendarAlt, FaWrench, FaCar, FaUserTie, FaUsers, FaTachometerAlt,
+  FaIdCard, FaShieldAlt, FaGift, FaWarehouse, FaClipboardList, FaMicrochip,
+  FaUsersCog, FaLock,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
+import { canSeeMenu, normalizeRoles, isRouteEnabled } from '../lib/menuAccess'
 import dayjs from 'dayjs'
 import 'dayjs/locale/th'
 
@@ -62,18 +66,74 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
-const quickActions: { key: string; icon: React.ReactNode; label: string; color: string; bg: string; glow?: boolean }[] = [
-  // { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669', bg: '#05966920' },
-  { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed', bg: '#7c3aed20' },
-  // { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมทั่วไป', color: '#006a5a', bg: '#006a5a20' },
-  // { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'เครื่องมือแพทย์', color: '#0891b2', bg: '#0891b220' },
-  // { key: '/general/item-moving', icon: <FaTruck />, label: 'ขอย้ายสิ่งของ/จัดสถานที่', color: '#9333ea', bg: '#9333ea20' },
-  // { key: '/general/room-booking', icon: <FaBed />, label: 'จองห้องพัก', color: '#d97706', bg: '#d9770620' },
-  // { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626', bg: '#dc262620' },
-  { key: '/accounting/salary', icon: <FaMoneyCheckAlt />, label: 'เงินเดือน', color: '#22c55e', bg: '#22c55e20' },
-  { key: '/information-technology/user-request', icon: <FaKey />, label: 'ขอรหัสผู้ใช้งาน HOSxP,Etc.', color: '#2563eb', bg: '#2563eb20' },
-  { key: '/medical-data/statistics-request', icon: <FaHospital />, label: 'ขอข้อมูลทางการแพทย์', color: '#ec4899', bg: '#ec489920' },
-  
+// ─── เมนูลัด — จัดกลุ่มและคุมการมองเห็นตามสิทธิ์ ─────────────────────────────
+// กฎสิทธิ์ส่วนกลางอยู่ที่ app/lib/menuAccess.ts (ชุดเดียวกับเมนูหลักใน Navbar)
+// ไทล์ที่ route ยังไม่มีกฎในไฟล์นั้น กำหนด roles เพิ่มได้ที่ตัวไทล์เอง
+
+interface Shortcut {
+  key: string          // route ปลายทาง (หรือ USER_REQUEST_KEY = เปิด drawer ขอรหัส)
+  icon: React.ReactNode
+  label: string
+  color: string
+  roles?: string[]     // สิทธิ์เฉพาะของไทล์นี้ — ไม่ระบุ = ยึดตาม menuAccess
+  supervisor?: boolean // ต้องถูกแต่งตั้งเป็นหัวหน้าหน่วย (ถามจาก backend)
+}
+
+interface ShortcutGroup {
+  key: string
+  title: string
+  hint: string
+  items: Shortcut[]
+}
+
+const ADMIN_ROLES = ['ADMIN', 'CHIEF_GROUP_IT']
+
+const SHORTCUT_GROUPS: ShortcutGroup[] = [
+  {
+    key: 'self',
+    title: 'บริการของฉัน',
+    hint: 'ใช้ได้ทุกคน',
+    items: [
+      { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669' },
+      { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed' },
+      { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป', color: '#006a5a' },
+      { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์', color: '#0891b2' },
+      { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626' },
+      { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่', color: '#d97706' },
+      { key: '/accounting/salary', icon: <FaMoneyCheckAlt />, label: 'สลิปเงินเดือน', color: '#22c55e' },
+      { key: USER_REQUEST_KEY, icon: <FaKey />, label: 'ขอรหัสผู้ใช้งาน HOSxP ฯลฯ', color: '#2563eb' },
+      { key: '/medical-data/statistics-request', icon: <FaHospital />, label: 'ขอข้อมูลทางการแพทย์', color: '#ec4899' },
+    ],
+  },
+  {
+    key: 'duty',
+    title: 'งานที่ต้องดำเนินการ',
+    hint: 'ตามหน้าที่ที่ได้รับมอบหมาย',
+    items: [
+      { key: '/hr/leave/approval', icon: <FaUserTie />, label: 'อนุมัติคำขอลา', color: '#0ea5e9', supervisor: true },
+      { key: '/information-technology/maintenance/manage', icon: <FaWrench />, label: 'จัดการงานซ่อมคอมพิวเตอร์', color: '#7c3aed' },
+      { key: '/general/assets/donation-request', icon: <FaGift />, label: 'ขอรับบริจาคครุภัณฑ์', color: '#f43f5e' },
+      { key: '/general/assets/donation-review', icon: <FaUserShield />, label: 'พิจารณาอนุมัติบริจาค', color: '#8b5cf6' },
+      { key: '/general/assets/donation-registration', icon: <FaWarehouse />, label: 'ขึ้นทะเบียนครุภัณฑ์บริจาค', color: '#0d9488' },
+      { key: '/medical-data/statistics-review', icon: <FaClipboardList />, label: 'ตรวจสอบคำขอข้อมูลสถิติ', color: '#ec4899' },
+    ],
+  },
+  {
+    key: 'manage',
+    title: 'เครื่องมือผู้ดูแล',
+    hint: 'เฉพาะผู้ดูแลระบบ / หัวหน้างาน',
+    items: [
+      { key: '/hr/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ทรัพยากรบุคคล', color: '#0ea5e9', roles: ['ADMIN', 'HR'] },
+      { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร', color: '#0891b2', roles: ['ADMIN', 'HR', 'IT_STAFF'] },
+      { key: '/hr/leave/policy', icon: <FaClipboardList />, label: 'กำหนดสิทธิ์การลา', color: '#f59e0b' },
+      { key: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', color: '#14b8a6' },
+      { key: '/accounting/salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร', color: '#22c55e' },
+      { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'ภาพรวม HAIT', color: '#6366f1' },
+      { key: '/account/user-credentials', icon: <FaLock />, label: 'จัดการบัญชีผู้ใช้บุคลากร', color: '#64748b', roles: ['ADMIN', 'IT_STAFF'] },
+      { key: '/account/roles', icon: <FaUsersCog />, label: 'จัดการสิทธิ์การใช้งาน', color: '#a855f7', roles: ADMIN_ROLES },
+      { key: '/account/mfa', icon: <FaShieldAlt />, label: 'ยืนยันตัวตนสองชั้น (MFA)', color: '#ef4444', roles: ['ADMIN'] },
+    ],
+  },
 ]
 
 
@@ -169,6 +229,11 @@ const PageContent = () => {
   const [currentTime, setCurrentTime] = useState(dayjs())
   const [user, setUser] = useState<Profile>({ name: '', position: '', department: '' })
 
+  // สิทธิ์สำหรับกรองเมนูลัด — role มาจาก cookie, สิทธิ์อนุมัติการลามาจากการแต่งตั้ง (ถาม backend)
+  // null = ยังไม่รู้ผล ซ่อนไทล์ไว้ก่อน กันเมนูกะพริบให้คนที่ไม่มีสิทธิ์เห็น
+  const [userRoles, setUserRoles] = useState<string[]>([])
+  const [isLeaveApprover, setIsLeaveApprover] = useState<boolean | null>(null)
+
   useEffect(() => {
     const raw = Cookies.get('user_data')
     if (!raw) { router.replace('/'); return }
@@ -180,7 +245,35 @@ const PageContent = () => {
       department: data.mission_name ?? data.major_name ?? '',
       phone: data.phone ?? '',
     })
+    setUserRoles(normalizeRoles(data.roles))
   }, [])
+
+  // โมดูลที่ผู้ดูแลระบบปิดการมองเห็นไว้ (route_prefix)
+  const [disabledModules, setDisabledModules] = useState<string[]>([])
+
+  useEffect(() => {
+    fetch('/api/v1/hr/leave-approver-check')
+      .then(r => r.json())
+      .then(j => setIsLeaveApprover(j?.success ? !!j.data?.is_approver : false))
+      .catch(() => setIsLeaveApprover(false))
+    fetch('/api/v1/modules/disabled')
+      .then(r => r.json())
+      .then(j => setDisabledModules(j?.success ? (j.data?.disabled ?? []) : []))
+      .catch(() => setDisabledModules([]))
+  }, [])
+
+  // กรองไทล์ตามสิทธิ์ แล้วตัดกลุ่มที่ไม่เหลือไทล์ทิ้ง
+  const visibleGroups = SHORTCUT_GROUPS
+    .map(g => ({
+      ...g,
+      items: g.items.filter(it => {
+        if (!isRouteEnabled(it.key, disabledModules)) return false
+        if (it.supervisor) return isLeaveApprover === true
+        if (it.roles) return it.roles.some(r => userRoles.includes(r))
+        return canSeeMenu(it.key, userRoles, isLeaveApprover, disabledModules)
+      }),
+    }))
+    .filter(g => g.items.length > 0)
 
   // ── ขอรหัสผู้ใช้งานระบบ (drawer) ──
   const [reqOpen, setReqOpen] = useState(false)
@@ -447,49 +540,51 @@ const PageContent = () => {
           </Carousel>
         </div>
 
-        {/* ── Quick Actions ── */}
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              เข้าถึงด่วน
-            </Text>
-          </div>
-          <Row gutter={[12, 12]}>
-            {quickActions.map((a) => (
-              <Col xs={12} sm={8} md={6} lg={3} key={a.key}>
-                <Card
-                  onClick={() => a.key === USER_REQUEST_KEY ? openRequest() : router.push(a.key)}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = `0 8px 24px ${a.color}55`
-                    e.currentTarget.style.borderColor = a.color
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none'
-                    e.currentTarget.style.borderColor = 'var(--app-border)'
-                    e.currentTarget.style.transform = 'none'
-                  }}
-                  style={{ borderRadius: 14, border: '1px solid var(--app-border)', background: 'var(--app-surface)', cursor: 'pointer', textAlign: 'center', transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.2s' }}
-                  styles={{ body: { padding: '18px 8px' } }}
-                >
-                  <div
-                    style={{
-                      width: 48, height: 48, borderRadius: 12, margin: '0 auto 10px',
-                      background: a.bg, color: a.color,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                      boxShadow: a.glow ? `0 0 14px ${a.color}88, inset 0 0 10px ${a.color}33` : undefined,
-                      filter: a.glow ? `drop-shadow(0 0 5px ${a.color})` : undefined,
-                      border: a.glow ? `1px solid ${a.color}66` : undefined,
+        {/* ── เมนูลัด (แสดงตามสิทธิ์) ── */}
+        {visibleGroups.map((g) => (
+          <div key={g.key} style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {g.title}
+              </Text>
+              <Tag style={{ margin: 0, borderRadius: 999, fontSize: 11, border: '1px solid var(--app-border)', background: 'transparent', color: 'var(--app-text-3)' }}>
+                {g.hint}
+              </Tag>
+            </div>
+            <Row gutter={[12, 12]}>
+              {g.items.map((a) => (
+                <Col xs={12} sm={8} md={6} lg={3} key={a.key}>
+                  <Card
+                    onClick={() => a.key === USER_REQUEST_KEY ? openRequest() : router.push(a.key)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = `0 8px 24px ${a.color}55`
+                      e.currentTarget.style.borderColor = a.color
+                      e.currentTarget.style.transform = 'translateY(-2px)'
                     }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.borderColor = 'var(--app-border)'
+                      e.currentTarget.style.transform = 'none'
+                    }}
+                    style={{ borderRadius: 14, border: '1px solid var(--app-border)', background: 'var(--app-surface)', cursor: 'pointer', textAlign: 'center', height: '100%', transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.2s' }}
+                    styles={{ body: { padding: '18px 8px' } }}
                   >
-                    {a.icon}
-                  </div>
-                  <Text style={{ fontSize: 12, fontWeight: 500, color: 'var(--app-text-2)', lineHeight: 1.3 }}>{a.label}</Text>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </div>
+                    <div
+                      style={{
+                        width: 48, height: 48, borderRadius: 12, margin: '0 auto 10px',
+                        background: `${a.color}20`, color: a.color,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                      }}
+                    >
+                      {a.icon}
+                    </div>
+                    <Text style={{ fontSize: 12, fontWeight: 500, color: 'var(--app-text-2)', lineHeight: 1.3 }}>{a.label}</Text>
+                  </Card>
+                </Col>
+              ))}
+            </Row>
+          </div>
+        ))}
 
         {/* ── สรุปวันลาของฉัน ── */}
         <div>

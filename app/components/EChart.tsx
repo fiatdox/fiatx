@@ -20,7 +20,8 @@ const InnerChart: React.FC<{ option: echarts.EChartsCoreOption; height: number |
     if (!ref.current) return
     const chart = echarts.init(ref.current, 'dark', { renderer: 'canvas' })
     chartRef.current = chart
-    chart.setOption(option)
+    // ไม่เรียก setOption ที่นี่ — effect ถัดไป (deps: [option]) จะเรียกให้ครั้งแรกอยู่แล้ว
+    // เรียกซ้ำสองครั้งติดกันในทิกเดียวกันทำให้ ECharts ชน main process ภายในของตัวเอง
     const resize = () => chart.resize()
     window.addEventListener('resize', resize)
     const ro = new ResizeObserver(resize)
@@ -84,7 +85,8 @@ const EChart: React.FC<Props> = ({ option, height = 280, style, className, showT
     if (!ref.current) return
     const chart = echarts.init(ref.current, 'dark', { renderer: 'canvas' })
     chartRef.current = chart
-    chart.setOption(option)
+    // ไม่เรียก setOption ที่นี่ — effect ถัดไป (deps: [option]) จะเรียกให้ครั้งแรกอยู่แล้ว
+    // เรียกซ้ำสองครั้งติดกันในทิกเดียวกันทำให้ ECharts ชน main process ภายในของตัวเอง
     const resize = () => chart.resize()
     window.addEventListener('resize', resize)
     const ro = new ResizeObserver(resize)

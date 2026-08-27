@@ -251,14 +251,14 @@ function AssetReturnPageInner() {
             {pendingSupervisor.length > 0 && (
               <Col xs={24} md={12}>
                 <Alert type="warning" showIcon icon={<SafetyOutlined />}
-                  message={<span>รอหัวหน้าช่างยืนยัน <Badge count={pendingSupervisor.length} style={{ marginLeft: 8 }} /></span>}
+                  title={<span>รอหัวหน้าช่างยืนยัน <Badge count={pendingSupervisor.length} style={{ marginLeft: 8 }} /></span>}
                   description="มีครุภัณฑ์ที่ช่างส่งคืนแล้ว รอหัวหน้าช่างตรวจสอบ" />
               </Col>
             )}
             {pendingWarehouse.length > 0 && (
               <Col xs={24} md={12}>
                 <Alert type="error" showIcon icon={<FaWarehouse />}
-                  message={<span>รอพัสดุรับเข้าคลัง <Badge count={pendingWarehouse.length} color="error" style={{ marginLeft: 8 }} /></span>}
+                  title={<span>รอพัสดุรับเข้าคลัง <Badge count={pendingWarehouse.length} color="error" style={{ marginLeft: 8 }} /></span>}
                   description="ครุภัณฑ์ผ่านการยืนยันจากหัวหน้าช่างแล้ว — กรุณารับเข้าคลังโดยเร็ว" />
               </Col>
             )}
@@ -383,7 +383,7 @@ function AssetReturnPageInner() {
         width={560}
       >
         <Alert type="warning" showIcon style={{ marginBottom: 16, marginTop: 12 }}
-          message="หัวหน้าช่างต้องตรวจสอบครุภัณฑ์ให้ครบก่อนยืนยัน เพื่อป้องกันชิ้นส่วนสูญหาย" />
+          title="หัวหน้าช่างต้องตรวจสอบครุภัณฑ์ให้ครบก่อนยืนยัน เพื่อป้องกันชิ้นส่วนสูญหาย" />
         {selected && (
           <Descriptions size="small" column={1} labelStyle={{ color: '#94a3b8' }} contentStyle={{ color: '#e2e8f0' }} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="ครุภัณฑ์">{selected.assetName}</Descriptions.Item>
@@ -421,7 +421,7 @@ function AssetReturnPageInner() {
         width={600}
       >
         <Alert type="info" showIcon style={{ marginBottom: 16, marginTop: 12 }}
-          message="บันทึกข้อมูลให้ครบถ้วน ระบบจะออก QR Code สำหรับติดที่ครุภัณฑ์อัตโนมัติ" />
+          title="บันทึกข้อมูลให้ครบถ้วน ระบบจะออก QR Code สำหรับติดที่ครุภัณฑ์อัตโนมัติ" />
         {selected && (
           <Descriptions size="small" column={2} labelStyle={{ color: '#94a3b8' }} contentStyle={{ color: '#e2e8f0' }} style={{ marginBottom: 16 }}>
             <Descriptions.Item label="ครุภัณฑ์" span={2}>{selected.assetName}</Descriptions.Item>
@@ -489,7 +489,7 @@ function AssetReturnPageInner() {
         destroyOnHidden
       >
         <Alert type="warning" showIcon style={{ marginBottom: 16, marginTop: 12 }}
-          message="ต้องถ่ายรูปครุภัณฑ์ก่อนส่งคืน — บันทึก timestamp อัตโนมัติ" />
+          title="ต้องถ่ายรูปครุภัณฑ์ก่อนส่งคืน — บันทึก timestamp อัตโนมัติ" />
         <Form form={form} layout="vertical">
           <Row gutter={16}>
             <Col span={12}>

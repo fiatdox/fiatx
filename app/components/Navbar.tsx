@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Layout, Button, Drawer, Typography, Avatar, Menu, Space, Divider, ConfigProvider } from 'antd'
+import { Layout, Button, Drawer, Typography, Avatar, Menu, Space, Divider, ConfigProvider, Alert } from 'antd'
 import Cookies from 'js-cookie'
 import {
   MenuOutlined,
@@ -23,11 +23,16 @@ import {
   FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
   FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
   FaWarehouse, FaExchangeAlt, FaQrcode,
-  FaCoins
+  FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
 } from 'react-icons/fa'
+import { canSeeMenu, normalizeRoles } from '../lib/menuAccess'
 
 const { Header } = Layout
 const { Title, Text } = Typography
+
+// เมนูลัด "บริการของฉัน" ชี้ไป route เดียวกับกลุ่มหน่วยงานด้านล่าง จึงต้องมี key ไม่ซ้ำ
+const FAV_PREFIX = 'fav:'
+const toRoute = (key: string) => key.startsWith(FAV_PREFIX) ? key.slice(FAV_PREFIX.length) : key
 
 interface UserData {
   name?: string
@@ -41,49 +46,77 @@ const Navbar: React.FC = () => {
   const [openProfile, setOpenProfile] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  const [openKeys, setOpenKeys] = useState<string[]>([])
+  // กาง "บริการของฉัน" ไว้ตั้งแต่แรก — เป็นกลุ่มที่ทุกคนใช้ ไม่ควรต้องกดเปิดเอง
+  const [openKeys, setOpenKeys] = useState<string[]>(['my-services'])
   const [userData, setUserData] = useState<UserData>({})
   const { mode, toggle } = useThemeMode()
+
+  // สิทธิ์อนุมัติการลา — ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย จึงต้องถาม backend
+  // null = ยังไม่รู้ผล (ซ่อนเมนูไว้ก่อน กันเมนูกะพริบให้คนที่ไม่มีสิทธิ์เห็น)
+  const [isLeaveApprover, setIsLeaveApprover] = useState<boolean | null>(null)
+
+  // สถานะอายุรหัสผ่าน — null = ปิดนโยบาย/ยังไม่รู้ผล
+  type PwdStatus = {
+    expired: boolean; shouldWarn: boolean
+    ageDays: number | null; daysLeft: number | null; changedAt: string | null
+    policy_enabled: boolean; expiry_days: number
+  }
+  const [pwdStatus, setPwdStatus] = useState<PwdStatus | null>(null)
+  const [pwdBannerClosed, setPwdBannerClosed] = useState(false)
+
+  // สถานะชื่อผู้ใช้ — username ที่เป็นเลขบัตรประชาชน
+  type UnameStatus = { weak: boolean; warn: boolean; required: boolean; mode: string; username: string }
+  const [unameStatus, setUnameStatus] = useState<UnameStatus | null>(null)
+  const [unameBannerClosed, setUnameBannerClosed] = useState(false)
+
+  // โมดูลที่ผู้ดูแลระบบปิดการมองเห็นไว้ (route_prefix)
+  const [disabledModules, setDisabledModules] = useState<string[]>([])
 
   useEffect(() => {
     const raw = Cookies.get('user_data')
     if (raw) {
       try { setUserData(JSON.parse(raw)) } catch { /* ignore */ }
     }
+    fetch('/api/v1/hr/leave-approver-check')
+      .then(r => r.json())
+      .then(j => setIsLeaveApprover(j?.success ? !!j.data?.is_approver : false))
+      .catch(() => setIsLeaveApprover(false))
   }, [])
 
+  // ถามใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อให้เมนูอัปเดตทันทีหลังผู้ดูแลระบบสลับสวิตช์
+  // (ฝั่ง server แคชไว้ 30 วินาที จึงไม่ได้ยิง DB จริงทุกครั้ง)
+  useEffect(() => {
+    fetch('/api/v1/modules/disabled')
+      .then(r => r.json())
+      .then(j => setDisabledModules(j?.success ? (j.data?.disabled ?? []) : []))
+      .catch(() => setDisabledModules([]))
+  }, [pathname])
+
+  // นโยบายอายุรหัสผ่าน — แจ้งเตือนอย่างเดียว ใช้งานระบบได้ตามปกติ
+  // คำนวณจากวันที่เปลี่ยนรหัสล่าสุด (ถามใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อให้หายทันทีหลังเปลี่ยนรหัส)
+  useEffect(() => {
+    fetch('/api/v1/users/me/password-status')
+      .then(r => r.json())
+      .then(j => setPwdStatus(j?.success ? j.data : null))
+      .catch(() => setPwdStatus(null))
+  }, [pathname])
+
+  // นโยบายชื่อผู้ใช้ — โหมด force จะพาไปหน้าตั้งชื่อใหม่ (backend ก็ปิดกั้น API ไว้อีกชั้น)
+  useEffect(() => {
+    if (pathname === '/account/change-username') return
+    fetch('/api/v1/users/me/username-status')
+      .then(r => r.json())
+      .then(j => {
+        const d = j?.success ? j.data : null
+        setUnameStatus(d)
+        if (d?.required) router.replace('/account/change-username')
+      })
+      .catch(() => setUnameStatus(null))
+  }, [pathname, router])
+
   // ── สิทธิ์การมองเห็นเมนู ────────────────────────────────────────────────
-  // roles ของผู้ใช้ (normalize เป็นตัวพิมพ์ใหญ่)
-  const userRoles = (userData.roles ?? []).map(r => String(r).toUpperCase())
-
-  // กลุ่มสิทธิ์งาน IT ภายใน — ตรงกับ gate ของหน้าจัดการงานซ่อม
-  // (เจ้าหน้าที่ IT, หัวหน้ากลุ่มงาน IT, หัวหน้าภารกิจ, ผู้ดูแลระบบ)
-  const IT_STAFF_ROLES = ['ADMIN', 'CHIEF_GROUP_IT', 'CHIEF_MISSION_IT', 'IT_STAFF']
-
-  // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
-  // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
-  const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
-    // กำหนดสิทธิ์การลา — แก้กฎการลาทั้งองค์กร (เฉพาะ ADMIN/HR — ตรงกับ requireRoles ฝั่ง backend)
-    '/hr/leave/policy': ['ADMIN', 'HR'],
-    // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
-    '/hr/leave/balance': ['ADMIN', 'HR'],
-    // งานซ่อมคอมพิวเตอร์ — หน้าจัดการ (เฉพาะเจ้าหน้าที่ IT)
-    '/information-technology/maintenance/manage': IT_STAFF_ROLES,
-    // HAIT — เครื่องมือภายในของงาน IT (เฉพาะเจ้าหน้าที่ IT)
-    '/information-technology/hait': IT_STAFF_ROLES,
-    '/information-technology/hait/sla': IT_STAFF_ROLES,
-    '/information-technology/hait/incident-reports': IT_STAFF_ROLES,
-    '/information-technology/hait/activity': IT_STAFF_ROLES,
-    '/information-technology/hait/risk-management': IT_STAFF_ROLES,
-    // ตรวจสอบ/อนุมัติคำขอข้อมูลสถิติ (PDPA) — เฉพาะหัวหน้ากลุ่มงานข้อมูลทางการแพทย์
-    '/medical-data/statistics-review': ['ADMIN', 'CHIEF_GROUP_MEDSTAT'],
-  }
-
-  // เห็นเมนูนี้ได้ไหม — route ที่ไม่ได้กำหนดสิทธิ์ = เห็นได้ทุกคน
-  const canSeeMenu = (key: string): boolean => {
-    const req = MENU_ROLE_REQUIREMENTS[key]
-    return !req || req.some(r => userRoles.includes(r))
-  }
+  // กฎทั้งหมดอยู่ที่ app/lib/menuAccess.ts — ใช้ร่วมกับเมนูลัดหน้าหลัก
+  const userRoles = normalizeRoles(userData.roles)
 
   // กรองต้นไม้เมนูตามสิทธิ์ — leaf ตัดตาม canSeeMenu, กลุ่มที่ไม่เหลือลูกให้ตัดทิ้ง
   // ใช้ any ที่ขอบ antd (โครงสร้าง items แต่ละอันไม่เหมือนกัน) — คืนค่าให้ Menu รับได้เหมือนเดิม
@@ -93,7 +126,7 @@ const Navbar: React.FC = () => {
       if (item.children) {
         const kids = filterMenuByRole(item.children)
         if (kids.length > 0) acc.push({ ...item, children: kids })
-      } else if (canSeeMenu(item.key)) {
+      } else if (canSeeMenu(toRoute(item.key), userRoles, isLeaveApprover, disabledModules)) {
         acc.push(item)
       }
       return acc
@@ -231,6 +264,45 @@ const Navbar: React.FC = () => {
         </Space>
       </Header>
 
+      {/* แถบเตือนอายุรหัสผ่าน — เตือนอย่างเดียว ไม่ปิดกั้นการใช้งาน */}
+      {pwdStatus?.policy_enabled && !pwdBannerClosed && (pwdStatus.expired || pwdStatus.shouldWarn)
+        && pathname !== '/account/change-password' && (
+        <Alert
+          type={pwdStatus.expired ? 'warning' : 'info'}
+          showIcon
+          banner
+          closable
+          onClose={() => setPwdBannerClosed(true)}
+          title={
+            pwdStatus.expired
+              ? `รหัสผ่านของท่านใช้งานมาแล้ว ${pwdStatus.ageDays ?? 0} วัน (นโยบายกำหนด ${pwdStatus.expiry_days} วัน) — ควรเปลี่ยนรหัสผ่าน`
+              : `รหัสผ่านของท่านจะครบกำหนดเปลี่ยนในอีก ${pwdStatus.daysLeft} วัน`
+          }
+          action={
+            <Button size="small" type="primary" onClick={() => router.push('/account/change-password')}>
+              เปลี่ยนรหัสผ่าน
+            </Button>
+          }
+        />
+      )}
+
+      {/* แถบเตือนชื่อผู้ใช้เป็นเลขบัตรประชาชน (โหมด warn — โหมด force จะถูกพาไปหน้าตั้งชื่อใหม่แทน) */}
+      {unameStatus?.warn && !unameBannerClosed && pathname !== '/account/change-username' && (
+        <Alert
+          type="warning"
+          showIcon
+          banner
+          closable
+          onClose={() => setUnameBannerClosed(true)}
+          title="ชื่อผู้ใช้ของท่านคือเลขบัตรประชาชน — ควรเปลี่ยนเพื่อความปลอดภัยของบัญชี"
+          action={
+            <Button size="small" type="primary" onClick={() => router.push('/account/change-username')}>
+              ตั้งชื่อผู้ใช้ใหม่
+            </Button>
+          }
+        />
+      )}
+
       {/* Left Drawer: Main Navigation */}
       <ConfigProvider
         theme={{
@@ -275,14 +347,33 @@ const Navbar: React.FC = () => {
           openKeys={openKeys}
           onOpenChange={(keys) => setOpenKeys(keys)}
           onClick={(e) => {
-            router.push(e.key)
+            router.push(toRoute(e.key))
             setOpenMenu(false) // เลือกเมนูเสร็จให้ปิด Drawer
           }}
           items={filterMenuByRole([
             { key: '/home', icon: <HomeOutlined />, label: 'หน้าหลัก' },
-            { 
-              key: 'hr', 
-              icon: <FaUsersCog />, 
+            // ── บริการที่ทุกคนใช้บ่อย — รวมไว้บนสุด ไม่ต้องไล่หาในกลุ่มหน่วยงาน ──
+            {
+              key: 'my-services',
+              icon: <FaClipboardList />,
+              label: 'บริการของฉัน',
+              children: [
+                // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
+                // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
+                { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+                { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปรายการลาของฉัน' },
+                { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
+                { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
+                { key: `${FAV_PREFIX}/general/vehicle/request`, icon: <FaCar />, label: 'ขอใช้รถราชการ' },
+                { key: `${FAV_PREFIX}/general/room-booking`, icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
+                { key: `${FAV_PREFIX}/accounting/salary`, icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
+                { key: `${FAV_PREFIX}/information-technology/user-request`, icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+                { key: `${FAV_PREFIX}/medical-data/statistics-request`, icon: <FaChartBar />, label: 'ขอข้อมูลสถิติ' },
+              ]
+            },
+            {
+              key: 'hr',
+              icon: <FaUsersCog />,
               label: 'งานทรัพยากรบุคคล',
               children: [
                 { key: '/hr/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ภาพรวม' },
@@ -296,6 +387,7 @@ const Navbar: React.FC = () => {
                     { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
                     { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปรายการลา' },
                     { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
+                    // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
                     { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
                     { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
                   ]
@@ -350,6 +442,10 @@ const Navbar: React.FC = () => {
                     { key: '/general/assets/return',               icon: <FaExchangeAlt />,    label: 'ส่งคืนครุภัณฑ์เสีย' },
                     { key: '/general/assets/warehouse',            icon: <FaWarehouse />,      label: 'คลังครุภัณฑ์เสื่อมสภาพ' },
                     { key: '/general/assets/replacement-request',  icon: <FaShoppingCart />,   label: 'เสนอซื้อทดแทน' },
+                    { key: '/general/assets/donation-request',      icon: <FaGift />,          label: 'ขอรับบริจาคครุภัณฑ์' },
+                    { key: '/general/assets/donation-review',       icon: <FaUserShield />,    label: 'พิจารณาอนุมัติบริจาค' },
+                    { key: '/general/assets/donation-registration', icon: <FaWarehouse />,     label: 'ขึ้นทะเบียนครุภัณฑ์บริจาค' },
+                    { key: '/general/assets/donation-admin',        icon: <FaUsersCog />,      label: 'ตั้งค่าระบบรับบริจาค' },
                   ]
                 },
                 {
@@ -444,6 +540,7 @@ const Navbar: React.FC = () => {
               children: [
                 { key: '/accounting/schedule',           icon: <FaCalendarAlt />, label: 'ตารางเวรการปฏิบัติงาน' },
                 { key: '/accounting/salary',           icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
+                { key: '/accounting/salary-ids',       icon: <FaIdCard />,            label: 'เลขที่เงินเดือนบุคลากร' },
                 { key: '/accounting/credentials',      icon: <FaLock />,              label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
                 { key: '/accounting/repair-payment',   icon: <FaFileAlt />,           label: 'เบิกจ่ายค่าซ่อมบำรุง' },
                 { key: '/accounting/accounts-payable', icon: <FaFileInvoiceDollar />, label: 'เจ้าหนี้การค้า / KPI จ่าย' },
@@ -531,9 +628,21 @@ const Navbar: React.FC = () => {
               } else if (key === 'change-password') {
                 setOpenProfile(false)
                 router.push('/account/change-password')
+              } else if (key === 'change-username') {
+                setOpenProfile(false)
+                router.push('/account/change-username')
               } else if (key === 'roles') {
                 setOpenProfile(false)
                 router.push('/account/roles')
+              } else if (key === 'mfa') {
+                setOpenProfile(false)
+                router.push('/account/mfa')
+              } else if (key === 'modules') {
+                setOpenProfile(false)
+                router.push('/account/modules')
+              } else if (key === 'user-credentials') {
+                setOpenProfile(false)
+                router.push('/account/user-credentials')
               } else if (key === 'logout') {
                 Cookies.remove('auth_token')
                 Cookies.remove('user_data')
@@ -544,12 +653,28 @@ const Navbar: React.FC = () => {
             items={[
               { key: 'settings', icon: <SettingOutlined />, label: 'ตั้งค่าบัญชี' },
               { key: 'change-password', icon: <FaLock />, label: 'เปลี่ยนรหัสผ่าน' },
+              // แสดงเฉพาะคนที่ยังใช้เลขบัตรเป็นชื่อผู้ใช้ — คนอื่นไม่ต้องเห็นเมนูที่ไม่ต้องใช้
+              ...(unameStatus?.weak
+                ? [{ key: 'change-username', icon: <FaUserLock />, label: 'เปลี่ยนชื่อผู้ใช้' }]
+                : []),
               // แสดงเฉพาะผู้มีสิทธิ์ admin หรือ CHIEF_GROUP_IT
               ...(userData.roles?.some((r) => {
                 const role = String(r).toUpperCase()
                 return role === 'ADMIN' || role === 'CHIEF_GROUP_IT'
               })
                 ? [{ key: 'roles', icon: <SettingOutlined />, label: 'จัดการสิทธิ์การใช้งาน' }]
+                : []),
+              // ตั้งค่า MFA — สวิตช์ควบคุมการเข้าถึงทั้งระบบ จำกัดเฉพาะ ADMIN (ตรงกับ requireRoles ฝั่ง backend)
+              ...(userRoles.includes('ADMIN')
+                ? [{ key: 'mfa', icon: <FaShieldAlt />, label: 'ยืนยันตัวตนสองชั้น (MFA)' }]
+                : []),
+              // เปิด/ปิดการมองเห็นแต่ละระบบ — เฉพาะ ADMIN (ตรงกับ requireRoles ฝั่ง backend)
+              ...(userRoles.includes('ADMIN')
+                ? [{ key: 'modules', icon: <FaToggleOn />, label: 'เปิด/ปิดการมองเห็นระบบ' }]
+                : []),
+              // จัดการ username/รหัสผ่าน/เลขบัตรของบุคลากร (ตรงกับ CREDENTIAL_ROLES ฝั่ง backend)
+              ...(userRoles.some(r => ['ADMIN', 'IT_STAFF'].includes(r))
+                ? [{ key: 'user-credentials', icon: <FaUserLock />, label: 'จัดการบัญชีเข้าใช้งาน' }]
                 : []),
               { key: 'logout', icon: <LogoutOutlined />, label: 'ออกจากระบบ', danger: true },
             ]}

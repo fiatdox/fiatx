@@ -305,7 +305,7 @@ const PageContent = () => {
         {stats.unpaid.filter(r => dayjs(TODAY).isAfter(dayjs(r.dueDate))).length > 0 && (
           <Alert type="error" showIcon style={{ marginBottom: 16 }}
             icon={<AlertOutlined />}
-            message={`มีเจ้าหนี้เกินกำหนด ${stats.unpaid.filter(r => dayjs(TODAY).isAfter(dayjs(r.dueDate))).length} รายการ — กระทบ KPI`}
+            title={`มีเจ้าหนี้เกินกำหนด ${stats.unpaid.filter(r => dayjs(TODAY).isAfter(dayjs(r.dueDate))).length} รายการ — กระทบ KPI`}
             action={
               <Link href="/accounting/accounts-payable">
                 <Button danger size="small">ไปหน้าจ่าย</Button>

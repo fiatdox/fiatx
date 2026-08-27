@@ -58,46 +58,78 @@ function getRiskScore(p: number | null, i: number | null): number | null {
   return p * i
 }
 
-function getRiskLevel(score: number | null): { label: string; color: string; bg: string } {
+// ระดับความเสี่ยง 4 ขั้น — โทนมืด (เข้ม ทึบ) vs โทนสว่าง (พาสเทลสดใส ตัวหนังสือเข้ม อ่านง่ายบนพื้นขาว)
+const RISK_LEVEL_PALETTE = {
+  critical: { dark: { bg: '#450a0a', color: '#ef4444' }, light: { bg: '#fee2e2', color: '#b91c1c' } },
+  high:     { dark: { bg: '#431407', color: '#f97316' }, light: { bg: '#ffedd5', color: '#c2410c' } },
+  medium:   { dark: { bg: '#422006', color: '#eab308' }, light: { bg: '#fef9c3', color: '#a16207' } },
+  low:      { dark: { bg: '#052e16', color: '#22c55e' }, light: { bg: '#dcfce7', color: '#15803d' } },
+} as const
+
+function getRiskLevel(score: number | null, isDark: boolean): { label: string; color: string; bg: string } {
   if (score === null) return { label: 'ยังไม่ประเมิน', color: 'var(--app-text-3)', bg: 'var(--app-surface)' }
-  if (score >= 17) return { label: 'สูงมาก – เร่งด่วน', color: '#ef4444', bg: '#450a0a' }
-  if (score >= 9) return { label: 'สูง – ต้องจัดการ', color: '#f97316', bg: '#431407' }
-  if (score >= 4) return { label: 'ปานกลาง', color: '#eab308', bg: '#422006' }
-  return { label: 'ต่ำ – ยังไม่เร่งด่วน', color: '#22c55e', bg: '#052e16' }
+  const mode = isDark ? 'dark' : 'light'
+  if (score >= 17) return { label: 'สูงมาก – เร่งด่วน', ...RISK_LEVEL_PALETTE.critical[mode] }
+  if (score >= 9) return { label: 'สูง – ต้องจัดการ', ...RISK_LEVEL_PALETTE.high[mode] }
+  if (score >= 4) return { label: 'ปานกลาง', ...RISK_LEVEL_PALETTE.medium[mode] }
+  return { label: 'ต่ำ – ยังไม่เร่งด่วน', ...RISK_LEVEL_PALETTE.low[mode] }
 }
 
-function getMatrixColor(impact: number, probability: number): string {
+// สีในตาราง Risk Matrix (5×5) — โทนมืดเข้มทึบ vs โทนสว่างพาสเทล
+const MATRIX_PALETTE = {
+  critical: { dark: { bg: '#7f1d1d', text: '#fca5a5' }, light: { bg: '#fecaca', text: '#991b1b' } },
+  high:     { dark: { bg: '#7c2d12', text: '#fb923c' }, light: { bg: '#fed7aa', text: '#9a3412' } },
+  medium:   { dark: { bg: '#713f12', text: '#fde047' }, light: { bg: '#fef08a', text: '#854d0e' } },
+  low:      { dark: { bg: '#14532d', text: '#86efac' }, light: { bg: '#bbf7d0', text: '#166534' } },
+} as const
+
+function getMatrixColor(impact: number, probability: number, isDark: boolean): string {
   const score = impact * probability
-  if (score >= 17) return '#7f1d1d'
-  if (score >= 9) return '#7c2d12'
-  if (score >= 4) return '#713f12'
-  return '#14532d'
+  const mode = isDark ? 'dark' : 'light'
+  if (score >= 17) return MATRIX_PALETTE.critical[mode].bg
+  if (score >= 9) return MATRIX_PALETTE.high[mode].bg
+  if (score >= 4) return MATRIX_PALETTE.medium[mode].bg
+  return MATRIX_PALETTE.low[mode].bg
 }
 
-function getMatrixTextColor(impact: number, probability: number): string {
+function getMatrixTextColor(impact: number, probability: number, isDark: boolean): string {
   const score = impact * probability
-  if (score >= 17) return '#fca5a5'
-  if (score >= 9) return '#fb923c'
-  if (score >= 4) return '#fde047'
-  return '#86efac'
+  const mode = isDark ? 'dark' : 'light'
+  if (score >= 17) return MATRIX_PALETTE.critical[mode].text
+  if (score >= 9) return MATRIX_PALETTE.high[mode].text
+  if (score >= 4) return MATRIX_PALETTE.medium[mode].text
+  return MATRIX_PALETTE.low[mode].text
 }
 
-const LEVEL_DATA = [
-  { level: 1, label: 'ต่ำมาก',  pDesc: 'แทบไม่น่าจะเกิดขึ้น หรือ < 1 ครั้ง/ปี',      iDesc: 'ไม่มีผลกระทบต่อการให้บริการ หรือน้อยมาก', bg: '#14532d', color: '#22c55e' },
-  { level: 2, label: 'ต่ำ',      pDesc: 'อาจเกิดขึ้นได้บ้าง อย่างน้อยเดือนละ 1 ครั้ง',   iDesc: 'มีผลกระทบต่อการให้บริการในบางจุด',         bg: '#365314', color: '#84cc16' },
-  { level: 3, label: 'ปานกลาง', pDesc: 'มีจุดอ่อนพอควร เดือนละหลายครั้ง',            iDesc: 'มีผลกระทบต่อการให้บริการ 1-2 แผนก',        bg: '#713f12', color: '#eab308' },
-  { level: 4, label: 'สูง',      pDesc: 'มีจุดอ่อนมาก เกิดบ่อย เดือนละหลายครั้ง',       iDesc: 'มีผลกระทบต่อการให้บริการ 3-4 แผนก',        bg: '#7c2d12', color: '#f97316' },
-  { level: 5, label: 'สูงมาก',  pDesc: 'มีจุดอ่อนรอบด้าน พบทุกสัปดาห์',              iDesc: 'กระทบวงกว้าง อาจเกิดอันตรายต่อผู้ป่วย',     bg: '#7f1d1d', color: '#ef4444' },
+// เกณฑ์อ้างอิงระดับ P/I (แถบสเกล) — bg/color แยกตามโหมด
+const LEVEL_DATA_BASE = [
+  { level: 1, label: 'ต่ำมาก',  pDesc: 'แทบไม่น่าจะเกิดขึ้น หรือ < 1 ครั้ง/ปี',      iDesc: 'ไม่มีผลกระทบต่อการให้บริการ หรือน้อยมาก',
+    dark: { bg: '#14532d', color: '#22c55e' }, light: { bg: '#dcfce7', color: '#15803d' } },
+  { level: 2, label: 'ต่ำ',      pDesc: 'อาจเกิดขึ้นได้บ้าง อย่างน้อยเดือนละ 1 ครั้ง',   iDesc: 'มีผลกระทบต่อการให้บริการในบางจุด',
+    dark: { bg: '#365314', color: '#84cc16' }, light: { bg: '#ecfccb', color: '#4d7c0f' } },
+  { level: 3, label: 'ปานกลาง', pDesc: 'มีจุดอ่อนพอควร เดือนละหลายครั้ง',            iDesc: 'มีผลกระทบต่อการให้บริการ 1-2 แผนก',
+    dark: { bg: '#713f12', color: '#eab308' }, light: { bg: '#fef9c3', color: '#a16207' } },
+  { level: 4, label: 'สูง',      pDesc: 'มีจุดอ่อนมาก เกิดบ่อย เดือนละหลายครั้ง',       iDesc: 'มีผลกระทบต่อการให้บริการ 3-4 แผนก',
+    dark: { bg: '#7c2d12', color: '#f97316' }, light: { bg: '#ffedd5', color: '#c2410c' } },
+  { level: 5, label: 'สูงมาก',  pDesc: 'มีจุดอ่อนรอบด้าน พบทุกสัปดาห์',              iDesc: 'กระทบวงกว้าง อาจเกิดอันตรายต่อผู้ป่วย',
+    dark: { bg: '#7f1d1d', color: '#ef4444' }, light: { bg: '#fee2e2', color: '#b91c1c' } },
 ] as const
+
+function getLevelData(isDark: boolean) {
+  const mode = isDark ? 'dark' : 'light'
+  return LEVEL_DATA_BASE.map(l => ({ level: l.level, label: l.label, pDesc: l.pDesc, iDesc: l.iDesc, ...l[mode] }))
+}
 
 interface ScaleBarChartProps {
   title: string
   items: RiskItem[]
   field: 'probability' | 'impact'
   descKey: 'pDesc' | 'iDesc'
+  isDark: boolean
 }
 
-function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
+function ScaleBarChart({ title, items, field, descKey, isDark }: ScaleBarChartProps) {
+  const LEVEL_DATA = getLevelData(isDark)
   const counts = LEVEL_DATA.map(lvl => items.filter(i => i[field] === lvl.level).length)
   const totalAssessed = counts.reduce((a, b) => a + b, 0)
   const avg = totalAssessed > 0
@@ -107,8 +139,8 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
   return (
     <Card
       title={<span style={{ color: 'var(--app-text)', fontSize: 13 }}>{title}</span>}
-      style={{ background: 'var(--app-surface)', border: '1px solid #334155', height: '100%' }}
-      styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155', padding: '8px 16px' }, body: { padding: '12px 14px' } }}
+      style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+      styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid var(--app-border-strong)', padding: '8px 16px' }, body: { padding: '12px 14px' } }}
     >
       {[...LEVEL_DATA].reverse().map(lvl => {
         const count = items.filter(i => i[field] === lvl.level).length
@@ -129,7 +161,7 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
               <div style={{
                 flex: 1, height: 22, background: 'var(--app-bg)',
                 borderRadius: 4, overflow: 'hidden', position: 'relative',
-                border: '1px solid #1e293b',
+                border: '1px solid var(--app-border-strong)',
               }}>
                 <div style={{
                   width: `${widthPct}%`, height: '100%',
@@ -159,7 +191,7 @@ function ScaleBarChart({ title, items, field, descKey }: ScaleBarChartProps) {
       })}
 
       {/* Footer: distribution + summary */}
-      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #334155' }}>
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--app-border-strong)' }}>
         <div style={{
           display: 'flex', height: 6, borderRadius: 3, overflow: 'hidden',
           background: 'var(--app-bg)', marginBottom: 6,
@@ -360,6 +392,11 @@ const PageContent = () => {
       'Environment', 'Patient', 'Other',
     ]
     const TARGET = 30
+    // ECharts วาดบน canvas — var(--app-*) ใช้ไม่ได้ ต้องเป็นค่าสีจริงตามโหมด
+    const cAxis  = isDark ? '#e2e8f0' : '#334155'
+    const cMuted = isDark ? '#64748b' : '#94a3b8'
+    const cGrid  = isDark ? 'rgba(148,163,184,0.18)' : 'rgba(100,116,139,0.22)'
+    const cSplit = isDark ? 'rgba(148,163,184,0.10)' : 'rgba(100,116,139,0.14)'
 
     const pctByCategory: number[] = Array.from({ length: 12 }, (_, idx) => {
       const catNo = idx + 1
@@ -396,19 +433,19 @@ const PageContent = () => {
       xAxis: {
         type: 'category',
         data: CATEGORY_SHORT.map((s, i) => `ด้าน ${i + 1}\n${s}`),
-        axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+        axisLine: { lineStyle: { color: cGrid } },
         axisTick: { show: false },
-        axisLabel: { color: 'var(--app-text-2)', fontSize: 11, interval: 0, lineHeight: 14 },
+        axisLabel: { color: cMuted, fontSize: 11, interval: 0, lineHeight: 14 },
       },
       yAxis: {
         type: 'value',
         min: 0,
         max: 100,
         name: 'ร้อยละ',
-        nameTextStyle: { color: 'var(--app-text-3)', fontSize: 10, padding: [0, 0, 6, -30] },
+        nameTextStyle: { color: cMuted, fontSize: 10, padding: [0, 0, 6, -30] },
         axisLine: { show: false },
-        axisLabel: { color: 'var(--app-text-2)', formatter: '{value}%' },
-        splitLine: { lineStyle: { color: 'var(--app-surface)', type: 'dashed' } },
+        axisLabel: { color: cMuted, formatter: '{value}%' },
+        splitLine: { lineStyle: { color: cSplit, type: 'dashed' } },
       },
       series: [
         {
@@ -416,7 +453,7 @@ const PageContent = () => {
           barWidth: '46%',
           data: pctByCategory.map(v => {
             const base =
-              v === 0 ? 'var(--app-border-strong)' :
+              v === 0 ? '#64748b' :
               v <= 30 ? '#22c55e' :
               v <= 50 ? '#eab308' :
               v <= 70 ? '#f97316' :
@@ -441,7 +478,7 @@ const PageContent = () => {
           label: {
             show: true,
             position: 'top',
-            color: 'var(--app-text)',
+            color: cAxis,
             fontWeight: 'bold',
             fontSize: 12,
             formatter: '{c}%',
@@ -449,9 +486,9 @@ const PageContent = () => {
           markLine: {
             symbol: ['none', 'none'],
             silent: true,
-            lineStyle: { type: 'dashed', color: '#a78bfa', width: 2 },
+            lineStyle: { type: 'dashed', color: '#7c3aed', width: 2 },
             label: {
-              color: '#a78bfa',
+              color: '#7c3aed',
               fontWeight: 'bold',
               fontSize: 11,
               formatter: `เป้าหมาย ≤ ${TARGET}%`,
@@ -462,7 +499,7 @@ const PageContent = () => {
         },
       ],
     }
-  }, [items])
+  }, [items, isDark])
 
   const columns = [
     {
@@ -519,7 +556,7 @@ const PageContent = () => {
       width: '20%',
       render: (_: unknown, record: RiskItem) => {
         const score = getRiskScore(record.probability, record.impact)
-        const level = getRiskLevel(score)
+        const level = getRiskLevel(score, isDark)
         if (score === null) return <Text style={{ color: 'var(--app-text-3)' }}>–</Text>
         return (
           <Tag
@@ -560,7 +597,7 @@ const PageContent = () => {
         {/* Assessment info banner */}
         <div style={{
           marginTop: 12, padding: '10px 16px', background: 'var(--app-bg)',
-          border: '1px solid #334155', borderRadius: 8,
+          border: '1px solid var(--app-border-strong)', borderRadius: 8,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
           {assessment ? (
@@ -617,8 +654,8 @@ const PageContent = () => {
                       <span style={{ color: 'var(--app-text)' }}>แผนผังประเมินความเสี่ยง (Risk Matrix)</span>
                     </div>
                   }
-                  style={{ background: 'var(--app-surface)', border: '1px solid #334155', height: '100%' }}
-                  styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' } }}
+                  style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                  styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid var(--app-border-strong)' } }}
                 >
                   <div style={{ overflowX: 'auto' }}>
                     <div>
@@ -645,8 +682,8 @@ const PageContent = () => {
                               </div>
                               {[1, 2, 3, 4, 5].map(prob => {
                                 const score = imp * prob
-                                const bg = getMatrixColor(imp, prob)
-                                const textColor = getMatrixTextColor(imp, prob)
+                                const bg = getMatrixColor(imp, prob, isDark)
+                                const textColor = getMatrixTextColor(imp, prob, isDark)
                                 const dotsHere = matrixDots.filter(d => d.p === prob && d.impact === imp)
                                 return (
                                   <Tooltip
@@ -654,7 +691,7 @@ const PageContent = () => {
                                     title={dotsHere.length > 0 ? dotsHere.map(d => `${d.label} (${d.score})`).join('\n') : `คะแนน ${score}`}
                                   >
                                     <div style={{
-                                      width: 58, height: 48, background: bg, border: '1px solid #334155',
+                                      width: 58, height: 48, background: bg, border: '1px solid var(--app-border-strong)',
                                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                       cursor: 'default', position: 'relative', borderRadius: 3,
                                     }}>
@@ -686,14 +723,14 @@ const PageContent = () => {
 
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
                       {[
-                        { label: '17–25 สูงมาก – เร่งด่วน', bg: '#7f1d1d', color: '#fca5a5' },
-                        { label: '9–16 สูง – ต้องจัดการ', bg: '#7c2d12', color: '#fb923c' },
-                        { label: '4–8 ปานกลาง', bg: '#713f12', color: '#fde047' },
-                        { label: '1–3 ต่ำ – ไม่เร่งด่วน', bg: '#14532d', color: '#86efac' },
+                        { label: '17–25 สูงมาก – เร่งด่วน', ...MATRIX_PALETTE.critical[isDark ? 'dark' : 'light'] },
+                        { label: '9–16 สูง – ต้องจัดการ', ...MATRIX_PALETTE.high[isDark ? 'dark' : 'light'] },
+                        { label: '4–8 ปานกลาง', ...MATRIX_PALETTE.medium[isDark ? 'dark' : 'light'] },
+                        { label: '1–3 ต่ำ – ไม่เร่งด่วน', ...MATRIX_PALETTE.low[isDark ? 'dark' : 'light'] },
                       ].map(l => (
                         <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <div style={{ width: 12, height: 12, background: l.bg, border: `1px solid ${l.color}`, borderRadius: 2, flexShrink: 0 }} />
-                          <Text style={{ color: l.color, fontSize: 11 }}>{l.label}</Text>
+                          <div style={{ width: 12, height: 12, background: l.bg, border: `1px solid ${l.text}`, borderRadius: 2, flexShrink: 0 }} />
+                          <Text style={{ color: l.text, fontSize: 11 }}>{l.label}</Text>
                         </div>
                       ))}
                     </div>
@@ -708,6 +745,7 @@ const PageContent = () => {
                   items={items}
                   field="probability"
                   descKey="pDesc"
+                  isDark={isDark}
                 />
               </Col>
 
@@ -718,6 +756,7 @@ const PageContent = () => {
                   items={items}
                   field="impact"
                   descKey="iDesc"
+                  isDark={isDark}
                 />
               </Col>
             </Row>
@@ -744,7 +783,7 @@ const PageContent = () => {
             <Card
               title={
                 <div>
-                  <div style={{ color: '#a78bfa', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ color: isDark ? '#a78bfa' : '#7c3aed', fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <FaChartBar />
                     คะแนนความเสี่ยงเฉลี่ยต่อหมวด (Risk Exposure %)
                   </div>
@@ -753,8 +792,8 @@ const PageContent = () => {
                   </div>
                 </div>
               }
-              style={{ background: 'var(--app-surface)', border: '1px solid #334155', marginBottom: 24 }}
-              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' }, body: { padding: '8px 8px 4px' } }}
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginBottom: 24 }}
+              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid var(--app-border-strong)' }, body: { padding: '8px 8px 4px' } }}
             >
               <EChart option={categoryChartOption} height={320} showToolbar />
             </Card>
@@ -762,13 +801,13 @@ const PageContent = () => {
             {/* Assessment Table */}
             <Card
               title={<span style={{ color: 'var(--app-text)' }}>ตารางประเมินความเสี่ยง</span>}
-              style={{ background: 'var(--app-surface)', border: '1px solid #334155', marginBottom: 32 }}
-              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid #334155' } }}
+              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', marginBottom: 32 }}
+              styles={{ header: { background: 'var(--app-bg)', borderBottom: '1px solid var(--app-border-strong)' } }}
               extra={
                 <Button
                   icon={<FaPrint />}
                   size="small"
-                  style={{ background: '#6B21A8', border: 'none', color: '#fff' }}
+                  style={gBtn('#7c3aed', '#a855f7')}
                   onClick={() => window.print()}
                 >
                   พิมพ์
@@ -792,33 +831,13 @@ const PageContent = () => {
       </div>
 
       <style jsx global>{`
+        /* แถวหมวดหมู่ (แถวสรุป ไม่มีจุด "." ใน key) — เน้นด้วยเส้นบนสีม่วง ปรับตามธีมผ่าน CSS var */
         .risk-category-row td {
-          background: #0f172a !important;
-          border-top: 2px solid #6B21A8 !important;
+          background: var(--app-bg) !important;
+          border-top: 2px solid #7c3aed !important;
         }
         .ant-table {
           background: transparent !important;
-        }
-        .ant-table-thead > tr > th {
-          background: #0f172a !important;
-          color: #94a3b8 !important;
-          border-bottom: 1px solid #334155 !important;
-        }
-        .ant-table-tbody > tr > td {
-          background: #1e293b !important;
-          border-bottom: 1px solid #1e293b !important;
-          color: #cbd5e1 !important;
-        }
-        .ant-table-tbody > tr:hover > td {
-          background: #263148 !important;
-        }
-        .ant-select-selector {
-          background: #0f172a !important;
-          border-color: #475569 !important;
-          color: #cbd5e1 !important;
-        }
-        .ant-select-arrow {
-          color: #64748b !important;
         }
       `}</style>
     </div>

@@ -39,10 +39,21 @@ const ChangePasswordContent = () => {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [userData, setUserData] = useState<{ name?: string; position_name?: string; major_name?: string }>({})
+  // สถานะอายุรหัสผ่าน — คำนวณจากวันที่เปลี่ยนล่าสุดฝั่ง backend
+  type PwdStatus = {
+    expired: boolean; shouldWarn: boolean
+    ageDays: number | null; daysLeft: number | null; changedAt: string | null
+    policy_enabled: boolean; expiry_days: number
+  }
+  const [pwdStatus, setPwdStatus] = useState<PwdStatus | null>(null)
 
   useEffect(() => {
     const raw = Cookies.get('user_data')
     if (raw) { try { setUserData(JSON.parse(raw)) } catch { /* ignore */ } }
+    fetch('/api/v1/users/me/password-status')
+      .then(r => r.json())
+      .then(j => setPwdStatus(j?.success ? j.data : null))
+      .catch(() => setPwdStatus(null))
   }, [])
 
   const passedRules = useMemo(
@@ -134,6 +145,24 @@ const ChangePasswordContent = () => {
             { title: 'เปลี่ยนรหัสผ่าน' },
           ]}
         />
+
+        {/* นโยบายอายุรหัสผ่าน — คิดจากจำนวนวันนับจากวันเปลี่ยนล่าสุด */}
+        {pwdStatus?.policy_enabled && (
+          <Alert
+            type={pwdStatus.expired ? 'warning' : pwdStatus.shouldWarn ? 'info' : 'success'}
+            showIcon className="mb-4"
+            title={
+              pwdStatus.expired
+                ? `รหัสผ่านนี้ใช้งานมาแล้ว ${pwdStatus.ageDays ?? 0} วัน — เกินกำหนด ${pwdStatus.expiry_days} วันตามนโยบาย`
+                : `รหัสผ่านนี้ใช้งานมาแล้ว ${pwdStatus.ageDays ?? 0} วัน — ครบกำหนดเปลี่ยนในอีก ${pwdStatus.daysLeft} วัน`
+            }
+            description={
+              pwdStatus.changedAt
+                ? `เปลี่ยนรหัสผ่านล่าสุดเมื่อ ${dayjs(pwdStatus.changedAt).format('D MMMM ')}${dayjs(pwdStatus.changedAt).year() + 543}`
+                : 'ยังไม่เคยตั้งรหัสผ่านด้วยตนเอง — แนะนำให้ตั้งรหัสของท่านเอง'
+            }
+          />
+        )}
 
         {/* Header banner */}
         <Card

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
@@ -11,6 +11,8 @@ import {
   FaShieldAlt,
   FaHospital,
   FaArrowRight,
+  FaMobileAlt,
+  FaArrowLeft,
 } from 'react-icons/fa'
 
 export default function LoginPage() {
@@ -20,6 +22,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // ── ขั้นยืนยัน OTP ผ่าน Line หมอพร้อม (แสดงเฉพาะเมื่อ backend ตอบ mfa_required) ──
+  const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [otp, setOtp] = useState('')
+  const [otpNotice, setOtpNotice] = useState('')
+  const [cooldown, setCooldown] = useState(0)
+  const otpInputRef = useRef<HTMLInputElement>(null)
+
+  // นับถอยหลังปุ่ม "ขอรหัสใหม่"
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  // โฟกัสช่อง OTP อัตโนมัติเมื่อเข้าสู่ขั้นยืนยัน
+  useEffect(() => {
+    if (challengeToken) otpInputRef.current?.focus()
+  }, [challengeToken])
+
+  // เก็บ cookie แล้วเข้าระบบ — ใช้ร่วมกันทั้งเส้นทางปกติและเส้นทาง MFA
+  const completeLogin = (json: { token: string; data: { user_type_id: number }; username_change_required?: boolean }) => {
+    // อายุ cookie = 8 ชม. ให้ตรงกับอายุ JWT ฝั่ง backend (exp: '8h')
+    const COOKIE_HOURS = 8 / 24
+    Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
+    Cookies.set('user_data', JSON.stringify(json.data), { expires: COOKIE_HOURS, sameSite: 'Lax' })
+    Cookies.set('user_type_id', String(json.data.user_type_id), { expires: COOKIE_HOURS, sameSite: 'Lax' })
+    // นโยบายอายุรหัสผ่าน: ไม่บล็อกที่นี่ — เข้าใช้งานได้ตามปกติ
+    // แถบเตือนจะคำนวณจากวันที่เปลี่ยนรหัสล่าสุดผ่าน /users/me/password-status บนทุกหน้า
+    //
+    // นโยบายชื่อผู้ใช้โหมด force: พาไปตั้งชื่อใหม่ทันที (backend ปิดกั้น API อื่นไว้อยู่แล้ว
+    // ถ้าพิมพ์ URL ตรงก็จะได้ 423 แล้วถูกพากลับมาที่นี่)
+    router.push(json.username_change_required ? '/account/change-username' : '/home')
+  }
 
   const handleLogin = async (e: { preventDefault: () => void }) => {
     e.preventDefault()
@@ -36,17 +72,82 @@ export default function LoginPage() {
         setError(json.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง')
         return
       }
-      // อายุ cookie = 8 ชม. ให้ตรงกับอายุ JWT ฝั่ง backend (exp: '8h')
-      const COOKIE_HOURS = 8 / 24
-      Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
-      Cookies.set('user_data', JSON.stringify(json.data), { expires: COOKIE_HOURS, sameSite: 'Lax' })
-      Cookies.set('user_type_id', String(json.data.user_type_id), { expires: COOKIE_HOURS, sameSite: 'Lax' })
-      router.push('/home')
+      // ต้องยืนยัน OTP ก่อน — ยังไม่ได้ token
+      if (json.mfa_required) {
+        setChallengeToken(json.challenge_token)
+        setCooldown(json.resend_after_seconds ?? 60)
+        setOtpNotice('ส่งรหัสยืนยันไปยัง Line หมอพร้อมแล้ว')
+        setPassword('')
+        return
+      }
+      completeLogin(json)
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleVerifyOtp = async (e: { preventDefault: () => void }) => {
+    e.preventDefault()
+    setError('')
+    setOtpNotice('')
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge_token: challengeToken, otp }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setError(json.message || 'รหัสยืนยันไม่ถูกต้อง')
+        setOtp('')
+        // รอบถูกตัด/หมดอายุ → กลับไปหน้ากรอกรหัสผ่าน
+        if (res.status === 400 && !json.can_resend) backToPassword()
+        if (res.status === 429) backToPassword()
+        return
+      }
+      completeLogin(json)
+    } catch {
+      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOtp = async () => {
+    if (cooldown > 0 || loading) return
+    setError('')
+    setOtpNotice('')
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/auth/resend-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ challenge_token: challengeToken }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setError(json.message || 'ขอรหัสใหม่ไม่สำเร็จ')
+        if (json.retry_after_seconds) setCooldown(json.retry_after_seconds)
+        return
+      }
+      setOtp('')
+      setOtpNotice('ส่งรหัสยืนยันใหม่แล้ว')
+      setCooldown(json.resend_after_seconds ?? 60)
+    } catch {
+      setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const backToPassword = () => {
+    setChallengeToken(null)
+    setOtp('')
+    setOtpNotice('')
+    setCooldown(0)
   }
 
   return (
@@ -150,13 +251,88 @@ export default function LoginPage() {
 
               <div className="mb-7 text-center">
                 <h2 className="mb-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                  เข้าสู่ระบบ
+                  {challengeToken ? 'ยืนยันตัวตน' : 'เข้าสู่ระบบ'}
                 </h2>
                 <p className="text-sm text-slate-400">
-                  ยินดีต้อนรับกลับ — กรุณาลงชื่อเข้าใช้
+                  {challengeToken
+                    ? 'กรอกรหัส 6 หลักที่ส่งไปยัง Line หมอพร้อม'
+                    : 'ยินดีต้อนรับกลับ — กรุณาลงชื่อเข้าใช้'}
                 </p>
               </div>
 
+              {/* ─────────────── ขั้นที่ 2: ยืนยัน OTP ─────────────── */}
+              {challengeToken ? (
+                <form className="space-y-5" onSubmit={handleVerifyOtp}>
+                  <div className="flex items-start gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+                    <FaMobileAlt className="mt-0.5 shrink-0 text-emerald-300" />
+                    <div className="text-xs leading-relaxed text-emerald-100/90">
+                      ส่งรหัสยืนยันไปยัง <span className="font-semibold">Line หมอพร้อม</span> ที่ผูกกับบัญชีของท่านแล้ว
+                      <div className="mt-1 text-emerald-200/60">
+                        หากไม่ได้รับ กรุณาตรวจสอบว่าเพิ่มเพื่อนและผูกบัญชี Line หมอพร้อมไว้แล้ว
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="otp" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      รหัสยืนยัน (OTP)
+                    </label>
+                    <input
+                      id="otp"
+                      name="otp"
+                      ref={otpInputRef}
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      required
+                      placeholder="000000"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="block w-full rounded-xl border border-white/10 bg-slate-950/60 py-3 text-center font-mono text-2xl tracking-[0.5em] text-slate-100 placeholder:text-slate-700 outline-none transition-all focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/30"
+                    />
+                  </div>
+
+                  {otpNotice && !error && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-300">
+                      {otpNotice}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.length < 6}
+                    className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition-all hover:shadow-emerald-700/40 hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'กำลังยืนยัน...' : 'ยืนยันรหัส'}
+                    {!loading && <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <button
+                      type="button"
+                      onClick={backToPassword}
+                      className="flex items-center gap-1.5 text-slate-400 transition hover:text-slate-200"
+                    >
+                      <FaArrowLeft className="text-[10px]" /> ย้อนกลับ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={cooldown > 0 || loading}
+                      className="font-medium text-emerald-300/90 transition hover:text-emerald-200 disabled:cursor-not-allowed disabled:text-slate-600"
+                    >
+                      {cooldown > 0 ? `ขอรหัสใหม่ได้ใน ${cooldown} วินาที` : 'ขอรหัสใหม่'}
+                    </button>
+                  </div>
+                </form>
+              ) : (
               <form className="space-y-5" onSubmit={handleLogin}>
                 {/* Username */}
                 <div>
@@ -246,6 +422,7 @@ export default function LoginPage() {
                   {!loading && <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />}
                 </button>
               </form>
+              )}
 
               {/* Divider */}
               <div className="my-6 flex items-center gap-3">

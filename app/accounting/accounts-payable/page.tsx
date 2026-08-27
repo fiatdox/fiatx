@@ -7,12 +7,15 @@ import {
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, DollarCircleOutlined, FieldTimeOutlined,
-  WarningOutlined, CheckCircleOutlined, CalendarOutlined, ReloadOutlined,
-  InboxOutlined, AuditOutlined
+  CheckCircleOutlined, CalendarOutlined, ReloadOutlined,
+  InboxOutlined, AuditOutlined, FundOutlined,
+  PieChartOutlined, BarChartOutlined, ClusterOutlined, ApartmentOutlined, DotChartOutlined,
 } from '@ant-design/icons'
 import { FaMoneyCheckAlt, FaFileInvoiceDollar } from 'react-icons/fa'
+import Link from 'next/link'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import EChart from '@/app/components/EChart'
 import { MOCK_RECEIPTS, ReceiptRecord, PaymentStatus, STATUS_LABEL, TODAY } from '../../general/procurement/_data'
 import dayjs, { Dayjs } from 'dayjs'
 
@@ -56,6 +59,47 @@ const DATE_FIELD_LABEL: Record<DateField, string> = {
   invoiceDate: 'วันที่ Invoice',
 }
 
+// ───────── หมวดพัสดุ (จัดหมวดจากผู้จำหน่าย + รายการสินค้า) — ใช้ในแท็บ Dashboard ─────────
+type Category = 'pharma' | 'medical' | 'lab' | 'equipment' | 'it' | 'office' | 'other'
+const CATEGORY_META: Record<Category, { label: string; color: string }> = {
+  pharma:    { label: 'ยา / เวชภัณฑ์',    color: '#22c55e' },
+  medical:   { label: 'วัสดุการแพทย์',    color: '#06b6d4' },
+  lab:       { label: 'ห้องปฏิบัติการ',   color: '#a78bfa' },
+  equipment: { label: 'ครุภัณฑ์การแพทย์', color: '#f97316' },
+  it:        { label: 'อุปกรณ์ IT',        color: '#3b82f6' },
+  office:    { label: 'วัสดุสำนักงาน',    color: '#fbbf24' },
+  other:     { label: 'อื่นๆ',             color: '#94a3b8' },
+}
+const categorize = (r: ReceiptRecord): Category => {
+  const text = (r.supplier + ' ' + r.items.map(i => i.name).join(' ')).toLowerCase()
+  if (/pharma|ยา|paracetamol|amoxicillin|nss|d5w|ceftriaxone|inj/.test(text)) return 'pharma'
+  if (/lab|reagent|น้ำยา|microtube|pipette|glove|cbc|hba1c/.test(text)) return 'lab'
+  if (/hp |toner|drum|fuser|laserjet|printer|ปริ้น|หมึก/.test(text)) return 'it'
+  if (/office|กระดาษ|ปากกา|ลวดเย็บ|แฟ้ม|a4/.test(text)) return 'office'
+  if (/เตียง|รถเข็น|วีลแชร์|เสาน้ำเกลือ|ครุภัณฑ์/.test(text)) return 'equipment'
+  if (/medtech|electrode|ecg|lead wire|stethoscope|วัสดุการแพทย์/.test(text)) return 'medical'
+  return 'other'
+}
+
+// ───────── ประเภทเงินงบประมาณ (มาจากหมวดพัสดุ + มูลค่า) ─────────
+type BudgetType = 'operating' | 'capital' | 'maintenance' | 'subsidy' | 'other'
+const BUDGET_META: Record<BudgetType, { label: string; color: string }> = {
+  operating:   { label: 'งบดำเนินงาน',    color: '#22d3ee' },
+  capital:     { label: 'งบลงทุน',        color: '#f97316' },
+  maintenance: { label: 'เงินบำรุง',      color: '#10b981' },
+  subsidy:     { label: 'งบอุดหนุน / UC', color: '#a78bfa' },
+  other:       { label: 'งบอื่นๆ',        color: '#94a3b8' },
+}
+const budgetTypeOf = (r: ReceiptRecord): BudgetType => {
+  const c = categorize(r)
+  if (c === 'equipment') return 'capital'
+  if (c === 'it' && r.totalAmount >= 50000) return 'capital'
+  if (c === 'pharma') return 'subsidy'
+  if (c === 'medical' || c === 'lab') return 'operating'
+  if (c === 'office' || c === 'it') return 'maintenance'
+  return 'other'
+}
+
 const PageContent = () => {
   const [receipts, setReceipts] = useState<ReceiptRecord[]>(MOCK_RECEIPTS)
   const [payId, setPayId] = useState<string | null>(null)
@@ -86,6 +130,109 @@ const PageContent = () => {
     const paid = payable.filter(r => r.paymentStatus === 'paid').reduce((s, r) => s + r.totalAmount, 0)
     return { unpaid, overdue, danger, totalUnpaid, paid }
   }, [payable])
+
+  // ─── ข้อมูลกราฟแท็บ Dashboard (คำนวณจาก payable — เคารพตัวกรองช่วงวันที่ด้านบน) ───
+  const byCategory = useMemo(() => {
+    const map = new Map<Category, { paid: number; unpaid: number; count: number }>()
+    payable.forEach(r => {
+      const c = categorize(r)
+      const cur = map.get(c) || { paid: 0, unpaid: 0, count: 0 }
+      if (r.paymentStatus === 'paid') cur.paid += r.totalAmount
+      else cur.unpaid += r.totalAmount
+      cur.count++
+      map.set(c, cur)
+    })
+    return Array.from(map.entries())
+      .map(([cat, v]) => ({ cat, ...v, total: v.paid + v.unpaid }))
+      .sort((a, b) => b.total - a.total)
+  }, [payable])
+
+  const topSuppliers = useMemo(() => {
+    const map = new Map<string, { paid: number; unpaid: number; count: number }>()
+    payable.forEach(r => {
+      const cur = map.get(r.supplier) || { paid: 0, unpaid: 0, count: 0 }
+      if (r.paymentStatus === 'paid') cur.paid += r.totalAmount
+      else cur.unpaid += r.totalAmount
+      cur.count++
+      map.set(r.supplier, cur)
+    })
+    return Array.from(map.entries())
+      .map(([s, v]) => ({ supplier: s, ...v, total: v.paid + v.unpaid }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 6)
+  }, [payable])
+
+  // Sunburst: งบประมาณ → หมวดพัสดุ → ผู้จำหน่าย (3 ชั้น)
+  const sunburstData = useMemo(() => {
+    const budgets = new Map<BudgetType, Map<Category, Map<string, number>>>()
+    payable.forEach(r => {
+      const b = budgetTypeOf(r), c = categorize(r)
+      if (!budgets.has(b)) budgets.set(b, new Map())
+      const cats = budgets.get(b)!
+      if (!cats.has(c)) cats.set(c, new Map())
+      const sups = cats.get(c)!
+      sups.set(r.supplier, (sups.get(r.supplier) ?? 0) + r.totalAmount)
+    })
+    return Array.from(budgets.entries()).map(([b, cats]) => ({
+      name: BUDGET_META[b].label,
+      itemStyle: { color: BUDGET_META[b].color },
+      children: Array.from(cats.entries()).map(([c, sups]) => ({
+        name: CATEGORY_META[c].label,
+        itemStyle: { color: CATEGORY_META[c].color },
+        children: Array.from(sups.entries()).map(([supplier, value]) => ({
+          name: supplier.length > 22 ? supplier.slice(0, 22) + '…' : supplier,
+          value,
+        })),
+      })),
+    }))
+  }, [payable])
+
+  // Sankey: งบประมาณ → หมวดพัสดุ → สถานะการจ่าย (กระแสเงิน)
+  const sankeyData = useMemo(() => {
+    const l1 = new Map<string, number>() // budget|category
+    const l2 = new Map<string, number>() // category|status
+    payable.forEach(r => {
+      const b = BUDGET_META[budgetTypeOf(r)].label
+      const c = CATEGORY_META[categorize(r)].label
+      const status = r.paymentStatus === 'paid' ? 'จ่ายแล้ว' : 'ค้างจ่าย'
+      l1.set(`${b}|${c}`, (l1.get(`${b}|${c}`) ?? 0) + r.totalAmount)
+      l2.set(`${c}|${status}`, (l2.get(`${c}|${status}`) ?? 0) + r.totalAmount)
+    })
+    const nodeNames = new Set<string>(['จ่ายแล้ว', 'ค้างจ่าย'])
+    Object.values(BUDGET_META).forEach(m => nodeNames.add(m.label))
+    Object.values(CATEGORY_META).forEach(m => nodeNames.add(m.label))
+    const nodes = Array.from(nodeNames).map(name => ({
+      name,
+      itemStyle: { color: name === 'จ่ายแล้ว' ? '#10b981' : name === 'ค้างจ่าย' ? '#ef4444' : '#64748b' },
+    }))
+    const links = [
+      ...Array.from(l1.entries()).map(([k, value]) => { const [source, target] = k.split('|'); return { source, target, value } }),
+      ...Array.from(l2.entries()).map(([k, value]) => { const [source, target] = k.split('|'); return { source, target, value } }),
+    ]
+    return { nodes, links }
+  }, [payable])
+
+  // Nested pie: วงใน = หมวดพัสดุ (รวม), วงนอก = แยกจ่ายแล้ว/ค้างจ่ายในแต่ละหมวด
+  const nestedPieData = useMemo(() => {
+    const inner = byCategory.map(c => ({
+      name: CATEGORY_META[c.cat].label, value: c.total,
+      itemStyle: { color: CATEGORY_META[c.cat].color },
+    }))
+    const outer = byCategory.flatMap(c => [
+      { name: `${CATEGORY_META[c.cat].label} • จ่ายแล้ว`, value: c.paid,
+        itemStyle: { color: CATEGORY_META[c.cat].color } },
+      { name: `${CATEGORY_META[c.cat].label} • ค้าง`, value: c.unpaid,
+        itemStyle: { color: CATEGORY_META[c.cat].color + '55' } },
+    ]).filter(d => d.value > 0)
+    return { inner, outer }
+  }, [byCategory])
+
+  const paymentPie = useMemo(() => ([
+    { name: 'จ่ายแล้ว', value: payable.filter(r => r.paymentStatus === 'paid').length, itemStyle: { color: '#10b981' } },
+    { name: 'นัดจ่าย', value: payable.filter(r => r.paymentStatus === 'scheduled').length, itemStyle: { color: '#60a5fa' } },
+    { name: 'รอจ่าย', value: payable.filter(r => r.paymentStatus === 'unpaid').length, itemStyle: { color: '#fbbf24' } },
+    { name: 'เกินกำหนด', value: payable.filter(r => r.paymentStatus === 'overdue').length, itemStyle: { color: '#ef4444' } },
+  ].filter(d => d.value > 0)), [payable])
 
   const openPay = (id: string) => {
     const r = receipts.find(x => x.id === id)
@@ -241,46 +388,9 @@ const PageContent = () => {
           </Space>
         </Card>
 
-        <Row gutter={12} style={{ marginBottom: 16 }}>
-          <Col span={6}>
-            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
-              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ยอดรอจ่ายทั้งหมด</span>}
-                value={summary.totalUnpaid} precision={0} prefix="฿"
-                styles={{ content: { color: '#a78bfa' } }}
-                formatter={v => Number(v).toLocaleString()} />
-              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>{summary.unpaid.length} รายการ</Text>
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
-              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>เกินกำหนด</span>}
-                value={summary.overdue.length}
-                styles={{ content: { color: '#ef4444' } }} prefix={<WarningOutlined />} />
-              <Text style={{ color: '#ef4444', fontSize: 12 }}>
-                ฿{summary.overdue.reduce((s, r) => s + r.totalAmount, 0).toLocaleString()}
-              </Text>
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
-              <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ใกล้ครบกำหนด (≤3 วัน)</span>}
-                value={summary.danger.length}
-                styles={{ content: { color: '#fb923c' } }} prefix={<FieldTimeOutlined />} />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
-              <Text style={{ color: 'var(--app-text-2)', fontSize: 13 }}>KPI จ่ายตรงเวลา</Text>
-              <Progress percent={kpiOnTimePct} strokeColor={kpiOnTimePct >= 90 ? '#10b981' : kpiOnTimePct >= 70 ? '#fbbf24' : '#ef4444'}
-                railColor="var(--app-border-strong)" />
-              <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>จ่ายแล้ว {paidList.length} รายการ • ฿{summary.paid.toLocaleString()}</Text>
-            </Card>
-          </Col>
-        </Row>
-
         {summary.overdue.length > 0 && (
           <Alert type="error" showIcon style={{ marginBottom: 16 }}
-            message={`มีเจ้าหนี้เกินกำหนดชำระ ${summary.overdue.length} รายการ — กระทบ KPI การจ่ายตรงเวลา`}
+            title={`มีเจ้าหนี้เกินกำหนดชำระ ${summary.overdue.length} รายการ — กระทบ KPI การจ่ายตรงเวลา`}
             description="โปรดดำเนินการจ่ายโดยด่วน หรือบันทึกเหตุผลที่จ่ายช้า" />
         )}
 
@@ -288,6 +398,209 @@ const PageContent = () => {
           styles={{ body: { padding: 0 } }}>
           <Tabs defaultActiveKey="due" style={{ padding: '0 16px' }}
             items={[
+              {
+                key: 'dashboard',
+                label: <span><FundOutlined /> Dashboard</span>,
+                children: (
+                  <div style={{ padding: '16px 0' }}>
+                    <Row gutter={12} style={{ marginBottom: 16 }}>
+                      <Col span={12}>
+                        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+                          <Statistic title={<span style={{ color: 'var(--app-text-2)' }}>ใกล้ครบกำหนด (≤3 วัน)</span>}
+                            value={summary.danger.length}
+                            styles={{ content: { color: '#fb923c' } }} prefix={<FieldTimeOutlined />} />
+                        </Card>
+                      </Col>
+                      <Col span={12}>
+                        <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 13 }}>KPI จ่ายตรงเวลา</Text>
+                          <Progress percent={kpiOnTimePct} strokeColor={kpiOnTimePct >= 90 ? '#10b981' : kpiOnTimePct >= 70 ? '#fbbf24' : '#ef4444'}
+                            railColor="var(--app-border-strong)" />
+                          <Text style={{ color: 'var(--app-text-2)', fontSize: 12 }}>จ่ายแล้ว {paidList.length} รายการ • ฿{summary.paid.toLocaleString()}</Text>
+                        </Card>
+                      </Col>
+                    </Row>
+
+                    {payable.length === 0 ? (
+                      <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', textAlign: 'center', padding: 24 }}>
+                        <Text style={{ color: 'var(--app-text-2)' }}>ไม่มีข้อมูลในช่วงที่เลือก</Text>
+                      </Card>
+                    ) : (
+                      <>
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                          {/* Pie: สัดส่วนตามสถานะการจ่าย */}
+                          <Col span={8}>
+                            <Card size="small"
+                              title={<span style={{ color: '#22d3ee' }}><PieChartOutlined /> สัดส่วนตามสถานะการจ่าย</span>}
+                              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+                              <EChart height={260} option={{
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                  trigger: 'item',
+                                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                                  textStyle: { color: 'var(--app-text)' },
+                                  formatter: (p: { name: string; value: number; percent: number }) =>
+                                    `${p.name}<br/>${p.value} รายการ (${p.percent}%)`,
+                                },
+                                legend: { bottom: 0, textStyle: { color: 'var(--app-text-2)', fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
+                                series: [{
+                                  type: 'pie', radius: ['40%', '68%'], center: ['50%', '44%'],
+                                  avoidLabelOverlap: true,
+                                  itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 },
+                                  label: { show: true, color: 'var(--app-text-2)', fontSize: 11, formatter: '{b}\n{d}%' },
+                                  data: paymentPie,
+                                }],
+                              }} />
+                            </Card>
+                          </Col>
+
+                          {/* Bar: Top ผู้จำหน่ายตามมูลค่า */}
+                          <Col span={8}>
+                            <Card size="small"
+                              title={<span style={{ color: '#f97316' }}><BarChartOutlined /> Top ผู้จำหน่าย (มูลค่ารวม)</span>}
+                              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+                              <EChart height={260} option={{
+                                backgroundColor: 'transparent',
+                                grid: { left: 8, right: 16, top: 8, bottom: 8, containLabel: true },
+                                tooltip: {
+                                  trigger: 'axis', axisPointer: { type: 'shadow' },
+                                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                                  textStyle: { color: 'var(--app-text)' },
+                                  formatter: (params: { dataIndex: number }[]) => {
+                                    const s = topSuppliers[params[0].dataIndex]
+                                    return `<b>${s.supplier}</b><br/>฿${s.total.toLocaleString()} • ${s.count} ใบ`
+                                  },
+                                },
+                                xAxis: {
+                                  type: 'value',
+                                  axisLabel: { color: 'var(--app-text-2)', formatter: (v: number) => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : String(v) },
+                                  splitLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+                                },
+                                yAxis: {
+                                  type: 'category', inverse: true,
+                                  data: topSuppliers.map((s, i) => `#${i + 1} ${s.supplier.length > 14 ? s.supplier.slice(0, 14) + '…' : s.supplier}`),
+                                  axisLabel: { color: 'var(--app-text)', fontSize: 11 },
+                                  axisLine: { lineStyle: { color: 'var(--app-border-strong)' } },
+                                },
+                                series: [{
+                                  type: 'bar', barWidth: 14,
+                                  data: topSuppliers.map(s => ({ value: s.total, itemStyle: { color: '#f97316', borderRadius: [0, 4, 4, 0] } })),
+                                  label: { show: true, position: 'right', color: 'var(--app-text-2)', fontSize: 10,
+                                    formatter: (p: { value: number }) => '฿' + (p.value / 1000).toFixed(0) + 'k' },
+                                }],
+                              }} />
+                            </Card>
+                          </Col>
+
+                          {/* Nested pie: หมวดพัสดุ (วงใน) + จ่ายแล้ว/ค้าง (วงนอก) */}
+                          <Col span={8}>
+                            <Card size="small"
+                              title={<span style={{ color: '#a78bfa' }}><DotChartOutlined /> หมวดพัสดุ × สถานะจ่าย (วงซ้อน)</span>}
+                              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+                              <EChart height={260} option={{
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                  trigger: 'item',
+                                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                                  textStyle: { color: 'var(--app-text)' },
+                                  formatter: (p: { name: string; value: number }) => `${p.name}<br/>฿${p.value.toLocaleString()}`,
+                                },
+                                series: [
+                                  {
+                                    name: 'หมวดพัสดุ', type: 'pie', radius: ['0%', '38%'], center: ['50%', '48%'],
+                                    label: { show: false },
+                                    itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 2 },
+                                    data: nestedPieData.inner,
+                                  },
+                                  {
+                                    name: 'จ่ายแล้ว/ค้าง', type: 'pie', radius: ['48%', '72%'], center: ['50%', '48%'],
+                                    label: { show: true, fontSize: 9, color: 'var(--app-text-2)', formatter: '{d}%' },
+                                    itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 1 },
+                                    data: nestedPieData.outer,
+                                  },
+                                ],
+                              }} />
+                              <Text style={{ color: 'var(--app-text-2)', fontSize: 10 }}>วงใน = หมวดพัสดุ • วงนอก เข้ม = จ่ายแล้ว / อ่อน = ค้างจ่าย</Text>
+                            </Card>
+                          </Col>
+                        </Row>
+
+                        <Row gutter={16} style={{ marginBottom: 16 }}>
+                          {/* Sunburst: งบประมาณ → หมวดพัสดุ → ผู้จำหน่าย */}
+                          <Col span={12}>
+                            <Card size="small"
+                              title={<span style={{ color: '#10b981' }}><ClusterOutlined /> Sunburst — งบประมาณ → หมวดพัสดุ → ผู้จำหน่าย</span>}
+                              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+                              <EChart height={360} option={{
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                                  textStyle: { color: 'var(--app-text)' },
+                                  formatter: (p: { name: string; value: number; treePathInfo?: { name: string }[] }) => {
+                                    const path = (p.treePathInfo ?? []).map(x => x.name).filter(Boolean).join(' → ')
+                                    return `${path}<br/>฿${(p.value ?? 0).toLocaleString()}`
+                                  },
+                                },
+                                series: [{
+                                  type: 'sunburst', radius: ['12%', '92%'],
+                                  data: sunburstData,
+                                  label: { color: '#0f172a', fontSize: 10, minAngle: 8 },
+                                  itemStyle: { borderColor: 'var(--app-surface)', borderWidth: 1 },
+                                  levels: [
+                                    {},
+                                    { r0: '12%', r: '38%', label: { fontSize: 11, fontWeight: 700 } },
+                                    { r0: '38%', r: '68%', label: { fontSize: 10 } },
+                                    { r0: '68%', r: '92%', label: { fontSize: 9, rotate: 'tangential' } },
+                                  ],
+                                }],
+                              }} />
+                            </Card>
+                          </Col>
+
+                          {/* Sankey: งบประมาณ → หมวดพัสดุ → สถานะการจ่าย */}
+                          <Col span={12}>
+                            <Card size="small"
+                              title={<span style={{ color: '#60a5fa' }}><ApartmentOutlined /> Sankey — กระแสเงิน งบประมาณ → หมวดพัสดุ → สถานะจ่าย</span>}
+                              style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)', height: '100%' }}
+                              styles={{ header: { borderBottom: '1px solid var(--app-border-strong)' } }}>
+                              <EChart height={360} option={{
+                                backgroundColor: 'transparent',
+                                tooltip: {
+                                  trigger: 'item',
+                                  backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
+                                  textStyle: { color: 'var(--app-text)' },
+                                  formatter: (p: { dataType: string; name: string; value?: number; data?: { source: string; target: string; value: number } }) =>
+                                    p.dataType === 'edge' && p.data
+                                      ? `${p.data.source} → ${p.data.target}<br/>฿${p.data.value.toLocaleString()}`
+                                      : `${p.name}`,
+                                },
+                                series: [{
+                                  type: 'sankey',
+                                  emphasis: { focus: 'adjacency' },
+                                  data: sankeyData.nodes,
+                                  links: sankeyData.links,
+                                  label: { color: 'var(--app-text)', fontSize: 10 },
+                                  lineStyle: { color: 'gradient', curveness: 0.5, opacity: 0.35 },
+                                  nodeWidth: 14,
+                                  nodeGap: 10,
+                                }],
+                              }} />
+                            </Card>
+                          </Col>
+                        </Row>
+                      </>
+                    )}
+
+                    <Link href="/accounting/accounts-payable/dashboard">
+                      <Button type="primary" icon={<FundOutlined />}>ดู Dashboard ภาพรวมแบบเต็ม</Button>
+                    </Link>
+                  </div>
+                ),
+              },
               {
                 key: 'due',
                 label: <span><FieldTimeOutlined /> เรียงตามใกล้ครบกำหนด ({dueSoon.length})</span>,
@@ -329,14 +642,14 @@ const PageContent = () => {
                 items={[
                   {
                     title: 'รับของ',
-                    description: active.receivedDate,
+                    content: active.receivedDate,
                     icon: <InboxOutlined />,
                   },
                   {
                     title: active.inspectionStatus === 'rejected' ? 'ตรวจรับไม่ผ่าน'
                       : active.inspectionStatus === 'reworking' ? 'ส่งกลับแก้ไข'
                       : 'ตรวจรับผ่าน',
-                    description: active.inspectionDate
+                    content: active.inspectionDate
                       ? `${active.inspectionDate}${active.inspectionBy ? ' • ' + active.inspectionBy : ''}`
                       : '-',
                     icon: <AuditOutlined />,
@@ -345,12 +658,12 @@ const PageContent = () => {
                     title: active.paymentStatus === 'scheduled' ? 'นัดจ่าย'
                       : active.paymentStatus === 'overdue' ? 'เกินกำหนด'
                       : 'รอจ่าย',
-                    description: `ครบกำหนด ${active.dueDate}`,
+                    content: `ครบกำหนด ${active.dueDate}`,
                     icon: <FieldTimeOutlined />,
                   },
                   {
                     title: 'จ่ายแล้ว',
-                    description: active.paymentDate
+                    content: active.paymentDate
                       ? `${active.paymentDate}${active.paymentRef ? ' • ' + active.paymentRef : ''}`
                       : '-',
                     icon: <DollarCircleOutlined />,

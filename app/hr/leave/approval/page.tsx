@@ -1,9 +1,10 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
-  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, Tabs
+  Row, Col, Divider, Space, Alert, Select, Badge, Calendar, Segmented, Tabs,
+  Result, Skeleton
 } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
@@ -20,6 +21,17 @@ import { AppThemeProvider } from '@/app/components/ThemeProvider'
 const { Title, Text } = Typography
 
 type ApprovalStatus = 'approved' | 'pending' | 'rejected' | 'waiting'
+
+// หน่วยที่ผู้ใช้เป็นหัวหน้า/รักษาการ — ใช้ตัดสินสิทธิ์เข้าหน้าอนุมัติการลา
+type SupervisedUnit = { id: number; name: string; is_primary: boolean }
+interface ApproverAccess {
+  is_approver: boolean
+  is_director: boolean
+  is_admin: boolean
+  missions: SupervisedUnit[]
+  majors: SupervisedUnit[]
+  submajors: SupervisedUnit[]
+}
 
 interface ApprovalStep {
   level: string
@@ -274,6 +286,19 @@ const overallTag = (s: ApprovalStatus) => {
 const LeaveApprovalContent = () => {
   const { message } = App.useApp()
   const [activeMainTab, setActiveMainTab] = useState<string>('approve')
+
+  // ── สิทธิ์เข้าหน้านี้: ต้องเป็นหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN) ──
+  const [access, setAccess] = useState<ApproverAccess | null>(null)
+  const [accessLoading, setAccessLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/hr/leave-approver-check')
+        .then(r => r.json())
+        .then(j => { if (j?.success) setAccess(j.data) })
+        .catch(() => {}),
+    ]).finally(() => setAccessLoading(false))
+  }, [])
 
   // ── อนุมัติลา ──
   const [requests, setRequests] = useState<LeaveApprovalRequest[]>(mockData)
@@ -565,6 +590,40 @@ const LeaveApprovalContent = () => {
     })
   }
 
+  // ─── Gate: ไม่ใช่หัวหน้าหน่วยใด = เข้าหน้านี้ไม่ได้ ────────────────────────
+  if (accessLoading) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-text">
+        <Navbar />
+        <div className="p-6 md:p-8"><Skeleton active paragraph={{ rows: 6 }} /></div>
+      </div>
+    )
+  }
+
+  if (!access?.is_approver) {
+    return (
+      <div className="min-h-screen bg-app-bg text-app-text">
+        <Navbar />
+        <div className="p-6 md:p-8">
+          <Result
+            status="403"
+            title="ไม่มีสิทธิ์เข้าถึงหน้านี้"
+            subTitle="หน้าอนุมัติการลาสงวนไว้สำหรับหัวหน้าหรือรักษาการหัวหน้ากลุ่มภารกิจ กลุ่มงาน และหน่วยงานเท่านั้น หากท่านได้รับแต่งตั้งแล้วแต่ยังเข้าไม่ได้ กรุณาติดต่อฝ่ายบุคคลเพื่อตรวจสอบการบันทึกข้อมูลหัวหน้าหน่วย"
+            extra={<Button type="primary" href="/hr/leave">ไปหน้ายื่นคำขอลา</Button>}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // ป้ายบอกขอบเขตที่ผู้ใช้ดูแล — แสดงใต้หัวข้อหน้า
+  const scopeTags = [
+    ...(access.is_director ? [{ key: 'dir', label: 'ผู้อำนวยการ', color: 'red' }] : []),
+    ...access.missions.map(u => ({ key: `mi-${u.id}`, label: `กลุ่มภารกิจ: ${u.name}${u.is_primary ? '' : ' (รักษาการ)'}`, color: 'purple' })),
+    ...access.majors.map(u => ({ key: `ma-${u.id}`, label: `กลุ่มงาน: ${u.name}${u.is_primary ? '' : ' (รักษาการ)'}`, color: 'blue' })),
+    ...access.submajors.map(u => ({ key: `sm-${u.id}`, label: `หน่วยงาน: ${u.name}${u.is_primary ? '' : ' (รักษาการ)'}`, color: 'cyan' })),
+  ]
+
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
@@ -582,6 +641,12 @@ const LeaveApprovalContent = () => {
         <div className="mb-4">
           <Title level={2} className="text-primary m-0">สถานะอนุมัติการลา</Title>
           <Text type="secondary">ตรวจสอบและดำเนินการอนุมัติใบลาบุคลากรตามลำดับชั้น</Text>
+          {scopeTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              <Text type="secondary" style={{ fontSize: 12, marginRight: 4 }}>ขอบเขตที่ท่านดูแล:</Text>
+              {scopeTags.map(t => <Tag key={t.key} color={t.color} style={{ marginInlineEnd: 0 }}>{t.label}</Tag>)}
+            </div>
+          )}
         </div>
 
         <Tabs
