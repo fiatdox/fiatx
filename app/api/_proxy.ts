@@ -22,7 +22,18 @@ export async function proxy(
   const data = await res.json().catch(() => ({}))
   // log เฉพาะ request ที่ผิดพลาด และไม่ log token / response body (กัน PII รั่วลง log)
   if (!res.ok) console.error(`[proxy] ${method} ${path} → ${res.status}`)
-  return NextResponse.json(data, { status: res.status })
+
+  const out = NextResponse.json(data, { status: res.status })
+
+  // 401 = token ใช้ไม่ได้ (หมดอายุ หรือ JWT_SECRET ฝั่ง backend เปลี่ยนไปแล้ว)
+  // ล้าง cookie ทิ้งเลย ไม่งั้นผู้ใช้จะค้างอยู่ในสภาพ "ล็อกอินแล้วแต่ทุกอย่าง 401"
+  // โดยไม่มีอะไรบอก และกด refresh กี่ครั้งก็ไม่หาย
+  if (res.status === 401) {
+    for (const c of ['auth_token', 'user_data', 'user_type_id']) {
+      out.cookies.set(c, '', { path: '/', maxAge: 0 })
+    }
+  }
+  return out
 }
 
 export async function proxyForm(req: NextRequest, path: string) {

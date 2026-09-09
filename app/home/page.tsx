@@ -196,6 +196,10 @@ const PROJECT_STATUS_COLOR: Record<ProjectPlan['status'], string> = {
   'เสร็จสิ้น': 'success',
 }
 
+// การ์ดสรุปวันลาของฉัน — ปิดไว้ก่อน ระบบการลายังอยู่ระหว่างพัฒนา ยังไม่เปิดใช้จริง
+// ตัวเลขด้านล่างยังเป็นค่าสมมติ ห้ามเปิดจนกว่าจะต่อ API วันลาจริงแล้ว
+const SHOW_LEAVE_SUMMARY = false
+
 // สรุปวันลา (mock — ต่อ API ภายหลังได้)
 interface LeaveBalance {
   key: string
@@ -593,6 +597,7 @@ const PageContent = () => {
         ))}
 
         {/* ── สรุปวันลาของฉัน ── */}
+        {SHOW_LEAVE_SUMMARY && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
@@ -649,6 +654,7 @@ const PageContent = () => {
             })}
           </Row>
         </div>
+        )}
       </div>
 
       {/* ─── Drawer: ขอรหัสผู้ใช้งานระบบ ─── */}

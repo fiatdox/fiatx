@@ -456,6 +456,7 @@ const Navbar: React.FC = () => {
                     { key: '/general/procurement/dashboard',     icon: <FaTachometerAlt />,  label: 'Dashboard พัสดุ' },
                     { key: '/general/procurement/receipt',       icon: <FaTruck />,          label: 'รับสินค้า / สร้างเจ้าหนี้' },
                     { key: '/general/procurement/inspection',    icon: <FaTasks />,          label: 'ตรวจรับสินค้า' },
+                    { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา' },
                   ]
                 },
               ]
