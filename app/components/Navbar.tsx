@@ -19,7 +19,7 @@ import { useThemeMode } from './ThemeProvider'
 import {
   FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
   FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
-  FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator,
+  FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator, FaChartPie,
   FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
   FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
   FaWarehouse, FaExchangeAlt, FaQrcode,
@@ -456,7 +456,10 @@ const Navbar: React.FC = () => {
                     { key: '/general/procurement/dashboard',     icon: <FaTachometerAlt />,  label: 'Dashboard พัสดุ' },
                     { key: '/general/procurement/receipt',       icon: <FaTruck />,          label: 'รับสินค้า / สร้างเจ้าหนี้' },
                     { key: '/general/procurement/inspection',    icon: <FaTasks />,          label: 'ตรวจรับสินค้า' },
-                    { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา' },
+                    { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา (V3)' },
+                    { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
+                    { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
+                    { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
                   ]
                 },
               ]

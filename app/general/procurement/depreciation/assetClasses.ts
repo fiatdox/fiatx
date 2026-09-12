@@ -113,3 +113,27 @@ export const classByNo = (no: string | null | undefined): AssetClass | null =>
 /** หมวดตามตารางที่ ๑ ที่ผูกไว้กับ assetcatid ของทะเบียน (null = จับคู่ไม่ได้) */
 export const classForAssetcatid = (assetcatid: number | null | undefined): AssetClass | null =>
   assetcatid != null ? CLASS_BY_ASSETCATID[assetcatid] ?? null : null
+
+// ── ทะเบียนครุภัณฑ์ระบบใหม่ (V2) ───────────────────────────────────────────
+// รหัส assetcatid ของ V2 เป็นคนละชุดกับระบบเดิม
+// (ยืนยันจากคอลัมน์ assetcatidv2 ในตาราง assetcat ของระบบเดิม เช่น สำนักงาน v1=11 -> v2=2)
+// จึงต้องมีตารางจับคู่แยกต่างหาก ห้ามใช้ CLASS_BY_ASSETCATID ร่วมกัน
+export const CLASS_BY_ASSETCATID_V2: Record<number, AssetClass> = {
+  1:  byNo('12'),               // ครุภัณฑ์การแพทย์
+  2:  byNo('4'),                // ครุภัณฑ์สำนักงาน
+  3:  byNo('5'),                // ครุภัณฑ์ยานพาหนะ
+  4:  byNo('7'),                // ครุภัณฑ์โฆษณาและเผยแพร่
+  5:  byNo('6'),                // ครุภัณฑ์ไฟฟ้าและวิทยุ
+  6:  byNo('15'),               // ครุภัณฑ์งานบ้านงานครัว
+  7:  MERGED('8.1', '8.2'),     // ครุภัณฑ์การเกษตร
+  8:  byNo('1'),                // อาคารสิ่งก่อสร้าง — ใช้ช่วงของอาคารถาวร
+  9:  byNo('13'),               // ครุภัณฑ์คอมพิวเตอร์
+  10: byNo('12'),               // "ทั้งหมด" ในตาราง V2 — ระบบเดิมเทียบไว้เป็นครุภัณฑ์วิทยาศาสตร์
+  11: byNo('14'),               // ครุภัณฑ์การศึกษา
+  12: byNo('21'),               // ครุภัณฑ์ไม่ระบุรายละเอียด -> ครุภัณฑ์อื่น
+  13: MERGED('10.1', '10.2'),   // ครุภัณฑ์ก่อสร้าง
+  14: byNo('11'),               // ครุภัณฑ์สำรวจ
+}
+
+export const classForAssetcatidV2 = (assetcatid: number | null | undefined): AssetClass | null =>
+  assetcatid != null ? CLASS_BY_ASSETCATID_V2[assetcatid] ?? null : null
