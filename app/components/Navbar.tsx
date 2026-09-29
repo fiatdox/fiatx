@@ -164,9 +164,11 @@ const Navbar: React.FC = () => {
       keys.push('general-assets')
     }
 
-    // submenu งานพัสดุ
+    // submenu งานพัสดุ — หน้าค่าเสื่อมราคาอยู่ลึกอีกชั้นในกลุ่มงานครุภัณฑ์
     if (segments[0] === 'general' && segments[1] === 'procurement') {
       keys.push('general-procurement')
+      if (segments[2]?.startsWith('depreciation')) keys.push('general-procurement-equipment')
+      if (segments[2] === 'receipt' || segments[2] === 'inspection') keys.push('general-procurement-stock')
     }
 
     // submenu IT Maintenance
@@ -455,12 +457,26 @@ const Navbar: React.FC = () => {
                   label: 'งานพัสดุ',
                   children: [
                     { key: '/general/procurement/dashboard',     icon: <FaTachometerAlt />,  label: 'Dashboard พัสดุ' },
-                    { key: '/general/procurement/receipt',       icon: <FaTruck />,          label: 'รับสินค้า / สร้างเจ้าหนี้' },
-                    { key: '/general/procurement/inspection',    icon: <FaTasks />,          label: 'ตรวจรับสินค้า' },
-                    { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา (V3)' },
-                    { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
-                    { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
-                    { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
+                    {
+                      key: 'general-procurement-stock',
+                      icon: <FaTruck />,
+                      label: 'งานคลัง',
+                      children: [
+                        { key: '/general/procurement/receipt',    icon: <FaTruck />, label: 'รับสินค้า / สร้างเจ้าหนี้' },
+                        { key: '/general/procurement/inspection', icon: <FaTasks />, label: 'ตรวจรับสินค้า' },
+                      ]
+                    },
+                    {
+                      key: 'general-procurement-equipment',
+                      icon: <FaCalculator />,
+                      label: 'งานครุภัณฑ์',
+                      children: [
+                        { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา (V3)' },
+                        { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
+                        { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
+                        { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
+                      ]
+                    },
                   ]
                 },
               ]
