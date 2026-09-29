@@ -1,5 +1,6 @@
 'use client'
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Form,
   Input,
@@ -18,6 +19,7 @@ import {
   Upload,
   InputNumber,
   Checkbox,
+  Tag,
   App
 } from 'antd'
 import {
@@ -64,6 +66,22 @@ const LEAVE_TYPE_STYLE: Record<string, { icon: React.ReactNode; color: string }>
 const DEFAULT_LEAVE_STYLE = { icon: <SmileOutlined />, color: '#6b7280' }
 const getLeaveStyle = (code?: string) => (code && LEAVE_TYPE_STYLE[code]) || DEFAULT_LEAVE_STYLE
 
+// รูปแบบเดียวกับหน้าสรุปการลา — วันที่แสดงเป็น พ.ศ. เสมอ
+const beDate = (d: dayjs.Dayjs) => `${d.format('DD/MM/')}${d.year() + 543}`
+const nf = (n: number) => Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 })
+
+/** ตัวเลขสถิติก้อนเล็ก ใช้แบบเดียวกับการ์ดสถิติในหน้าสรุปการลา */
+const MiniStat = ({ label, value, unit, color }: {
+  label: string; value: string | number; unit: string; color: string
+}) => (
+  <div className="rounded-lg px-3 py-2" style={{ background: `${color}14` }}>
+    <Text type="secondary" style={{ fontSize: 11 }}>{label}</Text>
+    <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.25, color }}>
+      {value} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--app-text-2)' }}>{unit}</span>
+    </div>
+  </div>
+)
+
 type LeaveType = { id: number; code?: string; name_th: string; requires_document_after_days: number | null }
 type Entitlement = {
   id: number
@@ -98,6 +116,7 @@ const LeavePageContent = () => {
   const [submajorSupervisors, setSubmajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
 
   // เพื่อนร่วมหน่วยงาน — ใช้เลือกผู้ปฏิบัติงานแทน (หน่วยย่อยก่อน ไม่มีจึงใช้กลุ่มงาน)
+  const router = useRouter()
   const [colleagues, setColleagues] = useState<{ id: number; pname?: string; fname: string; lname: string; position_name?: string }[]>([])
   const [colleaguesLoading, setColleaguesLoading] = useState(false)
 
@@ -267,28 +286,116 @@ const LeavePageContent = () => {
     }
   }
 
-  const onFinish = (values: any) => {
-    console.log('Success:', values)
-    message.success('บันทึกคำขอลาเรียบร้อยแล้ว ระบบกำลังส่งต่อให้ผู้อนุมัติตามลำดับ')
+  const [submitting, setSubmitting] = useState(false)
+
+  // สิทธิ์วันลาคงเหลือของประเภทที่เลือก — ดึงใหม่ทุกครั้งที่เปลี่ยนประเภทหรือวันที่
+  // (สิทธิ์ผูกกับปีงบประมาณ เลือกวันข้ามปีงบแล้วยอดคงเหลือคนละก้อนกัน)
+  const [quota, setQuota] = useState<{
+    fiscal_year: number; has_entitlement: boolean
+    entitled: number; used: number; pending: number; remaining: number
+  } | null>(null)
+
+  const watchedRange = Form.useWatch('dateRange', form)
+  const quotaStart = watchedRange?.[0]
+  useEffect(() => {
+    if (!leaveType) { setQuota(null); return }
+    const qs = new URLSearchParams({ leave_type_id: String(leaveType) })
+    if (quotaStart) qs.set('start_date', quotaStart.format('YYYY-MM-DD'))
+    let alive = true
+    fetch(`/api/v1/hr/leave-requests/quota?${qs.toString()}`)
+      .then(r => r.json())
+      .then(j => { if (alive) setQuota(j?.success ? j.data : null) })
+      .catch(() => { if (alive) setQuota(null) })
+    return () => { alive = false }
+  }, [leaveType, quotaStart])
+
+  const onFinish = async (values: any) => {
+    const [from, to] = values.dateRange ?? []
+    if (!from || !to) { message.error('กรุณาเลือกช่วงวันที่ลา'); return }
+
+    if (quota?.has_entitlement && values.totalLeaveDays > quota.remaining) {
+      message.error(
+        `${currentLeaveTypeInfo?.name_th ?? 'ประเภทการลานี้'} คงเหลือ ${quota.remaining} วัน `
+        + `แต่ใบนี้ขอลา ${values.totalLeaveDays} วัน`)
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/v1/hr/leave-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leave_type_id: values.leaveType,
+          start_date: from.format('YYYY-MM-DD'),
+          end_date: to.format('YYYY-MM-DD'),
+          total_days: values.totalLeaveDays,
+          is_half_day: !!values.halfDay,
+          // ฟอร์มใช้ morning/afternoon แต่ฐานข้อมูลเก็บ AM/PM
+          half_day_period: values.halfDay ? (values.halfDayType === 'afternoon' ? 'PM' : 'AM') : null,
+          reason: values.reason ?? null,
+        }),
+      })
+      const json = await res.json()
+      if (!json?.success) {
+        message.error(json?.message ?? 'ส่งใบลาไม่สำเร็จ')
+        return
+      }
+      message.success(json.message ?? 'ส่งใบลาเรียบร้อย')
+      form.resetFields()
+      setTotalLeaveDays(0)
+      setIsHalfDay(false)
+      router.push('/hr/leave/status')
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
-      <div className="p-6 md:p-8">
+      <div className="p-4 md:p-6">
         <div className="w-full">
           {/* Breadcrumb */}
           <Breadcrumb
             items={[
-              { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
-              { title: <><FileTextOutlined /> ระบบงานบุคคล</> },
-              { title: 'บันทึกการลา' },
+              { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
+              { title: <><FileTextOutlined /> ระบบบริหารการลา</> },
+              { title: 'ยื่นคำขอลา' },
             ]}
             className="mb-4"
           />
-          <div className="mb-4">
-            <Title level={2} className="text-primary m-0">แบบฟอร์มบันทึกการลา</Title>
-            <Text type="secondary">กรุณากรอกข้อมูลการลาให้ครบถ้วนเพื่อเสนออนุมัติตามลำดับขั้นตอน</Text>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <Title level={3} className="m-0">แบบฟอร์มบันทึกการลา</Title>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                กรอกข้อมูลให้ครบถ้วนเพื่อเสนออนุมัติตามลำดับขั้น
+                {staffType && <> · ประเภทเจ้าหน้าที่ {staffType}</>}
+              </Text>
+            </div>
+            <Space size={8} wrap>
+              {currentLeaveTypeInfo && (
+                <Tag
+                  style={{
+                    fontSize: 13, padding: '4px 10px', marginInlineEnd: 0,
+                    color: getLeaveStyle(currentLeaveTypeInfo.code).color,
+                    background: `${getLeaveStyle(currentLeaveTypeInfo.code).color}1f`,
+                    borderColor: `${getLeaveStyle(currentLeaveTypeInfo.code).color}55`,
+                  }}
+                  icon={getLeaveStyle(currentLeaveTypeInfo.code).icon}
+                >
+                  {currentLeaveTypeInfo.name_th}
+                </Tag>
+              )}
+              <Tag icon={<CalendarOutlined />} color="processing" style={{ fontSize: 13, padding: '4px 10px' }}>
+                {watchedRange?.[0] && watchedRange?.[1]
+                  ? <>{beDate(watchedRange[0])} – {beDate(watchedRange[1])}</>
+                  : 'ยังไม่ได้เลือกวันที่'}
+                <Text type="secondary" style={{ fontSize: 11 }}> ({nf(totalLeaveDays)} วัน)</Text>
+              </Tag>
+            </Space>
           </div>
 
           <Form
@@ -299,14 +406,18 @@ const LeavePageContent = () => {
             initialValues={{ leaveType: 1, halfDay: false, dateRange: [dayjs(), dayjs()], totalLeaveDays: 1 }}
             requiredMark="optional"
           >
-            <Row gutter={24}>
+            <Row gutter={16}>
               {/* ส่วนข้อมูลการลา */}
               <Col xs={24} lg={16}>
-                <Card variant="borderless" className="shadow-sm mb-6">
-                  <Title level={4} className="mb-6 flex items-center gap-2">
-                    <CalendarOutlined className="text-primary" /> รายละเอียดการลา
-                  </Title>
-
+                <Card
+                  variant="borderless"
+                  className="shadow-sm mb-4 rounded-xl"
+                  title={
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>
+                      <CalendarOutlined className="text-primary" /> รายละเอียดการลา
+                    </span>
+                  }
+                >
                   <Form.Item
                     name="leaveType"
                     label="ประเภทการลา"
@@ -477,11 +588,12 @@ const LeavePageContent = () => {
 
               {/* ส่วนผู้อนุมัติและสรุป */}
               <Col xs={24} lg={8}>
-                <Card variant="borderless" className="shadow-sm mb-6 bg-primary/5 border-primary/10">
-                  <Title level={4} className="mb-4">
-                    สรุปวันลา
-                    {staffType && <Text type="secondary" style={{ fontSize: 14, fontWeight: 400 }}> · {staffType}</Text>}
-                  </Title>
+                <Card
+                  variant="borderless"
+                  className="shadow-sm mb-4 rounded-xl"
+                  title={<span style={{ fontSize: 15, fontWeight: 600 }}>สรุปวันลาและสิทธิ์คงเหลือ</span>}
+                  extra={quota ? <Tag>ปีงบ {quota.fiscal_year}</Tag> : null}
+                >
                   <Form.Item
                     name="totalLeaveDays"
                     label="จำนวนวันที่ใช้ลา (สามารถแก้ไขได้)"
@@ -511,59 +623,67 @@ const LeavePageContent = () => {
                       className="w-full"
                       size="large"
                       styles={{
-                        input: { textAlign: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#006a5a' }
+                        input: { textAlign: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#10b981' }
                       }}
                     />
                   </Form.Item>
-                  {currentEntitlement ? (
-                    <Alert
-                      type={currentEntitlement.max_days_per_year != null ? 'info' : 'warning'}
-                      showIcon
-                      className="mt-4"
-                      title={`สิทธิ์การลาประเภทนี้${staffType ? ` (${staffType})` : ''}`}
-                      description={
-                        <div className="text-sm space-y-1">
-                          <div>
-                            สูงสุด:{' '}
-                            <strong>
-                              {currentEntitlement.max_days_per_year != null
-                                ? `${currentEntitlement.max_days_per_year} วัน/ปี`
-                                : 'ไม่จำกัด'}
-                            </strong>
-                          </div>
-                          {currentEntitlement.max_days_per_year != null && (
-                            <div>
-                              คงเหลือหลังคำขอนี้:{' '}
-                              <strong>
-                                {Math.max(currentEntitlement.max_days_per_year - totalLeaveDays, 0)} วัน
-                              </strong>
-                              <Text type="secondary" style={{ fontSize: 11 }}> (คำนวณจากสิทธิ์ต่อปี ยังไม่หักวันลาที่เคยใช้ไปก่อนหน้า)</Text>
-                            </div>
-                          )}
-                          {currentEntitlement.carry_over && (
-                            <div>
-                              สะสมข้ามปีได้สูงสุด:{' '}
-                              <strong>{currentEntitlement.carry_over_max_days} วัน</strong>
-                            </div>
-                          )}
-                        </div>
-                      }
-                    />
+                  {/* สิทธิ์คงเหลือคิดจากยอดจริงในฐานข้อมูล (หักที่ใช้ไปแล้วและที่ยังรออนุมัติ) */}
+                  {quota?.has_entitlement ? (
+                    <>
+                      <div className="grid grid-cols-3 gap-2">
+                        <MiniStat label="สิทธิ์ทั้งปี" value={nf(quota.entitled)} unit="วัน" color="#0ea5e9" />
+                        <MiniStat label="ใช้ไปแล้ว" value={nf(quota.used)} unit="วัน" color="#f59e0b" />
+                        <MiniStat
+                          label="คงเหลือ"
+                          value={nf(quota.remaining)}
+                          unit="วัน"
+                          color={quota.remaining <= 0 ? '#ef4444' : quota.remaining <= 3 ? '#f59e0b' : '#22c55e'}
+                        />
+                      </div>
+                      <div className="mt-2 space-y-0.5">
+                        {quota.pending > 0 && (
+                          <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                            รวมใบที่ยังรออนุมัติอยู่ {nf(quota.pending)} วันไว้ในยอดที่ใช้ไปแล้ว
+                          </Text>
+                        )}
+                        {currentEntitlement?.carry_over && (
+                          <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
+                            สะสมข้ามปีได้สูงสุด {currentEntitlement.carry_over_max_days} วัน
+                          </Text>
+                        )}
+                      </div>
+                      {totalLeaveDays > quota.remaining && (
+                        <Alert
+                          type="error"
+                          showIcon
+                          className="mt-3"
+                          title={`ใบนี้ขอลา ${nf(totalLeaveDays)} วัน เกินสิทธิ์ที่เหลือ ${nf(quota.remaining)} วัน`}
+                          description="ส่งคำขอไม่ได้จนกว่าจะลดจำนวนวัน"
+                        />
+                      )}
+                    </>
                   ) : (
                     <Alert
-                      type="warning"
+                      type="info"
                       showIcon
-                      className="mt-4"
-                      title="ไม่พบสิทธิ์การลาสำหรับประเภทนี้"
+                      className="mt-3"
+                      title={quota
+                        ? `ปีงบ ${quota.fiscal_year} · ยังไม่ได้กำหนดสิทธิ์การลาประเภทนี้ไว้`
+                        : 'กำลังตรวจสอบสิทธิ์การลา'}
+                      description={quota ? 'ระบบจะไม่ตรวจเพดานวันลาให้ กรุณาตรวจสอบกับฝ่ายบุคคล' : undefined}
                     />
                   )}
                 </Card>
 
-                <Card variant="borderless" className="shadow-sm mt-4">
-                  <Title level={4} className="mb-6 flex items-center gap-2">
-                    <CheckCircleOutlined className="text-primary" /> ลำดับการอนุมัติ
-                  </Title>
-
+                <Card
+                  variant="borderless"
+                  className="shadow-sm rounded-xl"
+                  title={
+                    <span style={{ fontSize: 15, fontWeight: 600 }}>
+                      <CheckCircleOutlined className="text-primary" /> ลำดับการอนุมัติ
+                    </span>
+                  }
+                >
                   {isMissionHead ? (
                     /* หัวหน้า/รักษาการกลุ่มภารกิจ → ลากับ ผอ. โดยตรง */
                     <>
@@ -635,19 +755,30 @@ const LeavePageContent = () => {
                   </Space>
                   )}
 
-                  <Divider />
+                  <Divider style={{ margin: '12px 0' }} />
 
                   <Button
                     type="primary"
                     htmlType="submit"
                     size="large"
+                    loading={submitting}
                     block
-                    className="h-12 text-lg font-semibold shadow-lg shadow-green-600/20"
+                    className="h-12 text-base font-semibold"
                   >
                     ส่งคำขออนุมัติลา
                   </Button>
-                  <Button type="link" block className="mt-2 text-app-text-2">
-                    ยกเลิก
+                  <Button
+                    type="link"
+                    block
+                    className="mt-1 text-app-text-2"
+                    onClick={() => {
+                      form.resetFields()
+                      setTotalLeaveDays(1)
+                      setIsHalfDay(false)
+                      setIsAbroad(false)
+                    }}
+                  >
+                    ล้างข้อมูลในฟอร์ม
                   </Button>
                 </Card>
               </Col>
@@ -661,7 +792,7 @@ const LeavePageContent = () => {
 
 const LeavePage = () => {
   return (
-    <AppThemeProvider colorPrimary="#006a5a">
+    <AppThemeProvider colorPrimary="#10b981">
       <LeavePageContent />
     </AppThemeProvider>
   )

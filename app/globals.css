@@ -127,3 +127,8 @@ body {
   padding-left: 6px;
   padding-right: 6px;
 }
+
+/* ใบลาที่รอผู้ใช้คนนี้กด — ขีดสีส้มด้านซ้ายให้หาเจอในตารางยาว ๆ */
+.leave-row-mine > td:first-child {
+  box-shadow: inset 3px 0 0 0 #f59e0b;
+}

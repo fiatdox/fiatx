@@ -1,635 +1,710 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb,
-  Select, Row, Col, Space, Tabs, Button, Empty, Segmented
+  Table, Tag, Card, Typography, Breadcrumb, Select, Space, Button, Empty,
+  Segmented, DatePicker, Checkbox, Alert, Avatar, Divider,
 } from 'antd'
 import {
-  HomeOutlined, FileTextOutlined, PrinterOutlined,
-  CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined
+  HomeOutlined, FileTextOutlined, CalendarOutlined, FilterOutlined,
+  ClearOutlined, TeamOutlined, ScissorOutlined,
 } from '@ant-design/icons'
-import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby, FaChartBar, FaUsers, FaMedal } from 'react-icons/fa'
-import dayjs from 'dayjs'
+import { FaFileExcel, FaRegCalendarCheck, FaRegClipboard } from 'react-icons/fa'
+import dayjs, { Dayjs } from 'dayjs'
+import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
+import EChart from '@/app/components/EChart'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
+const { RangePicker } = DatePicker
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-interface LeaveRecord {
-  id: string
-  employeeName: string
-  department: string   // หน่วยงาน
-  group: string        // กลุ่มงาน
-  mission: string      // ภารกิจ
+// ─── ปีงบประมาณ ───────────────────────────────────────────────────────────────
+// ปีงบ พ.ศ. 2569 = 1 ต.ค. 2568 (ค.ศ. 2025) ถึง 30 ก.ย. 2569 (ค.ศ. 2026)
+const fyStart = (fy: number) => dayjs(`${fy - 544}-10-01`)
+const fyEnd = (fy: number) => dayjs(`${fy - 543}-09-30`)
+const currentFY = () => {
+  const now = dayjs()
+  return now.month() >= 9 ? now.year() + 544 : now.year() + 543
+}
+const fyLabel = (fy: number) => `พ.ศ. ${fy} (${fy - 544}/${fy - 543})`
+
+type PeriodKey = 'H1' | 'H2' | 'FULL' | 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'CUSTOM'
+
+/** ช่วงวันที่ของรอบการดู — เดือนนับตามปีงบ (ต.ค. = เดือนที่ 1) */
+const periodRange = (fy: number, key: PeriodKey): [Dayjs, Dayjs] => {
+  const s = fyStart(fy)
+  const monthWindow = (fromMonth: number, months: number): [Dayjs, Dayjs] => [
+    s.add(fromMonth, 'month').startOf('month'),
+    s.add(fromMonth + months, 'month').startOf('month').subtract(1, 'day'),
+  ]
+  switch (key) {
+    case 'H1': return monthWindow(0, 6)
+    case 'H2': return monthWindow(6, 6)
+    case 'Q1': return monthWindow(0, 3)
+    case 'Q2': return monthWindow(3, 3)
+    case 'Q3': return monthWindow(6, 3)
+    case 'Q4': return monthWindow(9, 3)
+    default: return [s, fyEnd(fy)]
+  }
+}
+
+const PERIOD_MAIN = [
+  { value: 'H1', label: 'รอบที่ 1 (ต.ค. – มี.ค.)' },
+  { value: 'H2', label: 'รอบที่ 2 (เม.ย. – ก.ย.)' },
+  { value: 'FULL', label: 'ทั้งปีงบประมาณ' },
+]
+const PERIOD_QUARTER = [
+  { value: 'Q1', label: 'ไตรมาส 1' },
+  { value: 'Q2', label: 'ไตรมาส 2' },
+  { value: 'Q3', label: 'ไตรมาส 3' },
+  { value: 'Q4', label: 'ไตรมาส 4' },
+]
+
+const PERIOD_LABEL: Record<PeriodKey, string> = {
+  H1: 'รอบที่ 1 (ต.ค. – มี.ค.)', H2: 'รอบที่ 2 (เม.ย. – ก.ย.)', FULL: 'ทั้งปีงบประมาณ',
+  Q1: 'ไตรมาส 1', Q2: 'ไตรมาส 2', Q3: 'ไตรมาส 3', Q4: 'ไตรมาส 4', CUSTOM: 'กำหนดช่วงเอง',
+}
+
+const beDate = (d: Dayjs) => `${d.format('DD/MM/')}${d.year() + 543}`
+
+// ─── ประเภทการลา ──────────────────────────────────────────────────────────────
+/** ชื่อในฐานข้อมูลขึ้นต้นด้วย "การลา" ทุกตัว — ตัดออกให้หัวตารางสั้นลง */
+const shortLeaveType = (name: string) => {
+  const n = (name || '').replace(/^การลา/, '').trim()
+  return n || 'ไม่ระบุ'
+}
+
+/**
+ * คอลัมน์หลักของรายงาน — ตายตัว 3 ประเภทที่ใช้บ่อยที่สุด ที่เหลือรวมเป็น "ลาอื่น ๆ"
+ * ตั้งใจให้คอลัมน์คงที่ทุกครั้ง แม้รอบที่เลือกจะไม่มีการลาประเภทนั้นเลย
+ * จะได้เทียบข้ามรอบ/ข้ามหน่วยได้ และหัวตารางไม่ขยับไปมา
+ * จับกลุ่มด้วย code ของประเภทการลา ไม่ใช่ชื่อไทย เพราะชื่ออาจถูกแก้ทีหลัง
+ */
+const BUCKETS = [
+  { key: 'ANNUAL', label: 'ลาพักผ่อน', color: '#6366f1' },
+  { key: 'SICK', label: 'ลาป่วย', color: '#22c55e' },
+  { key: 'PERS', label: 'ลากิจส่วนตัว', color: '#f59e0b' },
+  { key: 'OTHER', label: 'ลาอื่น ๆ', color: '#94a3b8' },
+] as const
+
+type BucketKey = typeof BUCKETS[number]['key']
+
+const bucketOf = (code: string): BucketKey =>
+  code === 'ANNUAL' || code === 'SICK' || code === 'PERS' ? code : 'OTHER'
+
+
+const STATUS_MAP: Record<string, 'approved' | 'pending' | 'rejected'> = {
+  APPROVED: 'approved', REJECTED: 'rejected', CANCELLED: 'rejected',
+  PENDING: 'pending', CANCEL_PENDING: 'pending',
+}
+
+// ─── ข้อมูลจาก API ────────────────────────────────────────────────────────────
+interface ApiRow {
+  id: number
+  user_id: number
+  employee_name: string
+  position_name: string | null
+  user_type_name: string | null
+  submajor_name: string | null
+  major_name: string | null
+  mission_name: string | null
+  leave_type_name: string
+  leave_type_code: string
+  start_date: string
+  end_date: string
+  total_days: string | number
+  status: string
+}
+
+interface Rec {
+  id: number
+  userId: number
+  name: string
+  position: string
+  userType: string
+  unit: string
   leaveType: string
-  startDate: string    // YYYY-MM-DD
-  endDate: string
-  totalDays: number
+  bucket: BucketKey
+  start: Dayjs
+  end: Dayjs
+  days: number
   status: 'approved' | 'pending' | 'rejected'
 }
 
-// ─── Fiscal Year Helpers ──────────────────────────────────────────────────────
-// FY BE 2569 = Oct 2025 (CE) to Sep 2026 (CE)
-const toFY = (d: string) => {
-  const m = dayjs(d).month() // 0-based, Jan=0
-  const y = dayjs(d).year()
-  return m >= 9 ? y + 544 : y + 543
-}
-// Fiscal month: Oct=1, Nov=2, Dec=3, Jan=4 … Sep=12
-const toFiscalMonth = (d: string) => {
-  const m = dayjs(d).month()
-  return m >= 9 ? m - 8 : m + 4
-}
+const toRec = (r: ApiRow): Rec => ({
+  id: r.id,
+  userId: Number(r.user_id),
+  name: (r.employee_name || '').trim() || `ผู้ใช้ #${r.user_id}`,
+  position: r.position_name?.trim() || 'ไม่ระบุ',
+  userType: r.user_type_name?.trim() || 'ไม่ระบุ',
+  unit: r.submajor_name?.trim() || r.major_name?.trim() || r.mission_name?.trim() || 'ไม่ระบุ',
+  leaveType: shortLeaveType(r.leave_type_name),
+  bucket: bucketOf(String(r.leave_type_code ?? '')),
+  start: dayjs(r.start_date),
+  end: dayjs(r.end_date),
+  days: Number(r.total_days) || 0,
+  status: STATUS_MAP[String(r.status).toUpperCase()] ?? 'pending',
+})
 
-const FISCAL_MONTHS = [
-  { value: 0,  label: 'ทั้งปีงบประมาณ' },
-  { value: 1,  label: 'ตุลาคม (เดือน 1)' },
-  { value: 2,  label: 'พฤศจิกายน (เดือน 2)' },
-  { value: 3,  label: 'ธันวาคม (เดือน 3)' },
-  { value: 4,  label: 'มกราคม (เดือน 4)' },
-  { value: 5,  label: 'กุมภาพันธ์ (เดือน 5)' },
-  { value: 6,  label: 'มีนาคม (เดือน 6)' },
-  { value: 7,  label: 'เมษายน (เดือน 7)' },
-  { value: 8,  label: 'พฤษภาคม (เดือน 8)' },
-  { value: 9,  label: 'มิถุนายน (เดือน 9)' },
-  { value: 10, label: 'กรกฎาคม (เดือน 10)' },
-  { value: 11, label: 'สิงหาคม (เดือน 11)' },
-  { value: 12, label: 'กันยายน (เดือน 12)' },
-]
+const round2 = (n: number) => Math.round(n * 100) / 100
+const nf = (n: number) => round2(n).toLocaleString('th-TH', { maximumFractionDigits: 2 })
 
-const LEAVE_TYPES = ['ลาป่วย', 'ลาพักผ่อน', 'ลากิจ', 'ลาคลอด', 'อื่นๆ']
-
-const leaveTypeColor: Record<string, string> = {
-  'ลาป่วย': 'volcano', 'ลาพักผ่อน': 'green',
-  'ลากิจ': 'blue',     'ลาคลอด': 'magenta', 'อื่นๆ': 'default',
+/**
+ * จำนวนวันของใบลาที่ "ตกอยู่ในรอบ"
+ * ใบที่คร่อมรอยต่อจะถูกเฉลี่ยตามสัดส่วนวันที่ทับกับรอบ ไม่ใช่นับทั้งใบ
+ * ไม่งั้นใบเดียวจะถูกนับเต็มทั้งสองรอบ และยอดรวมรายปีจะเกินความจริง
+ * (ติ๊ก "นับแบบเต็มใบ" เพื่อกลับไปนับทั้งใบให้รอบที่ใบเริ่มต้น)
+ */
+const daysInWindow = (r: Rec, from: Dayjs, to: Dayjs, fullBill: boolean): number => {
+  const span = r.end.diff(r.start, 'day') + 1
+  const ovStart = r.start.isAfter(from) ? r.start : from
+  const ovEnd = r.end.isBefore(to) ? r.end : to
+  const overlap = ovEnd.diff(ovStart, 'day') + 1
+  if (overlap <= 0) return 0
+  if (fullBill || overlap >= span || span <= 0) return r.days
+  return round2((r.days * overlap) / span)
 }
 
-// ─── Role-based scope options ─────────────────────────────────────────────────
-const SCOPE_OPTIONS: Record<string, { value: string; label: string }[]> = {
-  hr: [],
-  mission: [
-    { value: 'ภารกิจด้านการแพทย์',   label: 'ภารกิจด้านการแพทย์' },
-    { value: 'ภารกิจด้านบริการ',     label: 'ภารกิจด้านบริการ' },
-    { value: 'ภารกิจด้านอำนวยการ',   label: 'ภารกิจด้านอำนวยการ' },
-  ],
-  group: [
-    { value: 'กลุ่มการพยาบาล',      label: 'กลุ่มการพยาบาล' },
-    { value: 'กลุ่มบริการสุขภาพ',   label: 'กลุ่มบริการสุขภาพ' },
-    { value: 'กลุ่มอำนวยการ',       label: 'กลุ่มอำนวยการ' },
-  ],
-  unit: [
-    { value: 'งานการพยาบาล OPD',    label: 'งานการพยาบาล OPD' },
-    { value: 'งานห้องผ่าตัด',       label: 'งานห้องผ่าตัด' },
-    { value: 'งานเวชระเบียน',       label: 'งานเวชระเบียน' },
-    { value: 'งานการเงิน',          label: 'งานการเงิน' },
-  ],
+const numCell = (v: unknown, color?: string) => {
+  const n = Number(v) || 0
+  return n === 0
+    ? <span style={{ color: 'var(--app-text-3)' }}>-</span>
+    : <span style={{ fontWeight: 600, color }}>{nf(n)}</span>
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  hr: 'งาน HR (ดูทั้งหมด)',
-  mission: 'หัวหน้าภารกิจ',
-  group: 'หัวหน้ากลุ่มงาน',
-  unit: 'หัวหน้าหน่วยงาน',
-}
+const overlaps = (r: Rec, from: Dayjs, to: Dayjs) =>
+  !r.end.isBefore(from, 'day') && !r.start.isAfter(to, 'day')
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const allRecords: LeaveRecord[] = [
-  // FY 2569 — Oct 2025 (เดือน 1)
-  { id:'LV-202510001', employeeName:'สมศรี ใจดีงาม',   department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2025-10-05', endDate:'2025-10-07', totalDays:3,  status:'approved' },
-  { id:'LV-202510002', employeeName:'อนุชา สุขใจ',     department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาพักผ่อน', startDate:'2025-10-20', endDate:'2025-10-24', totalDays:5,  status:'approved' },
-  { id:'LV-202510003', employeeName:'วิชัย กล้าดี',    department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลากิจ',     startDate:'2025-10-08', endDate:'2025-10-09', totalDays:2,  status:'approved' },
-  // FY 2569 — Nov 2025 (เดือน 2)
-  { id:'LV-202511001', employeeName:'วิชัย กล้าดี',    department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาพักผ่อน', startDate:'2025-11-01', endDate:'2025-11-05', totalDays:5,  status:'approved' },
-  { id:'LV-202511002', employeeName:'จิตรา รักการงาน', department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลากิจ',     startDate:'2025-11-15', endDate:'2025-11-15', totalDays:1,  status:'approved' },
-  { id:'LV-202511003', employeeName:'รัตนา มีสุข',     department:'งานห้องผ่าตัด',   group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2025-11-20', endDate:'2025-11-21', totalDays:2,  status:'approved' },
-  // FY 2569 — Dec 2025 (เดือน 3)
-  { id:'LV-202512001', employeeName:'รัตนา มีสุข',     department:'งานห้องผ่าตัด',   group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2025-12-10', endDate:'2025-12-12', totalDays:3,  status:'approved' },
-  { id:'LV-202512002', employeeName:'ธนกร มั่นคง',     department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลาพักผ่อน', startDate:'2025-12-25', endDate:'2025-12-26', totalDays:2,  status:'approved' },
-  { id:'LV-202512003', employeeName:'พิมพ์ใจ ดีเลิศ',  department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาป่วย',    startDate:'2025-12-20', endDate:'2025-12-20', totalDays:1,  status:'approved' },
-  // FY 2569 — Jan 2026 (เดือน 4)
-  { id:'LV-202601001', employeeName:'สมศรี ใจดีงาม',   department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลากิจ',     startDate:'2026-01-08', endDate:'2026-01-08', totalDays:1,  status:'approved' },
-  { id:'LV-202601002', employeeName:'พิมพ์ใจ ดีเลิศ',  department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาป่วย',    startDate:'2026-01-20', endDate:'2026-01-21', totalDays:2,  status:'approved' },
-  // FY 2569 — Feb 2026 (เดือน 5)
-  { id:'LV-202602001', employeeName:'รัตนา มีสุข',     department:'งานห้องผ่าตัด',   group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาคลอด',    startDate:'2026-02-01', endDate:'2026-04-30', totalDays:89, status:'approved' },
-  { id:'LV-202602002', employeeName:'ธนกร มั่นคง',     department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลาป่วย',    startDate:'2026-02-10', endDate:'2026-02-11', totalDays:2,  status:'approved' },
-  // FY 2569 — Mar 2026 (เดือน 6)
-  { id:'LV-202603001', employeeName:'อนุชา สุขใจ',     department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2026-03-05', endDate:'2026-03-06', totalDays:2,  status:'approved' },
-  { id:'LV-202603002', employeeName:'วิชัย กล้าดี',    department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลากิจ',     startDate:'2026-03-20', endDate:'2026-03-20', totalDays:1,  status:'rejected' },
-  // FY 2569 — Apr 2026 (เดือน 7, ปัจจุบัน)
-  { id:'LV-202604001', employeeName:'สมศรี ใจดีงาม',   department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2026-04-14', endDate:'2026-04-15', totalDays:2,  status:'pending' },
-  { id:'LV-202604002', employeeName:'วิชัย กล้าดี',    department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาพักผ่อน', startDate:'2026-04-20', endDate:'2026-04-24', totalDays:5,  status:'pending' },
-  { id:'LV-202604003', employeeName:'จิตรา รักการงาน', department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลากิจ',     startDate:'2026-04-12', endDate:'2026-04-12', totalDays:1,  status:'rejected' },
-  { id:'LV-202604004', employeeName:'อนุชา สุขใจ',     department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาพักผ่อน', startDate:'2026-04-21', endDate:'2026-04-23', totalDays:3,  status:'pending' },
-  { id:'LV-202604005', employeeName:'พิมพ์ใจ ดีเลิศ',  department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาป่วย',    startDate:'2026-04-22', endDate:'2026-04-22', totalDays:1,  status:'approved' },
-  { id:'LV-202604006', employeeName:'ธนกร มั่นคง',     department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลากิจ',     startDate:'2026-04-17', endDate:'2026-04-18', totalDays:2,  status:'pending' },
-  // FY 2568 — ข้อมูลปีที่แล้ว
-  { id:'LV-202410001', employeeName:'สมศรี ใจดีงาม',   department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาพักผ่อน', startDate:'2024-10-10', endDate:'2024-10-11', totalDays:2,  status:'approved' },
-  { id:'LV-202410002', employeeName:'อนุชา สุขใจ',     department:'งานการพยาบาล OPD', group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลาป่วย',    startDate:'2024-11-12', endDate:'2024-11-13', totalDays:2,  status:'approved' },
-  { id:'LV-202501001', employeeName:'วิชัย กล้าดี',    department:'งานเวชระเบียน',    group:'กลุ่มบริการสุขภาพ', mission:'ภารกิจด้านบริการ',    leaveType:'ลาป่วย',    startDate:'2025-01-05', endDate:'2025-01-07', totalDays:3,  status:'approved' },
-  { id:'LV-202506001', employeeName:'จิตรา รักการงาน', department:'งานการเงิน',       group:'กลุ่มอำนวยการ',     mission:'ภารกิจด้านอำนวยการ',  leaveType:'ลาพักผ่อน', startDate:'2025-06-15', endDate:'2025-06-19', totalDays:5,  status:'approved' },
-  { id:'LV-202508001', employeeName:'รัตนา มีสุข',     department:'งานห้องผ่าตัด',   group:'กลุ่มการพยาบาล',    mission:'ภารกิจด้านการแพทย์',  leaveType:'ลากิจ',     startDate:'2025-08-10', endDate:'2025-08-10', totalDays:1,  status:'approved' },
-]
+const straddles = (r: Rec, from: Dayjs, to: Dayjs) =>
+  overlaps(r, from, to) && (r.start.isBefore(from, 'day') || r.end.isAfter(to, 'day'))
 
-const fmtDate = (d: string) =>
-  dayjs(d).format('DD/MM/') + String(dayjs(d).year() + 543)
+// ─── หน้า ─────────────────────────────────────────────────────────────────────
+const LeaveSummaryContent = () => {
+  const [rows, setRows] = useState<Rec[]>([])
+  const [loading, setLoading] = useState(true)
+  const [canSeeAll, setCanSeeAll] = useState(false)
 
-const statusTag = (s: string) => {
-  if (s === 'approved') return <Tag icon={<CheckCircleOutlined />} color="success">อนุมัติ</Tag>
-  if (s === 'rejected') return <Tag icon={<CloseCircleOutlined />} color="error">ไม่อนุมัติ</Tag>
-  return <Tag icon={<ClockCircleOutlined />} color="warning">รออนุมัติ</Tag>
-}
+  const [fy, setFy] = useState(currentFY())
+  const [period, setPeriod] = useState<PeriodKey>('FULL')
+  const [custom, setCustom] = useState<[Dayjs, Dayjs] | null>(null)
+  const [fullBill, setFullBill] = useState(false)
+  // ตั้งต้นให้ "รวมใบที่รออนุมัติ" — ใบส่วนใหญ่ในระบบยังไม่ผ่านครบทุกขั้น
+  // ถ้าตั้งต้นเป็นเฉพาะที่อนุมัติแล้ว คนที่เพิ่งยื่นจะเปิดมาเจอหน้าว่างแล้วนึกว่าใบหาย
+  // ฝ่ายบุคคลที่ต้องการยอดทางการค่อยติ๊กออกเพื่อนับเฉพาะที่อนุมัติแล้ว
+  const [withPending, setWithPending] = useState(true)
+  const [unit, setUnit] = useState<string | null>(null)
+  const [userType, setUserType] = useState<string | null>(null)
+  const [showStraddle, setShowStraddle] = useState(false)
 
-// ─── Main Content ─────────────────────────────────────────────────────────────
-const LeaveSummaryPageContent = () => {
-  const [fiscalYear, setFiscalYear]     = useState(2569)
-  const [fiscalMonth, setFiscalMonth]   = useState(0)    // 0 = ทั้งปี
-  const [role, setRole]                 = useState('hr')
-  const [scope, setScope]               = useState<string | null>(null)
-  const [topType, setTopType]           = useState('รวมทั้งหมด')
+  const [from, to] = useMemo<[Dayjs, Dayjs]>(
+    () => (period === 'CUSTOM' && custom ? custom : periodRange(fy, period)),
+    [fy, period, custom],
+  )
 
-  // เมื่อเปลี่ยนบทบาทให้ reset scope
-  const handleRoleChange = (val: string) => {
-    setRole(val)
-    setScope(null)
+  // ดึงข้อมูลคลุมทั้งปีงบเสมอ (แม้ดูแค่ไตรมาส) เพื่อให้สลับรอบแล้วไม่ต้องรอโหลดใหม่ทุกครั้ง
+  const fetchFrom = useMemo(() => {
+    const a = fyStart(fy)
+    return (from.isBefore(a) ? from : a).format('YYYY-MM-DD')
+  }, [fy, from])
+  const fetchTo = useMemo(() => {
+    const b = fyEnd(fy)
+    return (to.isAfter(b) ? to : b).format('YYYY-MM-DD')
+  }, [fy, to])
+
+  useEffect(() => {
+    let alive = true
+    const load = async () => {
+      setLoading(true)
+      try {
+        const qs = new URLSearchParams({ from: fetchFrom, to: fetchTo })
+        const json = await (await fetch(`/api/v1/hr/leave-requests/summary?${qs}`)).json()
+        if (!alive) return
+        setRows(json?.success && Array.isArray(json.data) ? json.data.map(toRec) : [])
+        setCanSeeAll(Boolean(json?.scope?.can_see_all))
+      } catch {
+        if (alive) setRows([])
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+    load()
+    return () => { alive = false }
+  }, [fetchFrom, fetchTo])
+
+  // ── กรองตามรอบ + สถานะ ────────────────────────────────────────────────────
+  const inPeriod = useMemo(
+    () => rows.filter(r =>
+      overlaps(r, from, to) && (withPending ? r.status !== 'rejected' : r.status === 'approved'),
+    ),
+    [rows, from, to, withPending],
+  )
+
+  const unitOptions = useMemo(
+    () => [...new Set(inPeriod.map(r => r.unit))].sort((a, b) => a.localeCompare(b, 'th')),
+    [inPeriod],
+  )
+  const typeOptions = useMemo(
+    () => [...new Set(inPeriod.map(r => r.userType))].sort((a, b) => a.localeCompare(b, 'th')),
+    [inPeriod],
+  )
+
+  const filtered = useMemo(
+    () => inPeriod.filter(r => (!unit || r.unit === unit) && (!userType || r.userType === userType)),
+    [inPeriod, unit, userType],
+  )
+
+  const straddling = useMemo(() => inPeriod.filter(r => straddles(r, from, to)), [inPeriod, from, to])
+
+  /** ใบที่ยังไม่ผ่านครบทุกขั้นแต่ถูกนับรวมอยู่ — ต้องบอกให้เห็น ไม่ใช่ปนเงียบ ๆ ในยอดรวม */
+  const pendingInView = useMemo(
+    () => filtered.filter(r => r.status === 'pending').length,
+    [filtered],
+  )
+
+  // ── สถิติรวม ───────────────────────────────────────────────────────────────
+  const totalDays = useMemo(
+    () => round2(filtered.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0)),
+    [filtered, from, to, fullBill],
+  )
+  const peopleInPeriod = useMemo(() => new Set(inPeriod.map(r => r.userId)).size, [inPeriod])
+  const peopleShown = useMemo(() => new Set(filtered.map(r => r.userId)).size, [filtered])
+
+  // ── จำนวนวันรวมของแต่ละคอลัมน์หลัก ────────────────────────────────────────
+  const daysByBucket = useMemo(() => {
+    const m = new Map<BucketKey, number>(BUCKETS.map(b => [b.key, 0]))
+    filtered.forEach(r => m.set(r.bucket, (m.get(r.bucket) ?? 0) + daysInWindow(r, from, to, fullBill)))
+    return m
+  }, [filtered, from, to, fullBill])
+
+  // ── ตารางรายบุคคล ──────────────────────────────────────────────────────────
+  interface PersonRow {
+    key: number
+    name: string
+    position: string
+    userType: string
+    unit: string
+    recs: Rec[]
+    totalCount: number
+    totalDays: number
+    [k: string]: unknown
   }
 
-  // ── Filter records ────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    return allRecords.filter(r => {
-      if (toFY(r.startDate) !== fiscalYear) return false
-      if (fiscalMonth !== 0 && toFiscalMonth(r.startDate) !== fiscalMonth) return false
-      if (role === 'mission' && scope && r.mission !== scope) return false
-      if (role === 'group'   && scope && r.group   !== scope) return false
-      if (role === 'unit'    && scope && r.department !== scope) return false
-      return true
+  const personRows = useMemo<PersonRow[]>(() => {
+    const byUser = new Map<number, Rec[]>()
+    filtered.forEach(r => {
+      const list = byUser.get(r.userId)
+      if (list) list.push(r); else byUser.set(r.userId, [r])
     })
-  }, [fiscalYear, fiscalMonth, role, scope])
-
-  const approved = useMemo(() => filtered.filter(r => r.status === 'approved'), [filtered])
-
-  // ── Summary stats ─────────────────────────────────────────────────────────
-  const sumDays = (type: string) =>
-    approved.filter(r => r.leaveType === type).reduce((a, r) => a + r.totalDays, 0)
-
-  const sickDays      = sumDays('ลาป่วย')
-  const vacationDays  = sumDays('ลาพักผ่อน')
-  const personalDays  = sumDays('ลากิจ')
-  const maternityDays = sumDays('ลาคลอด')
-  const totalDays     = approved.reduce((a, r) => a + r.totalDays, 0)
-  const totalRequests = filtered.length
-  const pendingCount  = filtered.filter(r => r.status === 'pending').length
-  const rejectedCount = filtered.filter(r => r.status === 'rejected').length
-
-  // ── Pivot: department × leaveType ─────────────────────────────────────────
-  const departments = useMemo(
-    () => Array.from(new Set(filtered.map(r => r.department))).sort(),
-    [filtered]
-  )
-
-  const pivotData = useMemo(() =>
-    departments.map(dept => {
-      const deptRows = approved.filter(r => r.department === dept)
-      const row: Record<string, any> = { key: dept, department: dept }
-      let total = 0
-      LEAVE_TYPES.forEach(lt => {
-        const d = deptRows.filter(r => r.leaveType === lt).reduce((a, r) => a + r.totalDays, 0)
-        row[lt] = d || 0
-        total += d
+    return [...byUser.entries()].map(([userId, recs]) => {
+      const row: PersonRow = {
+        key: userId,
+        name: recs[0].name,
+        position: recs[0].position,
+        userType: recs[0].userType,
+        unit: recs[0].unit,
+        recs: [...recs].sort((a, b) => a.start.valueOf() - b.start.valueOf()),
+        totalCount: recs.length,
+        totalDays: round2(recs.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0)),
+      }
+      BUCKETS.forEach(b => {
+        const of = recs.filter(r => r.bucket === b.key)
+        row[`c_${b.key}`] = of.length
+        row[`d_${b.key}`] = round2(of.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0))
       })
-      row['รวม'] = total
       return row
-    })
-  , [departments, approved])
+    }).sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name, 'th'))
+  }, [filtered, from, to, fullBill])
 
-  const pivotColumns = [
+  const columns = useMemo(() => ([
     {
-      title: 'หน่วยงาน', dataIndex: 'department', key: 'department',
-      fixed: 'left' as const,
-      render: (t: string) => <Text strong>{t}</Text>
+      title: 'ชื่อ-สกุล', dataIndex: 'name', key: 'name', fixed: 'left' as const, width: 230,
+      render: (t: string) => (
+        <Space size={8}>
+          <Avatar size={24} style={{ background: 'var(--app-surface-2, #334155)', fontSize: 12 }}>
+            {t.replace(/^(นาย|นาง|นางสาว|น\.ส\.|ดร\.|พญ\.|นพ\.|ทพ\.|ภก\.)\s*/, '').charAt(0)}
+          </Avatar>
+          <Text strong>{t}</Text>
+        </Space>
+      ),
     },
-    ...LEAVE_TYPES.map(lt => ({
-      title: <Tag color={leaveTypeColor[lt]}>{lt}</Tag>,
-      dataIndex: lt, key: lt, align: 'center' as const,
-      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-app-text-3">—</span>
+    {
+      title: 'ตำแหน่ง', dataIndex: 'position', key: 'position', width: 180,
+      render: (t: string) => <Text type="secondary" style={{ fontSize: 13 }}>{t}</Text>,
+    },
+    {
+      title: 'ประเภท', dataIndex: 'userType', key: 'userType', width: 150, align: 'center' as const,
+      render: (t: string) => <Tag color="blue" style={{ marginInlineEnd: 0 }}>{t}</Tag>,
+    },
+    {
+      title: 'สังกัด', dataIndex: 'unit', key: 'unit', width: 220,
+      render: (t: string) => <Text style={{ fontSize: 13 }}>{t}</Text>,
+    },
+    // คอลัมน์หลัก — จำนวนวันรวมของแต่ละประเภท (ครั้งดูได้ในแถวที่กางออก)
+    ...BUCKETS.map(b => ({
+      title: (
+        <span style={{ color: b.color }}>
+          {b.label}<br />
+          <Text type="secondary" style={{ fontSize: 10, fontWeight: 400 }}>วัน</Text>
+        </span>
+      ),
+      dataIndex: `d_${b.key}`,
+      key: b.key,
+      width: 110,
+      align: 'center' as const,
+      sorter: (x: PersonRow, y: PersonRow) => Number(x[`d_${b.key}`]) - Number(y[`d_${b.key}`]),
+      render: (v: unknown) => numCell(v, b.color),
     })),
     {
-      title: 'รวมทั้งสิ้น', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
-      render: (v: number) => <Tag color="geekblue">{v} วัน</Tag>
+      title: 'รวมทั้งหมด', key: 'total',
+      children: [
+        {
+          title: 'ครั้ง', dataIndex: 'totalCount', key: 'totalCount', width: 72, align: 'center' as const,
+          render: (v: unknown) => <Text strong>{nf(Number(v))}</Text>,
+        },
+        {
+          title: 'วัน', dataIndex: 'totalDays', key: 'totalDays', width: 80, align: 'center' as const,
+          render: (v: unknown) => <Text strong style={{ color: 'var(--ant-color-primary, #10b981)' }}>{nf(Number(v))}</Text>,
+        },
+      ],
+    },
+  ]), [])
+
+  // ── กราฟ ───────────────────────────────────────────────────────────────────
+  const donutOption = useMemo(() => ({
+    backgroundColor: 'transparent',
+    tooltip: { trigger: 'item', valueFormatter: (v: number) => `${nf(v)} วัน` },
+    legend: { bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+    series: [{
+      type: 'pie', radius: ['45%', '70%'], center: ['50%', '45%'],
+      avoidLabelOverlap: true, label: { show: false },
+      data: BUCKETS
+        .filter(b => (daysByBucket.get(b.key) ?? 0) > 0)
+        .map(b => ({
+          name: b.label, value: round2(daysByBucket.get(b.key) ?? 0), itemStyle: { color: b.color },
+        })),
+    }],
+  }), [daysByBucket])
+
+  const barOption = useMemo(() => {
+    const units = [...new Set(filtered.map(r => r.unit))]
+    const totals = new Map<string, number>()
+    filtered.forEach(r => totals.set(r.unit, (totals.get(r.unit) ?? 0) + daysInWindow(r, from, to, fullBill)))
+    const ordered = units.sort((a, b) => (totals.get(b) ?? 0) - (totals.get(a) ?? 0)).slice(0, 25)
+    return {
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: (v: number) => `${nf(v)} วัน` },
+      legend: { top: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+      grid: { left: 48, right: 16, top: 34, bottom: 120 },
+      xAxis: {
+        type: 'category', data: ordered,
+        axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 35, interval: 0, width: 110, overflow: 'truncate' },
+      },
+      yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { opacity: 0.15 } } },
+      series: BUCKETS.map(b => ({
+        name: b.label, type: 'bar', itemStyle: { color: b.color, borderRadius: [3, 3, 0, 0] },
+        data: ordered.map(u => round2(
+          filtered.filter(r => r.unit === u && r.bucket === b.key)
+            .reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0),
+        )),
+      })),
     }
-  ]
+  }, [filtered, from, to, fullBill])
 
-  // ── Per-person summary ────────────────────────────────────────────────────
-  const employees = useMemo(
-    () => Array.from(new Set(filtered.map(r => r.employeeName))).sort(),
-    [filtered]
-  )
-
-  const personData = useMemo(() =>
-    employees.map(name => {
-      const recs = approved.filter(r => r.employeeName === name)
-      const dept = allRecords.find(r => r.employeeName === name)?.department ?? '—'
-      const row: Record<string, any> = { key: name, employeeName: name, department: dept }
-      let total = 0
-      LEAVE_TYPES.forEach(lt => {
-        const d = recs.filter(r => r.leaveType === lt).reduce((a, r) => a + r.totalDays, 0)
-        row[lt] = d || 0
-        total += d
+  // ── ส่งออก Excel ───────────────────────────────────────────────────────────
+  const exportExcel = () => {
+    const data = personRows.map(p => {
+      const o: Record<string, string | number> = {
+        'ชื่อ-สกุล': p.name, 'ตำแหน่ง': p.position, 'ประเภทเจ้าหน้าที่': p.userType, 'สังกัด': p.unit,
+      }
+      BUCKETS.forEach(b => {
+        o[`${b.label} (ครั้ง)`] = Number(p[`c_${b.key}`]) || 0
+        o[`${b.label} (วัน)`] = Number(p[`d_${b.key}`]) || 0
       })
-      row['รวม'] = total
-      return row
+      o['รวม (ครั้ง)'] = p.totalCount
+      o['รวม (วัน)'] = p.totalDays
+      return o
     })
-  , [employees, approved])
+    const ws = XLSX.utils.json_to_sheet(data)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, `ปีงบ ${fy}`)
+    XLSX.writeFile(wb, `สรุปการลา_ปีงบ${fy}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
+  }
 
-  const personColumns = [
-    {
-      title: 'ชื่อ-สกุล', dataIndex: 'employeeName', key: 'employeeName',
-      render: (t: string) => <Text strong>{t}</Text>
-    },
-    {
-      title: 'หน่วยงาน', dataIndex: 'department', key: 'department',
-      render: (t: string) => <Text type="secondary">{t}</Text>
-    },
-    ...LEAVE_TYPES.map(lt => ({
-      title: <Tag color={leaveTypeColor[lt]}>{lt}</Tag>,
-      dataIndex: lt, key: lt, align: 'center' as const,
-      render: (v: number) => v > 0 ? <span className="font-semibold">{v}</span> : <span className="text-app-text-3">—</span>
-    })),
-    {
-      title: 'รวม', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
-      render: (v: number) => <Tag color="geekblue">{v} วัน</Tag>
-    }
+  const clearFilters = () => { setUnit(null); setUserType(null) }
+  const isCurrentFY = fy === currentFY()
+  const rangeDays = to.diff(from, 'day') + 1
+
+  const statCards = [
+    { label: 'จำนวนคนที่ลา', value: nf(peopleShown), unit: 'คน', sub: PERIOD_LABEL[period], color: '#8b5cf6', icon: <TeamOutlined /> },
+    { label: 'จำนวนครั้งที่ลา', value: nf(filtered.length), unit: 'รายการ', sub: withPending ? 'รวมที่รออนุมัติ' : 'เฉพาะที่อนุมัติแล้ว', color: '#22c55e', icon: <FaRegClipboard /> },
+    { label: 'วันลารวมทั้งหมด', value: nf(totalDays), unit: 'วัน', sub: fullBill ? 'นับใบคร่อมรอบแบบเต็มใบ' : 'นับเฉพาะวันที่ตกอยู่ในรอบ', color: '#0ea5e9', icon: <FaRegCalendarCheck /> },
   ]
-
-  // ── All-records table ─────────────────────────────────────────────────────
-  const detailColumns = [
-    {
-      title: 'เลขที่ใบลา', dataIndex: 'id', key: 'id',
-      render: (t: string) => <Text className="font-medium text-teal-400 text-xs">{t}</Text>
-    },
-    { title: 'ชื่อ-สกุล', dataIndex: 'employeeName', key: 'employeeName' },
-    {
-      title: 'หน่วยงาน', dataIndex: 'department', key: 'department',
-      render: (t: string) => <Text type="secondary" className="text-sm">{t}</Text>
-    },
-    {
-      title: 'ประเภทการลา', dataIndex: 'leaveType', key: 'leaveType',
-      render: (t: string) => <Tag color={leaveTypeColor[t]}>{t}</Tag>
-    },
-    {
-      title: 'ช่วงวันที่ลา', key: 'date',
-      render: (_: any, r: LeaveRecord) => (
-        <span className="text-sm">{fmtDate(r.startDate)} – {fmtDate(r.endDate)}</span>
-      )
-    },
-    {
-      title: 'จำนวน', dataIndex: 'totalDays', key: 'totalDays', align: 'center' as const,
-      render: (v: number) => <Tag color="geekblue">{v} วัน</Tag>
-    },
-    {
-      title: 'สถานะ', dataIndex: 'status', key: 'status', align: 'center' as const,
-      render: statusTag
-    },
-  ]
-
-  const fyLabel = `1 ต.ค. ${fiscalYear - 1} – 30 ก.ย. ${fiscalYear}`
-  const periodLabel = fiscalMonth === 0
-    ? `ปีงบประมาณ ${fiscalYear} (${fyLabel})`
-    : `${FISCAL_MONTHS.find(m => m.value === fiscalMonth)?.label?.replace(/ \(.*\)/, '')} ปีงบ ${fiscalYear}`
-
-  const scopeLabel = role === 'hr'
-    ? 'ทุกหน่วยงาน'
-    : scope
-      ? `${ROLE_LABELS[role]}: ${scope}`
-      : `${ROLE_LABELS[role]}: (ทั้งหมด)`
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
-      <div className="p-6 md:p-8">
-
-        {/* Breadcrumb */}
+      <div className="p-4 md:p-6">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
-            { title: <><FileTextOutlined /> ระบบงานบุคคล</> },
-            { title: 'สรุปรายการลา' },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
+            { title: <><FileTextOutlined /> ระบบบริหารการลา</> },
+            { title: 'สรุปการลาตามปีงบประมาณ' },
           ]}
-          className="mb-6"
+          className="mb-4"
         />
 
-        {/* Page Title */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-end gap-4 justify-between">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Title level={2} className="text-primary m-0">สรุปรายการลา</Title>
-            <Text type="secondary">{periodLabel} · {scopeLabel}</Text>
+            <Title level={3} className="m-0">สรุปการลาตามปีงบประมาณ</Title>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {canSeeAll ? 'ทั้งองค์กร' : 'เฉพาะขอบเขตที่ท่านมีสิทธิ์ดู'} · ปีงบประมาณ {fyLabel(fy)}
+            </Text>
           </div>
-          <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
-            พิมพ์รายงาน
-          </Button>
+          <Tag icon={<CalendarOutlined />} color="processing" style={{ fontSize: 13, padding: '4px 10px' }}>
+            {beDate(from)} – {beDate(to)} <Text type="secondary" style={{ fontSize: 11 }}>({rangeDays} วัน)</Text>
+          </Tag>
         </div>
 
-        {/* ── Filter Bar ───────────────────────────────────────────────────── */}
-        <Card variant="borderless" className="mb-6 shadow-sm">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end' }}>
-            <div>
-              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>ปีงบประมาณ</Text>
-              <Select
-                value={fiscalYear}
-                onChange={setFiscalYear}
-                style={{ width: 130 }}
-                options={[
-                  { value: 2569, label: 'พ.ศ. 2569' },
-                  { value: 2568, label: 'พ.ศ. 2568' },
-                ]}
-              />
-            </div>
-            <div>
-              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>ช่วงเดือน</Text>
-              <Select
-                value={fiscalMonth}
-                onChange={setFiscalMonth}
-                style={{ width: 220 }}
-                options={FISCAL_MONTHS}
-              />
-            </div>
-            <div>
-              <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>มุมมอง / บทบาท</Text>
-              <Select
-                value={role}
-                onChange={handleRoleChange}
-                style={{ width: 200 }}
-                options={Object.entries(ROLE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-              />
-            </div>
-            {role !== 'hr' && (
-              <div>
-                <Text style={{ display: 'block', fontSize: 12, color: 'var(--app-text-2)', marginBottom: 4 }}>
-                  {role === 'mission' ? 'ภารกิจ' : role === 'group' ? 'กลุ่มงาน' : 'หน่วยงาน'}
-                </Text>
-                <Select
-                  value={scope}
-                  onChange={setScope}
-                  allowClear
-                  placeholder="(ทั้งหมด)"
-                  style={{ width: 220 }}
-                  options={SCOPE_OPTIONS[role]}
-                />
-              </div>
-            )}
+        {/* ── เลือกรอบการดู ──────────────────────────────────────────────── */}
+        <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Text type="secondary" style={{ fontSize: 12 }}><CalendarOutlined /> รอบการดู</Text>
+            <Segmented
+              value={period === 'CUSTOM' ? '' : period}
+              onChange={v => { setPeriod(v as PeriodKey); setCustom(null) }}
+              options={PERIOD_MAIN}
+            />
+            <Segmented
+              value={period === 'CUSTOM' ? '' : period}
+              onChange={v => { setPeriod(v as PeriodKey); setCustom(null) }}
+              options={PERIOD_QUARTER}
+            />
+          </div>
+
+          <Divider style={{ margin: '12px 0' }} />
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Text type="secondary" style={{ fontSize: 12 }}>ปีงบประมาณ</Text>
+            <Select
+              value={fy}
+              onChange={setFy}
+              style={{ width: 190 }}
+              options={Array.from({ length: 6 }, (_, i) => currentFY() + 1 - i)
+                .map(y => ({ value: y, label: fyLabel(y) }))}
+            />
+            <Text type="secondary" style={{ fontSize: 12 }}>กำหนดช่วงเอง</Text>
+            <RangePicker
+              value={custom}
+              onChange={v => {
+                if (v && v[0] && v[1]) { setCustom([v[0], v[1]]); setPeriod('CUSTOM') }
+                else { setCustom(null); setPeriod('FULL') }
+              }}
+              format="DD/MM/YYYY"
+              allowClear
+            />
+            <Button
+              size="small"
+              disabled={isCurrentFY && period === 'FULL'}
+              onClick={() => { setFy(currentFY()); setPeriod('FULL'); setCustom(null) }}
+            >
+              ปีปัจจุบัน
+            </Button>
+            <Checkbox checked={fullBill} onChange={e => setFullBill(e.target.checked)}>
+              <span style={{ fontSize: 12 }}>นับใบลาคร่อมรอบแบบเต็มใบ</span>
+            </Checkbox>
+            <Checkbox checked={withPending} onChange={e => setWithPending(e.target.checked)}>
+              <span style={{ fontSize: 12 }}>
+                รวมใบที่รออนุมัติ
+                {withPending && pendingInView > 0 && (
+                  <Tag color="warning" style={{ marginInlineStart: 6, marginInlineEnd: 0, fontSize: 11 }}>
+                    นับอยู่ {nf(pendingInView)} รายการ
+                  </Tag>
+                )}
+              </span>
+            </Checkbox>
           </div>
         </Card>
 
-        {/* ── Summary Cards ─────────────────────────────────────────────────── */}
-        <Row gutter={[12, 12]} className="mb-3">
-          {[
-            { label: 'ลาพักผ่อน',  value: vacationDays,  icon: <FaUmbrellaBeach />, gradient: 'linear-gradient(to right, #064e3b, #059669)' },
-            { label: 'ลาป่วย',     value: sickDays,      icon: <FaUserMd />,        gradient: 'linear-gradient(to right, #7c2d12, #ea580c)' },
-            { label: 'ลากิจ',      value: personalDays,  icon: <FaBriefcase />,     gradient: 'linear-gradient(to right, #1e3a5f, #3b82f6)' },
-            { label: 'ลาคลอดบุตร', value: maternityDays, icon: <FaBaby />,          gradient: 'linear-gradient(to right, #581c87, #a855f7)' },
-          ].map(({ label, value, icon, gradient }) => (
-            <Col xs={12} md={6} key={label}>
-              <Card
-                variant="borderless"
-                className="rounded-xl"
-                styles={{ body: { padding: '12px 16px' } }}
-                style={{ background: gradient, boxShadow: '0 2px 10px rgba(0,0,0,0.3)', transition: 'all 0.2s' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18, color: 'rgba(255,255,255,0.85)' }}>{icon}</span>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>
-                      {value} <span style={{ fontSize: 12, fontWeight: 400, color: 'rgba(255,255,255,0.75)' }}>วัน</span>
-                    </div>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>{label} (อนุมัติ)</span>
+        {/* ── ใบลาที่คร่อมรอยต่อของรอบ ───────────────────────────────────── */}
+        {straddling.length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<ScissorOutlined />}
+            className="mb-3"
+            title={
+              <span style={{ fontSize: 13 }}>
+                มีใบลา <b>{straddling.length}</b> รายการที่คร่อมรอยต่อของรอบนี้ —{' '}
+                {fullBill ? 'กำลังนับทั้งใบ (ยอดรวมอาจซ้ำกับรอบข้างเคียง)' : 'นับเฉพาะวันที่ตกอยู่ในรอบ'}
+                <Button type="link" size="small" onClick={() => setShowStraddle(s => !s)}>
+                  {showStraddle ? 'ซ่อน' : 'ดูรายการ'}
+                </Button>
+              </span>
+            }
+            description={showStraddle ? (
+              <div style={{ maxHeight: 190, overflow: 'auto', fontSize: 12 }}>
+                {straddling.map(r => (
+                  <div key={r.id} className="flex flex-wrap gap-2 py-0.5">
+                    <span style={{ minWidth: 170 }}>{r.name}</span>
+                    <Tag color="default" style={{ marginInlineEnd: 0 }}>{r.leaveType}</Tag>
+                    <span>{beDate(r.start)} – {beDate(r.end)}</span>
+                    <Text type="secondary">
+                      ทั้งใบ {nf(r.days)} วัน → นับในรอบ {nf(daysInWindow(r, from, to, fullBill))} วัน
+                    </Text>
                   </div>
+                ))}
+              </div>
+            ) : null}
+          />
+        )}
+
+        {/* ── ตัวกรอง ─────────────────────────────────────────────────────── */}
+        <Card variant="borderless" className="mb-4 shadow-sm" styles={{ body: { padding: 14 } }}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Text type="secondary" style={{ fontSize: 12 }}><FilterOutlined /> กรองข้อมูล</Text>
+            <Select
+              value={unit} onChange={setUnit} allowClear showSearch
+              placeholder="สังกัด (ทั้งหมด)" style={{ minWidth: 260 }}
+              options={unitOptions.map(v => ({ value: v, label: v }))}
+            />
+            <Select
+              value={userType} onChange={setUserType} allowClear
+              placeholder="ประเภทเจ้าหน้าที่ (ทั้งหมด)" style={{ minWidth: 220 }}
+              options={typeOptions.map(v => ({ value: v, label: v }))}
+            />
+            <Button
+              type="text" size="small" icon={<ClearOutlined />}
+              disabled={!unit && !userType}
+              onClick={clearFilters}
+            >
+              ล้างตัวกรอง
+            </Button>
+            <div className="ml-auto">
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                แสดง <b style={{ color: 'var(--ant-color-primary, #10b981)' }}>{nf(peopleShown)}</b> / {nf(peopleInPeriod)} คน
+              </Text>
+            </div>
+          </div>
+        </Card>
+
+        {/* ── การ์ดสถิติ ──────────────────────────────────────────────────── */}
+        <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          {statCards.map(c => (
+            <Card key={c.label} variant="borderless" className="rounded-xl shadow-sm" styles={{ body: { padding: 18 } }}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{c.label}</Text>
+                  <div style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.2, color: c.color }}>{c.value}</div>
+                  <Text type="secondary" style={{ fontSize: 11 }}>{c.unit} — {c.sub}</Text>
                 </div>
-              </Card>
-            </Col>
+                <span style={{
+                  color: c.color, background: `${c.color}1f`, borderRadius: 10,
+                  width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>{c.icon}</span>
+              </div>
+            </Card>
           ))}
-        </Row>
+        </div>
 
+        {/* ── กราฟ ────────────────────────────────────────────────────────── */}
+        <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <Card variant="borderless" className="rounded-xl shadow-sm lg:col-span-1"
+            title={<span style={{ fontSize: 13 }}>วันลารวมแยกตามประเภท</span>}>
+            {filtered.length === 0
+              ? <Empty description="ไม่มีข้อมูลในรอบนี้" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              : <EChart option={donutOption} height={280} />}
+          </Card>
+          <Card variant="borderless" className="rounded-xl shadow-sm lg:col-span-2"
+            title={<span style={{ fontSize: 13 }}>วันลารวมแยกตามสังกัด {unitOptions.length > 25 && <Text type="secondary" style={{ fontSize: 11 }}>(25 อันดับแรก)</Text>}</span>}>
+            {filtered.length === 0
+              ? <Empty description="ไม่มีข้อมูลในรอบนี้" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              : <EChart option={barOption} height={280} />}
+          </Card>
+        </div>
 
-        {/* ── Tabs ──────────────────────────────────────────────────────────── */}
-        <Tabs
-          defaultActiveKey="pivot"
-          type="card"
-          items={[
-            {
-              key: 'pivot',
-              label: <span style={{ color: '#34d399' }}><FaChartBar className="inline mr-2" />สรุปรายหน่วยงาน</span>,
-              children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #006a5a' }}>
-                  <Title level={5} className="mb-4">
-                    จำนวนวันลา (เฉพาะที่อนุมัติแล้ว) จำแนกตามหน่วยงานและประเภท
-                  </Title>
-                  {pivotData.length === 0
-                    ? <Empty description="ไม่มีข้อมูลในช่วงที่เลือก" />
-                    : (
-                      <Table
-                        columns={pivotColumns}
-                        dataSource={[
-                          ...pivotData,
-                          // แถวรวม
-                          (() => {
-                            const total: Record<string, any> = { key: '__total', department: 'รวมทั้งสิ้น' }
-                            let grand = 0
-                            LEAVE_TYPES.forEach(lt => {
-                              const d = pivotData.reduce((a, r) => a + (r[lt] || 0), 0)
-                              total[lt] = d
-                              grand += d
-                            })
-                            total['รวม'] = grand
-                            return total
-                          })()
-                        ]}
-                        rowKey="key"
-                        pagination={false}
-                        scroll={{ x: 700 }}
-                        rowClassName={(r) => r.key === '__total' ? 'font-bold bg-app-surface' : ''}
-                      />
-                    )
-                  }
-                </Card>
-              )
-            },
-            {
-              key: 'person',
-              label: <span style={{ color: '#60a5fa' }}><FaUsers className="inline mr-2" />สรุปรายบุคคล</span>,
-              children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #2563eb' }}>
-                  <Title level={5} className="mb-4">
-                    จำนวนวันลา (เฉพาะที่อนุมัติแล้ว) จำแนกตามบุคลากร
-                  </Title>
-                  {personData.length === 0
-                    ? <Empty description="ไม่มีข้อมูลในช่วงที่เลือก" />
-                    : (
-                      <Table
-                        columns={personColumns}
-                        dataSource={personData}
-                        rowKey="key"
-                        pagination={{ pageSize: 15, showTotal: (t) => `ทั้งหมด ${t} คน` }}
-                        scroll={{ x: 800 }}
-                      />
-                    )
-                  }
-                </Card>
-              )
-            },
-            {
-              key: 'detail',
-              label: <span style={{ color: 'var(--app-text-2)' }}><FileTextOutlined className="mr-2" />รายการทั้งหมด</span>,
-              children: (
-                <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid var(--app-text-3)' }}>
-                  <div className="flex justify-between items-center mb-4">
-                    <Title level={5} className="m-0">รายการขอลาทั้งหมด ({filtered.length} รายการ)</Title>
-                    <Space>
-                      <Tag icon={<CheckCircleOutlined />} color="success">
-                        อนุมัติ {approved.length}
-                      </Tag>
-                      <Tag icon={<ClockCircleOutlined />} color="warning">
-                        รออนุมัติ {pendingCount}
-                      </Tag>
-                      <Tag icon={<CloseCircleOutlined />} color="error">
-                        ไม่อนุมัติ {rejectedCount}
-                      </Tag>
-                    </Space>
-                  </div>
-                  {filtered.length === 0
-                    ? <Empty description="ไม่มีข้อมูลในช่วงที่เลือก" />
-                    : (
-                      <Table
-                        columns={detailColumns}
-                        dataSource={filtered}
-                        rowKey="id"
-                        pagination={{
-                          pageSize: 10,
-                          showTotal: (t) => `ทั้งหมด ${t} รายการ`
-                        }}
-                        scroll={{ x: 900 }}
-                      />
-                    )
-                  }
-                </Card>
-              )
-            },
-            {
-              key: 'top100',
-              label: <span style={{ color: '#fbbf24' }}><FaMedal className="inline mr-2" />Top 100 ลาบ่อย</span>,
-              children: (() => {
-                const TOP_TYPES = ['รวมทั้งหมด', 'ลากิจ', 'ลาพักผ่อน', 'ลาป่วย', 'ลาคลอด']
-                const sortKey = topType === 'รวมทั้งหมด' ? 'รวม' : topType
-                const top100 = [...personData]
-                  .sort((a, b) => (b[sortKey] ?? 0) - (a[sortKey] ?? 0))
-                  .slice(0, 100)
-                  .map((r, i) => ({ ...r, rank: i + 1 }))
-
-                const MEDAL_COLORS: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' }
-
-                const top100Columns = [
-                  {
-                    title: '#', dataIndex: 'rank', key: 'rank', width: 52, align: 'center' as const,
-                    render: (rank: number) => (
-                      <span style={{
-                        fontWeight: 700,
-                        fontSize: rank <= 3 ? 16 : 13,
-                        color: MEDAL_COLORS[rank] ?? 'var(--app-text-2)',
-                      }}>
-                        {rank <= 3 ? '🏅' : ''}{rank}
-                      </span>
-                    )
-                  },
-                  {
-                    title: 'ชื่อ-สกุล', dataIndex: 'employeeName', key: 'employeeName',
-                    render: (t: string, r: any) => (
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{t}</div>
-                        <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{r.department}</div>
-                      </div>
-                    )
-                  },
-                  {
-                    title: <Tag color="blue">ลากิจ</Tag>,
-                    dataIndex: 'ลากิจ', key: 'ลากิจ', align: 'center' as const,
-                    render: (v: number) => v > 0
-                      ? <Tag color="blue">{v} วัน</Tag>
-                      : <span className="text-app-text-3">—</span>
-                  },
-                  {
-                    title: <Tag color="green">ลาพักผ่อน</Tag>,
-                    dataIndex: 'ลาพักผ่อน', key: 'ลาพักผ่อน', align: 'center' as const,
-                    render: (v: number) => v > 0
-                      ? <Tag color="green">{v} วัน</Tag>
-                      : <span className="text-app-text-3">—</span>
-                  },
-                  {
-                    title: <Tag color="volcano">ลาป่วย</Tag>,
-                    dataIndex: 'ลาป่วย', key: 'ลาป่วย', align: 'center' as const,
-                    render: (v: number) => v > 0
-                      ? <Tag color="volcano">{v} วัน</Tag>
-                      : <span className="text-app-text-3">—</span>
-                  },
-                  {
-                    title: <Tag color="magenta">ลาคลอด</Tag>,
-                    dataIndex: 'ลาคลอด', key: 'ลาคลอด', align: 'center' as const,
-                    render: (v: number) => v > 0
-                      ? <Tag color="magenta">{v} วัน</Tag>
-                      : <span className="text-app-text-3">—</span>
-                  },
-                  {
-                    title: 'รวม', dataIndex: 'รวม', key: 'รวม', align: 'center' as const,
-                    render: (v: number) => <Tag color="geekblue" style={{ fontWeight: 700 }}>{v} วัน</Tag>
-                  },
-                ]
-
-                return (
-                  <Card variant="borderless" className="rounded-xl" style={{ background: 'var(--app-surface)', borderTop: '3px solid #d97706' }}>
-                    <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-                      <div>
-                        <Title level={5} className="m-0">Top 100 บุคลากรที่ลามากที่สุด</Title>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          เรียงตามวันลาที่อนุมัติแล้ว · {personData.length} คนในช่วงที่เลือก
-                        </Text>
-                      </div>
-                      <div>
-                        <Text style={{ fontSize: 12, color: 'var(--app-text-2)', marginRight: 8 }}>เรียงตาม:</Text>
-                        <Segmented
-                          value={topType}
-                          onChange={v => setTopType(v as string)}
-                          options={TOP_TYPES}
-                          size="small"
-                        />
-                      </div>
+        {/* ── ตารางรายบุคคล ───────────────────────────────────────────────── */}
+        <Card
+          variant="borderless"
+          className="rounded-xl shadow-sm"
+          title={
+            <div>
+              <span style={{ fontSize: 15, fontWeight: 600 }}>สรุปการลารายบุคคล — ปีงบประมาณ พ.ศ. {fy}</span>
+              <Text type="secondary" style={{ fontSize: 12, marginInlineStart: 8 }}>
+                {PERIOD_LABEL[period]} · {beDate(from)} – {beDate(to)}
+              </Text>
+            </div>
+          }
+          extra={
+            <Space>
+              <Tag>{nf(personRows.length)} คน</Tag>
+              <Button
+                type="primary" ghost icon={<FaFileExcel />}
+                disabled={personRows.length === 0}
+                onClick={exportExcel}
+              >
+                Export Excel
+              </Button>
+            </Space>
+          }
+        >
+          <Table
+            columns={columns}
+            dataSource={personRows}
+            loading={loading}
+            rowKey="key"
+            size="small"
+            bordered
+            scroll={{ x: 'max-content' }}
+            pagination={{ pageSize: 25, showSizeChanger: true, showTotal: t => `ทั้งหมด ${nf(t)} คน` }}
+            locale={{ emptyText: <Empty description="ไม่มีข้อมูลการลาในรอบที่เลือก" /> }}
+            expandable={{
+              expandedRowRender: (p: PersonRow) => (
+                <div style={{ fontSize: 12, paddingInlineStart: 8 }}>
+                  {p.recs.map(r => (
+                    <div key={r.id} className="flex flex-wrap items-center gap-2 py-0.5">
+                      <Tag color="default" style={{ marginInlineEnd: 0 }}>{r.leaveType}</Tag>
+                      <span>{beDate(r.start)} – {beDate(r.end)}</span>
+                      <Text type="secondary">{nf(r.days)} วัน</Text>
+                      {straddles(r, from, to) && (
+                        <Tag color="warning" style={{ marginInlineEnd: 0 }}>
+                          คร่อมรอบ · นับ {nf(daysInWindow(r, from, to, fullBill))} วัน
+                        </Tag>
+                      )}
+                      {r.status === 'pending' && <Tag color="warning" style={{ marginInlineEnd: 0 }}>รออนุมัติ</Tag>}
                     </div>
-                    {top100.length === 0
-                      ? <Empty description="ไม่มีข้อมูลในช่วงที่เลือก" />
-                      : (
-                        <Table
-                          columns={top100Columns}
-                          dataSource={top100}
-                          rowKey="key"
-                          pagination={{ pageSize: 20, showTotal: t => `แสดง ${t} รายการ` }}
-                          scroll={{ x: 750 }}
-                          rowClassName={(_, i) => i < 3 ? 'font-semibold' : ''}
-                        />
-                      )
-                    }
-                  </Card>
-                )
-              })()
-            },
-          ]}
-        />
+                  ))}
+                </div>
+              ),
+            }}
+            summary={() => personRows.length === 0 ? null : (
+              <Table.Summary fixed>
+                <Table.Summary.Row style={{ fontWeight: 700 }}>
+                  <Table.Summary.Cell index={0} colSpan={5}>รวมทั้งสิ้น</Table.Summary.Cell>
+                  {BUCKETS.map((b, i) => (
+                    <Table.Summary.Cell key={b.key} index={5 + i} align="center">
+                      <span style={{ color: b.color }}>{nf(daysByBucket.get(b.key) ?? 0)}</span>
+                    </Table.Summary.Cell>
+                  ))}
+                  <Table.Summary.Cell index={5 + BUCKETS.length} align="center">
+                    {nf(filtered.length)}
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={6 + BUCKETS.length} align="center">
+                    {nf(totalDays)}
+                  </Table.Summary.Cell>
+                </Table.Summary.Row>
+              </Table.Summary>
+            )}
+          />
+        </Card>
       </div>
     </div>
   )
 }
 
-// ─── Page Wrapper ─────────────────────────────────────────────────────────────
 const LeaveSummaryPage = () => (
-  <AppThemeProvider colorPrimary="#006a5a">
-      <LeaveSummaryPageContent />
-    </AppThemeProvider>
+  <AppThemeProvider colorPrimary="#10b981">
+    <LeaveSummaryContent />
+  </AppThemeProvider>
 )
 
 export default LeaveSummaryPage

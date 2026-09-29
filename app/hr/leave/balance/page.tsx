@@ -253,7 +253,7 @@ const PageContent = () => {
     {
       title: 'คงเหลือ', key: 'remaining', align: 'center' as const, width: 100,
       render: (_: any, r: BalanceRow) => r.balance_id
-        ? <Text strong style={{ color: '#006a5a', fontSize: 15 }}>{Number(r.remaining)}</Text>
+        ? <Text strong style={{ color: '#10b981', fontSize: 15 }}>{Number(r.remaining)}</Text>
         : <Tag color="orange">ยังไม่มีข้อมูล</Tag>,
     },
     { title: 'หมายเหตุ', key: 'note', render: (_: any, r: BalanceRow) => r.note || <Text type="secondary">—</Text> },
@@ -303,7 +303,7 @@ const PageContent = () => {
           className="mb-4"
         />
 
-        <Card style={{ background: 'linear-gradient(135deg, #006a5a 0%, #059669 50%, #0d9488 100%)', border: 'none', borderRadius: 16, marginBottom: 24 }}>
+        <Card style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #0d9488 100%)', border: 'none', borderRadius: 16, marginBottom: 24 }}>
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} md={16}>
               <div className="flex items-center gap-4">
@@ -321,7 +321,7 @@ const PageContent = () => {
             <Col xs={24} md={8}>
               <div className="flex gap-2 md:justify-end">
                 <Button icon={<SwapOutlined />} size="large" onClick={openRollover}
-                  style={{ backgroundColor: '#fff', color: '#006a5a', border: 'none', fontWeight: 600 }}>
+                  style={{ backgroundColor: '#fff', color: '#10b981', border: 'none', fontWeight: 600 }}>
                   ยกยอดปีงบประมาณใหม่
                 </Button>
               </div>
@@ -334,7 +334,7 @@ const PageContent = () => {
             <Col xs={24} md={5}>
               <Text type="secondary" style={{ fontSize: 12 }}>ประเภทการลา</Text>
               <div>
-                <Tag color="#006a5a" style={{ fontSize: 13, padding: '4px 12px', borderRadius: 6 }}>ลาพักผ่อน</Tag>
+                <Tag color="#10b981" style={{ fontSize: 13, padding: '4px 12px', borderRadius: 6 }}>ลาพักผ่อน</Tag>
               </div>
             </Col>
             <Col xs={24} md={4}>
@@ -409,7 +409,7 @@ const PageContent = () => {
         <Modal
           title={
             <Space>
-              <EditOutlined style={{ color: '#006a5a' }} />
+              <EditOutlined style={{ color: '#10b981' }} />
               <span>{editingRow?.balance_id ? 'แก้ไขยอดวันลาสะสม' : 'เพิ่มยอดวันลาสะสม'} — {editingRow?.pname}{editingRow?.fname} {editingRow?.lname}</span>
             </Space>
           }
@@ -442,7 +442,7 @@ const PageContent = () => {
 
         {/* ── Modal ยกยอดปีงบประมาณใหม่ ── */}
         <Modal
-          title={<Space><SwapOutlined style={{ color: '#006a5a' }} /><span>ยกยอดวันลาสะสมขึ้นปีงบประมาณใหม่</span></Space>}
+          title={<Space><SwapOutlined style={{ color: '#10b981' }} /><span>ยกยอดวันลาสะสมขึ้นปีงบประมาณใหม่</span></Space>}
           open={rolloverOpen}
           onCancel={() => setRolloverOpen(false)}
           onOk={runRollover}
@@ -464,7 +464,7 @@ const PageContent = () => {
                 </Form.Item>
               </Col>
             </Row>
-            <Tag color="#006a5a" style={{ marginBottom: 12 }}>ประเภทการลา: ลาพักผ่อน (ทำเฉพาะประเภทนี้เท่านั้น)</Tag>
+            <Tag color="#10b981" style={{ marginBottom: 12 }}>ประเภทการลา: ลาพักผ่อน (ทำเฉพาะประเภทนี้เท่านั้น)</Tag>
             <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
               ระบบจะคำนวณ &quot;คงเหลือ&quot; ของปีงบเดิม (จำกัดเพดานตามเกณฑ์สะสมสูงสุดของแต่ละคน) แล้วสร้างยอดยกมาให้ในปีงบใหม่
               — ข้ามคนที่มีข้อมูลปีใหม่อยู่แล้วโดยอัตโนมัติ (กดซ้ำได้ไม่ซ้อนข้อมูล)
@@ -478,7 +478,7 @@ const PageContent = () => {
 
 export default function LeaveBalancePage() {
   return (
-    <AppThemeProvider colorPrimary="#006a5a">
+    <AppThemeProvider colorPrimary="#10b981">
       <PageContent />
     </AppThemeProvider>
   )

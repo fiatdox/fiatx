@@ -342,7 +342,7 @@ const PolicyPageContent = () => {
           className="mb-4"
         />
 
-        <Card style={{ background: 'linear-gradient(135deg, #006a5a 0%, #059669 50%, #0d9488 100%)', border: 'none', borderRadius: 16, marginBottom: 24 }}>
+        <Card style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #0d9488 100%)', border: 'none', borderRadius: 16, marginBottom: 24 }}>
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center rounded-2xl" style={{ width: 56, height: 56, backgroundColor: 'rgba(255,255,255,0.15)' }}>
               <SettingOutlined className="text-2xl text-white" />
@@ -393,7 +393,7 @@ const PolicyPageContent = () => {
 
         {/* ── Modal แก้ไขเงื่อนไขประเภทการลา ── */}
         <Modal
-          title={<Space><EditOutlined style={{ color: '#006a5a' }} /><span>แก้ไขเงื่อนไข: {editingType?.name_th}</span></Space>}
+          title={<Space><EditOutlined style={{ color: '#10b981' }} /><span>แก้ไขเงื่อนไข: {editingType?.name_th}</span></Space>}
           open={typeModalOpen}
           onCancel={() => setTypeModalOpen(false)}
           onOk={saveType}
@@ -439,7 +439,7 @@ const PolicyPageContent = () => {
         <Modal
           title={
             <Space>
-              <EditOutlined style={{ color: '#006a5a' }} />
+              <EditOutlined style={{ color: '#10b981' }} />
               <span>{editingEnt ? 'แก้ไขเกณฑ์สิทธิ์การลา' : 'เพิ่มเกณฑ์สิทธิ์การลา'}</span>
             </Space>
           }
@@ -491,7 +491,7 @@ const PolicyPageContent = () => {
 
 export default function LeavePolicyPage() {
   return (
-    <AppThemeProvider colorPrimary="#006a5a">
+    <AppThemeProvider colorPrimary="#10b981">
       <PolicyPageContent />
     </AppThemeProvider>
   )

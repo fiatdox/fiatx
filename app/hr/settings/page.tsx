@@ -87,7 +87,7 @@ const SettingsPageContent = () => {
       <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
-            { href: '/', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+            { href: '/home', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
             { href: '/hr/users', title: <span className="text-app-text-2 hover:text-purple-400 transition-colors"><FileTextOutlined /> ทรัพยากรบุคคล</span> },
             { title: <span className="text-app-text font-medium"><SettingOutlined /> ตั้งค่าระบบ</span> },
           ]}

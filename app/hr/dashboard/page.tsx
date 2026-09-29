@@ -370,7 +370,7 @@ const PageContent = () => {
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FaUsersCog className="inline mr-1" /> งานทรัพยากรบุคคล</> },
             { title: 'Dashboard ภาพรวม' },
           ]}

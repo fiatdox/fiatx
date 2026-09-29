@@ -360,7 +360,7 @@ const PageContent = () => {
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FaUsersCog className="inline mr-1" /> งานทรัพยากรบุคคล</> },
             { title: 'การลา' },
             { title: 'Dashboard การลา' },
@@ -371,7 +371,7 @@ const PageContent = () => {
         {/* Header banner */}
         <Card
           style={{
-            background: 'linear-gradient(135deg, #006a5a 0%, #0d9488 50%, #14b8a6 100%)',
+            background: 'linear-gradient(135deg, #10b981 0%, #0d9488 50%, #14b8a6 100%)',
             border: 'none',
             borderRadius: 16,
             marginBottom: 16,
@@ -524,10 +524,10 @@ const PageContent = () => {
         {/* Breakdown chart */}
         <Card
           variant="borderless"
-          style={{ borderRadius: 12, borderLeft: '4px solid #006a5a', marginBottom: 16 }}
+          style={{ borderRadius: 12, borderLeft: '4px solid #10b981', marginBottom: 16 }}
           title={
             <Space>
-              <TeamOutlined style={{ color: '#006a5a' }} />
+              <TeamOutlined style={{ color: '#10b981' }} />
               <span>วันลาแยกตาม</span>
               <Segmented
                 value={breakdown}
@@ -586,7 +586,7 @@ const PageContent = () => {
 
 export default function LeaveDashboardPage() {
   return (
-    <AppThemeProvider colorPrimary="#006a5a">
+    <AppThemeProvider colorPrimary="#10b981">
       <PageContent />
     </AppThemeProvider>
   )
