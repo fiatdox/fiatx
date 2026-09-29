@@ -26,8 +26,9 @@ export interface AnnualDepreciationData {
   orgName: string
   registryLabel: string   // ทะเบียนต้นทาง เช่น ทะเบียนครุภัณฑ์ (ระบบเดิม V3)
   fiscalYear: string      // ปีงบประมาณ พ.ศ.
-  periodLabel: string     // 1 ต.ค. 2568 – 30 ก.ย. 2569
-  basisLabel: string      // เกณฑ์รายวัน / เกณฑ์นับเดือน (GFMIS)
+  /** เก็บไว้ให้ผู้เรียกส่งมาได้ แต่ไม่พิมพ์ลงหน้ารายงานแล้ว (หัวรายงานเอาออกตามที่ขอ) */
+  periodLabel?: string
+  basisLabel?: string
   rows: AnnualDepreciationRow[]
   total: AnnualDepreciationRow
   preparedBy?: string
@@ -47,7 +48,6 @@ const s = StyleSheet.create({
   },
   title: { fontSize: 15, fontWeight: 'bold', textAlign: 'center' },
   subTitle: { fontSize: 11, textAlign: 'center', marginTop: 2 },
-  meta: { fontSize: 9, textAlign: 'center', marginTop: 2, color: '#333' },
   meta2: { fontSize: 9, textAlign: 'center', marginTop: 1, marginBottom: 12, color: '#333' },
 
   table: { borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}` },
@@ -116,11 +116,9 @@ export function AnnualDepreciationDocument({ data }: { data: AnnualDepreciationD
   return (
     <Document title={`สรุปค่าเสื่อมราคาประจำปี ${data.fiscalYear}`}>
       <Page size="A4" orientation="landscape" style={s.page} wrap>
-        <Text style={s.title}>รายงานสรุปค่าเสื่อมราคาครุภัณฑ์ประจำปี</Text>
+        {/* ตัวท้ายบรรทัดโดน react-pdf ตัดสระบน จึงต้องเผื่อ NBSP ท้ายข้อความเสมอ */}
+        <Text style={s.title}>{pad('รายงานสรุปค่าเสื่อมราคาครุภัณฑ์ประจำปี', 'center')}</Text>
         <Text style={s.subTitle}>{data.orgName} · ปีงบประมาณ {data.fiscalYear}</Text>
-        <Text style={s.meta}>
-          {data.periodLabel} · คิดค่าเสื่อมด้วย{data.basisLabel} · แสดงเฉพาะครุภัณฑ์ที่ยังคิดค่าเสื่อมในปีงบนี้
-        </Text>
         <Text style={s.meta2}>ข้อมูลจาก{data.registryLabel}</Text>
 
         <View style={s.table}>

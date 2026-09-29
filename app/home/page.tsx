@@ -24,9 +24,12 @@ import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
 import { canSeeMenu, normalizeRoles, isRouteEnabled } from '../lib/menuAccess'
 import dayjs from 'dayjs'
+import buddhistEra from 'dayjs/plugin/buddhistEra'
 import 'dayjs/locale/th'
 
 dayjs.locale('th')
+// ต้องลงทะเบียนปลั๊กอินก่อน ไม่งั้น format('BBBB') จะพิมพ์คำว่า BBBB ออกมาตรง ๆ แทนปี พ.ศ.
+dayjs.extend(buddhistEra)
 
 const { Title, Text } = Typography
 

@@ -7,6 +7,27 @@
 
 export type ProrateMode = 'daily' | 'monthly' | 'full'
 
+// ── เกณฑ์มูลค่าขั้นต่ำที่ต้องคิดค่าเสื่อมราคา ────────────────────────────────
+//
+// ของที่ราคาต่ำกว่าเกณฑ์ถือเป็นวัสดุ ตัดเป็นค่าใช้จ่ายทั้งจำนวนในปีที่ได้มา
+// ไม่ต้องคิดค่าเสื่อมและไม่นับเป็นครุภัณฑ์ในรายงาน
+//
+// เกณฑ์ขยับจาก 5,000 เป็น 10,000 บาท ตั้งแต่ต้นปีงบ 2563 (1 ต.ค. 2562)
+// จึงต้องดูวันที่รับของเป็นตัวตัดสิน ไม่ใช่ใช้เกณฑ์เดียวกับทุกรายการ
+export const CAPITAL_RULE_FROM = '2019-10-01'   // 1 ต.ค. 2562 = วันแรกของปีงบ 2563
+export const CAPITAL_MIN_FROM_2563 = 10_000
+export const CAPITAL_MIN_BEFORE_2563 = 5_000
+
+/** มูลค่าขั้นต่ำที่ใช้กับของที่รับวันนั้น */
+export const capitalThreshold = (receive: string): number =>
+  receive.slice(0, 10) >= CAPITAL_RULE_FROM ? CAPITAL_MIN_FROM_2563 : CAPITAL_MIN_BEFORE_2563
+
+/** ราคาถึงเกณฑ์ครุภัณฑ์ที่ต้องคิดค่าเสื่อมหรือไม่ (ราคาต่อหน่วย) */
+export const isDepreciable = (cost: number, receive: string | null | undefined): boolean => {
+  if (!receive || !Number.isFinite(cost)) return false
+  return cost >= capitalThreshold(receive)
+}
+
 export interface ScheduleRow {
   fyBE: number        // ปีงบประมาณ พ.ศ.
   from: string        // วันเริ่มคิดในปีงบนี้ (YYYY-MM-DD)
@@ -219,6 +240,31 @@ export function buildSchedule(opts: {
 /** ปีงบประมาณ พ.ศ. ปัจจุบัน */
 export const currentFyBE = (today = new Date()) =>
   (today.getMonth() >= 9 ? today.getFullYear() + 1 : today.getFullYear()) + 543
+
+// ── การแสดงวันที่ ────────────────────────────────────────────────────────────
+// ข้อมูลในระบบเก็บเป็น ค.ศ. (YYYY-MM-DD) ทั้งหมด แปลงเป็น พ.ศ. ตอนแสดงผลเท่านั้น
+// จะได้ไม่ปนกันระหว่างค่าที่เอาไปคำนวณ/เรียงลำดับ กับค่าที่ผู้ใช้เห็น
+const TH_MONTH_ABBR = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+]
+
+/** 2021-10-01 → 01/10/2564 */
+export const thaiDate = (iso: string | null | undefined): string => {
+  if (!iso) return ''
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  if (!y || !m || !d) return iso
+  return `${d}/${m}/${Number(y) + 543}`
+}
+
+/** 2021-10 หรือ 2021-10-01 → ต.ค. 2564 */
+export const thaiMonth = (ym: string | null | undefined): string => {
+  if (!ym) return ''
+  const [y, m] = ym.split('-')
+  const i = Number(m) - 1
+  if (!y || !TH_MONTH_ABBR[i]) return ym
+  return `${TH_MONTH_ABBR[i]} ${Number(y) + 543}`
+}
 
 export const money = (v: number) =>
   v.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })

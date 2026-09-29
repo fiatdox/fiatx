@@ -14,11 +14,31 @@ import { FaCalculator } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import dayjs, { Dayjs } from 'dayjs'
+import buddhistEra from 'dayjs/plugin/buddhistEra'
+import thTH from 'antd/locale/th_TH'
 import Cookies from 'js-cookie'
 import {
   buildSchedule, accumulatedAsOf, expenseBetween, currentFyBE, money,
+  thaiDate, thaiMonth,
+  isDepreciable, capitalThreshold, CAPITAL_MIN_FROM_2563, CAPITAL_MIN_BEFORE_2563,
   type ProrateMode, type ScheduleRow, type DepreciationParams,
 } from './calc'
+
+// ปฏิทินและช่องกรอกวันที่แสดงเป็น พ.ศ. — ต้องมีปลั๊กอิน buddhistEra ไว้ใช้โทเคน BBBB
+dayjs.extend(buddhistEra)
+
+/** วันที่แบบไทยในช่องกรอกและตัวเลือก */
+const TH_DATE = 'DD/MM/BBBB'
+
+// locale ของ antd ไม่ได้แปลงปีเป็น พ.ศ. ให้ (yearFormat ตั้งต้นเป็น YYYY)
+// จึงต้องทับค่าเอง ไม่งั้นหัวปฏิทินจะเป็น ค.ศ. แต่ในช่องกรอกเป็น พ.ศ.
+const TH_LOCALE = {
+  ...thTH,
+  DatePicker: {
+    ...thTH.DatePicker!,
+    lang: { ...thTH.DatePicker!.lang, yearFormat: 'BBBB' },
+  },
+}
 import { CLASS_OPTIONS, classByNo, type AssetClass } from './assetClasses'
 import { computeGfmis, type GfmisFyRow } from './gfmis'
 import { buildFyReport, buildGfmisReport } from './report'
@@ -141,7 +161,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
       assetFy: asset.fy,
       assetPrice: asset.perunits ?? undefined,
       assetDocno: asset.docno,
-      assetReceive: asset.receive ?? '',
+      assetReceive: thaiDate(asset.receive),
     })
     setClassNo(resolveClass(asset.assetcatid)?.no ?? null)
     setLifeYears(asset.expired != null ? Number(asset.expired) : null)
@@ -160,8 +180,18 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
     form.resetFields()
   }
 
+  // ── เกณฑ์มูลค่าขั้นต่ำของครุภัณฑ์ ──
+  // ต่ำกว่าเกณฑ์ = เป็นวัสดุ ตัดเป็นค่าใช้จ่ายทั้งจำนวนในปีที่ได้มา ไม่คิดค่าเสื่อม
+  // จึงไม่แสดงตารางค่าเสื่อมให้เลย เพื่อไม่ให้เผลอนำไปใช้
+  const belowCap = useMemo(() => {
+    if (!selected?.receive || !selected.perunits) return false
+    return !isDepreciable(Number(selected.perunits), selected.receive)
+  }, [selected])
+  const capMin = selected?.receive ? capitalThreshold(selected.receive) : null
+
   // ── ผลการคำนวณ ──
   const result = useMemo(() => {
+    if (belowCap) return null
     if (!selected?.receive || !selected.perunits || !lifeYears) return null
     return buildSchedule({
       cost: Number(selected.perunits),
@@ -170,9 +200,10 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
       residual,
       mode,
     })
-  }, [selected, lifeYears, residual, mode])
+  }, [belowCap, selected, lifeYears, residual, mode])
 
   const params: DepreciationParams | null = useMemo(() => {
+    if (belowCap) return null
     if (!selected?.receive || !selected.perunits || !lifeYears) return null
     return {
       cost: Number(selected.perunits),
@@ -181,7 +212,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
       residual,
       mode,
     }
-  }, [selected, lifeYears, residual, mode])
+  }, [belowCap, selected, lifeYears, residual, mode])
 
   const thisFy = currentFyBE()
 
@@ -206,12 +237,13 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
   // ── GFMIS: เกณฑ์นับเดือน ──
   // ยอดต่อเดือนคิดจากราคาทุนเต็ม แต่หยุดที่ราคาซาก — เดือนสุดท้ายจึงเหลือมูลค่าสุทธิ 1 บาท
   const gfmis = useMemo(() => {
+    if (belowCap) return null
     if (!selected?.receive || !selected.perunits || !lifeYears) return null
     return computeGfmis(
       { cost: Number(selected.perunits), lifeYears: Number(lifeYears), receive: selected.receive, residual },
       asOfIso,
     )
-  }, [selected, lifeYears, asOfIso, residual])
+  }, [belowCap, selected, lifeYears, asOfIso, residual])
 
   // แถวของปีงบปัจจุบัน ใช้สรุปยอด ณ ปัจจุบัน (ถ้าเลยอายุแล้วให้ใช้แถวสุดท้าย)
   const currentRow: ScheduleRow | null = useMemo(() => {
@@ -445,12 +477,25 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
         </Card>
 
         {/* ── ผลการคำนวณ ── */}
-        {selected && !result && (
+        {selected && belowCap && capMin != null && (
+          <Alert
+            type="warning"
+            showIcon
+            title={`ไม่ต้องคิดค่าเสื่อมราคา — ราคาต่ำกว่าเกณฑ์ครุภัณฑ์ (${money(capMin)} บาท)`}
+            description={`ราคาต่อหน่วย ${money(Number(selected.perunits))} บาท รับของวันที่ ${thaiDate(selected.receive)} `
+              + `ซึ่งใช้เกณฑ์ ${money(capMin)} บาท `
+              + `(รับตั้งแต่ 1 ต.ค. 2562 = ต้นปีงบ 2563 ใช้เกณฑ์ ${money(CAPITAL_MIN_FROM_2563)} บาท · `
+              + `ก่อนหน้านั้นใช้เกณฑ์ ${money(CAPITAL_MIN_BEFORE_2563)} บาท) `
+              + `— รายการนี้ถือเป็นวัสดุ ตัดเป็นค่าใช้จ่ายทั้งจำนวนในปีที่ได้มา ไม่นับเป็นครุภัณฑ์ที่คิดค่าเสื่อม`}
+          />
+        )}
+
+        {selected && !belowCap && !result && (
           <Alert
             type="warning"
             showIcon
             title="คำนวณไม่ได้ — ข้อมูลในทะเบียนไม่ครบ"
-            description={`ต้องมีครบทั้งราคาต่อหน่วย วันที่รับ และอายุการใช้งาน (ครุภัณฑ์นี้: ราคา ${selected.perunits ?? '-'} · วันที่รับ ${selected.receive ?? '-'} · อายุ ${selected.expired ?? '-'} ปี)`}
+            description={`ต้องมีครบทั้งราคาต่อหน่วย วันที่รับ และอายุการใช้งาน (ครุภัณฑ์นี้: ราคา ${selected.perunits ?? '-'} · วันที่รับ ${thaiDate(selected.receive) || '-'} · อายุ ${selected.expired ?? '-'} ปี)`}
           />
         )}
 
@@ -510,7 +555,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                   <DatePicker
                     value={asOfDate}
                     onChange={d => d && setAsOfDate(d)}
-                    format="YYYY-MM-DD"
+                    format={TH_DATE}
                     allowClear={false}
                     suffixIcon={<CalendarOutlined />}
                   />
@@ -535,7 +580,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                       if (dates && dates[0] && dates[1]) setDateRange([dates[0], dates[1]])
                       else setDateRange(null)
                     }}
-                    format="YYYY-MM-DD"
+                    format={TH_DATE}
                     allowClear
                     presets={[
                       { label: 'เดือนนี้', value: [dayjs().startOf('month'), dayjs().endOf('month')] },
@@ -589,8 +634,8 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                 <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 16 } }}>
                   <Statistic
                     title={asOfMode === 'period' && dateRange
-                      ? `ค่าเสื่อมในช่วง ${dateRange[0].format('DD/MM/YY')}–${dateRange[1].format('DD/MM/YY')}`
-                      : `ค่าเสื่อมสะสม (ถึง ${asOfIso})`}
+                      ? `ค่าเสื่อมในช่วง ${dateRange[0].format(TH_DATE)}–${dateRange[1].format(TH_DATE)}`
+                      : `ค่าเสื่อมสะสม (ถึง ${thaiDate(asOfIso)})`}
                     value={asOfMode === 'period' ? (periodExpense ?? 0) : (asOf?.accumulated ?? 0)}
                     precision={2}
                     suffix="บาท"
@@ -606,7 +651,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
               <Col xs={12} md={6}>
                 <Card style={{ borderRadius: 14 }} styles={{ body: { padding: 16 } }}>
                   <Statistic
-                    title={`มูลค่าสุทธิ ณ ${asOfIso}`}
+                    title={`มูลค่าสุทธิ ณ ${thaiDate(asOfIso)}`}
                     value={asOf?.nbv ?? 0}
                     precision={2}
                     suffix="บาท"
@@ -658,7 +703,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                   format={p => `คิดค่าเสื่อมไปแล้ว ${p}%`}
                 />
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  ครบอายุการใช้งาน {result.endDate} · ฐานที่นำมาคิด {money(result.depreciableBase)} บาท
+                  ครบอายุการใช้งาน {thaiDate(result.endDate)} · ฐานที่นำมาคิด {money(result.depreciableBase)} บาท
                   (ราคาทุน {money(Number(selected?.perunits))} − ราคาซาก {money(residual)})
                 </Text>
               </div>
@@ -684,7 +729,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                     title: 'ช่วงที่คิด', key: 'period', width: 210,
                     render: (_: unknown, r: ScheduleRow) => (
                       <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                        {r.from} → {r.to}
+                        {thaiDate(r.from)} → {thaiDate(r.to)}
                       </Text>
                     ),
                   },
@@ -735,20 +780,20 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                           type="info"
                           showIcon
                           className="mb-3"
-                          title={`รับของวันที่ ${gfmis.receiveDay} — ${gfmis.startsNextMonth
+                          title={`รับของวันที่ ${gfmis.receiveDay} ${thaiMonth(selected?.receive)} — ${gfmis.startsNextMonth
                             ? 'อยู่ในช่วง 16–31 จึงยกยอดไปเริ่มคิดเดือนถัดไป'
                             : 'อยู่ในช่วง 1–15 จึงนับเดือนที่รับเป็นเดือนเต็ม'}`}
                           description={
                             <>
                               <div>
-                                เริ่มคิด {gfmis.startMonth} ถึง {gfmis.endMonth} รวม {gfmis.totalMonths} เดือน
+                                เริ่มคิด {thaiMonth(gfmis.startMonth)} ถึง {thaiMonth(gfmis.endMonth)} รวม {gfmis.totalMonths} เดือน
                                 {' · '}เดือนละ {money(gfmis.perMonth)} บาท
                               </div>
                               <div>
-                                คิดถึง {asOfIso} (วันที่ {gfmis.asOfDay}) — {gfmis.countsAsOfMonth
+                                คิดถึง {thaiDate(asOfIso)} (วันที่ {gfmis.asOfDay}) — {gfmis.countsAsOfMonth
                                   ? `อยู่ในช่วง 16–31 จึงปัดขึ้นนับเดือนนั้นเต็มเดือน`
                                   : `อยู่ในช่วง 1–15 จึงยังไม่นับเดือนนั้น ยอดคงอยู่กับปีงบเดิม`}
-                                {gfmis.lastCountedMonth && ` · เดือนสุดท้ายที่นับให้คือ ${gfmis.lastCountedMonth}`}
+                                {gfmis.lastCountedMonth && ` · เดือนสุดท้ายที่นับให้คือ ${thaiMonth(gfmis.lastCountedMonth)}`}
                               </div>
                             </>
                           }
@@ -823,7 +868,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
                               title: 'เดือนที่คิด', key: 'period', width: 180,
                               render: (_: unknown, r: GfmisFyRow) => (
                                 <Text type="secondary" style={{ fontFamily: 'monospace', fontSize: 12 }}>
-                                  {r.from} → {r.to}
+                                  {thaiMonth(r.from)} → {thaiMonth(r.to)}
                                 </Text>
                               ),
                             },
@@ -919,7 +964,7 @@ const PageContent = ({ apiPath, resolveClass, titleSuffix, sourceLabel }: Deprec
             {
               title: 'วันที่รับ', dataIndex: 'receive', key: 'receive', width: 105,
               render: (v: string | null) => v
-                ? <Text style={{ fontFamily: 'monospace' }}>{v}</Text>
+                ? <Text style={{ fontFamily: 'monospace' }}>{thaiDate(v)}</Text>
                 : <Text type="secondary">-</Text>,
             },
             { title: 'อายุ', dataIndex: 'expired', key: 'expired', width: 60, align: 'right' as const },
@@ -950,7 +995,10 @@ export default function DepreciationView(props: DepreciationViewProps) {
   const { mode } = useThemeMode()
   const isDark = mode === 'dark'
   return (
-    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#FF6500', borderRadius: 8 } }}>
+    <ConfigProvider
+      locale={TH_LOCALE}
+      theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm, token: { colorPrimary: '#FF6500', borderRadius: 8 } }}
+    >
       <App>
         <PageContent {...props} />
       </App>
