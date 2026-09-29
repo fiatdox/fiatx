@@ -79,7 +79,7 @@ const s = StyleSheet.create({
 })
 
 const COLS: { key: keyof AnnualDepreciationRow; title: string; w: number; align: 'left' | 'center' | 'right' }[] = [
-  { key: 'category', title: 'หมวดครุภัณฑ์',                w: 24, align: 'left' },
+  { key: 'category', title: 'หมวดครุภัณฑ์',                w: 19, align: 'left' },
   { key: 'count',    title: 'จำนวน\n(รายการ)',              w: 9,  align: 'right' },
   { key: 'cost',     title: 'ราคาทุนรวม',                   w: 14, align: 'right' },
   { key: 'opening',  title: 'ค่าเสื่อมสะสม\nยกมาต้นปี',      w: 13, align: 'right' },
@@ -87,6 +87,9 @@ const COLS: { key: keyof AnnualDepreciationRow; title: string; w: number; align:
   { key: 'closing',  title: 'ค่าเสื่อมสะสม\nปลายปี',         w: 13, align: 'right' },
   { key: 'nbv',      title: 'มูลค่าสุทธิ\nปลายปี',           w: 14, align: 'right' },
 ]
+
+// คอลัมน์ลำดับไม่ได้มาจากข้อมูลในแถว จึงเรนเดอร์แยกจาก COLS
+const SEQ_W = 5
 
 const alignStyle = (a: 'left' | 'center' | 'right') =>
   a === 'center' ? [s.cCenter] : a === 'right' ? [s.cRight] : []
@@ -97,8 +100,13 @@ const NB = ' '
 const pad = (t: string, align: 'left' | 'center' | 'right' = 'left') =>
   align === 'center' ? NB.repeat(2) + t + NB.repeat(2) : t + NB.repeat(3)
 
-const Row = ({ row, total }: { row: AnnualDepreciationRow; total?: boolean }) => (
+const Row = ({ row, seq, total }: { row: AnnualDepreciationRow; seq?: number; total?: boolean }) => (
   <View style={[s.tr, ...(total ? [s.totalRow] : [])]} wrap={false}>
+    <View style={[s.td, { width: `${SEQ_W}%` }]}>
+      <Text style={[s.cCenter, ...(total ? [{ fontWeight: 'bold' as const }] : [])]}>
+        {seq ? pad(String(seq), 'center') : ''}
+      </Text>
+    </View>
     {COLS.map(c => (
       <View key={c.key} style={[s.td, { width: `${c.w}%` }]}>
         <Text style={[...alignStyle(c.align), ...(total ? [{ fontWeight: 'bold' as const }] : [])]}>
@@ -123,6 +131,9 @@ export function AnnualDepreciationDocument({ data }: { data: AnnualDepreciationD
 
         <View style={s.table}>
           <View style={s.tr} fixed>
+            <View style={[s.th, { width: `${SEQ_W}%` }]}>
+              <Text>{pad('ลำดับ', 'center')}</Text>
+            </View>
             {COLS.map(c => (
               <View key={c.key} style={[s.th, { width: `${c.w}%` }]}>
                 <Text>{pad(c.title, 'center')}</Text>
@@ -130,7 +141,7 @@ export function AnnualDepreciationDocument({ data }: { data: AnnualDepreciationD
             ))}
           </View>
 
-          {data.rows.map(r => <Row key={r.category} row={r} />)}
+          {data.rows.map((r, i) => <Row key={r.category} row={r} seq={i + 1} />)}
           <Row row={data.total} total />
         </View>
 
