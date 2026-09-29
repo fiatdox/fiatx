@@ -207,7 +207,7 @@ const Page = () => {
           <div className="mb-8">
             <Breadcrumb
               items={[
-                { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+                { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
                 { href: '/general', title: <><CarOutlined /> ระบบบริหารงานทั่วไป</> },
                 { title: 'ตั้งค่า' },
                 { title: 'จัดการพนักงานขับรถ' },

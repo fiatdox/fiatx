@@ -214,7 +214,7 @@ const PageContent = () => {
         <Breadcrumb
           className="mb-5"
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: 'เทคโนโลยีสารสนเทศ' },
             { title: 'HIS User Sessions' },
           ]}

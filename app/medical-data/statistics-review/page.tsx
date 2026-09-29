@@ -118,7 +118,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { title: 'งานข้อมูลทางการแพทย์' },
           { title: 'ตรวจสอบ/อนุมัติคำขอ (หัวหน้ากลุ่มงาน)' },
         ]} className="mb-6" />

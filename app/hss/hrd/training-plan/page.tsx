@@ -273,7 +273,7 @@ const TrainingPlanContent = () => {
 
       <div className="relative z-10 p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { title: <><FundOutlined /> งานพัฒนาระบบบริการ</> },
           { href: '/hss/hrd', title: <><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาบุคลากร</> },
           { title: 'แผนพัฒนาอบรมสมรรถนะบุคลากร' },

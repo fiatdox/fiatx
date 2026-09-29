@@ -361,7 +361,7 @@ const Navbar: React.FC = () => {
                 // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
                 // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
                 { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
-                { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปรายการลาของฉัน' },
+                { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
                 { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
                 { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
                 { key: `${FAV_PREFIX}/general/vehicle/request`, icon: <FaCar />, label: 'ขอใช้รถราชการ' },
@@ -384,8 +384,9 @@ const Navbar: React.FC = () => {
                   label: 'การลา',
                   children: [
                     { key: '/hr/leave',          icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+                    { key: '/hr/leave/history',  icon: <FaHistory />,     label: 'ประวัติการลาของฉัน' },
                     { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
-                    { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปรายการลา' },
+                    { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
                     { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
                     // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
                     { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },

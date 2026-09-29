@@ -344,7 +344,7 @@ const LanRequestContent = () => {
       <div className="p-6 md:p-8">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FileTextOutlined /> งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</> },
             { title: 'ขอติดตั้งจุด LAN' },
           ]}

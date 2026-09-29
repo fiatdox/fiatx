@@ -425,7 +425,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { title: 'บัญชีผู้ใช้' },
           { title: 'ยืนยันตัวตนสองชั้น (MFA)' },
         ]} />

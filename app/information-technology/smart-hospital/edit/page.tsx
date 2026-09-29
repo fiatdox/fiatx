@@ -162,7 +162,7 @@ const PageContent = () => {
       <div className="p-6 md:p-8">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/information-technology', title: <><DesktopOutlined /> งานคอมพิวเตอร์ฯ</> },
             { href: '/information-technology/smart-hospital/dashboard', title: 'Smart Hospital' },
             { title: 'แก้ไขคะแนนประเมิน' },

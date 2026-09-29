@@ -229,7 +229,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { href: '/accounting', title: <><FileTextOutlined /> งานการเงินและบัญชี</> },
           { href: '/accounting/accounts-payable', title: 'เจ้าหนี้การค้า' },
           { title: 'Dashboard' },

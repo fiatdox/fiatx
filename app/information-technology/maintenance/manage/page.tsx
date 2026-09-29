@@ -1511,7 +1511,7 @@ const PageContent = () => {
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: <span style={{ color: 'var(--app-text-2)' }}>หน้าหลัก</span> },
+            { href: '/home', title: <span style={{ color: 'var(--app-text-2)' }}>หน้าหลัก</span> },
             { title: <span style={{ color: 'var(--app-text-2)' }}>งานเทคโนโลยีสารสนเทศ</span> },
             { href: '/information-technology/maintenance', title: <span style={{ color: 'var(--app-text-2)' }}>แจ้งซ่อมคอมพิวเตอร์</span> },
             { title: <span style={{ color: '#a78bfa' }}>จัดการงานซ่อม</span> },

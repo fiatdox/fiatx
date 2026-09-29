@@ -328,7 +328,7 @@ const VehicleApprovalPageContent = () => {
       <div className="p-6 md:p-8">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general', title: <><FileTextOutlined /> ระบบบริหารงานทั่วไป</> },
             { title: 'อนุมัติคำขอใช้รถ' },
           ]}
@@ -390,7 +390,7 @@ const VehicleApprovalPageContent = () => {
                   type="error"
                   showIcon
                   icon={<CloseCircleOutlined />}
-                  message="คำขอนี้ถูกปฏิเสธ"
+                  title="คำขอนี้ถูกปฏิเสธ"
                   description={`ปฏิเสธในขั้น: ${selectedReq.approvalHistory.find(h => h.action === 'ไม่อนุมัติ')?.stepName ?? '—'}  |  ${selectedReq.approvalHistory.find(h => h.action === 'ไม่อนุมัติ')?.note ?? ''}`}
                 />
               ) : (

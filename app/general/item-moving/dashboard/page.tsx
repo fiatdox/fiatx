@@ -264,7 +264,7 @@ const PageContent = () => {
       <div className="p-6 md:p-8 max-w-[1500px] mx-auto">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general', title: <><FaBuilding className="inline mr-1" /> งานบริหารงานทั่วไป</> },
             { title: <><FaTruck className="inline mr-1" /> ขอย้ายสิ่งของ / จัดสถานที่</> },
             { title: 'Dashboard ภาพรวม' },

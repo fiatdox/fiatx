@@ -276,7 +276,7 @@ function ReplacementRequestPageInner() {
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb className="mb-6" items={[
-            { href: '/',        title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
             { title: 'เสนอซื้อทดแทนครุภัณฑ์' },
           ]} />
@@ -300,7 +300,7 @@ function ReplacementRequestPageInner() {
 
           {pending.length > 0 && (
             <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`มีเรื่องรออนุมัติ ${pending.length} รายการ`} />
+              title={`มีเรื่องรออนุมัติ ${pending.length} รายการ`} />
           )}
 
           <Card style={{ background: '#1e293b', border: '1px solid #334155' }}>
@@ -324,7 +324,7 @@ function ReplacementRequestPageInner() {
               <Alert
                 type="error"
                 showIcon
-                message="ยังไม่สามารถใช้ครุภัณฑ์ใหม่ได้"
+                title="ยังไม่สามารถใช้ครุภัณฑ์ใหม่ได้"
                 description={`กรุณาส่งคืนครุภัณฑ์เก่า (${detail.retId ?? detail.assetNo}) เข้าคลังพัสดุก่อน`}
                 style={{ marginBottom: 16 }}
               />
@@ -407,7 +407,7 @@ function ReplacementRequestPageInner() {
         {selectedReq && (
           <div style={{ marginTop: 8 }}>
             <Alert type="info" showIcon style={{ marginBottom: 16 }}
-              message={selectedReq.proposedName}
+              title={selectedReq.proposedName}
               description={`วงเงิน ฿${selectedReq.proposedBudget.toLocaleString()} — ${selectedReq.budgetType}`}
             />
             <Form form={aForm} layout="vertical">
@@ -512,7 +512,7 @@ function ReplacementRequestPageInner() {
         <p>ยืนยันว่ากำลังรับครุภัณฑ์ใหม่เข้ามาแล้ว</p>
         <p>ระบบจะเปลี่ยนสถานะเป็น <Tag color="volcano">รอส่งคืนครุภัณฑ์เก่า</Tag></p>
         <Alert type="warning" showIcon
-          message="กรุณาดำเนินการส่งคืนครุภัณฑ์เก่าเข้าคลังพัสดุให้ด่วน"
+          title="กรุณาดำเนินการส่งคืนครุภัณฑ์เก่าเข้าคลังพัสดุให้ด่วน"
           style={{ marginTop: 16 }} />
       </Modal>
 
@@ -529,7 +529,7 @@ function ReplacementRequestPageInner() {
         <p>ยืนยันว่าได้รับคืนครุภัณฑ์เก่าเข้าคลังพัสดุเรียบร้อยแล้ว</p>
         <p>ระบบจะเปลี่ยนสถานะเป็น <Tag color="green">เสร็จสมบูรณ์</Tag></p>
         <Alert type="success" showIcon
-          message="สามารถใช้ครุภัณฑ์ใหม่ได้แล้ว"
+          title="สามารถใช้ครุภัณฑ์ใหม่ได้แล้ว"
           style={{ marginTop: 16 }} />
       </Modal>
     </ConfigProvider>

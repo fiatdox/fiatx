@@ -35,7 +35,7 @@ const ItemMovingPage = () => {
         <div className="p-6 md:p-8">
           <Breadcrumb
             items={[
-              { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+              { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
               { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
               { title: 'ขอย้ายสิ่งของ / จัดสถานที่' },
             ]}

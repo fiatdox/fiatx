@@ -337,7 +337,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
           { href: '/general/procurement/dashboard', title: 'งานพัสดุ' },
           { title: 'รับสินค้า / สร้างเจ้าหนี้' },
@@ -350,7 +350,7 @@ const PageContent = () => {
 
         {totalPos > 0 && (
           <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-            message={`มี PO รอรับสินค้า ${totalPos} รายการ — บันทึกการรับเพื่อสร้างเจ้าหนี้อัตโนมัติ`} />
+            title={`มี PO รอรับสินค้า ${totalPos} รายการ — บันทึกการรับเพื่อสร้างเจ้าหนี้อัตโนมัติ`} />
         )}
 
         <Card style={{ background: '#1e293b', border: '1px solid #334155', marginBottom: 16 }}
@@ -660,7 +660,7 @@ const PageContent = () => {
             })()}
 
             <Alert type="info" showIcon style={{ marginTop: 8 }}
-              message="เมื่อบันทึกแล้ว ระบบจะสร้างใบรับสินค้า (GR) และรายการเจ้าหนี้ตามมูลค่าที่รับจริงโดยอัตโนมัติ"
+              title="เมื่อบันทึกแล้ว ระบบจะสร้างใบรับสินค้า (GR) และรายการเจ้าหนี้ตามมูลค่าที่รับจริงโดยอัตโนมัติ"
               description="รายการที่ไม่รับครบจะถูกบันทึกไว้พร้อมเหตุผล เพื่ออ้างอิงตอนรอบส่งครั้งถัดไป" />
           </div>
         )}

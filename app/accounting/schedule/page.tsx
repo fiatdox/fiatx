@@ -467,7 +467,7 @@ const PageContent = () => {
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: 'หน้าหลัก' },
+            { href: '/home', title: 'หน้าหลัก' },
             { title: 'งานการเงินและบัญชี' },
             { title: 'ระบบจัดตารางเวร' },
           ]}

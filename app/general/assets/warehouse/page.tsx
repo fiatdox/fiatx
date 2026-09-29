@@ -153,7 +153,7 @@ export default function WarehousePage() {
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb className="mb-6" items={[
-            { href: '/',        title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
             { title: 'คลังครุภัณฑ์เสื่อมสภาพ' },
           ]} />

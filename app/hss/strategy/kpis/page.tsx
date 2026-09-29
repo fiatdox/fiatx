@@ -236,7 +236,7 @@ const KPIPageContent = () => {
       <div className="p-6 md:p-8">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/hss/strategy', title: <><FundOutlined /> HSS ยุทธศาสตร์</> },
             { title: <><DotChartOutlined /> KPI Dashboard</> },
           ]}

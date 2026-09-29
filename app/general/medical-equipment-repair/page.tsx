@@ -341,7 +341,7 @@ const PageContent = () => {
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: <HomeOutlined style={{ color: '#94a3b8' }} /> },
+            { href: '/home', title: <HomeOutlined style={{ color: '#94a3b8' }} /> },
             { title: <span style={{ color: '#94a3b8' }}>งานบริหารงานทั่วไป</span> },
             { title: <span style={{ color: '#FF6500' }}>แจ้งซ่อมเครื่องมือแพทย์</span> },
           ]}

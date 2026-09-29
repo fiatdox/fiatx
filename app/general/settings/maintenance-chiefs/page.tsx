@@ -174,7 +174,7 @@ export default function MaintenanceChefsPage() {
         <div className="p-6 md:p-8">
           <Breadcrumb
             items={[
-              { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+              { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
               { href: '/general', title: 'งานบริหารงานทั่วไป' },
               { href: '/general/settings', title: <><SettingOutlined /> ตั้งค่า</> },
               { title: 'จัดการหัวหน้าช่างซ่อมบำรุง' },

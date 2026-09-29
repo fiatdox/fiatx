@@ -281,7 +281,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
           { href: '/general/procurement/dashboard', title: 'งานพัสดุ' },
           { title: 'ตรวจรับสินค้า (กรรมการตรวจรายบรรทัด)' },
@@ -317,7 +317,7 @@ const PageContent = () => {
 
         {pending.length > 0 && (
           <Alert type="info" showIcon style={{ marginBottom: 16 }}
-            message={`มีใบรับสินค้า ${pending.length} รายการรอกรรมการตรวจ — ระบุผ่าน/ไม่ผ่านได้รายบรรทัด`} />
+            title={`มีใบรับสินค้า ${pending.length} รายการรอกรรมการตรวจ — ระบุผ่าน/ไม่ผ่านได้รายบรรทัด`} />
         )}
 
         <Card title={<span style={{ color: '#fbbf24' }}>รอตรวจรับ ({pending.length})</span>}
@@ -427,7 +427,7 @@ const PageContent = () => {
 
             <Alert type={overall === 'passed' ? 'success' : overall === 'rejected' ? 'error' : 'warning'}
               showIcon
-              message={
+              title={
                 overall === 'passed' ? 'สถานะรวม “ตรวจผ่าน” → แจ้งบัญชี/การเงินจ่ายภายใน KPI'
                 : overall === 'rejected' ? 'สถานะรวม “ไม่ผ่าน” → ระงับการจ่าย แจ้งผู้ขายเปลี่ยนของ'
                 : overall === 'reworking' ? 'สถานะรวม “รอแก้ไข” → ผู้ขายแก้ไข/ส่งใหม่ก่อนจ่าย'

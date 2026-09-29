@@ -156,7 +156,7 @@ const TripLogManagementContent = () => {
       <div className="p-6 md:p-8">
         <Breadcrumb
           items={[
-            { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general', title: <><FileTextOutlined /> ระบบบริหารงานทั่วไป</> },
             { title: 'ระบบจัดการการเดินทางและค่าใช้จ่าย' },
           ]}

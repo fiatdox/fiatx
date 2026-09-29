@@ -136,7 +136,7 @@ export default function RepairPaymentPage() {
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb className="mb-6" items={[
-            { href: '/',           title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/accounting', title: <><FileTextOutlined /> งานการเงินและบัญชี</> },
             { title: 'เบิกจ่ายค่าซ่อมบำรุง' },
           ]} />
@@ -165,7 +165,7 @@ export default function RepairPaymentPage() {
 
           {pending.length > 0 && (
             <Alert type="warning" showIcon style={{ marginBottom: 16 }}
-              message={`มีรายการรออนุมัติจ่าย ${pending.length} รายการ รวม ฿${totalPending.toLocaleString()}`} />
+              title={`มีรายการรออนุมัติจ่าย ${pending.length} รายการ รวม ฿${totalPending.toLocaleString()}`} />
           )}
 
           <Card style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>

@@ -61,7 +61,7 @@ const StrategyDashboard = () => {
       <div className="relative z-10 p-6 md:p-12 w-full">
         <Breadcrumb
           items={[
-            { href: '/', title: <span className="text-app-text-3 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+            { href: '/home', title: <span className="text-app-text-3 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
             { title: <span className="text-app-text font-medium"><FundOutlined /> งานยุทธศาสตร์</span> },
           ]}
           className="mb-10 text-xs uppercase tracking-widest"

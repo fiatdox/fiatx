@@ -342,7 +342,7 @@ const Page = () => {
           <div className="mb-8">
             <Breadcrumb
               items={[
-                { href: '/', title: <><FaHome className="inline mr-1" /> หน้าหลัก</> },
+                { href: '/home', title: <><FaHome className="inline mr-1" /> หน้าหลัก</> },
                 { href: '/general', title: <><FaCar className="inline mr-1" /> ระบบบริหารงานทั่วไป</> },
                 { title: 'ตั้งค่า' },
                 { title: 'จัดการรถขอไปใช้ราชการ' },

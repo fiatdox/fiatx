@@ -125,7 +125,7 @@ const PageContent = () => {
       <Navbar />
       <div className="p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
-          { href: '/', title: <><HomeOutlined /> หน้าหลัก</> },
+          { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
           { href: '/general', title: <><FileTextOutlined /> งานบริหารงานทั่วไป</> },
           { title: 'งานพัสดุ — Dashboard' },
         ]} />
@@ -138,7 +138,7 @@ const PageContent = () => {
 
         {stats.overdue > 0 && (
           <Alert type="error" showIcon style={{ marginTop: 16 }}
-            message={`เจ้าหนี้เกินกำหนด ${stats.overdue} รายการ`}
+            title={`เจ้าหนี้เกินกำหนด ${stats.overdue} รายการ`}
             description="กรุณาดำเนินการจ่ายโดยด่วน หรือบันทึกเหตุผลที่จ่ายล่าช้าใน /accounting/accounts-payable"
             action={
               <Link href="/accounting/accounts-payable">
@@ -179,7 +179,7 @@ const PageContent = () => {
 
               <Alert type={stats.onTimePct >= 90 ? 'success' : stats.onTimePct >= 70 ? 'warning' : 'error'}
                 showIcon style={{ marginTop: 14, width: '100%' }}
-                message={
+                title={
                   stats.onTimePct >= 90 ? 'KPI ผ่านเป้าหมาย (≥90%)'
                   : stats.onTimePct >= 70 ? 'ใกล้หลุดเป้า — ต้องเร่งจ่าย'
                   : 'หลุดเป้าหมาย KPI'

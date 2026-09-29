@@ -61,7 +61,7 @@ export default function WorkOrderDetailPage() {
         <Navbar />
         <div className="p-6 md:p-8">
           <Breadcrumb className="mb-6" items={[
-            { href: '/',        title: <><HomeOutlined /> หน้าหลัก</> },
+            { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { href: '/general/maintenance/dashboard', title: 'Dashboard งานซ่อม' },
             { href: '/general/maintenance/work-order', title: 'ใบสั่งงานซ่อม' },
             { title: wo.id },
@@ -256,7 +256,7 @@ export default function WorkOrderDetailPage() {
           type="error"
           showIcon
           style={{ marginBottom: 16, marginTop: 12 }}
-          message="การดำเนินการนี้จะ:"
+          title="การดำเนินการนี้จะ:"
           description={
             <ul style={{ margin: '8px 0 0 0', paddingLeft: 20 }}>
               <li>บันทึกสถานะครุภัณฑ์ว่า <b>"ซ่อมไม่ได้"</b></li>

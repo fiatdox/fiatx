@@ -577,7 +577,7 @@ const GanttPageContent = () => {
         <div className="mb-6">
           <Breadcrumb
             items={[
-              { href: '/', title: <span className="text-app-text-2 hover:text-blue-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
+              { href: '/home', title: <span className="text-app-text-2 hover:text-blue-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
               { title: <span className="text-app-text-2"><FundOutlined /> งานยุทธศาสตร์</span> },
               { title: <span className="text-app-text font-bold">Project Roadmap</span> },
             ]}

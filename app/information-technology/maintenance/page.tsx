@@ -572,7 +572,7 @@ const PageContent = () => {
         <Breadcrumb
           style={{ marginBottom: 16 }}
           items={[
-            { href: '/', title: <HomeOutlined style={{ color: 'var(--app-text-2)' }} /> },
+            { href: '/home', title: <HomeOutlined style={{ color: 'var(--app-text-2)' }} /> },
             { title: <span style={{ color: 'var(--app-text-2)' }}>งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ</span> },
             { title: <span style={{ color: '#a78bfa' }}>แจ้งซ่อมคอมพิวเตอร์</span> },
           ]}
