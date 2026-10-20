@@ -1,5 +1,5 @@
 'use client'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
@@ -49,6 +49,11 @@ Font.registerHyphenationCallback(word => {
 
 // wrapTh คงไว้เพื่อ <T> (pass-through — การ wrap ทำที่ callback ด้านบน)
 const wrapTh = (t?: string | null): string | undefined => t ?? undefined
+
+// เติมช่องว่างท้ายข้อความ (กันตัวท้ายโดนตัด) เฉพาะเมื่อมีค่าจริง
+// เดิมเขียน data.x + '   ' ตรง ๆ — พอช่องนั้นว่าง ใบซ่อมพิมพ์คำว่า "undefined" ออกมา
+const padEnd = (t: string | null | undefined, n: number): string | undefined =>
+  t?.trim() ? t + ' '.repeat(n) : undefined
 
 // <T> = <Text> ที่ wrap ภาษาไทยอัตโนมัติทุกที่ (กัน glyph/สระ/วรรณยุกต์หาย) — ใช้แทน <Text> ทั้งไฟล์
 const wrapNode = (node: ReactNode): ReactNode =>
@@ -102,6 +107,11 @@ export interface RepairSlipData {
   missionHeadDate?: string
   missionHeadComment?: string
   missionHeadDecision?: 'approved' | 'rejected'
+
+  // ผู้อำนวยการ — ไม่ต้องส่งมา ตัว viewer ดึงจากผังผู้บริหาร (hr_settings) ให้เอง
+  directorName?: string
+  /** true = ผู้ลงนามเป็นรักษาการ ผอ. (ไม่มี ผอ. ตัวจริงในผังผู้บริหาร) */
+  directorActing?: boolean
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
@@ -270,7 +280,7 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
         </View>
         <View style={s.row}>
           <T style={[s.lbl, { fontWeight: 'normal' }]}>อาการเสีย&nbsp;</T>
-          <Fill v={wrapTh(data.symptom+ '     ')} last />
+          <Fill v={padEnd(data.symptom, 5)} last />
         </View>
 
         <T style={[s.indent, { marginTop: 4 }]}>จึงเรียนมาเพื่อพิจารณาดำเนินการต่อไป&nbsp;</T>
@@ -279,7 +289,7 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
         <View style={{ alignItems: 'flex-end', marginTop: 2 }}>
           <View style={[s.row, { width: 260 }]}>
             <T style={s.lbl}>(ลงชื่อ)</T>
-            <Fill v={data.requesterName+' '} center />
+            <Fill v={padEnd(data.requesterName, 1)} center />
             <T>ผู้ส่งซ่อม </T>
           </View>
           <View style={[s.row, { width: 260 }]}>
@@ -300,13 +310,13 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
               {data.assessmentResult && (
                 <View style={[s.row, { marginBottom: 3 }]}>
                   <T style={s.lbl}>ผลการรายงาน</T>
-                  <Fill v={wrapTh(data.assessmentResult+ '    ')} last />
+                  <Fill v={padEnd(data.assessmentResult, 4)} last />
                 </View>
               )}
 
               {/* ความเห็นของช่าง — เส้นปะเต็มความกว้างทุกบรรทัด */}
               <T style={[s.lbl, { marginBottom: 2 }]}>ความเห็นของช่าง</T>
-              <RuledText text={data.technicianNote+'      '} />
+              <RuledText text={padEnd(data.technicianNote, 6)} />
 
 
               {/* รายการที่ต้องการขอซื้อ (อะไหล่จากใบ PR) */}
@@ -333,7 +343,7 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
                 <CB on={data.itHeadDecision === 'approved'} label="เห็นควรอนุมัติ" />
                 <CB on={data.itHeadDecision === 'rejected'} label="ไม่เห็นควร" />
               </View>
-              <RuledText text={data.itHeadComment+'    '} lines={2} />
+              <RuledText text={padEnd(data.itHeadComment, 4)} lines={2} />
               <View style={s.sigCenter}>
                 <View style={[s.row, { width: 200 }]}>
                   <T style={s.lbl}>(ลงชื่อ)</T>
@@ -405,8 +415,10 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
                     <T style={s.lbl}>(ลงชื่อ)</T>
                     <Fill last />
                   </View>
-                  <T>(นายธวัชชัย ปานทอง)</T>
-                  <T>ผู้อำนวยการโรงพยาบาลพะเยา </T>
+                  {/* ชื่อ ผอ. มาจากผังผู้บริหาร — เปลี่ยนตัวบุคคลแล้วใบซ่อมเปลี่ยนตาม ไม่ต้องแก้โค้ด */}
+                  <T>({data.directorName || '.................................................'})</T>
+                  {/* เว้นท้ายด้วย NBSP — เว้นวรรคธรรมดาถูก react-pdf ตัดทิ้ง ตัวท้ายบรรทัดเลยโดนตัด ("พะเย") */}
+                  <T>{(data.directorActing ? 'รักษาการในตำแหน่งผู้อำนวยการโรงพยาบาลพะเยา' : 'ผู้อำนวยการโรงพยาบาลพะเยา') + '   '}</T>
                   <T style={s.small}>วันที่ ........../........../..........</T>
                 </View>
               </View>
@@ -445,12 +457,50 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
 }
 
 // ─── Default export: PDFViewer wrapper ────────────────────────────────────────
+// ดึง ผอ. ปัจจุบันจากผังผู้บริหารครั้งเดียวต่อการเปิดดู ใช้ได้ทั้งหน้าแจ้งซ่อมและหน้าจัดการงานซ่อม
+// รอให้ได้คำตอบก่อนค่อยสร้าง PDF ไม่งั้นจะเห็นฉบับไม่มีชื่อ ผอ. แวบหนึ่งแล้วเปลี่ยน
+// ดึงไม่สำเร็จก็ยังพิมพ์ได้ — เว้นช่องชื่อไว้ให้เขียนเอง
+type Director = { name?: string; acting?: boolean }
+
+const useDirector = (skip: boolean) => {
+  const [director, setDirector] = useState<Director | null>(skip ? {} : null)
+  useEffect(() => {
+    if (skip) return
+    let alive = true
+    fetch('/api/v1/hr/director')
+      .then(res => res.json())
+      .then(json => {
+        if (!alive) return
+        const d = json?.success ? json.data : null
+        // ผอ. ตัวจริงก่อน ไม่มีจึงใช้รักษาการ (ลำดับเดียวกับสายอนุมัติใบลา)
+        if (d?.director_id != null) setDirector({ name: d.director_display_name ?? d.director_name ?? undefined })
+        else if (d?.acting_director_id != null) setDirector({ name: d.acting_director_display_name ?? d.acting_director_name ?? undefined, acting: true })
+        else setDirector({})
+      })
+      .catch(() => { if (alive) setDirector({}) })
+    return () => { alive = false }
+  }, [skip])
+  return director
+}
+
 export default function RepairSlipPDFViewer({ data }: { data: RepairSlipData }) {
+  // หน้าที่ส่งชื่อ ผอ. มาเองแล้ว ไม่ต้องดึงซ้ำ
+  const director = useDirector(data.directorName != null)
+  if (!director) {
+    return (
+      <div style={{ height: '100%', minHeight: 580, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        กำลังเตรียมใบซ่อม...
+      </div>
+    )
+  }
+  const full: RepairSlipData = data.directorName != null
+    ? data
+    : { ...data, directorName: director.name, directorActing: director.acting }
   return (
     // iframe ต้องกำหนด height ตรง ๆ ให้เต็ม container — flex/minHeight ใช้ไม่ได้กับ iframe ใน parent ปกติ
     <PDFViewer width="100%" height="100%" showToolbar
       style={{ border: 'none', width: '100%', height: '100%', minHeight: 580 }}>
-      <RepairSlipDocument data={data} />
+      <RepairSlipDocument data={full} />
     </PDFViewer>
   )
 }
