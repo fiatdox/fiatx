@@ -2,8 +2,8 @@
 // แท็บรายปีงบประมาณ (เกณฑ์รายวัน) กับแท็บ GFMIS (เกณฑ์นับเดือน) ใช้แบบฟอร์มเดียวกัน
 // ต่างกันแค่ที่มาของแถว
 import type { AssetRegisterData, AssetRegisterRow } from '@/app/components/AssetRegisterPDF'
-import { money, type ScheduleResult } from './calc'
-import type { GfmisResult } from './gfmis'
+import { money, accumulatedAsOf, type ScheduleResult } from './calc'
+import { computeGfmis, type GfmisResult } from './gfmis'
 
 const TH_MONTH = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
@@ -143,6 +143,103 @@ export function buildGfmisReport(opts: {
       highlight: r.fyBE === currentFyBE,
     })
   }
+
+  return { ...baseHeader(asset, preparedBy), rows }
+}
+
+// ─── รายงานรายงวด — แตกเป็นรายเดือน ─────────────────────────────────────────
+//
+// หน้าสรุปค่าเสื่อมตามงวดต้องตรวจทานทีละเดือนว่าเดือนไหนคิดไปเท่าไร
+// ทะเบียนชุดนี้จึงไม่ได้ไล่เป็นปีงบเหมือนสองแบบข้างบน แต่ไล่เป็นเดือนภายในงวด
+// โดยคิดจากค่าเสื่อมสะสม ณ สิ้นเดือนก่อนหน้า เทียบกับสิ้นเดือนนั้น
+// (สูตรเดียวกับที่ตารางสรุปของหน้านั้นใช้ ยอดจึงกระทบกันได้)
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const isoOf = (y: number, m: number, d: number) => `${y}-${pad2(m)}-${pad2(d)}`
+const lastDayOf = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate()
+
+/** วันก่อนหน้าวันที่ระบุ (YYYY-MM-DD) */
+const prevDay = (isoDate: string): string => {
+  const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+const accAt = (
+  cost: number, lifeYears: number, receive: string, residual: number,
+  basis: 'daily' | 'gfmis', asOf: string,
+): number => {
+  if (basis === 'gfmis') {
+    const g = computeGfmis({ cost, lifeYears, receive, residual }, asOf)
+    return g ? g.accumulated : 0
+  }
+  const d = accumulatedAsOf({ cost, lifeYears, receive, residual, mode: 'daily' }, asOf)
+  return d ? d.accumulated : 0
+}
+
+export function buildMonthlyReport(opts: {
+  asset: ReportAsset
+  cost: number
+  lifeYears: number
+  residual: number
+  basis: 'daily' | 'gfmis'
+  from: string          // วันแรกของงวด (YYYY-MM-DD)
+  to: string            // วันสุดท้ายของงวด (YYYY-MM-DD)
+  preparedBy?: PreparedBy
+}): AssetRegisterData {
+  const { asset, cost, lifeYears, residual, basis, from, to, preparedBy } = opts
+  const ratePercent = lifeYears > 0 ? 100 / lifeYears : 0
+  const receive = asset.receive ?? ''
+
+  const rows: AssetRegisterRow[] = [acquisitionRow({ ...asset, expired: lifeYears }, ratePercent)]
+
+  // ยอดยกมา ณ วันก่อนเริ่มงวด — ให้เห็นว่าก่อนงวดนี้คิดไปแล้วเท่าไร
+  const openAt = prevDay(from)
+  const opening = accAt(cost, lifeYears, receive, residual, basis, openAt)
+  rows.push({
+    date: thaiDate(openAt),
+    item: 'ยอดยกมาต้นงวด',
+    yearAmount: '-',
+    accumulated: money(opening),
+    nbv: money(cost - opening),
+  })
+
+  // ไล่ทีละเดือนภายในงวด เดือนหัวท้ายตัดตามขอบงวดจริง
+  let prevAcc = opening
+  let totalExpense = 0
+  let y = Number(from.slice(0, 4))
+  let m = Number(from.slice(5, 7))
+  while (isoOf(y, m, 1) <= to.slice(0, 10)) {
+    const monthStart = isoOf(y, m, 1)
+    const monthEnd = isoOf(y, m, lastDayOf(y, m))
+    const segFrom = monthStart < from ? from : monthStart
+    const segTo = monthEnd > to ? to : monthEnd
+    const acc = accAt(cost, lifeYears, receive, residual, basis, segTo)
+    const amount = Math.max(acc - prevAcc, 0)
+    const partial = segFrom !== monthStart || segTo !== monthEnd
+    rows.push({
+      date: thaiDate(segTo),
+      item: partial
+        ? `คำนวณ ${thaiDate(segFrom)} – ${thaiDate(segTo)}`
+        : `คำนวณเดือน ${thaiEndOfMonth(`${y}-${pad2(m)}`).split(' ').slice(1).join(' ')}`,
+      yearAmount: money(amount),
+      accumulated: money(acc),
+      nbv: money(cost - acc),
+      highlight: amount > 0.005,
+    })
+    totalExpense += amount
+    prevAcc = acc
+    m += 1
+    if (m > 12) { m = 1; y += 1 }
+  }
+
+  rows.push({
+    date: thaiDate(to),
+    item: 'รวมค่าเสื่อมในงวด',
+    yearAmount: money(totalExpense),
+    accumulated: money(prevAcc),
+    nbv: money(cost - prevAcc),
+  })
 
   return { ...baseHeader(asset, preparedBy), rows }
 }

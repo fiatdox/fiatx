@@ -475,6 +475,8 @@ const Navbar: React.FC = () => {
                         { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
                         { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
                         { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
+                        { key: '/general/procurement/depreciation-period', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V3)' },
+                        { key: '/general/procurement/depreciation-period-v2', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V2)' },
                         { key: '/general/procurement/asset-by-department-v2', icon: <FaBuilding />, label: 'ครุภัณฑ์แยกตามหน่วยงาน (V2)' },
                       ]
                     },

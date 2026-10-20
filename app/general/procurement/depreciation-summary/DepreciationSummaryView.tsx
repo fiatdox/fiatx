@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   ConfigProvider, theme, Typography, Breadcrumb, Card, Alert, App,
   Button, Space, Table, Row, Col, Select, Statistic, Tabs, Modal, Spin, Tag, Tooltip, InputNumber, Input,
@@ -62,6 +62,9 @@ const BASIS_LABEL: Record<Basis, string> = {
 const int = (v: number) => v.toLocaleString('th-TH')
 
 /** คีย์ของแถวสรุปที่ต่อท้ายตารางสรุปหมวดของแท็บทะเบียนที่ถือครอง */
+/** ทะเบียนบางรายการไม่ได้ผูกรหัสประเภทเงินไว้ */
+const NO_MONEY_TYPE = 'ไม่ระบุประเภทเงิน'
+
 const EXCLUDED_CAT_KEY = 'excluded'
 const INCOMPLETE_CAT_KEY = 'incomplete'
 const EXTRA_CAT_KEYS = [EXCLUDED_CAT_KEY, INCOMPLETE_CAT_KEY]
@@ -121,6 +124,9 @@ const PageContent = ({
   const [assetPdf, setAssetPdf] = useState<{ noid: string; data: AssetRegisterData } | null>(null)
   const [assetPdfLoading, setAssetPdfLoading] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+
+  // ประเภทเงินที่เลือกดู — null = ทุกประเภท
+  const [moneyType, setMoneyType] = useState<string | null>(null)
 
   // ตัวกรองของตารางรายตัว
   const [detailSearch, setDetailSearch] = useState('')
@@ -207,23 +213,41 @@ const PageContent = ({
     return () => { alive = false }
   }, [tab, isResidual, fy, reloadKey, apiPath])
 
+  // ── ตัวกรองประเภทเงิน ──────────────────────────────────────────────────────
+  // กรองที่ชุดข้อมูลดิบก่อนคำนวณ ทุกแท็บ ทุกตาราง กราฟ และ PDF จึงอิงชุดเดียวกัน
+  const moneyOptions = useMemo(() => {
+    const count = new Map<string, number>()
+    for (const a of [...assets, ...allAssets]) {
+      const k = a.moneytype?.trim() || NO_MONEY_TYPE
+      count.set(k, (count.get(k) ?? 0) + 1)
+    }
+    return [...count.keys()].sort().map(k => ({ value: k, label: k }))
+  }, [assets, allAssets])
+
+  const matchMoney = useCallback(
+    (a: YearAsset) => !moneyType || (a.moneytype?.trim() || NO_MONEY_TYPE) === moneyType,
+    [moneyType],
+  )
+  const assetsView = useMemo(() => assets.filter(matchMoney), [assets, matchMoney])
+  const allAssetsView = useMemo(() => allAssets.filter(matchMoney), [allAssets, matchMoney])
+
   // คำนวณทั้งสองเกณฑ์ไว้เลย สลับแท็บจะได้ไม่ต้องรอคำนวณใหม่
-  const daily = useMemo(() => summarizeByCategory(assets, fy, 'daily', residual), [assets, fy, residual])
-  const gfmis = useMemo(() => summarizeByCategory(assets, fy, 'gfmis', residual), [assets, fy, residual])
+  const daily = useMemo(() => summarizeByCategory(assetsView, fy, 'daily', residual), [assetsView, fy, residual])
+  const gfmis = useMemo(() => summarizeByCategory(assetsView, fy, 'gfmis', residual), [assetsView, fy, residual])
   const current = basis === 'gfmis' ? gfmis : daily
 
   // ของที่คิดค่าเสื่อมครบแล้ว มูลค่าสุทธิเหลือเท่าราคาซาก
   // ต้องใช้ข้อมูลชุดเต็ม (scope=all) เพราะชุดปกติตัดของที่คิดครบไปแล้วออกตั้งแต่ฝั่ง API
   const done = useMemo(
-    () => summarizeFullyDepreciated(allAssets, fy, residualBasis, residual, residualIncludesActive),
-    [allAssets, fy, residualBasis, residual, residualIncludesActive],
+    () => summarizeFullyDepreciated(allAssetsView, fy, residualBasis, residual, residualIncludesActive),
+    [allAssetsView, fy, residualBasis, residual, residualIncludesActive],
   )
   // ชุดตัวเลขที่แท็บปัจจุบันแสดงอยู่ — ใช้สร้าง PDF ให้ตรงกับที่เห็น
   const view = isResidual ? done : current
 
   // รายการที่ไม่เข้าเงื่อนไขการคำนวณ — ชุดข้อมูลตามแท็บที่เปิดอยู่
   // (แท็บคิดครบแล้วใช้ทะเบียนชุดเต็ม ตัวเลขจึงมากกว่าสองแท็บแรก)
-  const excludedSet = isResidual ? allAssets : assets
+  const excludedSet = isResidual ? allAssetsView : assetsView
   const excluded = useMemo(() => listExcluded(excludedSet), [excludedSet])
 
   // ── สรุปหมวดของแท็บ 3 ───────────────────────────────────────────────────────
@@ -303,8 +327,8 @@ const PageContent = ({
           </div>
         )}
         <div>
-          แท็บนี้ดึงทะเบียนชุดเต็ม {int(allAssets.length)} รายการ
-          ต่างจากสองแท็บแรกที่ดึงเฉพาะของที่ยังคิดค่าเสื่อมอยู่ {int(assets.length)} รายการ
+          แท็บนี้ดึงทะเบียนชุดเต็ม {int(allAssetsView.length)} รายการ
+          ต่างจากสองแท็บแรกที่ดึงเฉพาะของที่ยังคิดค่าเสื่อมอยู่ {int(assetsView.length)} รายการ
         </div>
         {exclusionNote && <div>{exclusionNote}</div>}
       </div>
@@ -324,7 +348,8 @@ const PageContent = ({
     })
     return {
       orgName: 'โรงพยาบาลพะเยา',
-      registryLabel: sourceLabel,
+      // บอกในรายงานด้วยว่ากรองประเภทเงินไว้ ไม่งั้นยอดในกระดาษจะอธิบายไม่ได้
+      registryLabel: moneyType ? `${sourceLabel} · เฉพาะ${moneyType}` : sourceLabel,
       fiscalYear: String(fy),
       periodLabel,
       basisLabel: isResidual
@@ -336,7 +361,7 @@ const PageContent = ({
       preparedBy: preparedBy.name,
       preparedByPosition: preparedBy.position,
     }
-  }, [view, doneRows, doneTotal, fy, basis, isResidual, residualTabLabel, periodLabel, preparedBy, sourceLabel])
+  }, [view, doneRows, doneTotal, fy, basis, isResidual, residualTabLabel, periodLabel, preparedBy, sourceLabel, moneyType])
 
   // ปีงบให้เลือก: ย้อนหลัง 10 ปี ถึงล่วงหน้า 1 ปี
   const fyOptions = useMemo(() => {
@@ -1506,6 +1531,25 @@ const PageContent = ({
             <Space size={8}>
               <Text type="secondary" style={{ fontSize: 12 }}>ปีงบประมาณ</Text>
               <Select value={fy} onChange={setFy} style={{ width: 210 }} options={fyOptions} />
+            </Space>
+
+            <Space size={8}>
+              <Text type="secondary" style={{ fontSize: 12 }}>ประเภทเงิน</Text>
+              <Select
+                allowClear
+                placeholder="ทุกประเภทเงิน"
+                value={moneyType}
+                onChange={v => {
+                  setMoneyType(v ?? null)
+                  // ชุดข้อมูลเปลี่ยน ตัวกรองหมวดและหน้าของตารางอาจค้างค่าที่ไม่มีอยู่แล้ว
+                  setDetailCat(null)
+                  setExCat(null)
+                  resetDetailPages()
+                  setExPage(firstPage)
+                }}
+                options={moneyOptions}
+                style={{ width: 200 }}
+              />
             </Space>
 
             <span style={{ borderLeft: '1px solid var(--app-border)', height: 20 }} />

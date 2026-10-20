@@ -2,7 +2,7 @@
 //
 // ใช้สูตรชุดเดียวกับหน้าคำนวณรายตัว (calc.ts / gfmis.ts) ไม่ได้เขียนสูตรใหม่
 // ยอดรวมในรายงานนี้จึงตรงกับที่เปิดดูทีละรายการเสมอ
-import { buildSchedule, isDepreciable, capitalThreshold } from '../depreciation/calc'
+import { buildSchedule, isDepreciable, capitalThreshold, accumulatedAsOf } from '../depreciation/calc'
 import { computeGfmis } from '../depreciation/gfmis'
 
 export type Basis = 'daily' | 'gfmis'
@@ -17,6 +17,10 @@ export interface YearAsset {
   receive: string | null
   assetcatid: number | null
   assetcatname: string | null
+  /** ประเภทเงินที่ใช้ได้มา เช่น เงินงบประมาณ / เงินนอกงบประมาณ / บริจาค(เงิน) */
+  moneytype?: string | null
+  /** รหัสประเภทเงินตามตาราง kmoney */
+  moneycode?: string | null
 }
 
 export interface CategoryRow {
@@ -488,4 +492,148 @@ export function summarizeByCategory(
   details.sort((a, b) => b.expense - a.expense)
 
   return { rows, total, details, skipped }
+}
+
+// ── รายงานตามงวด (รายเดือน / ถึงวันที่) ──────────────────────────────────────
+//
+// ต่างจากรายงานรายปีงบที่อ่านยอดจากแถวของปีงบนั้น ๆ งวดอิสระต้องคิดจาก
+// "ค่าเสื่อมสะสม ณ วันก่อนเริ่มงวด" เทียบกับ "ณ วันสุดท้ายของงวด"
+//   ยกมาต้นงวด = สะสม ณ (วันเริ่มงวด - 1)
+//   ค่าเสื่อมงวดนี้ = สะสมปลายงวด - ยกมาต้นงวด
+// ใช้ฟังก์ชันชุดเดียวกับหน้าคำนวณรายตัว (accumulatedAsOf / computeGfmis)
+// ยอดจึงตรงกับที่เปิดดูทีละรายการ และตรงกับรายงานรายปีเมื่อเลือกงวด 1 ต.ค. – 30 ก.ย.
+
+export interface PeriodAssetRow extends AssetDetailRow {
+  /** true = คิดค่าเสื่อมครบแล้วก่อนหรือภายในงวดนี้ (มูลค่าสุทธิเหลือเท่าราคาซาก) */
+  finished: boolean
+}
+
+export interface PeriodResult {
+  rows: CategoryRow[]
+  total: CategoryRow
+  details: PeriodAssetRow[]
+  /** จำนวนรายการที่มีค่าเสื่อมเกิดขึ้นในงวดนี้ */
+  activeCount: number
+  /** จำนวนรายการที่ถือครองอยู่แต่งวดนี้ไม่มีค่าเสื่อม (คิดครบไปแล้ว) */
+  finishedCount: number
+  /** รายการที่คิดค่าเสื่อมให้ไม่ได้ หรือยังไม่ได้รับของภายในงวดนี้ */
+  skipped: number
+}
+
+const dayBefore = (isoDate: string): string => {
+  const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() - 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/** ค่าเสื่อมสะสมของสินทรัพย์หนึ่งชิ้น ณ วันที่ใดก็ได้ ตามเกณฑ์ที่เลือก */
+function accumulatedAt(
+  cost: number, lifeYears: number, receive: string, residual: number, basis: Basis, asOf: string,
+): number | null {
+  if (basis === 'gfmis') {
+    const g = computeGfmis({ cost, lifeYears, receive, residual }, asOf)
+    return g ? g.accumulated : null
+  }
+  const d = accumulatedAsOf({ cost, lifeYears, receive, residual, mode: 'daily' }, asOf)
+  return d ? d.accumulated : null
+}
+
+/**
+ * สรุปค่าเสื่อมราคาตามงวด [from, to] แยกตามหมวดครุภัณฑ์
+ *
+ * นับครุภัณฑ์ที่ถือครองอยู่ทั้งหมด ณ วันสุดท้ายของงวด (รับของไม่เกินวันนั้น)
+ * ของที่คิดครบไปก่อนงวดนี้จะมีค่าเสื่อมงวดนี้ = 0 แต่ยังอยู่ในยอดราคาทุน
+ * ค่าเสื่อมสะสม และมูลค่าสุทธิ เพื่อให้ตารางใช้เป็นงบแสดงฐานะ ณ วันนั้นได้
+ */
+export function summarizePeriod(
+  assets: YearAsset[],
+  from: string,
+  to: string,
+  basis: Basis,
+  residual = 1,
+): PeriodResult {
+  const byCat = new Map<string, CategoryRow>()
+  const details: PeriodAssetRow[] = []
+  let skipped = 0
+  let activeCount = 0
+  let finishedCount = 0
+  const openAt = dayBefore(from)
+
+  for (const a of assets) {
+    const cost = Number(a.perunits)
+    const lifeYears = Number(a.expired)
+    if (!a.receive || !Number.isFinite(cost) || cost <= 0) { skipped++; continue }
+    if (!Number.isFinite(lifeYears) || lifeYears <= 0) { skipped++; continue }
+    // ต่ำกว่าเกณฑ์ครุภัณฑ์ = ตัดเป็นค่าใช้จ่ายไปแล้ว ไม่มีค่าเสื่อม
+    if (!isDepreciable(cost, a.receive)) { skipped++; continue }
+    // ยังไม่ได้รับของภายในงวดนี้ ยังไม่เป็นทรัพย์สินที่ต้องแสดง
+    if (a.receive.slice(0, 10) > to) { skipped++; continue }
+
+    const opening = accumulatedAt(cost, lifeYears, a.receive, residual, basis, openAt)
+    const closing = accumulatedAt(cost, lifeYears, a.receive, residual, basis, to)
+    if (opening == null || closing == null) { skipped++; continue }
+
+    const expense = Math.max(closing - opening, 0)
+    const nbv = cost - closing
+    const finished = nbv <= residual + 0.005
+
+    if (expense > 0.005) activeCount++
+    else finishedCount++
+
+    const category = a.assetcatname?.trim() || NO_CATEGORY
+    const key = `${a.assetcatid ?? 'x'}|${category}`
+    let row = byCat.get(key)
+    if (!row) {
+      row = {
+        key, assetcatid: a.assetcatid, category,
+        count: 0, cost: 0, opening: 0, expense: 0, closing: 0, nbv: 0,
+      }
+      byCat.set(key, row)
+    }
+
+    details.push({
+      key: `${a.noid}|${details.length}`,
+      noid: a.noid,
+      names: a.names ?? '',
+      category,
+      receive: a.receive,
+      cost,
+      opening,
+      expense,
+      closing,
+      remaining: Math.max(Math.round((cost - residual - closing) * 100) / 100, 0),
+      nbv,
+      finished,
+    })
+
+    row.count += 1
+    row.cost += cost
+    row.opening += opening
+    row.expense += expense
+    row.closing += closing
+    row.nbv += nbv
+  }
+
+  const rows = [...byCat.values()].sort((x, y) => {
+    if (x.assetcatid == null) return 1
+    if (y.assetcatid == null) return -1
+    return x.assetcatid - y.assetcatid
+  })
+
+  const total = rows.reduce<CategoryRow>((acc, r) => ({
+    ...acc,
+    count: acc.count + r.count,
+    cost: acc.cost + r.cost,
+    opening: acc.opening + r.opening,
+    expense: acc.expense + r.expense,
+    closing: acc.closing + r.closing,
+    nbv: acc.nbv + r.nbv,
+  }), {
+    key: 'total', assetcatid: null, category: 'รวมทั้งสิ้น',
+    count: 0, cost: 0, opening: 0, expense: 0, closing: 0, nbv: 0,
+  })
+
+  details.sort((x, y) => y.expense - x.expense)
+
+  return { rows, total, details, activeCount, finishedCount, skipped }
 }
