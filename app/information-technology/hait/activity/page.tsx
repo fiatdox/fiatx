@@ -146,6 +146,11 @@ const niceMax = (v: number): number => {
   return v
 }
 
+// ปีงบแรกที่เริ่มบันทึกกิจกรรมในระบบ (ข้อมูลจริงเริ่ม พ.ค. 2569)
+// ใช้เป็นขอบล่างของตัวเลือกปีงบ เพื่อให้ย้อนดูปีก่อน ๆ ได้แม้ logs ที่โหลดอยู่
+// จะมีแค่ปีงบเดียว
+const ACTIVITY_FIRST_FY = 2569
+
 const getFiscalYearBE = (d: dayjs.Dayjs): number => {
   const calYear = d.year()
   const month = d.month() + 1
@@ -233,6 +238,35 @@ function ActivityPageContent() {
 
   useEffect(() => { loadMaster() }, [loadMaster])
   useEffect(() => { loadLogs(dashboardYear) }, [dashboardYear, loadLogs])
+
+  // ตารางงานรายวันเลือกวันที่ย้อนหลังได้อิสระ แต่ logs ที่โหลดไว้เป็นของปีงบ
+  // ที่เลือกบน Dashboard เท่านั้น เลือกวันในปีงบอื่นจึงเคยขึ้นว่าง
+  // ต้องดึงปีงบของวันนั้นมาเพิ่ม และเก็บแคชไว้ต่อปีงบเพื่อไม่ดึงซ้ำ
+  const scheduleFy = useMemo(() => getFiscalYearBE(scheduleDate), [scheduleDate])
+  const [logsByFy, setLogsByFy] = useState<Record<number, ActivityLog[]>>({})
+  const [scheduleLoading, setScheduleLoading] = useState(false)
+
+  useEffect(() => {
+    if (scheduleFy === dashboardYear || logsByFy[scheduleFy]) return
+    let cancelled = false
+    setScheduleLoading(true)
+    fetch(`/api/v1/it/activity/logs?fiscal_year=${scheduleFy}&limit=20000`)
+      .then(r => r.json())
+      .then(json => {
+        if (cancelled) return
+        if (json?.success) setLogsByFy(prev => ({ ...prev, [scheduleFy]: json.data || [] }))
+        else messageApi.error(json?.error?.message || `โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`)
+      })
+      .catch(() => { if (!cancelled) messageApi.error(`โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`) })
+      .finally(() => { if (!cancelled) setScheduleLoading(false) })
+    return () => { cancelled = true }
+  }, [scheduleFy, dashboardYear, logsByFy, messageApi])
+
+  // ปีงบเดียวกับ Dashboard ใช้ logs ชุดเดิม ไม่ต้องยิง API ซ้ำ
+  const scheduleLogs = useMemo(
+    () => (scheduleFy === dashboardYear ? logs : (logsByFy[scheduleFy] ?? [])),
+    [scheduleFy, dashboardYear, logs, logsByFy],
+  )
 
   // ----- Derived dictionaries from master -----
   const staffOptions = useMemo(
@@ -364,8 +398,8 @@ function ActivityPageContent() {
   // ----- Schedule tab -----
   const logsForDate = useMemo(() => {
     const ymd = scheduleDate.format('YYYY-MM-DD')
-    return logs.filter(l => dayjs(l.log_date).format('YYYY-MM-DD') === ymd)
-  }, [logs, scheduleDate])
+    return scheduleLogs.filter(l => dayjs(l.log_date).format('YYYY-MM-DD') === ymd)
+  }, [scheduleLogs, scheduleDate])
 
   const staffInDate = useMemo(() => {
     const ids = new Set(logsForDate.map(l => l.staff_id))
@@ -377,9 +411,11 @@ function ActivityPageContent() {
   // ----- Dashboard (FY-scoped) -----
   const fyOptions = useMemo(() => {
     const years = new Set<number>()
-    logs.forEach(l => years.add(getFiscalYearBE(dayjs(l.log_date))))
+    // เดิมสร้างตัวเลือกจาก logs ที่โหลดอยู่ ซึ่งเป็นของปีงบเดียว จึงเลือกย้อนหลังไม่ได้
+    // ตอนนี้ไล่ตั้งแต่ปีงบแรกของระบบจนถึงปีงบปัจจุบัน
     const current = getFiscalYearBE(dayjs())
-    years.add(current)
+    for (let y = ACTIVITY_FIRST_FY; y <= current; y++) years.add(y)
+    logs.forEach(l => years.add(getFiscalYearBE(dayjs(l.log_date))))
     years.add(dashboardYear)
     return Array.from(years).sort((a, b) => b - a).map(y => ({ label: `ปีงบ ${y}`, value: y }))
   }, [logs, dashboardYear])
@@ -938,6 +974,7 @@ function ActivityPageContent() {
         const json = await res.json()
         if (json?.success) {
           messageApi.success('ลบรายการเรียบร้อยแล้ว')
+          setLogsByFy({})
           await loadLogs(dashboardYear)
         } else {
           messageApi.error(json?.error?.message || 'ลบไม่สำเร็จ')
@@ -1024,6 +1061,7 @@ function ActivityPageContent() {
         messageApi.success(editingLog ? 'แก้ไขเรียบร้อยแล้ว' : 'บันทึกกิจกรรมเรียบร้อยแล้ว')
         setIsDrawerOpen(false)
         form.resetFields()
+        setLogsByFy({})
         await loadLogs(dashboardYear)
       } else {
         messageApi.error(json?.error?.message || 'บันทึกไม่สำเร็จ')
@@ -1435,9 +1473,11 @@ function ActivityPageContent() {
                           allowClear={false}
                         />
                         <span className="text-sm text-app-text-2">
-                          {logsForDate.length > 0
-                            ? `${logsForDate.length} งาน · ${staffInDate.length} เจ้าหน้าที่ · ${formatMinutes(dayTotalMinutes)} รวม`
-                            : 'ไม่มีข้อมูลในวันนี้'}
+                          {scheduleLoading
+                            ? `กำลังโหลดกิจกรรมปีงบ ${scheduleFy}…`
+                            : logsForDate.length > 0
+                              ? `${logsForDate.length} งาน · ${staffInDate.length} เจ้าหน้าที่ · ${formatMinutes(dayTotalMinutes)} รวม`
+                              : `ไม่มีข้อมูลในวันที่เลือก (ปีงบ ${scheduleFy})`}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
@@ -1454,6 +1494,7 @@ function ActivityPageContent() {
                         pagination={false}
                         bordered
                         size="middle"
+                        loading={scheduleLoading}
                         scroll={{ x: 'max-content' }}
                         rowKey="key"
                         locale={{ emptyText: <Empty description="ไม่มีข้อมูลกิจกรรมในวันที่เลือก" /> }}
