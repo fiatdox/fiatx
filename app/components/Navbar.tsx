@@ -167,7 +167,7 @@ const Navbar: React.FC = () => {
     // submenu งานพัสดุ — หน้าค่าเสื่อมราคาอยู่ลึกอีกชั้นในกลุ่มงานครุภัณฑ์
     if (segments[0] === 'general' && segments[1] === 'procurement') {
       keys.push('general-procurement')
-      if (segments[2]?.startsWith('depreciation')) keys.push('general-procurement-equipment')
+      if (segments[2]?.startsWith('depreciation') || segments[2]?.startsWith('asset-')) keys.push('general-procurement-equipment')
       if (segments[2] === 'receipt' || segments[2] === 'inspection') keys.push('general-procurement-stock')
     }
 
@@ -475,6 +475,7 @@ const Navbar: React.FC = () => {
                         { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
                         { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
                         { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
+                        { key: '/general/procurement/asset-by-department-v2', icon: <FaBuilding />, label: 'ครุภัณฑ์แยกตามหน่วยงาน (V2)' },
                       ]
                     },
                   ]
