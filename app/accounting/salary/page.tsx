@@ -282,6 +282,13 @@ const PageContent = () => {
   // Table columns
   const columns = [
     {
+      // ตารางนี้ไม่แบ่งหน้า ลำดับจึงนับตามแถวที่แสดงได้ตรง ๆ
+      title: 'ลำดับ', key: 'seq', align: 'center' as const, width: 70,
+      render: (_: unknown, __: MonthSummary, i: number) => (
+        <Text type="secondary" style={{ fontSize: 13 }}>{i + 1}</Text>
+      ),
+    },
+    {
       title: 'งวดเงินเดือน', key: 'month', width: 200,
       render: (_: any, r: MonthSummary) => (
         <div>
