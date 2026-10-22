@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { IT_STAFF_ROLES, underPrefix } from '@/app/lib/menuAccess'
+
+// Smart Hospital และแผนโครงการ IT — เมนูซ่อนไว้ใน menuAccess.ts แล้ว ที่นี่กั้นทั้งสาขา
+const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts']
 
 // ถอดรหัส cookie ที่ js-cookie เขียนไว้ (percent-encoded) — เผื่อกรณีไม่ได้ encode ด้วย
 function safeDecode(v: string): string {
@@ -76,6 +80,17 @@ export function proxy(req: NextRequest) {
     const allowed = ['CHIEF_GROUP_IT', 'IT_STAFF', 'CHIEF_MISSION_IT', 'ADMIN']
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => allowed.includes(r))) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
+  }
+
+  // หน้าที่เปิดเฉพาะเจ้าหน้าที่ IT — ซ่อนเมนูอย่างเดียวไม่พอ พิมพ์ URL ตรงก็ยังเข้าได้
+  if (IT_ONLY_PREFIXES.some(p => underPrefix(pathname, p))) {
+    const roles = getRoles(req).map(r => r.toUpperCase())
+    if (!roles.some(r => IT_STAFF_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()
       homeUrl.pathname = '/home'
       homeUrl.search = ''

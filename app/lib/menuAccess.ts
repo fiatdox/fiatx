@@ -28,6 +28,11 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/information-technology/hait/incident-reports': IT_STAFF_ROLES,
   '/information-technology/hait/activity': IT_STAFF_ROLES,
   '/information-technology/hait/risk-management': IT_STAFF_ROLES,
+  // Smart Hospital และแผนโครงการ IT — งานวางแผนภายในของ IT ยังไม่เปิดให้ผู้ใช้ทั่วไป
+  // (proxy.ts กั้น URL ตรงไว้ด้วย ดู IT_ONLY_PREFIXES)
+  '/information-technology/smart-hospital/dashboard': IT_STAFF_ROLES,
+  '/information-technology/smart-hospital/edit': IT_STAFF_ROLES,
+  '/information-technology/grant-charts': IT_STAFF_ROLES,
   // ตรวจสอบ/อนุมัติคำขอข้อมูลสถิติ (PDPA) — เฉพาะหัวหน้ากลุ่มงานข้อมูลทางการแพทย์
   '/medical-data/statistics-review': ['ADMIN', 'CHIEF_GROUP_MEDSTAT'],
   // ระบบรับบริจาคครุภัณฑ์ — แยกสิทธิ์ตามขั้นตอน (เจ้าหน้าที่รับบริจาค / กรรมการ / พัสดุ / ผู้ดูแลระบบ)
