@@ -18,6 +18,8 @@ type Props = {
    * หน้าที่รองรับสองโหมดให้ส่งค่าตามโหมดของแอปเข้ามา
    */
   theme?: ChartTheme
+  /** คลิกที่ชิ้นข้อมูล (แท่ง/จุด/ช่อง) — ใช้เจาะลึกหรือกรองจากกราฟ */
+  onClick?: (params: { name: string; dataIndex: number; seriesName?: string }) => void
 }
 
 const InnerChart: React.FC<{
@@ -94,17 +96,21 @@ const exportAsPNG = (option: echarts.EChartsCoreOption, theme: ChartTheme) => {
 }
 
 const EChart: React.FC<Props> = ({
-  option, height = 280, style, className, showToolbar = false, theme = 'dark',
+  option, height = 280, style, className, showToolbar = false, theme = 'dark', onClick,
 }) => {
   const ref = useRef<HTMLDivElement>(null)
   const chartRef = useRef<echarts.ECharts | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  // เก็บ handler ล่าสุดไว้ใน ref — กราฟผูก event ครั้งเดียวตอนสร้าง ไม่ต้องสร้างใหม่ทุกครั้งที่ handler เปลี่ยน
+  const clickRef = useRef(onClick)
+  useEffect(() => { clickRef.current = onClick }, [onClick])
 
   // เปลี่ยนธีมกลางทางไม่ได้ ต้องสร้างกราฟใหม่ทั้งตัว
   useEffect(() => {
     if (!ref.current) return
     const chart = echarts.init(ref.current, theme, { renderer: 'canvas' })
     chartRef.current = chart
+    chart.on('click', p => clickRef.current?.(p as { name: string; dataIndex: number; seriesName?: string }))
     const resize = () => chart.resize()
     window.addEventListener('resize', resize)
     const ro = new ResizeObserver(resize)
