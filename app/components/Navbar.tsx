@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Layout, Button, Drawer, Typography, Avatar, Menu, Space, Divider, ConfigProvider, Alert } from 'antd'
 import Cookies from 'js-cookie'
@@ -25,7 +25,7 @@ import {
   FaWarehouse, FaExchangeAlt, FaQrcode,
   FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
 } from 'react-icons/fa'
-import { canSeeMenu, normalizeRoles } from '../lib/menuAccess'
+import { canSeeMenu, normalizeRoles, underPrefix } from '../lib/menuAccess'
 
 const { Header } = Layout
 const { Title, Text } = Typography
@@ -41,13 +41,288 @@ interface UserData {
   roles?: string[]
 }
 
+// แยกเมนูปลายทางกับกลุ่มเป็นคนละ type ให้ตรงกับ items ของ antd Menu
+// (ต้องเป็น type ไม่ใช่ interface — MenuItemType มี index signature ของ data-*)
+type NavLeaf = { key: string; icon?: React.ReactNode; label: React.ReactNode; children?: undefined }
+type NavGroup = { key: string; icon?: React.ReactNode; label: React.ReactNode; children: NavItem[] }
+type NavItem = NavLeaf | NavGroup
+
+// ต้นไม้เมนูหลัก — key ของเมนูปลายทางคือ route, key ของกลุ่มเป็นชื่อเฉย ๆ
+// สิทธิ์การมองเห็นกรองทีหลังด้วย filterMenuByRole
+const MENU_TREE: NavItem[] = [
+  { key: '/home', icon: <HomeOutlined />, label: 'หน้าหลัก' },
+  // ── บริการที่ทุกคนใช้บ่อย — รวมไว้บนสุด ไม่ต้องไล่หาในกลุ่มหน่วยงาน ──
+  {
+    key: 'my-services',
+    icon: <FaClipboardList />,
+    label: 'บริการของฉัน',
+    children: [
+      // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
+      // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
+      { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+      { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
+      { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
+      { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
+      { key: `${FAV_PREFIX}/general/vehicle/request`, icon: <FaCar />, label: 'ขอใช้รถราชการ' },
+      { key: `${FAV_PREFIX}/general/room-booking`, icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
+      { key: `${FAV_PREFIX}/accounting/salary`, icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
+      { key: `${FAV_PREFIX}/information-technology/user-request`, icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+      { key: `${FAV_PREFIX}/medical-data/statistics-request`, icon: <FaChartBar />, label: 'ขอข้อมูลสถิติ' },
+    ]
+  },
+  {
+    key: 'hr',
+    icon: <FaUsersCog />,
+    label: 'งานทรัพยากรบุคคล',
+    children: [
+      { key: '/hr/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ภาพรวม' },
+      { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร' },
+      {
+        key: 'hr-leave',
+        icon: <FaCalendarAlt />,
+        label: 'การลา',
+        children: [
+          { key: '/hr/leave',          icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+          { key: '/hr/leave/history',  icon: <FaHistory />,     label: 'ประวัติการลาของฉัน' },
+          { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
+          { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
+          { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
+          // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
+          { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
+          { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
+        ]
+      },
+      { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
+      { key: '/hr/settings/supervisor', icon: <FaUserTie />, label: 'ผังผู้บริหาร' },
+    ]
+  },
+  {
+    key: 'general',
+    icon: <FaBuilding />,
+    label: 'งานบริหารงานทั่วไป',
+    children: [
+      { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
+      {
+        key: 'general-vehicle',
+        icon: <FaCar />,
+        label: 'รถราชการ',
+        children: [
+          { key: '/general/vehicle/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard รถราชการ' },
+          { key: '/general/vehicle/request', icon: <FaClipboardList />, label: 'ขอใช้รถราชการ' },
+          { key: '/general/vehicle/approval', icon: <FaTasks />, label: 'อนุมัติคำขอใช้รถ' },
+          { key: '/general/vehicle/trip-log', icon: <FaChartBar />, label: 'บันทึกการเดินทาง' },
+        ]
+      },
+      {
+        key: 'general-item-moving',
+        icon: <FaTruck />,
+        label: 'ขอย้ายสิ่งของ / จัดสถานที่',
+        children: [
+          { key: '/general/item-moving/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard งานสนาม' },
+          { key: '/general/item-moving', icon: <FaTruck />, label: 'แจ้งขอบริการ' },
+        ]
+      },
+      {
+        key: 'general-maintenance',
+        icon: <FaWrench />,
+        label: 'ระบบซ่อมบำรุง',
+        children: [
+          { key: '/general/maintenance/dashboard',  icon: <FaTachometerAlt />,   label: 'Dashboard งานซ่อม' },
+          { key: '/general/maintenance/work-order', icon: <FaFileAlt />,          label: 'ใบสั่งงานซ่อม' },
+          { key: '/general/maintenance-request',    icon: <FaClipboardList />,    label: 'แจ้งซ่อมบำรุงทั่วไป' },
+          { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
+          { key: '/general/maintenance/reports',    icon: <FaChartBar />,         label: 'รายงานค่าซ่อมบำรุง' },
+        ]
+      },
+      {
+        key: 'general-assets',
+        icon: <FaWarehouse />,
+        label: 'ระบบครุภัณฑ์',
+        children: [
+          { key: '/general/assets/return',               icon: <FaExchangeAlt />,    label: 'ส่งคืนครุภัณฑ์เสีย' },
+          { key: '/general/assets/warehouse',            icon: <FaWarehouse />,      label: 'คลังครุภัณฑ์เสื่อมสภาพ' },
+          { key: '/general/assets/replacement-request',  icon: <FaShoppingCart />,   label: 'เสนอซื้อทดแทน' },
+          { key: '/general/assets/donation-request',      icon: <FaGift />,          label: 'ขอรับบริจาคครุภัณฑ์' },
+          { key: '/general/assets/donation-review',       icon: <FaUserShield />,    label: 'พิจารณาอนุมัติบริจาค' },
+          { key: '/general/assets/donation-registration', icon: <FaWarehouse />,     label: 'ขึ้นทะเบียนครุภัณฑ์บริจาค' },
+          { key: '/general/assets/donation-admin',        icon: <FaUsersCog />,      label: 'ตั้งค่าระบบรับบริจาค' },
+        ]
+      },
+      {
+        key: 'general-procurement',
+        icon: <FaWarehouse />,
+        label: 'งานพัสดุ',
+        children: [
+          { key: '/general/procurement/dashboard',     icon: <FaTachometerAlt />,  label: 'Dashboard พัสดุ' },
+          {
+            key: 'general-procurement-stock',
+            icon: <FaTruck />,
+            label: 'งานคลัง',
+            children: [
+              { key: '/general/procurement/receipt',    icon: <FaTruck />, label: 'รับสินค้า / สร้างเจ้าหนี้' },
+              { key: '/general/procurement/inspection', icon: <FaTasks />, label: 'ตรวจรับสินค้า' },
+            ]
+          },
+          {
+            key: 'general-procurement-equipment',
+            icon: <FaCalculator />,
+            label: 'งานครุภัณฑ์',
+            children: [
+              { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา (V3)' },
+              { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
+              { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
+              { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
+              { key: '/general/procurement/depreciation-period', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V3)' },
+              { key: '/general/procurement/depreciation-period-v2', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V2)' },
+              { key: '/general/procurement/asset-by-department-v2', icon: <FaBuilding />, label: 'ครุภัณฑ์แยกตามหน่วยงาน (V2)' },
+            ]
+          },
+        ]
+      },
+    ]
+  },
+  {
+    key: 'HSS-DS',
+    icon: <FaHospitalSymbol />,
+    label: 'งานพัฒนาระบบบริการและสนับสนุนบริการสุขภาพ',
+    children: [
+      {
+        key: 'hss-strategy-group',
+        icon: <FaChartBar />,
+        label: 'งานยุทธศาสตร์และแผนงาน',
+        children: [
+          { key: '/hss/strategy', label: 'ภาพรวมยุทธศาสตร์' },
+          { key: '/hss/strategy/grant-charts', label: 'Project Roadmap' },
+          { key: '/hss/strategy/kpis', label: 'KPI Dashboard' },
+        ]
+      },
+      { key: '/hss/hrd', icon: <FaGraduationCap />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
+    ]
+  },
+
+  {
+    key: 'information-technology',
+    icon: <FaMicrochip />,
+    label: 'งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ',
+    children: [
+      {
+        key: 'it-maintenance',
+        icon: <FaDesktop />,
+        label: 'งานซ่อมคอมพิวเตอร์',
+        children: [
+          { key: '/information-technology/maintenance/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard งานซ่อม' },
+          { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
+          { key: '/information-technology/maintenance/manage', icon: <FaWrench />, label: 'จัดการงานซ่อม' },
+        ]
+      },
+      {
+        key: 'it-hait',
+        icon: <FaMicrochip />,
+        label: 'HAIT',
+        children: [
+          { key: '/information-technology/hait', icon: <FaChartBar />, label: 'ภาพรวม HAIT' },
+          { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
+          { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์' },
+          { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT' },
+          { key: '/information-technology/hait/risk-management', icon: <FaUserShield />, label: 'ประเมินความเสี่ยง IT' },
+        ]
+      },
+      {
+        key: 'it-smart-hospital',
+        icon: <FaHospitalSymbol />,
+        label: 'Smart Hospital',
+        children: [
+          { key: '/information-technology/smart-hospital/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ภาพรวม' },
+          { key: '/information-technology/smart-hospital/edit', icon: <FaFileAlt />, label: 'แก้ไขคะแนนประเมิน' },
+        ]
+      },
+      { key: '/information-technology/grant-charts', icon: <FaTasks />, label: 'แผนโครงการ IT (Gantt)' },
+       { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
+      { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
+      { key: '/information-technology/his-users-session', icon: <FaUserClock />, label: 'ขอเคลียร์เซสชัน HIS ผู้ใช้ระบบ' },
+    ]
+  },
+  {
+    key: 'medical-data',
+    icon: <FaChartBar />,
+    label: 'งานข้อมูลทางการแพทย์',
+    children: [
+      { key: '/medical-data/statistics', icon: <FaChartBar />, label: 'เวชสถิติ / สถิติผู้ป่วย' },
+      { key: '/medical-data/statistics-request', icon: <FaClipboardList />, label: 'ขอข้อมูลสถิติ' },
+      { key: '/medical-data/statistics-review', icon: <FaUserShield />, label: 'ตรวจสอบ/อนุมัติคำขอ (หัวหน้ากลุ่ม)' },
+      { key: '/medical-data/statistics-tasks', icon: <FaTasks />, label: 'งานที่ได้รับมอบหมาย' },
+      { key: '/medical-data/statistics-request-dashboard', icon: <FaTachometerAlt />, label: 'Dashboard คำขอข้อมูล' },
+    ]
+  },
+  {
+    key: 'accounting',
+    icon: <FaCalculator />,
+    label: 'งานการเงินและบัญชี',
+    children: [
+      { key: '/accounting/schedule',           icon: <FaCalendarAlt />, label: 'ตารางเวรการปฏิบัติงาน' },
+      { key: '/accounting/salary',           icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
+      { key: '/accounting/salary-ids',       icon: <FaIdCard />,            label: 'เลขที่เงินเดือนบุคลากร' },
+      { key: '/accounting/credentials',      icon: <FaLock />,              label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
+      { key: '/accounting/repair-payment',   icon: <FaFileAlt />,           label: 'เบิกจ่ายค่าซ่อมบำรุง' },
+      { key: '/accounting/accounts-payable', icon: <FaFileInvoiceDollar />, label: 'เจ้าหนี้การค้า / KPI จ่าย' },
+      { key: '/accounting/accounts-payable/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard เจ้าหนี้การค้า' },
+      { key: '/accounting/budget',           icon: <FaCoins />,             label: 'งบประมาณรายหน่วยงาน' },
+    ]
+  },
+]
+
+const segmentsOf = (route: string) => route.split('/').filter(Boolean)
+
+// เมนูปลายทางทั้งหมด พร้อม key ของกลุ่มที่ครอบอยู่ไล่จากบนลงล่าง
+const leavesOf = (items: NavItem[], chain: string[] = []): { route: string; chain: string[] }[] =>
+  items.flatMap(it => it.children
+    ? leavesOf(it.children, [...chain, it.key])
+    // เมนูลัด "บริการของฉัน" ซ้ำกับเมนูในกลุ่มหน่วยงาน — ไฮไลต์ฝั่งหน่วยงาน
+    // จะได้กางกลุ่มนั้นให้เห็นเมนูอื่นในโมดูลเดียวกัน
+    : it.key.startsWith(FAV_PREFIX) ? [] : [{ route: it.key, chain }])
+
+/**
+ * เมนูของหน้าที่เปิดอยู่ — selected = เมนูที่ไฮไลต์, open = กลุ่มที่ต้องกางให้เห็น
+ * 1) route เมนูที่ยาวที่สุดที่ครอบ pathname — หน้าลูกที่ไม่มีในเมนู
+ *    (เช่น /general/assets/123/history) จะไฮไลต์เมนูแม่แทน
+ * 2) ไม่มีเมนูไหนครอบเลย (เช่น /general/settings) ไม่ไฮไลต์ แต่กางกลุ่มที่ใกล้ที่สุด
+ *    = กลุ่มที่ครอบทุกเมนูซึ่งมีเซกเมนต์ต้นทางตรงกับหน้านี้มากที่สุด
+ */
+const findActive = (items: NavItem[], pathname: string): { selected?: string; open: string[] } => {
+  const leaves = leavesOf(items)
+  const exact = leaves
+    .filter(l => underPrefix(pathname, l.route))
+    .sort((a, b) => b.route.length - a.route.length)[0]
+  if (exact) return { selected: exact.route, open: exact.chain }
+
+  const path = segmentsOf(pathname)
+  const shared = (route: string) => {
+    const r = segmentsOf(route)
+    let n = 0
+    while (n < r.length && r[n] === path[n]) n++
+    return n
+  }
+  let best = 0
+  let near: string[][] = []
+  for (const l of leaves) {
+    const n = shared(l.route)
+    if (n > best) { best = n; near = [l.chain] }
+    else if (n === best && n > 0) near.push(l.chain)
+  }
+  if (near.length === 0) return { open: [] }
+  // เอาเฉพาะกลุ่มที่ร่วมกันทุกเมนู ไม่งั้นจะไปกางกลุ่มย่อยที่ไม่เกี่ยว
+  return { open: near.reduce((acc, c) => acc.filter((k, idx) => c[idx] === k)) }
+}
+
 const Navbar: React.FC = () => {
   const [openMenu, setOpenMenu] = useState(false)
   const [openProfile, setOpenProfile] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
-  // กาง "บริการของฉัน" ไว้ตั้งแต่แรก — เป็นกลุ่มที่ทุกคนใช้ ไม่ควรต้องกดเปิดเอง
-  const [openKeys, setOpenKeys] = useState<string[]>(['my-services'])
+  // กลุ่มที่ผู้ใช้กาง/หุบเอง — null = ยังไม่ได้แตะ ใช้ค่าที่คำนวณจากหน้าปัจจุบัน
+  // (Navbar อยู่ในแต่ละหน้า เปลี่ยนหน้าแล้ว mount ใหม่ จึงกลับไปใช้ค่าตามหน้าเองทุกครั้ง)
+  const [userOpenKeys, setUserOpenKeys] = useState<string[] | null>(null)
+  const menuWrapRef = useRef<HTMLDivElement>(null)
   const [userData, setUserData] = useState<UserData>({})
   const { mode, toggle } = useThemeMode()
 
@@ -119,10 +394,8 @@ const Navbar: React.FC = () => {
   const userRoles = normalizeRoles(userData.roles)
 
   // กรองต้นไม้เมนูตามสิทธิ์ — leaf ตัดตาม canSeeMenu, กลุ่มที่ไม่เหลือลูกให้ตัดทิ้ง
-  // ใช้ any ที่ขอบ antd (โครงสร้าง items แต่ละอันไม่เหมือนกัน) — คืนค่าให้ Menu รับได้เหมือนเดิม
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const filterMenuByRole = (items: any[]): any[] =>
-    items.reduce((acc: any[], item: any) => {
+  const filterMenuByRole = (items: NavItem[]): NavItem[] =>
+    items.reduce((acc: NavItem[], item) => {
       if (item.children) {
         const kids = filterMenuByRole(item.children)
         if (kids.length > 0) acc.push({ ...item, children: kids })
@@ -132,68 +405,20 @@ const Navbar: React.FC = () => {
       return acc
     }, [])
 
-  // กางเมนูหลักและ submenu ที่ซ้อนอยู่อัตโนมัติตาม URL ปัจจุบัน
-  useEffect(() => {
-    const segments = pathname.split('/').filter(Boolean)
-    const keys: string[] = []
+  // ไฮไลต์เมนูของหน้าปัจจุบัน และกางกลุ่มที่ครอบอยู่ จะได้เห็นเมนูอื่นในโมดูลเดียวกันทันที
+  // คิดจากต้นไม้ที่กรองสิทธิ์แล้ว — ตอน roles ยังโหลดไม่เสร็จจะกางแค่กลุ่มใกล้เคียงไปก่อน
+  const menuItems = filterMenuByRole(MENU_TREE)
+  const active = findActive(menuItems, pathname)
+  // กาง "บริการของฉัน" ไว้เสมอ — เป็นกลุ่มที่ทุกคนใช้ ไม่ควรต้องกดเปิดเอง
+  const openKeys = userOpenKeys ?? ['my-services', ...active.open]
 
-    if (segments[0]) keys.push(segments[0]) // เมนูหลัก เช่น 'general', 'information-technology'
-
-    // submenu การลา
-    if (segments[0] === 'hr' && segments[1] === 'leave') {
-      keys.push('hr-leave')
-    }
-
-    // submenu รถราชการ
-    if (segments[0] === 'general' && segments[1] === 'vehicle') {
-      keys.push('general-vehicle')
-    }
-
-    // submenu ระบบซ่อมบำรุง
-    if (segments[0] === 'general' && segments[1] === 'maintenance') {
-      keys.push('general-maintenance')
-    }
-
-    // submenu ขอย้ายสิ่งของ / จัดสถานที่
-    if (segments[0] === 'general' && segments[1] === 'item-moving') {
-      keys.push('general-item-moving')
-    }
-
-    // submenu ระบบครุภัณฑ์
-    if (segments[0] === 'general' && segments[1] === 'assets') {
-      keys.push('general-assets')
-    }
-
-    // submenu งานพัสดุ — หน้าค่าเสื่อมราคาอยู่ลึกอีกชั้นในกลุ่มงานครุภัณฑ์
-    if (segments[0] === 'general' && segments[1] === 'procurement') {
-      keys.push('general-procurement')
-      if (segments[2]?.startsWith('depreciation') || segments[2]?.startsWith('asset-')) keys.push('general-procurement-equipment')
-      if (segments[2] === 'receipt' || segments[2] === 'inspection') keys.push('general-procurement-stock')
-    }
-
-    // submenu IT Maintenance
-    if (segments[0] === 'information-technology' && segments[1] === 'maintenance') {
-      keys.push('it-maintenance')
-    }
-
-    // submenu HAIT
-    if (segments[0] === 'information-technology' && segments[1] === 'hait') {
-      keys.push('it-hait')
-    }
-
-    // submenu Smart Hospital
-    if (segments[0] === 'information-technology' && segments[1] === 'smart-hospital') {
-      keys.push('it-smart-hospital')
-    }
-
-    // submenu HSS Strategy
-    if (segments[0] === 'hss') {
-      keys.push('HSS-DS')
-      if (segments[1] === 'strategy') keys.push('hss-strategy-group')
-    }
-
-    setOpenKeys((prev) => Array.from(new Set([...prev, ...keys])))
-  }, [pathname])
+  // เปิด Drawer แล้วเลื่อนให้เมนูของหน้านี้อยู่กลางจอ ไม่ต้องไล่หาเมื่อโมดูลอยู่ล่าง ๆ
+  const scrollToActive = (open: boolean) => {
+    if (!open) return
+    menuWrapRef.current
+      ?.querySelector('.ant-menu-item-selected')
+      ?.scrollIntoView({ block: 'center' })
+  }
 
   // Theme — เข้ากับหน้า Login (emerald/teal บนพื้น slate-950)
   // ลายดาวพื้นหลัง (โปร่งใสมากขึ้นเพื่อให้เข้ากับธีมมืด)
@@ -335,6 +560,7 @@ const Navbar: React.FC = () => {
           placement="left"
           onClose={() => setOpenMenu(false)}
           open={openMenu}
+          afterOpenChange={scrollToActive}
           size="default"
             styles={{
               body: { padding: '16px 0' },
@@ -342,240 +568,21 @@ const Navbar: React.FC = () => {
               section: { background: `${starPattern}, ${drawerGradient}`, backgroundBlendMode: 'overlay, normal' }
             }}
         >
+          <div ref={menuWrapRef}>
           <Menu
             mode="inline"
           inlineIndent={16}
           style={{ borderRight: 0, fontWeight: 500 }}
+          selectedKeys={active.selected ? [active.selected] : []}
           openKeys={openKeys}
-          onOpenChange={(keys) => setOpenKeys(keys)}
+          onOpenChange={(keys) => setUserOpenKeys(keys)}
           onClick={(e) => {
             router.push(toRoute(e.key))
             setOpenMenu(false) // เลือกเมนูเสร็จให้ปิด Drawer
           }}
-          items={filterMenuByRole([
-            { key: '/home', icon: <HomeOutlined />, label: 'หน้าหลัก' },
-            // ── บริการที่ทุกคนใช้บ่อย — รวมไว้บนสุด ไม่ต้องไล่หาในกลุ่มหน่วยงาน ──
-            {
-              key: 'my-services',
-              icon: <FaClipboardList />,
-              label: 'บริการของฉัน',
-              children: [
-                // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
-                // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
-                { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
-                { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
-                { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
-                { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
-                { key: `${FAV_PREFIX}/general/vehicle/request`, icon: <FaCar />, label: 'ขอใช้รถราชการ' },
-                { key: `${FAV_PREFIX}/general/room-booking`, icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
-                { key: `${FAV_PREFIX}/accounting/salary`, icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
-                { key: `${FAV_PREFIX}/information-technology/user-request`, icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
-                { key: `${FAV_PREFIX}/medical-data/statistics-request`, icon: <FaChartBar />, label: 'ขอข้อมูลสถิติ' },
-              ]
-            },
-            {
-              key: 'hr',
-              icon: <FaUsersCog />,
-              label: 'งานทรัพยากรบุคคล',
-              children: [
-                { key: '/hr/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ภาพรวม' },
-                { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร' },
-                {
-                  key: 'hr-leave',
-                  icon: <FaCalendarAlt />,
-                  label: 'การลา',
-                  children: [
-                    { key: '/hr/leave',          icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
-                    { key: '/hr/leave/history',  icon: <FaHistory />,     label: 'ประวัติการลาของฉัน' },
-                    { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
-                    { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
-                    { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
-                    // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
-                    { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
-                    { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
-                  ]
-                },
-                { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
-                { key: '/hr/settings/supervisor', icon: <FaUserTie />, label: 'ผังผู้บริหาร' },
-              ]
-            },
-            {
-              key: 'general',
-              icon: <FaBuilding />,
-              label: 'งานบริหารงานทั่วไป',
-              children: [
-                { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
-                {
-                  key: 'general-vehicle',
-                  icon: <FaCar />,
-                  label: 'รถราชการ',
-                  children: [
-                    { key: '/general/vehicle/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard รถราชการ' },
-                    { key: '/general/vehicle/request', icon: <FaClipboardList />, label: 'ขอใช้รถราชการ' },
-                    { key: '/general/vehicle/approval', icon: <FaTasks />, label: 'อนุมัติคำขอใช้รถ' },
-                    { key: '/general/vehicle/trip-log', icon: <FaChartBar />, label: 'บันทึกการเดินทาง' },
-                  ]
-                },
-                {
-                  key: 'general-item-moving',
-                  icon: <FaTruck />,
-                  label: 'ขอย้ายสิ่งของ / จัดสถานที่',
-                  children: [
-                    { key: '/general/item-moving/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard งานสนาม' },
-                    { key: '/general/item-moving', icon: <FaTruck />, label: 'แจ้งขอบริการ' },
-                  ]
-                },
-                {
-                  key: 'general-maintenance',
-                  icon: <FaWrench />,
-                  label: 'ระบบซ่อมบำรุง',
-                  children: [
-                    { key: '/general/maintenance/dashboard',  icon: <FaTachometerAlt />,   label: 'Dashboard งานซ่อม' },
-                    { key: '/general/maintenance/work-order', icon: <FaFileAlt />,          label: 'ใบสั่งงานซ่อม' },
-                    { key: '/general/maintenance-request',    icon: <FaClipboardList />,    label: 'แจ้งซ่อมบำรุงทั่วไป' },
-                    { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์' },
-                    { key: '/general/maintenance/reports',    icon: <FaChartBar />,         label: 'รายงานค่าซ่อมบำรุง' },
-                  ]
-                },
-                {
-                  key: 'general-assets',
-                  icon: <FaWarehouse />,
-                  label: 'ระบบครุภัณฑ์',
-                  children: [
-                    { key: '/general/assets/return',               icon: <FaExchangeAlt />,    label: 'ส่งคืนครุภัณฑ์เสีย' },
-                    { key: '/general/assets/warehouse',            icon: <FaWarehouse />,      label: 'คลังครุภัณฑ์เสื่อมสภาพ' },
-                    { key: '/general/assets/replacement-request',  icon: <FaShoppingCart />,   label: 'เสนอซื้อทดแทน' },
-                    { key: '/general/assets/donation-request',      icon: <FaGift />,          label: 'ขอรับบริจาคครุภัณฑ์' },
-                    { key: '/general/assets/donation-review',       icon: <FaUserShield />,    label: 'พิจารณาอนุมัติบริจาค' },
-                    { key: '/general/assets/donation-registration', icon: <FaWarehouse />,     label: 'ขึ้นทะเบียนครุภัณฑ์บริจาค' },
-                    { key: '/general/assets/donation-admin',        icon: <FaUsersCog />,      label: 'ตั้งค่าระบบรับบริจาค' },
-                  ]
-                },
-                {
-                  key: 'general-procurement',
-                  icon: <FaWarehouse />,
-                  label: 'งานพัสดุ',
-                  children: [
-                    { key: '/general/procurement/dashboard',     icon: <FaTachometerAlt />,  label: 'Dashboard พัสดุ' },
-                    {
-                      key: 'general-procurement-stock',
-                      icon: <FaTruck />,
-                      label: 'งานคลัง',
-                      children: [
-                        { key: '/general/procurement/receipt',    icon: <FaTruck />, label: 'รับสินค้า / สร้างเจ้าหนี้' },
-                        { key: '/general/procurement/inspection', icon: <FaTasks />, label: 'ตรวจรับสินค้า' },
-                      ]
-                    },
-                    {
-                      key: 'general-procurement-equipment',
-                      icon: <FaCalculator />,
-                      label: 'งานครุภัณฑ์',
-                      children: [
-                        { key: '/general/procurement/depreciation', icon: <FaCalculator />,     label: 'คำนวณค่าเสื่อมราคา (V3)' },
-                        { key: '/general/procurement/depreciation-v2', icon: <FaCalculator />, label: 'คำนวณค่าเสื่อมราคา (V2)' },
-                        { key: '/general/procurement/depreciation-summary', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V3)' },
-                        { key: '/general/procurement/depreciation-summary-v2', icon: <FaChartPie />, label: 'สรุปค่าเสื่อมราคาประจำปี (V2)' },
-                        { key: '/general/procurement/depreciation-period', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V3)' },
-                        { key: '/general/procurement/depreciation-period-v2', icon: <FaCalendarAlt />, label: 'สรุปค่าเสื่อมราคาตามงวด (V2)' },
-                        { key: '/general/procurement/asset-by-department-v2', icon: <FaBuilding />, label: 'ครุภัณฑ์แยกตามหน่วยงาน (V2)' },
-                      ]
-                    },
-                  ]
-                },
-              ]
-            },
-            { 
-              key: 'HSS-DS', 
-              icon: <FaHospitalSymbol />, 
-              label: 'งานพัฒนาระบบบริการและสนับสนุนบริการสุขภาพ',
-              children: [
-                {
-                  key: 'hss-strategy-group',
-                  icon: <FaChartBar />,
-                  label: 'งานยุทธศาสตร์และแผนงาน',
-                  children: [
-                    { key: '/hss/strategy', label: 'ภาพรวมยุทธศาสตร์' },
-                    { key: '/hss/strategy/grant-charts', label: 'Project Roadmap' },
-                    { key: '/hss/strategy/kpis', label: 'KPI Dashboard' },
-                  ]
-                },
-                { key: '/hss/hrd', icon: <FaGraduationCap />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
-              ]
-            },
-
-            {
-              key: 'information-technology',
-              icon: <FaMicrochip />,
-              label: 'งานคอมพิวเตอร์และเทคโนโลยีสารสนเทศ',
-              children: [
-                {
-                  key: 'it-maintenance',
-                  icon: <FaDesktop />,
-                  label: 'งานซ่อมคอมพิวเตอร์',
-                  children: [
-                    { key: '/information-technology/maintenance/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard งานซ่อม' },
-                    { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
-                    { key: '/information-technology/maintenance/manage', icon: <FaWrench />, label: 'จัดการงานซ่อม' },
-                  ]
-                },
-                {
-                  key: 'it-hait',
-                  icon: <FaMicrochip />,
-                  label: 'HAIT',
-                  children: [
-                    { key: '/information-technology/hait', icon: <FaChartBar />, label: 'ภาพรวม HAIT' },
-                    { key: '/information-technology/hait/sla', icon: <FaClipboardList />, label: 'SLA' },
-                    { key: '/information-technology/hait/incident-reports', icon: <FaExclamationTriangle />, label: 'บันทึกอุบัติการณ์' },
-                    { key: '/information-technology/hait/activity', icon: <FaTasks />, label: 'บันทึกกิจกรรม IT' },
-                    { key: '/information-technology/hait/risk-management', icon: <FaUserShield />, label: 'ประเมินความเสี่ยง IT' },
-                  ]
-                },
-                {
-                  key: 'it-smart-hospital',
-                  icon: <FaHospitalSymbol />,
-                  label: 'Smart Hospital',
-                  children: [
-                    { key: '/information-technology/smart-hospital/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ภาพรวม' },
-                    { key: '/information-technology/smart-hospital/edit', icon: <FaFileAlt />, label: 'แก้ไขคะแนนประเมิน' },
-                  ]
-                },
-                { key: '/information-technology/grant-charts', icon: <FaTasks />, label: 'แผนโครงการ IT (Gantt)' },
-                 { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
-                { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
-                { key: '/information-technology/his-users-session', icon: <FaUserClock />, label: 'ขอเคลียร์เซสชัน HIS ผู้ใช้ระบบ' },
-              ]
-            },
-            {
-              key: 'medical-data',
-              icon: <FaChartBar />,
-              label: 'งานข้อมูลทางการแพทย์',
-              children: [
-                { key: '/medical-data/statistics', icon: <FaChartBar />, label: 'เวชสถิติ / สถิติผู้ป่วย' },
-                { key: '/medical-data/statistics-request', icon: <FaClipboardList />, label: 'ขอข้อมูลสถิติ' },
-                { key: '/medical-data/statistics-review', icon: <FaUserShield />, label: 'ตรวจสอบ/อนุมัติคำขอ (หัวหน้ากลุ่ม)' },
-                { key: '/medical-data/statistics-tasks', icon: <FaTasks />, label: 'งานที่ได้รับมอบหมาย' },
-                { key: '/medical-data/statistics-request-dashboard', icon: <FaTachometerAlt />, label: 'Dashboard คำขอข้อมูล' },
-              ]
-            },
-            { 
-              key: 'accounting', 
-              icon: <FaCalculator />, 
-              label: 'งานการเงินและบัญชี',
-              children: [
-                { key: '/accounting/schedule',           icon: <FaCalendarAlt />, label: 'ตารางเวรการปฏิบัติงาน' },
-                { key: '/accounting/salary',           icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
-                { key: '/accounting/salary-ids',       icon: <FaIdCard />,            label: 'เลขที่เงินเดือนบุคลากร' },
-                { key: '/accounting/credentials',      icon: <FaLock />,              label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
-                { key: '/accounting/repair-payment',   icon: <FaFileAlt />,           label: 'เบิกจ่ายค่าซ่อมบำรุง' },
-                { key: '/accounting/accounts-payable', icon: <FaFileInvoiceDollar />, label: 'เจ้าหนี้การค้า / KPI จ่าย' },
-                { key: '/accounting/accounts-payable/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard เจ้าหนี้การค้า' },
-                { key: '/accounting/budget',           icon: <FaCoins />,             label: 'งบประมาณรายหน่วยงาน' },
-              ]
-            },
-
-
-          ])}
+          items={menuItems}
         />
+          </div>
       </Drawer>
       </ConfigProvider>
 

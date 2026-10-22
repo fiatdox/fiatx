@@ -49,7 +49,7 @@ export const normalizeRoles = (roles?: unknown): string[] =>
 // รายการที่ปิดคือ route_prefix เช่น '/hr/leave' → ซ่อนทั้งสาขา
 
 /** จับคู่แบบทั้งเซกเมนต์ — '/general/maintenance' ต้องไม่ไปโดน '/general/maintenance-request' */
-const underPrefix = (route: string, prefix: string) =>
+export const underPrefix = (route: string, prefix: string) =>
   route === prefix || route.startsWith(`${prefix}/`)
 
 /** โมดูลของเส้นทางนี้เปิดใช้งานอยู่ไหม (disabled ว่าง = เปิดหมด) */
