@@ -88,6 +88,9 @@ function extractList(d: unknown): SystemOption[] {
 const toOpts = (arr: SystemOption[]) =>
   arr.map((o) => ({ label: o.name, value: o.id }))
 
+// ชื่อจาก id — ไม่มีให้เป็นค่าว่าง (ใช้ค้นหา / ส่งออก ส่วนในตารางใช้ byId ที่แสดง '-')
+const nameIn = (arr: SystemOption[], id?: number) => (id ? arr.find((o) => o.id === id)?.name : undefined) ?? ''
+
 const isActive = (u: User) =>
   u.is_active === true || u.is_active === 'true' || u.is_active === '1' || u.is_active === 'Y'
 
@@ -100,6 +103,8 @@ const PageContent = () => {
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [filterMission, setFilterMission] = useState<number | null>(null)
+  const [filterMajor, setFilterMajor] = useState<number | null>(null)
+  const [filterSubmajor, setFilterSubmajor] = useState<number | null>(null)
   const [filterStatus, setFilterStatus] = useState<number | null>(null)
   const [filterActive, setFilterActive] = useState<string | null>(null)
 
@@ -120,8 +125,10 @@ const PageContent = () => {
   // cascade sub-lists (populated on parent selection)
   const [filteredMajors, setFilteredMajors] = useState<SystemOption[]>([])
   const [filteredSubmajors, setFilteredSubmajors] = useState<SystemOption[]>([])
-  // all majors cache — built up as cascade calls are made, used for table display
-  const [allMajors, setAllMajors] = useState<SystemOption[]>([])
+  // กลุ่มงาน / หน่วยงานทั้งหมดที่ยังใช้งาน — ใช้แสดงชื่อในตาราง/Excel และเป็นตัวเลือกของตัวกรอง
+  // (API รายชื่อบุคลากรส่งมาแค่ id ชื่อต้องเปิดจากรายการนี้)
+  const [majors, setMajors] = useState<SystemOption[]>([])
+  const [submajors, setSubmajors] = useState<SystemOption[]>([])
 
   // ID → name lookup helpers
   const byId = (arr: SystemOption[], id?: number) => arr.find((o) => o.id === id)?.name ?? '-'
@@ -130,47 +137,72 @@ const PageContent = () => {
   const isNonWorkingStatus = (statusId?: number) =>
     statusId != null && userStatuses.find((s) => s.id === statusId)?.name !== WORKING_STATUS_NAME
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(async (): Promise<User[]> => {
     setLoading(true)
     try {
       const data = await apiFetch('/api/users')
       const list: User[] = Array.isArray(data) ? data : data.data ?? []
       setUsers(list)
-      // fetch majors for every unique mission found in the list for table display
-      const missionIds = [...new Set(list.map((u) => u.mission_id).filter(Boolean))] as number[]
-      if (missionIds.length) {
-        Promise.all(missionIds.map((mid) => apiFetch(`/api/system/missions/${mid}/majors`))).then((results) => {
-          const merged = results.flatMap((d) => extractList(d))
-          setAllMajors((prev) => {
-            const map = new Map(prev.map((o) => [o.id, o]))
-            merged.forEach((o) => map.set(o.id, o))
-            return [...map.values()]
-          })
-        })
-      }
+      return list
     } catch {
       message.error('โหลดข้อมูลผู้ใช้ไม่สำเร็จ')
+      return []
     } finally {
       setLoading(false)
     }
   }, [message])
 
+  const handleEdit = useCallback((record: User) => {
+    setEditing(record)
+    setFilteredMajors([])
+    setFilteredSubmajors([])
+    form.setFieldsValue({
+      ...record,
+      gender: record.gender === 'M' ? 'ชาย' : record.gender === 'F' ? 'หญิง' : record.gender,
+      birthday: record.birthday ? dayjs(record.birthday) : undefined,
+      hire_date: record.hire_date ? dayjs(record.hire_date) : undefined,
+      work_end_date: record.work_end_date ? dayjs(record.work_end_date) : undefined,
+    })
+    if (record.mission_id) {
+      apiFetch(`/api/system/missions/${record.mission_id}/majors`).then((d) => {
+        setFilteredMajors(extractList(d))
+      })
+    }
+    if (record.major_id) {
+      apiFetch(`/api/system/majors/${record.major_id}/submajors`).then((d) => {
+        setFilteredSubmajors(extractList(d))
+      })
+    }
+    setDrawerOpen(true)
+  }, [form])
+
   useEffect(() => {
-    loadUsers()
+    // ?edit=<id> (ลิงก์จาก HR Dashboard) → เปิดฟอร์มแก้ไขของคนนั้นทันทีที่โหลดรายชื่อเสร็จ
+    const editId = Number(new URLSearchParams(window.location.search).get('edit'))
+    loadUsers().then((list) => {
+      const target = editId ? list.find((u) => u.id === editId) : undefined
+      if (target) handleEdit(target)
+      // เอา ?edit ออก — รีเฟรชหน้าแล้วจะได้ไม่เด้งฟอร์มเดิมขึ้นมาอีก
+      if (editId) window.history.replaceState(null, '', window.location.pathname)
+    })
     Promise.all([
       apiFetch('/api/system/missions'),
       apiFetch('/api/system/positions'),
       apiFetch('/api/system/levels'),
       apiFetch('/api/system/user-types'),
       apiFetch('/api/system/user-statuses'),
-    ]).then(([m, p, l, ut, us]) => {
+      apiFetch('/api/system/majors'),
+      apiFetch('/api/system/submajors'),
+    ]).then(([m, p, l, ut, us, mj, sm]) => {
       setMissions(extractList(m))
+      setMajors(extractList(mj))
+      setSubmajors(extractList(sm))
       setPositions(extractList(p))
       setLevels(extractList(l))
       setUserTypes(extractList(ut))
       setUserStatuses(extractList(us))
     })
-  }, [loadUsers])
+  }, [loadUsers, handleEdit])
 
   // cascade: mission → majors
   const handleMissionChange = async (missionId: number) => {
@@ -194,30 +226,6 @@ const PageContent = () => {
     form.resetFields()
     setFilteredMajors([])
     setFilteredSubmajors([])
-    setDrawerOpen(true)
-  }
-
-  const handleEdit = (record: User) => {
-    setEditing(record)
-    setFilteredMajors([])
-    setFilteredSubmajors([])
-    form.setFieldsValue({
-      ...record,
-      gender: record.gender === 'M' ? 'ชาย' : record.gender === 'F' ? 'หญิง' : record.gender,
-      birthday: record.birthday ? dayjs(record.birthday) : undefined,
-      hire_date: record.hire_date ? dayjs(record.hire_date) : undefined,
-      work_end_date: record.work_end_date ? dayjs(record.work_end_date) : undefined,
-    })
-    if (record.mission_id) {
-      apiFetch(`/api/system/missions/${record.mission_id}/majors`).then((d) => {
-        setFilteredMajors(extractList(d))
-      })
-    }
-    if (record.major_id) {
-      apiFetch(`/api/system/majors/${record.major_id}/submajors`).then((d) => {
-        setFilteredSubmajors(extractList(d))
-      })
-    }
     setDrawerOpen(true)
   }
 
@@ -297,15 +305,59 @@ const PageContent = () => {
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [u.fname, u.lname, u.pname, u.username, u.id_card, u.position_name]
-      .some((v) => v?.toLowerCase().includes(q))
+    // ค้นด้วยชื่อด้าน / กลุ่มงาน / หน่วยงานได้ด้วย นอกจากเลือกจากตัวกรอง
+    const matchSearch = !q || [
+      u.fname, u.lname, u.pname, u.username, u.id_card, u.position_name,
+      nameIn(missions, u.mission_id), nameIn(majors, u.major_id), nameIn(submajors, u.submajor_id),
+    ].some((v) => v?.toLowerCase().includes(q))
     const matchMission = !filterMission || u.mission_id === filterMission
+    const matchMajor = !filterMajor || u.major_id === filterMajor
+    const matchSubmajor = !filterSubmajor || u.submajor_id === filterSubmajor
     const matchStatus = !filterStatus || u.user_status_id === filterStatus
     const matchActive = filterActive === null || (filterActive === 'active' ? isActive(u) : !isActive(u))
-    return matchSearch && matchMission && matchStatus && matchActive
+    return matchSearch && matchMission && matchMajor && matchSubmajor && matchStatus && matchActive
   })
 
-  const activeFilterCount = [filterMission, filterStatus, filterActive].filter(Boolean).length
+  const activeFilterCount = [filterMission, filterMajor, filterSubmajor, filterStatus, filterActive].filter(Boolean).length
+
+  // ── ตัวกรองกลุ่มงาน / หน่วยงาน ──────────────────────────────────────────
+  // ตัวเลือกแคบลงตามระดับที่เลือกไว้ด้านบน (ด้าน → กลุ่มงาน → หน่วยงาน) และบอกจำนวนคนในวงเล็บ
+  const missionOf = (majorId?: number | null) => Number(majors.find((m) => m.id === majorId)?.mission_id) || null
+  const majorOf = (submajorId?: number | null) => Number(submajors.find((s) => s.id === submajorId)?.major_id) || null
+  const countBy = (key: 'major_id' | 'submajor_id') => {
+    const n = new Map<number, number>()
+    users.forEach((u) => { const id = u[key]; if (id) n.set(id, (n.get(id) ?? 0) + 1) })
+    return n
+  }
+  const majorCount = countBy('major_id')
+  const submajorCount = countBy('submajor_id')
+
+  const majorOptions = majors
+    .filter((m) => !filterMission || Number(m.mission_id) === filterMission)
+    .map((m) => ({ label: `${m.name} (${majorCount.get(m.id) ?? 0})`, value: m.id }))
+  const submajorOptions = submajors
+    .filter((s) => filterMajor
+      ? Number(s.major_id) === filterMajor
+      : !filterMission || missionOf(Number(s.major_id)) === filterMission)
+    .map((s) => ({
+      // ชื่อหน่วยงานซ้ำกันได้ในต่างกลุ่มงาน — ยังไม่ได้เลือกกลุ่มงานให้บอกกลุ่มงานกำกับไว้
+      label: `${s.name}${filterMajor ? '' : ` · ${nameIn(majors, Number(s.major_id)) || '-'}`} (${submajorCount.get(s.id) ?? 0})`,
+      value: s.id,
+    }))
+
+  // เปลี่ยนระดับบน → ล้างระดับล่างที่ไม่ได้อยู่ใต้ตัวที่เลือกใหม่ ไม่งั้นได้ผลว่างโดยไม่รู้ตัว
+  const changeMission = (v?: number | null) => {
+    const mission = v ?? null
+    setFilterMission(mission)
+    if (!mission) return
+    if (filterMajor && missionOf(filterMajor) !== mission) setFilterMajor(null)
+    if (filterSubmajor && missionOf(majorOf(filterSubmajor)) !== mission) setFilterSubmajor(null)
+  }
+  const changeMajor = (v?: number | null) => {
+    const major = v ?? null
+    setFilterMajor(major)
+    if (major && filterSubmajor && majorOf(filterSubmajor) !== major) setFilterSubmajor(null)
+  }
 
   const handleExportExcel = () => {
     if (!filtered.length) { message.warning('ไม่มีข้อมูลสำหรับส่งออก'); return }
@@ -317,13 +369,14 @@ const PageContent = () => {
       'ชื่อผู้ใช้งาน': u.username,
       'เลขบัตรประชาชน': u.id_card ?? '',
       'เพศ': u.gender ?? '',
-      'ด้าน': u.mission_name ?? '',
-      'กลุ่มงาน': u.major_name ?? '',
-      'กลุ่มงานย่อย': u.submajor_name ?? '',
+      // API รายชื่อส่งมาแค่ id — เปิดชื่อจากรายการที่โหลดไว้ (เดิมอ่าน *_name ที่ไม่มีอยู่จริง คอลัมน์จึงว่าง)
+      'ด้าน': nameIn(missions, u.mission_id),
+      'กลุ่มงาน': nameIn(majors, u.major_id),
+      'หน่วยงาน': nameIn(submajors, u.submajor_id),
       'ตำแหน่ง': u.position_name ?? '',
-      'ระดับ': u.level_name ?? '',
-      'ประเภท': u.type_name ?? '',
-      'สถานะ': u.status_name ?? '',
+      'ระดับ': nameIn(levels, u.user_level_id),
+      'ประเภท': nameIn(userTypes, u.user_type_id),
+      'สถานะ': nameIn(userStatuses, u.user_status_id),
       'วันเกิด': u.birthday ? dayjs(u.birthday).format('DD/MM/YYYY') : '',
       'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format('DD/MM/YYYY') : '',
       'สถานะการใช้งาน': isActive(u) ? 'ใช้งาน' : 'ระงับ',
@@ -364,13 +417,14 @@ const PageContent = () => {
       render: (v: string) => <Text style={{ fontSize: 13, color: 'var(--app-text-2)' }}>{v}</Text>,
     },
     {
-      title: 'ด้าน / กลุ่มงาน',
+      title: 'ด้าน / กลุ่มงาน / หน่วยงาน',
       key: 'mission',
-      width: 220,
+      width: 240,
       render: (_: unknown, u: User) => (
         <div>
           <div className="text-[13px] text-app-text">{byId(missions, u.mission_id)}</div>
-          <div className="text-[11px] text-app-text-3 mt-0.5">{u.major_id ? byId(allMajors, u.major_id) : '-'}</div>
+          <div className="text-[11px] text-app-text-3 mt-0.5">{u.major_id ? byId(majors, u.major_id) : '-'}</div>
+          {u.submajor_id && <div className="text-[11px] text-app-text-3">{byId(submajors, u.submajor_id)}</div>}
         </div>
       ),
     },
@@ -492,11 +546,11 @@ const PageContent = () => {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <Input
-                  placeholder="ค้นหาชื่อ, username, เลขบัตร..."
+                  placeholder="ค้นหาชื่อ, username, เลขบัตร, กลุ่มงาน, หน่วยงาน..."
                   prefix={<SearchOutlined className="text-app-text-2" />}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  style={{ width: 280 }}
+                  style={{ width: 340 }}
                   allowClear
                 />
                 <Tooltip title="ส่งออก Excel">
@@ -517,7 +571,10 @@ const PageContent = () => {
                 </div>
                 {activeFilterCount > 0 && (
                   <Button type="link" size="small" danger style={{ padding: 0, height: 'auto' }}
-                    onClick={() => { setFilterMission(null); setFilterStatus(null); setFilterActive(null) }}>
+                    onClick={() => {
+                      setFilterMission(null); setFilterMajor(null); setFilterSubmajor(null)
+                      setFilterStatus(null); setFilterActive(null)
+                    }}>
                     ล้างตัวกรอง
                   </Button>
                 )}
@@ -525,8 +582,20 @@ const PageContent = () => {
               <Row gutter={[12, 12]}>
                 <Col xs={24} sm={12} md={8}>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>ด้าน/ภารกิจ</Text>
-                  <Select placeholder="ทั้งหมด" value={filterMission} onChange={setFilterMission} allowClear style={{ width: '100%' }}
+                  <Select placeholder="ทั้งหมด" value={filterMission} onChange={changeMission} allowClear style={{ width: '100%' }}
                     options={missions.map((m) => ({ label: m.name, value: m.id }))} />
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>กลุ่มงาน</Text>
+                  <Select placeholder="ทั้งหมด" value={filterMajor} onChange={changeMajor} allowClear style={{ width: '100%' }}
+                    showSearch={{ optionFilterProp: 'label' }} options={majorOptions}
+                    notFoundContent="ไม่มีกลุ่มงานในด้านที่เลือก" />
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>หน่วยงาน</Text>
+                  <Select placeholder="ทั้งหมด" value={filterSubmajor} onChange={(v) => setFilterSubmajor(v ?? null)} allowClear style={{ width: '100%' }}
+                    showSearch={{ optionFilterProp: 'label' }} options={submajorOptions}
+                    notFoundContent="ไม่มีหน่วยงานในกลุ่มงานที่เลือก" />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
                   <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>สถานะ</Text>
@@ -631,8 +700,8 @@ const PageContent = () => {
             <Form.Item name="major_id" label="กลุ่มงาน">
               <Select placeholder="เลือกกลุ่มงาน (กรุณาเลือกด้าน/ภารกิจก่อน)" options={toOpts(filteredMajors)} onChange={handleMajorChange} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} disabled={filteredMajors.length === 0} />
             </Form.Item>
-            <Form.Item name="submajor_id" label="กลุ่มงานย่อย">
-              <Select placeholder="เลือกกลุ่มงานย่อย (กรุณาเลือกกลุ่มงานก่อน)" options={toOpts(filteredSubmajors)} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} disabled={filteredSubmajors.length === 0} />
+            <Form.Item name="submajor_id" label="หน่วยงาน">
+              <Select placeholder="เลือกหน่วยงาน (กรุณาเลือกกลุ่มงานก่อน)" options={toOpts(filteredSubmajors)} allowClear showSearch filterOption={(input, opt) => String(opt?.label ?? '').includes(input)} disabled={filteredSubmajors.length === 0} />
             </Form.Item>
 
             <Row gutter={12}>
