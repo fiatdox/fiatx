@@ -23,6 +23,8 @@ import {
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
 import { canSeeMenu, normalizeRoles, isRouteEnabled } from '../lib/menuAccess'
+import { useServerMenuAccess } from '../lib/useMenuAccess'
+import { SkBlock } from '../components/Skeleton'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
 import 'dayjs/locale/th'
@@ -240,10 +242,10 @@ const PageContent = () => {
   const [currentTime, setCurrentTime] = useState(dayjs())
   const [user, setUser] = useState<Profile>({ name: '', position: '', department: '' })
 
-  // สิทธิ์สำหรับกรองเมนูลัด — role มาจาก cookie, สิทธิ์อนุมัติการลามาจากการแต่งตั้ง (ถาม backend)
-  // null = ยังไม่รู้ผล ซ่อนไทล์ไว้ก่อน กันเมนูกะพริบให้คนที่ไม่มีสิทธิ์เห็น
-  const [userRoles, setUserRoles] = useState<string[]>([])
-  const [isLeaveApprover, setIsLeaveApprover] = useState<boolean | null>(null)
+  // สิทธิ์สำหรับกรองเมนูลัด — role มาจาก cookie, สิทธิ์อนุมัติการลา/โมดูลที่ปิดไว้ถาม backend
+  // null = ยังไม่รู้ผล → ยังไม่แสดงไทล์ (แสดงโครงไว้แทน) กันเมนูที่ไม่มีสิทธิ์โผล่แวบหนึ่ง
+  const [userRoles, setUserRoles] = useState<string[] | null>(null)
+  const access = useServerMenuAccess()
 
   useEffect(() => {
     const raw = Cookies.get('user_data')
@@ -259,32 +261,21 @@ const PageContent = () => {
     setUserRoles(normalizeRoles(data.roles))
   }, [])
 
-  // โมดูลที่ผู้ดูแลระบบปิดการมองเห็นไว้ (route_prefix)
-  const [disabledModules, setDisabledModules] = useState<string[]>([])
-
-  useEffect(() => {
-    fetch('/api/v1/hr/leave-approver-check')
-      .then(r => r.json())
-      .then(j => setIsLeaveApprover(j?.success ? !!j.data?.is_approver : false))
-      .catch(() => setIsLeaveApprover(false))
-    fetch('/api/v1/modules/disabled')
-      .then(r => r.json())
-      .then(j => setDisabledModules(j?.success ? (j.data?.disabled ?? []) : []))
-      .catch(() => setDisabledModules([]))
-  }, [])
-
-  // กรองไทล์ตามสิทธิ์ แล้วตัดกลุ่มที่ไม่เหลือไทล์ทิ้ง
-  const visibleGroups = SHORTCUT_GROUPS
-    .map(g => ({
-      ...g,
-      items: g.items.filter(it => {
-        if (!isRouteEnabled(it.key, disabledModules)) return false
-        if (it.supervisor) return isLeaveApprover === true
-        if (it.roles) return it.roles.some(r => userRoles.includes(r))
-        return canSeeMenu(it.key, userRoles, isLeaveApprover, disabledModules)
-      }),
-    }))
-    .filter(g => g.items.length > 0)
+  // กรองไทล์ตามสิทธิ์ แล้วตัดกลุ่มที่ไม่เหลือไทล์ทิ้ง — null = ยังรู้สิทธิ์ไม่ครบ
+  // ต้องรอให้ครบทุกอย่างก่อนค่อยแสดงทีเดียว ไม่งั้นไทล์จะโผล่/หายทีละชุดตามคำตอบที่ทยอยมา
+  const visibleGroups = userRoles && access
+    ? SHORTCUT_GROUPS
+      .map(g => ({
+        ...g,
+        items: g.items.filter(it => {
+          if (!isRouteEnabled(it.key, access.disabledModules)) return false
+          if (it.supervisor) return access.isLeaveApprover
+          if (it.roles) return it.roles.some(r => userRoles.includes(r))
+          return canSeeMenu(it.key, userRoles, access.isLeaveApprover, access.disabledModules)
+        }),
+      }))
+      .filter(g => g.items.length > 0)
+    : null
 
   // ── ขอรหัสผู้ใช้งานระบบ (drawer) ──
   const [reqOpen, setReqOpen] = useState(false)
@@ -554,7 +545,23 @@ const PageContent = () => {
         )}
 
         {/* ── เมนูลัด (แสดงตามสิทธิ์) ── */}
-        {visibleGroups.map((g) => (
+        {!visibleGroups && (
+          <div style={{ marginBottom: 24 }} role="status" aria-busy="true">
+            <SkBlock w={140} h={13} style={{ marginBottom: 16 }} />
+            <Row gutter={[12, 12]}>
+              {Array.from({ length: 8 }, (_, i) => (
+                <Col xs={12} sm={8} md={6} lg={3} key={i}>
+                  <div className="sk-card" style={{ padding: '18px 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <SkBlock w={48} h={48} r={12} />
+                    <SkBlock w="70%" h={11} />
+                  </div>
+                </Col>
+              ))}
+            </Row>
+            <span className="sr-only">กำลังโหลดเมนู...</span>
+          </div>
+        )}
+        {visibleGroups?.map((g) => (
           <div key={g.key} style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>

@@ -27,6 +27,7 @@ import {
 } from 'react-icons/fa'
 import { canSeeMenu, normalizeRoles, underPrefix } from '../lib/menuAccess'
 import { HEADER_GRADIENT, STAR_PATTERN } from '../lib/brand'
+import { useServerMenuAccess } from '../lib/useMenuAccess'
 
 const { Header } = Layout
 const { Title, Text } = Typography
@@ -328,9 +329,11 @@ const Navbar: React.FC = () => {
   const [userData, setUserData] = useState<UserData>({})
   const { mode, toggle } = useThemeMode()
 
-  // สิทธิ์อนุมัติการลา — ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย จึงต้องถาม backend
-  // null = ยังไม่รู้ผล (ซ่อนเมนูไว้ก่อน กันเมนูกะพริบให้คนที่ไม่มีสิทธิ์เห็น)
-  const [isLeaveApprover, setIsLeaveApprover] = useState<boolean | null>(null)
+  // สิทธิ์อนุมัติการลา + โมดูลที่ผู้ดูแลระบบปิดไว้ — ต้องถาม backend
+  // ถามใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อให้เมนูอัปเดตทันทีหลังผู้ดูแลระบบสลับสวิตช์
+  // (ฝั่ง server แคชไว้ 30 วินาที จึงไม่ได้ยิง DB จริงทุกครั้ง)
+  // null = ยังไม่รู้ผล → ยังไม่แสดงเมนูใด ๆ นอกจากหน้าหลัก กันเมนูที่ไม่มีสิทธิ์โผล่แวบหนึ่ง
+  const access = useServerMenuAccess(pathname)
 
   // สถานะอายุรหัสผ่าน — null = ปิดนโยบาย/ยังไม่รู้ผล
   type PwdStatus = {
@@ -346,28 +349,12 @@ const Navbar: React.FC = () => {
   const [unameStatus, setUnameStatus] = useState<UnameStatus | null>(null)
   const [unameBannerClosed, setUnameBannerClosed] = useState(false)
 
-  // โมดูลที่ผู้ดูแลระบบปิดการมองเห็นไว้ (route_prefix)
-  const [disabledModules, setDisabledModules] = useState<string[]>([])
-
   useEffect(() => {
     const raw = Cookies.get('user_data')
     if (raw) {
       try { setUserData(JSON.parse(raw)) } catch { /* ignore */ }
     }
-    fetch('/api/v1/hr/leave-approver-check')
-      .then(r => r.json())
-      .then(j => setIsLeaveApprover(j?.success ? !!j.data?.is_approver : false))
-      .catch(() => setIsLeaveApprover(false))
   }, [])
-
-  // ถามใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อให้เมนูอัปเดตทันทีหลังผู้ดูแลระบบสลับสวิตช์
-  // (ฝั่ง server แคชไว้ 30 วินาที จึงไม่ได้ยิง DB จริงทุกครั้ง)
-  useEffect(() => {
-    fetch('/api/v1/modules/disabled')
-      .then(r => r.json())
-      .then(j => setDisabledModules(j?.success ? (j.data?.disabled ?? []) : []))
-      .catch(() => setDisabledModules([]))
-  }, [pathname])
 
   // นโยบายอายุรหัสผ่าน — แจ้งเตือนอย่างเดียว ใช้งานระบบได้ตามปกติ
   // คำนวณจากวันที่เปลี่ยนรหัสล่าสุด (ถามใหม่ทุกครั้งที่เปลี่ยนหน้า เพื่อให้หายทันทีหลังเปลี่ยนรหัส)
@@ -401,7 +388,8 @@ const Navbar: React.FC = () => {
       if (item.children) {
         const kids = filterMenuByRole(item.children)
         if (kids.length > 0) acc.push({ ...item, children: kids })
-      } else if (canSeeMenu(toRoute(item.key), userRoles, isLeaveApprover, disabledModules)) {
+      } else if (item.key === '/home'
+        || (access && canSeeMenu(toRoute(item.key), userRoles, access.isLeaveApprover, access.disabledModules))) {
         acc.push(item)
       }
       return acc
