@@ -143,7 +143,9 @@ const MEASURE_SLACK = 0.98
 const availW = (widthPct: number) => (colW(widthPct) - 2 * CELL_PAD_X) * MEASURE_SLACK
 
 /** ตัดข้อความเป็นบรรทัดให้พอดีความกว้าง (pt) — คำที่ยาวเกินบรรทัดเดียวถูกหั่นทีละตัวอักษร */
-const wrap = (text: string, avail: number, size: number, bold: boolean): string[] => {
+const wrap = (raw: string, avail: number, size: number, bold: boolean): string[] => {
+  // ห้ามมี \r \n หลุดไปถึง pdfkit — มันจะวาดบรรทัดเพิ่มทับแถวถัดไป ทั้งที่ความสูงแถวคิดไว้แล้ว
+  const text = raw.replace(/\s+/g, ' ').trim()
   if (!text) return ['']
   const lines: string[] = []
   let cur = ''

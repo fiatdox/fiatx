@@ -1,4 +1,4 @@
-// รายงานครุภัณฑ์แยกตามหน่วยงาน (ทะเบียน V2) — ส่วนที่ไม่ผูกกับ React
+// รายงานครุภัณฑ์แยกตามหน่วยงาน (ทะเบียน V3 / V2) — ส่วนที่ไม่ผูกกับ React
 // แยกไว้ให้ทดสอบกับข้อมูลจริงได้โดยไม่ต้องเปิดหน้าเว็บ
 import * as XLSX from 'xlsx'
 import { money, thaiDate } from '../depreciation/calc'
@@ -8,14 +8,19 @@ import type { AssetByDeptGroup, AssetByDeptItem } from './pdfReport'
 export const ALL = '__all__'
 export const NO_DEPT = 'ไม่ระบุหน่วยงาน'
 export const NO_CAT = 'ไม่ระบุหมวด'
+export const NO_METHOD = 'ไม่ระบุวิธีการได้มา'
 
-/** แถวดิบจาก API — เก็บเป็นรหัส ชื่อต้องเปิดจากตารางคำอธิบาย */
+/**
+ * แถวดิบจาก API — เก็บเป็นรหัส ชื่อต้องเปิดจากตารางคำอธิบาย
+ * ใช้ชื่อฟิลด์ของทะเบียน V2 ทะเบียน V3 ตั้งชื่อแทนให้ตรงกันที่ backend
+ * (divs ← depcode, typeid ← groupclassid, subtypeid ← hsrotypeid)
+ */
 export interface RawAsset {
   noid: string
   noid_old: string | null
   numbers: number | null
   assetcatid: number | null
-  typeid: number | null
+  typeid: number | string | null
   subtypeid: string | null
   code_bps: string | null
   names: string | null
@@ -91,7 +96,9 @@ export interface DeptRow {
   total: number
 }
 
-const str = (v: unknown) => (v == null ? '' : String(v).trim())
+// ข้อความในทะเบียนบางช่องมี \r\n ติดมา (ชื่อชนิดใน hsrodescription ของ V3 กว่า 500 รายการ)
+// ยุบช่องว่างทุกแบบเหลือเว้นวรรคเดียว ไม่งั้นช่องใน Excel/PDF จะขึ้นบรรทัดใหม่เอง
+const str = (v: unknown) => (v == null ? '' : String(v).replace(/\s+/g, ' ').trim())
 
 // เปิดรหัสเป็นชื่อด้วยตารางคำอธิบาย — คีย์ของตารางเป็นสตริงเสมอ จึงแปลงรหัสเป็นสตริงก่อนเปิด
 export const resolve = (r: RawAsset, L: Lookups): Omit<Asset, 'seq'> => {
@@ -102,13 +109,13 @@ export const resolve = (r: RawAsset, L: Lookups): Omit<Asset, 'seq'> => {
     noidOld: str(r.noid_old),
     numbers: r.numbers,
     catId: str(r.assetcatid),
-    category: L.category[str(r.assetcatid)] ?? NO_CAT,
+    category: str(L.category[str(r.assetcatid)]) || NO_CAT,
     typeId: str(r.typeid),
-    typeName: L.type[str(r.typeid)] ?? '',
+    typeName: str(L.type[str(r.typeid)]),
     subtypeId: str(r.subtypeid),
-    subtypeName: L.subtype[str(r.subtypeid)] ?? '',
+    subtypeName: str(L.subtype[str(r.subtypeid)]),
     codeBps: str(r.code_bps),
-    kindName: L.kind[str(r.code_bps)] ?? '',
+    kindName: str(L.kind[str(r.code_bps)]),
     names: str(r.names),
     models: str(r.models),
     receive: r.receive,
@@ -116,25 +123,26 @@ export const resolve = (r: RawAsset, L: Lookups): Omit<Asset, 'seq'> => {
     locates: str(r.locates),
     divs,
     // รหัสที่ไม่มีในตารางหน่วยงาน ยังต้องแยกกลุ่มให้เห็น ไม่รวมเข้า "ไม่ระบุ"
-    department: L.department[divs] ?? (divs ? `หน่วยงานรหัส ${divs}` : NO_DEPT),
+    department: str(L.department[divs]) || (divs ? `หน่วยงานรหัส ${divs}` : NO_DEPT),
     docno: str(r.docno),
     supplierName: str(sup?.name),
     supplierAddress: str(sup?.address),
     supplierPhone: str(sup?.phone),
-    moneyType: L.moneyType[str(r.kmoney)] ?? '',
-    acquireMethod: L.acquireMethod[str(r.tmoney)] ?? '',
+    moneyType: str(L.moneyType[str(r.kmoney)]),
+    acquireMethod: str(L.acquireMethod[str(r.tmoney)]),
     price: Number(r.perunits) || 0,
     lifeYears: r.expired ?? null,
     rate: r.deprec ?? null,
     gf: str(r.gf),
     notes: str(r.notes),
-    status: L.status[str(r.iscode)] ?? str(r.iscode),
+    status: str(L.status[str(r.iscode)]) || str(r.iscode),
   }
 }
 
-export interface AssetFilter { fy: string; cat: string; dept: string; search: string }
+/** method = ชื่อวิธีการได้มา ('' = ไม่ระบุ) — กรองด้วยชื่อที่ผู้ใช้เห็น รหัสคนละทะเบียนไม่ต้องรู้ */
+export interface AssetFilter { fy: string; cat: string; dept: string; method: string; search: string }
 
-/** กรองตามปีงบ/หมวด/หน่วยงาน/คำค้น แล้วใส่ลำดับต่อเนื่องให้ตามผลที่กรองได้ */
+/** กรองตามปีงบ/หมวด/หน่วยงาน/วิธีการได้มา/คำค้น แล้วใส่ลำดับต่อเนื่องให้ตามผลที่กรองได้ */
 export const filterAssets = (assets: Omit<Asset, 'seq'>[], f: AssetFilter): Asset[] => {
   const q = f.search.trim().toLowerCase()
   return assets
@@ -142,6 +150,7 @@ export const filterAssets = (assets: Omit<Asset, 'seq'>[], f: AssetFilter): Asse
       (f.fy === ALL || a.fy === f.fy)
       && (f.cat === ALL || a.catId === f.cat)
       && (f.dept === ALL || a.divs === f.dept)
+      && (f.method === ALL || a.acquireMethod === f.method)
       && (!q || [a.noid, a.noidOld, a.names, a.models, a.locates, a.docno, a.supplierName]
         .some(s => s.toLowerCase().includes(q))))
     .map((a, i) => ({ ...a, seq: i + 1 }))
@@ -199,11 +208,13 @@ const DETAIL_WIDTHS = [7, 12, 30, 20, 18, 9, 22, 10, 26, 13, 26, 15, 30, 32, 24,
 const PRICE_COL = DETAIL_HEADER.indexOf('ราคาต่อหน่วย (บาท)')
 
 /** สมุดงาน 2 ชีต: สรุปตามหน่วยงาน + รายการครุภัณฑ์ (ตามตัวกรองที่ส่งเข้ามา) */
-export const buildWorkbook = (assets: Asset[], deptRows: DeptRow[], subtitle: string): XLSX.WorkBook => {
+export const buildWorkbook = (
+  assets: Asset[], deptRows: DeptRow[], subtitle: string, source: string,
+): XLSX.WorkBook => {
   const total = assets.reduce((s, a) => s + a.price, 0)
 
   const summary = buildSheet(
-    'สรุปครุภัณฑ์แยกตามหน่วยงาน (ทะเบียนครุภัณฑ์ V2)', subtitle,
+    `สรุปครุภัณฑ์แยกตามหน่วยงาน (${source})`, subtitle,
     ['ลำดับ', 'รหัสหน่วยงาน', 'หน่วยงาน', 'จำนวน (รายการ)', 'มูลค่ารวม (บาท)'],
     deptRows.map(r => [r.seq, r.divs, r.department, r.count, r.total]),
     [7, 14, 40, 16, 20], [4],
@@ -217,7 +228,7 @@ export const buildWorkbook = (assets: Asset[], deptRows: DeptRow[], subtitle: st
   footer[PRICE_COL] = total
 
   const detail = buildSheet(
-    'รายการครุภัณฑ์แยกตามหน่วยงาน (ทะเบียนครุภัณฑ์ V2)', subtitle,
+    `รายการครุภัณฑ์แยกตามหน่วยงาน (${source})`, subtitle,
     DETAIL_HEADER,
     assets.map(a => [
       a.seq, a.divs, a.department, a.noid, a.noidOld, a.numbers,
