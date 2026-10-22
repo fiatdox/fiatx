@@ -26,6 +26,7 @@ import {
   FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
 } from 'react-icons/fa'
 import { canSeeMenu, normalizeRoles, underPrefix } from '../lib/menuAccess'
+import { HEADER_GRADIENT, STAR_PATTERN } from '../lib/brand'
 
 const { Header } = Layout
 const { Title, Text } = Typography
@@ -421,12 +422,7 @@ const Navbar: React.FC = () => {
       ?.scrollIntoView({ block: 'center' })
   }
 
-  // Theme — เข้ากับหน้า Login (emerald/teal บนพื้น slate-950)
-  // ลายดาวพื้นหลัง (โปร่งใสมากขึ้นเพื่อให้เข้ากับธีมมืด)
-  const starPattern = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cg fill='white' fill-opacity='0.05'%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(20,40) rotate(15) scale(1.2)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(120,30) rotate(-25) scale(0.8)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(180,90) rotate(45) scale(1.5)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(40,160) rotate(-10) scale(0.6)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(130,180) rotate(60) scale(1.1)'/%3E%3Cpath d='M10 0L13 7h7l-5 5 2 8-7-5-7 5 2-8-5-5h7z' transform='translate(210,190) rotate(-40) scale(0.9)'/%3E%3C/g%3E%3C/svg%3E")`
-
-  // Gradient หลัก (slate-950 → emerald-950 → teal-600) — สอดคล้องกับ blob ที่หน้า Login
-  const headerGradient = 'linear-gradient(90deg, #020617 0%, #0f172a 30%, #064e3b 75%, #0d9488 110%)'
+  // Theme — เข้ากับหน้า Login (emerald/teal บนพื้น slate-950) ลายดาว/gradient ของแถบหัวอยู่ที่ lib/brand.ts
   const drawerGradient = 'linear-gradient(180deg, #020617 0%, #0b1220 25%, #052e2b 70%, #0d9488 100%)'
 
   return (
@@ -437,7 +433,7 @@ const Navbar: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '0 24px',
-          background: `${starPattern}, ${headerGradient}`,
+          background: `${STAR_PATTERN}, ${HEADER_GRADIENT}`,
           backgroundBlendMode: 'overlay, normal',
           height: 64,
           position: 'sticky',
@@ -566,7 +562,7 @@ const Navbar: React.FC = () => {
             styles={{
               body: { padding: '16px 0' },
               header: { borderBottom: '1px solid rgba(16, 185, 129, 0.2)', background: 'transparent' },
-              section: { background: `${starPattern}, ${drawerGradient}`, backgroundBlendMode: 'overlay, normal' }
+              section: { background: `${STAR_PATTERN}, ${drawerGradient}`, backgroundBlendMode: 'overlay, normal' }
             }}
         >
           <div ref={menuWrapRef}>
@@ -620,7 +616,7 @@ const Navbar: React.FC = () => {
           open={openProfile}
           styles={{
             header: { borderBottom: '1px solid rgba(16, 185, 129, 0.2)', background: 'transparent' },
-            section: { background: `${starPattern}, ${drawerGradient}`, backgroundBlendMode: 'overlay, normal' },
+            section: { background: `${STAR_PATTERN}, ${drawerGradient}`, backgroundBlendMode: 'overlay, normal' },
             body: { padding: '24px 16px' }
           }}
         >

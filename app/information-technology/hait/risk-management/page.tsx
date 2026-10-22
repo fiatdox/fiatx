@@ -15,11 +15,11 @@ import {
   Row,
   Col,
   Button,
-  Spin,
   Empty,
 } from 'antd'
 import { FaShieldAlt, FaExclamationTriangle, FaCheckCircle, FaPrint, FaPlus, FaChartBar } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { ChartsSkeleton, TableSkeleton } from '@/app/components/Skeleton'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import { StatCard, gBtn } from '@/app/components/StatCard'
 import EChart from '@/app/components/EChart'
@@ -635,8 +635,9 @@ const PageContent = () => {
         <Divider style={{ borderColor: 'var(--app-border-strong)', margin: '16px 0' }} />
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 80 }}>
-            <Spin size="large" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <ChartsSkeleton />
+            <TableSkeleton rows={5} />
           </div>
         ) : items.length === 0 ? (
           <Empty description={<span style={{ color: 'var(--app-text-2)' }}>ไม่พบข้อมูล</span>} />

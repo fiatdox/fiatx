@@ -15,6 +15,7 @@ import { FaMoneyBillWave, FaFileInvoiceDollar, FaWallet, FaRegMoneyBillAlt, FaHi
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
+import { ListSkeleton } from '@/app/components/Skeleton'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { SalarySlipData } from '@/app/components/SalarySlipPDF'
 
@@ -412,7 +413,7 @@ const PageContent = () => {
         {!hasSalaryId ? (
           <Card style={{ borderRadius: 12, border: '1px dashed var(--app-border-strong)' }}>
             {salaryId === undefined ? (
-              <div className="py-16 flex justify-center"><Spin size="large" /></div>
+              <ListSkeleton rows={2} />
             ) : (
               <div className="py-12 flex flex-col items-center gap-3 text-center">
                 <LockOutlined style={{ fontSize: 44, color: '#d97706' }} />

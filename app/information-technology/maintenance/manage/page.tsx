@@ -15,6 +15,7 @@ import {
   ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
+import { ContentSkeleton } from '@/app/components/Skeleton'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
 
@@ -1469,13 +1470,13 @@ const PageContent = () => {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   // ไม่มีสิทธิ์เข้าหน้านี้ — แสดงหน้าปฏิเสธการเข้าถึง
-  // render แรก (ก่อน mount) ต้องตรงกับฝั่ง server — แสดง loader กลางจอ กัน hydration mismatch
+  // render แรก (ก่อน mount) ต้องตรงกับฝั่ง server — แสดงโครงหน้า (skeleton) ไปก่อน กัน hydration mismatch
   if (!mounted) {
     return (
       <div className="min-h-screen bg-app-bg text-app-text">
         <Navbar />
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 120 }}>
-          <Spin size="large" />
+        <div className="px-4 md:px-8 py-6">
+          <ContentSkeleton />
         </div>
       </div>
     )

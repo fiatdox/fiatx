@@ -21,6 +21,9 @@
   --app-border: rgba(255, 255, 255, 0.06);
   /* เส้นขอบเข้มขึ้นเล็กน้อย */
   --app-border-strong: rgba(255, 255, 255, 0.12);
+  /* skeleton ระหว่างโหลด: สีพื้น / แสงที่วิ่งผ่าน */
+  --sk-base: rgba(148, 163, 184, 0.10);
+  --sk-shine: rgba(148, 163, 184, 0.22);
 
   /* legacy vars (เดิม) */
   --background: #0f172a;
@@ -42,6 +45,8 @@
   --app-text-3: #94a3b8;
   --app-border: rgba(15, 23, 42, 0.08);
   --app-border-strong: rgba(15, 23, 42, 0.14);
+  --sk-base: rgba(15, 23, 42, 0.06);
+  --sk-shine: rgba(15, 23, 42, 0.13);
 
   --background: #f1f5f9;
   --foreground: #1e293b;
@@ -131,4 +136,28 @@ body {
 /* ใบลาที่รอผู้ใช้คนนี้กด — ขีดสีส้มด้านซ้ายให้หาเจอในตารางยาว ๆ */
 .leave-row-mine > td:first-child {
   box-shadow: inset 3px 0 0 0 #f59e0b;
+}
+
+/* ─── Skeleton ระหว่างโหลด (app/components/Skeleton.tsx) ─────────────────
+   CSS ล้วน ใช้ได้ทั้งใน loading.tsx (Server Component) และในหน้า
+   สีมาจาก --sk-* ที่ตั้งไว้ต่อธีมด้านบน สลับ light/dark ตามหน้าได้เอง      */
+.sk {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--sk-base) 25%, var(--sk-shine) 37%, var(--sk-base) 63%);
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.4s ease infinite;
+}
+.sk-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: 14px;
+}
+@keyframes sk-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+/* ผู้ใช้ที่ปิดภาพเคลื่อนไหวในระบบปฏิบัติการ — แสดงเป็นแถบนิ่ง */
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
 }

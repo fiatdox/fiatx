@@ -2,12 +2,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Switch,
-  Alert, Empty, Row, Col, Space, Input, Spin,
+  Alert, Empty, Row, Col, Space, Input,
 } from 'antd'
 import { HomeOutlined, ReloadOutlined, SaveOutlined, SearchOutlined } from '@ant-design/icons'
 import { FaToggleOn } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
+import { ListSkeleton } from '@/app/components/Skeleton'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
@@ -221,7 +222,7 @@ const PageContent = () => {
           }
         >
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 48 }}><Spin /></div>
+            <ListSkeleton rows={6} />
           ) : groups.length === 0 ? (
             <Empty description="ไม่พบระบบที่ค้นหา" />
           ) : (

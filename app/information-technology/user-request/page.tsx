@@ -15,6 +15,7 @@ import {
 } from '@ant-design/icons'
 import { FaUserShield, FaHospital, FaBoxes, FaBed, FaBuilding, FaMoneyBillWave, FaWifi } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
+import { DashboardSkeleton } from '@/app/components/Skeleton'
 import EChart from '@/app/components/EChart'
 import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import { StatCard, gBtn, type Accent } from '@/app/components/StatCard'
@@ -636,7 +637,7 @@ const PageContent = () => {
 
   const DashboardPanel = () => {
     if (!dashboard) {
-      return <div className="flex justify-center items-center" style={{ height: 320 }}><Spin size="large" /></div>
+      return <DashboardSkeleton />
     }
     return (
       <div>

@@ -14,6 +14,7 @@ import { FaUserShield } from 'react-icons/fa'
 import Cookies from 'js-cookie'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
+import PageSkeleton from '@/app/components/Skeleton'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 // สิทธิ์ที่เข้าถึงหน้าจัดการสิทธิ์ได้ — admin หรือ CHIEF_GROUP_IT เท่านั้น
@@ -264,11 +265,7 @@ const PageContent = () => {
 
   // ยังตรวจสิทธิ์ไม่เสร็จ
   if (allowed === null) {
-    return (
-      <div className="min-h-dvh bg-app-bg text-app-text flex items-center justify-center" style={{ minHeight: '100dvh' }}>
-        <Spin size="large" />
-      </div>
-    )
+    return <PageSkeleton />
   }
 
   // ไม่มีสิทธิ์เข้าถึง

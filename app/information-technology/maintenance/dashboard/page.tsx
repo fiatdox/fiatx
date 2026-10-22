@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Card, Typography, ConfigProvider, Breadcrumb, Row, Col, theme, App,
-  Tag, Progress, Space, Empty, Spin
+  Tag, Progress, Space, Empty
 } from 'antd'
 import {
   HomeOutlined, ToolOutlined, ClockCircleOutlined, CheckCircleOutlined,
@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fa'
 import Link from 'next/link'
 import Navbar from '../../../components/Navbar'
+import { DashboardSkeleton } from '../../../components/Skeleton'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import { StatCard, type Accent } from '@/app/components/StatCard'
 import EChart from '../../../components/EChart'
@@ -309,7 +310,7 @@ const PageContent = () => {
         </Card>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+          <DashboardSkeleton />
         ) : !totals ? empty : (
           <>
             {/* KPI cards */}
