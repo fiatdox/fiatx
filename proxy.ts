@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { IT_STAFF_ROLES, underPrefix } from '@/app/lib/menuAccess'
+import { IT_STAFF_ROLES, SALARY_ID_ROLES, underPrefix } from '@/app/lib/menuAccess'
 
 // Smart Hospital และแผนโครงการ IT — เมนูซ่อนไว้ใน menuAccess.ts แล้ว ที่นี่กั้นทั้งสาขา
 const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts', '/information-technology/his-users-session']
@@ -80,6 +80,17 @@ export function proxy(req: NextRequest) {
     const allowed = ['CHIEF_GROUP_IT', 'IT_STAFF', 'CHIEF_MISSION_IT', 'ADMIN']
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => allowed.includes(r))) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
+  }
+
+  // จัดการเลขที่เงินเดือนบุคลากร — เฉพาะ IT_STAFF / ADMIN
+  if (underPrefix(pathname, '/accounting/salary-ids')) {
+    const roles = getRoles(req).map(r => r.toUpperCase())
+    if (!roles.some(r => SALARY_ID_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()
       homeUrl.pathname = '/home'
       homeUrl.search = ''

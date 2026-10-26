@@ -22,7 +22,7 @@ import {
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
-import { canSeeMenu, normalizeRoles, isRouteEnabled } from '../lib/menuAccess'
+import { canSeeMenu, normalizeRoles, isRouteEnabled, SALARY_ID_ROLES } from '../lib/menuAccess'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 import { SkBlock } from '../components/Skeleton'
 import dayjs from 'dayjs'
@@ -132,7 +132,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร', color: '#0891b2', roles: ['ADMIN', 'HR', 'IT_STAFF'] },
       { key: '/hr/leave/policy', icon: <FaClipboardList />, label: 'กำหนดสิทธิ์การลา', color: '#f59e0b' },
       { key: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', color: '#14b8a6' },
-      { key: '/accounting/salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร', color: '#22c55e' },
+      { key: '/accounting/salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร', color: '#22c55e', roles: SALARY_ID_ROLES },
       { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'ภาพรวม HAIT', color: '#6366f1' },
       { key: '/account/user-credentials', icon: <FaLock />, label: 'จัดการบัญชีผู้ใช้บุคลากร', color: '#64748b', roles: ['ADMIN', 'IT_STAFF'] },
       { key: '/account/roles', icon: <FaUsersCog />, label: 'จัดการสิทธิ์การใช้งาน', color: '#a855f7', roles: ADMIN_ROLES },

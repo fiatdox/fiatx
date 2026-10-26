@@ -15,10 +15,10 @@ import Cookies from 'js-cookie'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
 import { useThemeMode } from '@/app/components/ThemeProvider'
+import { SALARY_ID_ROLES as ALLOWED_ROLES } from '@/app/lib/menuAccess'
 
 const { Title, Text } = Typography
 
-const ALLOWED_ROLES = ['ADMIN', 'FINANCE', 'IT_STAFF']
 
 type SalaryLinkBrief = { salary_id: number; is_current: boolean; source: string; note: string | null }
 type Row = {

@@ -25,7 +25,7 @@ import {
   FaWarehouse, FaExchangeAlt, FaQrcode,
   FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
 } from 'react-icons/fa'
-import { canSeeMenu, normalizeRoles, underPrefix } from '../lib/menuAccess'
+import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES } from '../lib/menuAccess'
 import { HEADER_GRADIENT, STAR_PATTERN } from '../lib/brand'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 
@@ -264,7 +264,6 @@ const MENU_TREE: NavItem[] = [
     children: [
       { key: '/accounting/schedule',           icon: <FaCalendarAlt />, label: 'ตารางเวรการปฏิบัติงาน' },
       { key: '/accounting/salary',           icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
-      { key: '/accounting/salary-ids',       icon: <FaIdCard />,            label: 'เลขที่เงินเดือนบุคลากร' },
       { key: '/accounting/credentials',      icon: <FaLock />,              label: 'ขอสิทธิ์การใช้งานระบบบัญชี' },
       { key: '/accounting/repair-payment',   icon: <FaFileAlt />,           label: 'เบิกจ่ายค่าซ่อมบำรุง' },
       { key: '/accounting/accounts-payable', icon: <FaFileInvoiceDollar />, label: 'เจ้าหนี้การค้า / KPI จ่าย' },
@@ -659,6 +658,9 @@ const Navbar: React.FC = () => {
               } else if (key === 'user-credentials') {
                 setOpenProfile(false)
                 router.push('/account/user-credentials')
+              } else if (key === 'salary-ids') {
+                setOpenProfile(false)
+                router.push('/accounting/salary-ids')
               } else if (key === 'logout') {
                 Cookies.remove('auth_token')
                 Cookies.remove('user_data')
@@ -691,6 +693,10 @@ const Navbar: React.FC = () => {
               // จัดการ username/รหัสผ่าน/เลขบัตรของบุคลากร (ตรงกับ CREDENTIAL_ROLES ฝั่ง backend)
               ...(userRoles.some(r => ['ADMIN', 'IT_STAFF'].includes(r))
                 ? [{ key: 'user-credentials', icon: <FaUserLock />, label: 'จัดการบัญชีเข้าใช้งาน' }]
+                : []),
+              // ผูกเลขที่เงินเดือนให้บุคลากร (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
+              ...(userRoles.some(r => SALARY_ID_ROLES.includes(r))
+                ? [{ key: 'salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร' }]
                 : []),
               { key: 'logout', icon: <LogoutOutlined />, label: 'ออกจากระบบ', danger: true },
             ]}

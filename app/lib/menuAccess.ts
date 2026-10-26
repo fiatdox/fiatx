@@ -5,11 +5,15 @@
 // กลุ่มสิทธิ์งาน IT ภายใน — ตรงกับ gate ของหน้าจัดการงานซ่อม
 export const IT_STAFF_ROLES = ['ADMIN', 'CHIEF_GROUP_IT', 'CHIEF_MISSION_IT', 'IT_STAFF']
 
+// จัดการเลขที่เงินเดือนบุคลากร — เฉพาะเจ้าหน้าที่ IT และผู้ดูแลระบบ (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
+export const SALARY_ID_ROLES = ['ADMIN', 'IT_STAFF']
+
 // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
 // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
 export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   // เลขที่เงินเดือนบุคลากร — แก้ salary_id ของคนทั้งองค์กร (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
-  '/accounting/salary-ids': ['ADMIN', 'FINANCE', 'IT_STAFF'],
+  // เครื่องมือผู้ดูแล: เมนูอยู่ใน sidebar ขวา (Navbar) และ proxy.ts กั้น URL ตรง
+  '/accounting/salary-ids': SALARY_ID_ROLES,
   // กำหนดสิทธิ์การลา — แก้กฎการลาทั้งองค์กร (เฉพาะ ADMIN/HR — ตรงกับ requireRoles ฝั่ง backend)
   '/hr/leave/policy': ['ADMIN', 'HR'],
   // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
