@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { IT_STAFF_ROLES, underPrefix } from '@/app/lib/menuAccess'
 
 // Smart Hospital และแผนโครงการ IT — เมนูซ่อนไว้ใน menuAccess.ts แล้ว ที่นี่กั้นทั้งสาขา
-const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts']
+const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts', '/information-technology/his-users-session']
 
 // ถอดรหัส cookie ที่ js-cookie เขียนไว้ (percent-encoded) — เผื่อกรณีไม่ได้ encode ด้วย
 function safeDecode(v: string): string {
