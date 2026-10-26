@@ -14,6 +14,7 @@ import { FaCalendarAlt, FaChartPie, FaFileExcel, FaTable } from 'react-icons/fa'
 import Cookies from 'js-cookie'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
+import 'dayjs/locale/th'
 import thTH from 'antd/locale/th_TH'
 import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
@@ -29,6 +30,9 @@ const { Title, Text } = Typography
 
 // ปฏิทินและช่องกรอกวันที่แสดงเป็น พ.ศ. — ต้องมีปลั๊กอิน buddhistEra ไว้ใช้โทเคน BBBB
 dayjs.extend(buddhistEra)
+// ชื่อเดือนต้องจัดรูปด้วย locale ไทยตรง ๆ — locale ตั้งต้นของ dayjs ฝั่ง server เป็นอังกฤษ
+// (dayjs.locale('th') ถูกตั้งแค่ในหน้า home) ถ้าพึ่ง locale ตั้งต้น server ได้ "September" แต่ browser ได้ "กันยายน" → hydration error
+const th = (d: dayjs.Dayjs) => d.locale('th')
 const TH_DATE = 'DD/MM/BBBB'
 const TH_MONTH = 'MMMM BBBB'
 const TH_MONTH_SHORT = 'MMM BBBB'
@@ -123,7 +127,7 @@ const PageContent = ({ apiPath, titleSuffix, sourceLabel, exclusionNote }: Depre
       return {
         from: from.format('YYYY-MM-DD'),
         to: to.format('YYYY-MM-DD'),
-        label: `เดือน${month.format(TH_MONTH)}`,
+        label: `เดือน${th(month).format(TH_MONTH)}`,
       }
     }
     if (mode === 'ytd') {
@@ -423,7 +427,7 @@ const PageContent = ({ apiPath, titleSuffix, sourceLabel, exclusionNote }: Depre
       const to = monthEnd.isAfter(last) ? last : monthEnd
       const r = summarizePeriod(assetsView, from.format('YYYY-MM-DD'), to.format('YYYY-MM-DD'), basis, residual)
       out.push({
-        month: cursor.format(TH_MONTH_SHORT),
+        month: th(cursor).format(TH_MONTH_SHORT),
         from: from.format('YYYY-MM-DD'),
         to: to.format('YYYY-MM-DD'),
         count: r.activeCount,
@@ -506,7 +510,7 @@ const PageContent = ({ apiPath, titleSuffix, sourceLabel, exclusionNote }: Depre
       const from = first.format('YYYY-MM-DD')
       const to = first.endOf('month').format('YYYY-MM-DD')
       out.push({
-        label: first.format('MMM BB'),
+        label: th(first).format('MMM BB'),
         value: summarizePeriod(assetsView, from, to, basis, residual).total.expense,
         // ไฮไลต์เดือนที่อยู่ในงวดที่ผู้ใช้เลือก ให้เห็นว่ารายงานกำลังตัดช่วงไหน
         inPeriod: to >= period.from && from <= period.to,
