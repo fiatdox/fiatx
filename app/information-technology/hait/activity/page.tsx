@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
   Select, Breadcrumb, Tooltip, Row, Col, DatePicker,
@@ -84,7 +84,8 @@ function ActivityPageContent() {
   // ----- Master + logs state -----
   const [master, setMaster] = useState<MasterData | null>(null)
   const [logs, setLogs] = useState<ActivityLog[]>([])
-  const [loading, setLoading] = useState(false)
+  // เริ่มเป็น true — โหลดปีงบแรกทันทีที่เปิดหน้า (การเปลี่ยนปีงบตั้งค่านี้ใน changeDashboardYear)
+  const [loading, setLoading] = useState(true)
 
   // ----- UI state -----
   const [searchText, setSearchText] = useState('')
@@ -98,60 +99,79 @@ function ActivityPageContent() {
   const [submitting, setSubmitting] = useState(false)
   // กันปัญหา hydration mismatch — state ที่อิงเวลาปัจจุบัน (scheduleDate, dashboardYear)
   // จะถูกเรนเดอร์เฉพาะฝั่ง client หลัง mount เท่านั้น
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  // ฝั่ง server ได้ false ฝั่ง client ได้ true (ไม่ต้อง setState ใน effect)
+  const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
   const [form] = Form.useForm()
 
   // ----- API helpers -----
-  const loadMaster = useCallback(async () => {
-    try {
-      const res = await fetch('/api/v1/it/activity/master')
-      const json = await res.json()
-      if (json?.success) setMaster(json.data)
-      else messageApi.error(json?.error?.message || 'โหลดข้อมูลตั้งต้นไม่สำเร็จ')
-    } catch {
-      messageApi.error('โหลดข้อมูลตั้งต้นไม่สำเร็จ')
-    }
-  }, [messageApi])
+  // ดึงทั้งปีงบเพื่อใช้สรุป Dashboard/กราฟรายเดือน (ไม่ใช่แค่หน้าแรก) — backend cap อยู่ที่ 20000
+  // ฟังก์ชันนี้ไม่แตะ state ผู้เรียก setState เองใน .then (effect ห้าม setState ทันที: ทำให้ render ซ้อน)
+  const fetchLogs = useCallback((fyBE: number): Promise<ActivityLog[] | null> =>
+    fetch(`/api/v1/it/activity/logs?fiscal_year=${fyBE}&limit=20000`)
+      .then(r => r.json())
+      .then(json => {
+        if (json?.success) return (json.data || []) as ActivityLog[]
+        messageApi.error(json?.error?.message || 'โหลดรายการกิจกรรมไม่สำเร็จ')
+        return null
+      })
+      .catch(() => { messageApi.error('โหลดรายการกิจกรรมไม่สำเร็จ'); return null }), [messageApi])
 
-  const loadLogs = useCallback(async (fyBE: number) => {
-    setLoading(true)
-    try {
-      // ดึงทั้งปีงบเพื่อใช้สรุป Dashboard/กราฟรายเดือน (ไม่ใช่แค่หน้าแรก) — backend cap อยู่ที่ 20000
-      const res = await fetch(`/api/v1/it/activity/logs?fiscal_year=${fyBE}&limit=20000`)
-      const json = await res.json()
-      if (json?.success) setLogs(json.data || [])
-      else messageApi.error(json?.error?.message || 'โหลดรายการกิจกรรมไม่สำเร็จ')
-    } catch {
-      messageApi.error('โหลดรายการกิจกรรมไม่สำเร็จ')
-    } finally {
+  // โหลดใหม่หลังบันทึก/ลบ (เรียกจาก event handler)
+  const loadLogs = async (fyBE: number) => {
+    const list = await fetchLogs(fyBE)
+    if (list) setLogs(list)
+  }
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/v1/it/activity/master')
+      .then(r => r.json())
+      .then(json => {
+        if (!alive) return
+        if (json?.success) setMaster(json.data)
+        else messageApi.error(json?.error?.message || 'โหลดข้อมูลตั้งต้นไม่สำเร็จ')
+      })
+      .catch(() => { if (alive) messageApi.error('โหลดข้อมูลตั้งต้นไม่สำเร็จ') })
+    return () => { alive = false }
+  }, [messageApi])
+  useEffect(() => {
+    let alive = true
+    fetchLogs(dashboardYear).then(list => {
+      if (!alive) return
+      if (list) setLogs(list)
       setLoading(false)
-    }
-  }, [messageApi])
-
-  useEffect(() => { loadMaster() }, [loadMaster])
-  useEffect(() => { loadLogs(dashboardYear) }, [dashboardYear, loadLogs])
+    })
+    return () => { alive = false }
+  }, [dashboardYear, fetchLogs])
+  const changeDashboardYear = (fy: number) => {
+    if (fy === dashboardYear) return
+    setLoading(true)
+    setDashboardYear(fy)
+  }
 
   // ตารางงานรายวันเลือกวันที่ย้อนหลังได้อิสระ แต่ logs ที่โหลดไว้เป็นของปีงบ
   // ที่เลือกบน Dashboard เท่านั้น เลือกวันในปีงบอื่นจึงเคยขึ้นว่าง
   // ต้องดึงปีงบของวันนั้นมาเพิ่ม และเก็บแคชไว้ต่อปีงบเพื่อไม่ดึงซ้ำ
   const scheduleFy = useMemo(() => getFiscalYearBE(scheduleDate), [scheduleDate])
   const [logsByFy, setLogsByFy] = useState<Record<number, ActivityLog[]>>({})
-  const [scheduleLoading, setScheduleLoading] = useState(false)
+  // ปีงบที่ยังไม่มีในแคช = กำลังโหลด (โหลดไม่สำเร็จจะเก็บเป็น [] จะได้ไม่ค้างสถานะโหลด)
+  const scheduleLoading = scheduleFy !== dashboardYear && !logsByFy[scheduleFy]
 
   useEffect(() => {
     if (scheduleFy === dashboardYear || logsByFy[scheduleFy]) return
     let cancelled = false
-    setScheduleLoading(true)
     fetch(`/api/v1/it/activity/logs?fiscal_year=${scheduleFy}&limit=20000`)
       .then(r => r.json())
       .then(json => {
         if (cancelled) return
-        if (json?.success) setLogsByFy(prev => ({ ...prev, [scheduleFy]: json.data || [] }))
-        else messageApi.error(json?.error?.message || `โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`)
+        setLogsByFy(prev => ({ ...prev, [scheduleFy]: json?.success ? json.data || [] : [] }))
+        if (!json?.success) messageApi.error(json?.error?.message || `โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`)
       })
-      .catch(() => { if (!cancelled) messageApi.error(`โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`) })
-      .finally(() => { if (!cancelled) setScheduleLoading(false) })
+      .catch(() => {
+        if (cancelled) return
+        setLogsByFy(prev => ({ ...prev, [scheduleFy]: [] }))
+        messageApi.error(`โหลดกิจกรรมปีงบ ${scheduleFy} ไม่สำเร็จ`)
+      })
     return () => { cancelled = true }
   }, [scheduleFy, dashboardYear, logsByFy, messageApi])
 
@@ -662,7 +682,7 @@ function ActivityPageContent() {
                 children: (
                   <DashboardTab
                     logs={logs} master={master} fy={dashboardYear} fyOptions={fyOptions}
-                    onFyChange={setDashboardYear} loading={loading} isDark={isDark} onOpenLog={openEditDrawer}
+                    onFyChange={changeDashboardYear} loading={loading} isDark={isDark} onOpenLog={openEditDrawer}
                   />
                 ),
               },
