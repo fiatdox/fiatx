@@ -5,8 +5,8 @@
 // กลุ่มสิทธิ์งาน IT ภายใน — ตรงกับ gate ของหน้าจัดการงานซ่อม
 export const IT_STAFF_ROLES = ['ADMIN', 'CHIEF_GROUP_IT', 'CHIEF_MISSION_IT', 'IT_STAFF']
 
-// จัดการเลขที่เงินเดือนบุคลากร — เฉพาะเจ้าหน้าที่ IT และผู้ดูแลระบบ (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
-export const SALARY_ID_ROLES = ['ADMIN', 'IT_STAFF']
+// จัดการเลขที่เงินเดือนบุคลากร + ทะเบียนเงินเดือน — ผู้ดูแลระบบ เจ้าหน้าที่ IT และการเงิน/บัญชี (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
+export const SALARY_ID_ROLES = ['ADMIN', 'IT_STAFF', 'ACCOUNT', 'FINANCE']
 
 // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
 // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว

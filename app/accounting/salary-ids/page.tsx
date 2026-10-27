@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import {
   ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Table,
   Input, Select, Space, Empty, Alert, Statistic, Row, Col, Progress, Result,
-  Drawer, Divider, Tooltip,
+  Drawer, Divider, Tooltip, Tabs, Checkbox,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
@@ -11,6 +11,8 @@ import {
   PlusOutlined, StarFilled, StarOutlined, SettingOutlined,
 } from '@ant-design/icons'
 import { FaIdCard } from 'react-icons/fa'
+import RegisterTab from '@/app/accounting/salary-register/RegisterTab'
+import { MatchBadge, LookupCard, fetchLookup, type Lookup, type NameMatch } from '@/app/accounting/salary-register/shared'
 import Cookies from 'js-cookie'
 import Swal from 'sweetalert2'
 import Navbar from '@/app/components/Navbar'
@@ -20,7 +22,7 @@ import { SALARY_ID_ROLES as ALLOWED_ROLES } from '@/app/lib/menuAccess'
 const { Title, Text } = Typography
 
 
-type SalaryLinkBrief = { salary_id: number; is_current: boolean; source: string; note: string | null }
+type SalaryLinkBrief = { salary_id: number; is_current: boolean; source: string; note: string | null; payroll_name?: string | null; name_match?: NameMatch }
 type Row = {
   id: number
   username: string
@@ -33,7 +35,7 @@ type Row = {
 type Stats = { total: number; filled: number; missing: number; total_links: number; multi_id_users: number }
 type Major = { major_id: number; name: string; staff_count: number }
 type Period = { from: string | null; to: string | null; count: number }
-type Linked = { id: number; salary_id: number; is_current: boolean; source: string; note: string | null; period: Period | null }
+type Linked = { id: number; salary_id: number; is_current: boolean; source: string; note: string | null; period: Period | null; payroll_name?: string | null; name_match?: NameMatch }
 type Suggestion = {
   salary_id: number; fname: string; lname: string
   match: 'id_card' | 'name'; confidence: 'high' | 'medium'
@@ -71,6 +73,12 @@ const PageContent = () => {
   const [detailLoading, setDetailLoading] = useState(false)
   const [manualId, setManualId] = useState('')
   const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState<'people' | 'register'>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'register' ? 'register' : 'people')
+  // ตรวจเลขก่อนผูกเอง: ดูชื่อในทะเบียนเงินเดือนเทียบกับผู้ใช้
+  const [manualLookup, setManualLookup] = useState<Lookup | null>(null)
+  const [manualChecking, setManualChecking] = useState(false)
+  const [manualConfirmed, setManualConfirmed] = useState(false)
 
   const load = async (opts?: { search?: string; status?: string; majorId?: number; page?: number; pageSize?: number }) => {
     const s = opts?.search ?? search
@@ -97,7 +105,7 @@ const PageContent = () => {
 
   useEffect(() => {
     Promise.all([
-      load(),
+      Promise.resolve().then(() => load()),
       fetch('/api/v1/accounting/salary-ids/meta').then(r => r.json())
         .then(j => { if (j?.success) setMajors(j.data.majors ?? []) }).catch(() => {}),
     ])
@@ -131,6 +139,14 @@ const PageContent = () => {
     await load()
   }
 
+  const checkManual = async () => {
+    if (!manualId || openId == null) return
+    setManualChecking(true); setManualLookup(null); setManualConfirmed(false)
+    const res = await fetchLookup(manualId, openId)
+    setManualChecking(false)
+    if (res.ok) setManualLookup(res.data); else message.error(res.message)
+  }
+
   const addLink = async (salaryId: number, source: string, note?: string) => {
     if (openId == null) return
     setBusy(true)
@@ -143,7 +159,7 @@ const PageContent = () => {
       const j = await res.json()
       if (!res.ok || !j.success) { message.error(j.message || 'ผูกเลขไม่สำเร็จ'); return }
       message.success(`ผูกเลขที่เงินเดือน ${salaryId} แล้ว`)
-      setManualId('')
+      setManualId(''); setManualLookup(null); setManualConfirmed(false)
       await refreshDetail()
     } catch (e) { message.error((e as Error).message) } finally { setBusy(false) }
   }
@@ -212,16 +228,18 @@ const PageContent = () => {
       ),
     },
     {
-      title: 'เลขที่เงินเดือน', dataIndex: 'salary_ids', width: 260,
+      title: 'เลขที่เงินเดือน / ชื่อในทะเบียน', dataIndex: 'salary_ids', width: 380,
       render: (list: SalaryLinkBrief[]) =>
         list.length === 0
           ? <Tag color="warning">ยังไม่ผูก</Tag>
           : (
             <Space size={4} wrap>
               {list.map(s => (
-                <Tag key={s.salary_id} color={s.is_current ? 'success' : 'default'} style={{ fontFamily: 'monospace' }}>
+                <Tag key={s.salary_id} color={s.is_current ? 'success' : 'default'} style={{ margin: 0 }}>
                   {s.is_current && <StarFilled style={{ fontSize: 10, marginRight: 4 }} />}
-                  {s.salary_id}
+                  <span style={{ fontFamily: 'monospace' }}>{s.salary_id}</span>
+                  {s.payroll_name && <span style={{ marginLeft: 6 }}>{s.payroll_name}</span>}
+                  <span style={{ marginLeft: 6 }}><MatchBadge match={s.name_match ?? 'unknown'} payName={s.payroll_name} /></span>
                 </Tag>
               ))}
               {list.length > 1 && <Tag color="blue">{list.length} เลข</Tag>}
@@ -256,6 +274,11 @@ const PageContent = () => {
           ผูกเลขที่เงินเดือนเพื่อให้บุคลากรดูสลิปได้ — 1 คนผูกได้หลายเลข กรณีเปลี่ยนเลขตอนบรรจุ ระบบจะรวมสลิปทุกช่วงให้ต่อเนื่อง
         </Text>
 
+        <Tabs
+          className="mt-4" activeKey={tab} onChange={(k) => setTab(k as 'people' | 'register')}
+          items={[
+            { key: 'people', label: 'บุคลากรในระบบ (ผูกเลข)', children: (
+              <>
         <Row gutter={[12, 12]} className="mt-6 mb-4">
           <Col xs={12} md={6}>
             <Card size="small" style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
@@ -323,6 +346,11 @@ const PageContent = () => {
             locale={{ emptyText: <Empty description="ไม่พบบุคลากรตามเงื่อนไขที่เลือก" /> }}
           />
         </Card>
+              </>
+            ) },
+            { key: 'register', label: 'ทะเบียนเงินเดือน (salarydb)', children: <RegisterTab /> },
+          ]}
+        />
       </div>
 
       <Drawer
@@ -349,6 +377,11 @@ const PageContent = () => {
                       {l.source === 'auto_pid' && <Tag color="blue">ค้นจากเลขบัตร</Tag>}
                       {l.source === 'migrated' && <Tag>ข้อมูลเดิม</Tag>}
                     </Space>
+                    <div>
+                      <Text style={{ fontSize: 13 }}>ชื่อในทะเบียน: {l.payroll_name ?? "ไม่พบเลขนี้ในทะเบียนปัจจุบัน"}</Text>{' '}
+                      <MatchBadge match={l.name_match ?? 'unknown'} payName={l.payroll_name} />
+                      {l.name_match === 'mismatch' && <Tag color="error" style={{ marginLeft: 6 }}>ชื่อไม่ตรง — ตรวจสอบ</Tag>}
+                    </div>
                     <div><Text type="secondary" style={{ fontSize: 12 }}>{fmtPeriod(l.period)}</Text></div>
                     {l.note && <div><Text type="secondary" style={{ fontSize: 11 }}>{l.note}</Text></div>}
                   </div>
@@ -405,14 +438,24 @@ const PageContent = () => {
                 placeholder="กรอกเลขที่เงินเดือน"
                 value={manualId}
                 inputMode="numeric"
-                onChange={(e) => setManualId(e.target.value.replace(/\D/g, ''))}
-                onPressEnter={() => manualId && addLink(Number(manualId), 'manual')}
+                onChange={(e) => { setManualId(e.target.value.replace(/\D/g, '')); setManualLookup(null); setManualConfirmed(false) }}
+                onPressEnter={checkManual}
               />
-              <Button type="primary" loading={busy} disabled={!manualId}
-                onClick={() => addLink(Number(manualId), 'manual')}>ผูก</Button>
+              <Button loading={manualChecking} disabled={!manualId} onClick={checkManual}>ตรวจสอบ</Button>
             </Space.Compact>
+            {manualLookup && <LookupCard lk={manualLookup} userName={detail.user.name} />}
+            {manualLookup && manualLookup.name_match === 'mismatch' && !manualLookup.taken_by && (
+              <Checkbox className="mt-3" checked={manualConfirmed} onChange={(e) => setManualConfirmed(e.target.checked)}>
+                ตรวจสอบแล้ว ยืนยันว่าเป็นบุคคลเดียวกัน (เช่น เปลี่ยนชื่อ-สกุล)
+              </Checkbox>
+            )}
+            <Button
+              type="primary" className="mt-3" block loading={busy} icon={<PlusOutlined />}
+              disabled={!manualLookup || !!manualLookup.taken_by || (manualLookup.name_match === 'mismatch' && !manualConfirmed)}
+              onClick={() => addLink(Number(manualId), 'manual', manualLookup?.name_match === 'mismatch' ? 'ชื่อไม่ตรงทะเบียน ยืนยันโดยเจ้าหน้าที่' : undefined)}
+            >ผูกเลข {manualId}</Button>
             <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 6 }}>
-              ใช้เมื่อระเบียนเงินเดือนเก่าไม่มีเลขบัตรและชื่อสะกดไม่ตรง จึงค้นอัตโนมัติไม่เจอ
+              ใช้เมื่อระเบียนเงินเดือนเก่าไม่มีเลขบัตรและชื่อสะกดไม่ตรง จึงค้นอัตโนมัติไม่เจอ — ต้องกด &quot;ตรวจสอบ&quot; ดูชื่อในทะเบียนก่อนผูกทุกครั้ง
             </Text>
           </>
         )}

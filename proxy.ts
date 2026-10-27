@@ -88,7 +88,7 @@ export function proxy(req: NextRequest) {
   }
 
   // จัดการเลขที่เงินเดือนบุคลากร — เฉพาะ IT_STAFF / ADMIN
-  if (underPrefix(pathname, '/accounting/salary-ids')) {
+  if (underPrefix(pathname, '/accounting/salary-ids') || underPrefix(pathname, '/accounting/salary-register')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => SALARY_ID_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()
