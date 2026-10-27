@@ -67,6 +67,12 @@ interface RepairRequest {
   header_approve_by_name?: string | null
   header_approve_date?: string | null
   header_comment?: string | null
+  it_head_name?: string | null
+  it_head_position?: string | null
+  it_head_level?: string | null
+  mission_head_name?: string | null
+  mission_head_position?: string | null
+  mission_head_level?: string | null
   mission_approve?: number | null
   mission_approve_by_name?: string | null
   mission_approve_date?: string | null
@@ -255,12 +261,16 @@ const PageContent = () => {
     prDate:               undefined,
     replacementNote:      undefined,
     // อนุมัติหัวหน้า IT (ระดับ 1)
-    itHeadName:           r.header_approve_by_name ?? undefined,
+    itHeadName:           r.it_head_name ?? r.header_approve_by_name ?? undefined,
+    itHeadPosition:       r.it_head_position ?? undefined,
+    itHeadLevel:          r.it_head_level ?? undefined,
     itHeadDate:           fmtThaiDate(r.header_approve_date),
     itHeadComment:        r.header_comment ?? undefined,
     itHeadDecision:       r.header_approve === 1 ? 'approved' : r.header_approve === 2 ? 'rejected' : undefined,
     // อนุมัติหัวหน้าภารกิจ (ระดับ 2)
-    missionHeadName:      r.mission_approve_by_name ?? undefined,
+    missionHeadName:      r.mission_head_name ?? r.mission_approve_by_name ?? undefined,
+    missionHeadPosition:  r.mission_head_position ?? undefined,
+    missionHeadLevel:     r.mission_head_level ?? undefined,
     missionHeadDate:      fmtThaiDate(r.mission_approve_date),
     missionHeadComment:   r.mission_comment ?? undefined,
     missionHeadDecision:  r.mission_approve === 1 ? 'approved' : r.mission_approve === 2 ? 'rejected' : undefined,
