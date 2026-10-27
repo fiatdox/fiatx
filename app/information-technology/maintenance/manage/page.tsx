@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import { useState, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Cookies from 'js-cookie'
@@ -2761,7 +2762,7 @@ const PageContent = () => {
                     {approvalImages.map(img => (
                       <AntImage
                         key={img.it_repair_request_image_id}
-                        src={`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`}
+                        src={withBase(`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`)}
                         width={96}
                         height={96}
                         style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid #334155' }}
@@ -3235,7 +3236,7 @@ const PageContent = () => {
                         {detailImages.map(img => (
                           <AntImage
                             key={img.it_repair_request_image_id}
-                            src={`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`}
+                            src={withBase(`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`)}
                             width={96}
                             height={96}
                             style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid #334155' }}

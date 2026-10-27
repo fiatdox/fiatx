@@ -1,13 +1,14 @@
 'use client'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
+import { withBase } from '@/app/lib/basePath'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 // ใช้ไฟล์ในเครื่อง (public/fonts) ไม่ดึงจากอินเทอร์เน็ต เพราะเครื่องในโรงพยาบาลบางจุดออกเน็ตไม่ได้
 Font.register({
   family: 'Sarabun',
   fonts: [
-    { src: '/fonts/Sarabun/Sarabun-Regular.ttf', fontWeight: 'normal' },
-    { src: '/fonts/Sarabun/Sarabun-Bold.ttf', fontWeight: 'bold' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Regular.ttf'), fontWeight: 'normal' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Bold.ttf'), fontWeight: 'bold' },
   ],
 })
 Font.registerHyphenationCallback(word => [word])

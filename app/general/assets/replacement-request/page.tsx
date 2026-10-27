@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import React, { useState, useEffect, Suspense } from 'react'
 import {
   ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
@@ -236,7 +237,7 @@ function ReplacementRequestPageInner() {
     { title: '', key: 'act', width: 200,
       render: (_: any, r: ReplacementRequest) => {
         const handleReturnLink = () => {
-          window.location.href = `/general/assets/return?rrId=${r.id}&woId=${r.woId}&assetNo=${r.assetNo}`
+          window.location.href = withBase(`/general/assets/return?rrId=${r.id}&woId=${r.woId}&assetNo=${r.assetNo}`)
         }
         return (
           <Space orientation="vertical" size={4} style={{ width: '100%' }}>

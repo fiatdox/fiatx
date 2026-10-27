@@ -1,27 +1,28 @@
 'use client'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
+import { withBase } from '@/app/lib/basePath'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 Font.register({
   family: 'Sarabun',
   fonts: [
-    { src: '/fonts/Sarabun/Sarabun-Thin.ttf',              fontWeight: 100 },
-    { src: '/fonts/Sarabun/Sarabun-ThinItalic.ttf',        fontWeight: 100, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-ExtraLight.ttf',        fontWeight: 200 },
-    { src: '/fonts/Sarabun/Sarabun-ExtraLightItalic.ttf',  fontWeight: 200, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-Light.ttf',             fontWeight: 300 },
-    { src: '/fonts/Sarabun/Sarabun-LightItalic.ttf',       fontWeight: 300, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-Regular.ttf',           fontWeight: 400 },
-    { src: '/fonts/Sarabun/Sarabun-Italic.ttf',            fontWeight: 400, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-Medium.ttf',            fontWeight: 500 },
-    { src: '/fonts/Sarabun/Sarabun-MediumItalic.ttf',      fontWeight: 500, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-SemiBold.ttf',          fontWeight: 600 },
-    { src: '/fonts/Sarabun/Sarabun-SemiBoldItalic.ttf',    fontWeight: 600, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-Bold.ttf',              fontWeight: 700 },
-    { src: '/fonts/Sarabun/Sarabun-BoldItalic.ttf',        fontWeight: 700, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-ExtraBold.ttf',         fontWeight: 800 },
-    { src: '/fonts/Sarabun/Sarabun-ExtraBoldItalic.ttf',   fontWeight: 800, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Thin.ttf'),              fontWeight: 100 },
+    { src: withBase('/fonts/Sarabun/Sarabun-ThinItalic.ttf'),        fontWeight: 100, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-ExtraLight.ttf'),        fontWeight: 200 },
+    { src: withBase('/fonts/Sarabun/Sarabun-ExtraLightItalic.ttf'),  fontWeight: 200, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Light.ttf'),             fontWeight: 300 },
+    { src: withBase('/fonts/Sarabun/Sarabun-LightItalic.ttf'),       fontWeight: 300, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Regular.ttf'),           fontWeight: 400 },
+    { src: withBase('/fonts/Sarabun/Sarabun-Italic.ttf'),            fontWeight: 400, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Medium.ttf'),            fontWeight: 500 },
+    { src: withBase('/fonts/Sarabun/Sarabun-MediumItalic.ttf'),      fontWeight: 500, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-SemiBold.ttf'),          fontWeight: 600 },
+    { src: withBase('/fonts/Sarabun/Sarabun-SemiBoldItalic.ttf'),    fontWeight: 600, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Bold.ttf'),              fontWeight: 700 },
+    { src: withBase('/fonts/Sarabun/Sarabun-BoldItalic.ttf'),        fontWeight: 700, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-ExtraBold.ttf'),         fontWeight: 800 },
+    { src: withBase('/fonts/Sarabun/Sarabun-ExtraBoldItalic.ttf'),   fontWeight: 800, fontStyle: 'italic' },
   ],
 })
 // ตัดบรรทัดไทยที่ "จุดปลอดภัย" (หน้าพยางค์ใหม่) ผ่าน hyphenation callback — ไม่มีช่องว่าง ไม่มียัติภังค์

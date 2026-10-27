@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, Button, Drawer, Form, Input,
@@ -238,7 +239,7 @@ const PageContent = () => {
                 <Text strong><PaperClipOutlined /> ไฟล์แนบ</Text>
                 <div className="mt-2 flex flex-col gap-1">
                   {(selected.files ?? []).map(f => (
-                    <a key={f.id} href={`/api/v1/medical-stat/${selected.id}/files/${f.id}`}>
+                    <a key={f.id} href={withBase(`/api/v1/medical-stat/${selected.id}/files/${f.id}`)}>
                       <Tag color={f.kind === 'result' ? 'green' : 'blue'} icon={<DownloadOutlined />}>{f.kind === 'result' ? '[ผลลัพธ์] ' : ''}{f.original_name}</Tag>
                     </a>
                   ))}

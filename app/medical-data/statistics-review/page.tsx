@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, Button, Drawer, Form, Input,
@@ -161,7 +162,7 @@ const PageContent = () => {
                 <Text strong><PaperClipOutlined /> ไฟล์ตัวอย่างจากผู้ขอ (ตรวจ PDPA)</Text>
                 <div className="mt-2 flex flex-col gap-1">
                   {(selected.files ?? []).filter(f => f.kind === 'sample').map(f => (
-                    <a key={f.id} href={`/api/v1/medical-stat/${selected.id}/files/${f.id}`}><Tag color="blue" icon={<DownloadOutlined />}>{f.original_name}</Tag></a>
+                    <a key={f.id} href={withBase(`/api/v1/medical-stat/${selected.id}/files/${f.id}`)}><Tag color="blue" icon={<DownloadOutlined />}>{f.original_name}</Tag></a>
                   ))}
                 </div>
               </div>

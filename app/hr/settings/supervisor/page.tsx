@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   Button, Card, Tag, Avatar, Drawer, Input, Breadcrumb,
@@ -650,7 +651,7 @@ const PageContent = () => {
             </Col>
             <Col xs={24} md={8}>
               <div className="flex gap-3 md:justify-end">
-                <Button icon={<TeamOutlined />} onClick={() => window.location.href = '/hr/users'} size="large"
+                <Button icon={<TeamOutlined />} onClick={() => window.location.href = withBase('/hr/users')} size="large"
                   style={{ backgroundColor: '#fff', color: '#006a5a', border: 'none', fontWeight: 600 }}>
                   ทะเบียนบุคลากร
                 </Button>

@@ -1,17 +1,18 @@
 'use client'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
+import { withBase } from '@/app/lib/basePath'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 // ใช้ฟอนต์ local เหมือน RepairSlipPDF — ไม่พึ่งอินเทอร์เน็ต เปิดเร็วและเสถียรกว่า
 Font.register({
   family: 'Sarabun',
   fonts: [
-    { src: '/fonts/Sarabun/Sarabun-Regular.ttf',    fontWeight: 400 },
-    { src: '/fonts/Sarabun/Sarabun-Italic.ttf',     fontWeight: 400, fontStyle: 'italic' },
-    { src: '/fonts/Sarabun/Sarabun-Medium.ttf',     fontWeight: 500 },
-    { src: '/fonts/Sarabun/Sarabun-SemiBold.ttf',   fontWeight: 600 },
-    { src: '/fonts/Sarabun/Sarabun-Bold.ttf',       fontWeight: 700 },
-    { src: '/fonts/Sarabun/Sarabun-BoldItalic.ttf', fontWeight: 700, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Regular.ttf'),    fontWeight: 400 },
+    { src: withBase('/fonts/Sarabun/Sarabun-Italic.ttf'),     fontWeight: 400, fontStyle: 'italic' },
+    { src: withBase('/fonts/Sarabun/Sarabun-Medium.ttf'),     fontWeight: 500 },
+    { src: withBase('/fonts/Sarabun/Sarabun-SemiBold.ttf'),   fontWeight: 600 },
+    { src: withBase('/fonts/Sarabun/Sarabun-Bold.ttf'),       fontWeight: 700 },
+    { src: withBase('/fonts/Sarabun/Sarabun-BoldItalic.ttf'), fontWeight: 700, fontStyle: 'italic' },
   ],
 })
 Font.registerHyphenationCallback(word => [word])

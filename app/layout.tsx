@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
 import "./globals.css";
 import { ThemeModeProvider } from "./components/ThemeProvider";
+import BasePathShim from "./components/BasePathShim";
 
 const sarabun = Sarabun({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800"],
@@ -39,6 +40,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className={`${sarabun.variable} antialiased min-h-screen`}>
+        <BasePathShim />
         <ThemeModeProvider>{children}</ThemeModeProvider>
       </body>
     </html>

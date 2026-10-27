@@ -1,4 +1,5 @@
 'use client'
+import { withBase } from '@/app/lib/basePath'
 import React, { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import {
@@ -1062,7 +1063,7 @@ const PageContent = () => {
                       {detailImages.map(img => (
                         <AntImage
                           key={img.it_repair_request_image_id}
-                          src={`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`}
+                          src={withBase(`/api/v1/it/repair-request-images/${img.it_repair_request_image_id}/file`)}
                           width={80}
                           height={80}
                           style={{ objectFit: 'cover', borderRadius: 6, border: '1px solid var(--app-border)' }}
