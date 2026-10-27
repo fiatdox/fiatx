@@ -617,7 +617,8 @@ export default function IncidentReportsPage() {
     const body = {
       incident_date:       toDatetime(values.incidentDate) || dayjs().format('YYYY-MM-DD HH:mm:ss'),
       detected_date:       toDatetime(values.detectedDate) || dayjs().format('YYYY-MM-DD HH:mm:ss'),
-      report_date:         dayjs().format('YYYY-MM-DD'),
+      // แก้ไข: คงวันที่รายงานเดิมไว้ ไม่เขียนทับด้วยวันนี้
+      report_date:         editingIncident?.reportDate?.substring(0, 10) || dayjs().format('YYYY-MM-DD'),
       reported_by:         values.reportedBy,
       department:          values.department,
       threat_type_id:      values.threatTypeId,
@@ -994,7 +995,17 @@ export default function IncidentReportsPage() {
           <Form.Item label="การแก้ไขปัญหา"                               name="resolution"><TextArea rows={2} placeholder="วิธีแก้ไขปัญหาและขั้นตอนที่ดำเนินการ" /></Form.Item>
           <Form.Item label="มาตรการระยะยาว / ป้องกันการเกิดซ้ำ"         name="longTermMeasures"><TextArea rows={2} placeholder="มาตรการเพื่อป้องกันไม่ให้เกิดเหตุการณ์ซ้ำ" /></Form.Item>
           <Row gutter={16}>
-            <Col span={12}><Form.Item label="วันที่แก้ไขสำเร็จ"  name="resolvedDate"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item></Col>
+            <Col span={12}><Form.Item label="วันที่แก้ไขสำเร็จ" name="resolvedDate" dependencies={['status', 'incidentDate']} rules={[
+              ({ getFieldValue }) => ({
+                validator: (_: unknown, value: dayjs.Dayjs | null) => {
+                  const st = getFieldValue('status')
+                  if (!value) return (st === 'resolved' || st === 'closed') ? Promise.reject(new Error('ต้องระบุวันที่แก้ไขสำเร็จเมื่อสถานะเป็นแก้ไขแล้ว/ปิดเรื่อง')) : Promise.resolve()
+                  const inc = getFieldValue('incidentDate') as dayjs.Dayjs | null
+                  if (inc && value.isBefore(inc, 'day')) return Promise.reject(new Error('วันที่แก้ไขสำเร็จต้องไม่ก่อนวันที่เกิดเหตุ'))
+                  return Promise.resolve()
+                },
+              }),
+            ]}><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item></Col>
             <Col span={12}><Form.Item label="ผู้รับผิดชอบแก้ไข"  name="resolvedBy"><Input placeholder="ชื่อ-นามสกุล" /></Form.Item></Col>
           </Row>
 
@@ -1005,7 +1016,12 @@ export default function IncidentReportsPage() {
           </Row>
           <Row gutter={16}>
             <Col span={12}><Form.Item label="แจ้ง สกมช แล้ว"    name="ncsaReported"><Radio.Group><Radio value="Y">แจ้งแล้ว</Radio><Radio value="N">ยังไม่ได้แจ้ง</Radio></Radio.Group></Form.Item></Col>
-            <Col span={12}><Form.Item label="วันที่แจ้ง สกมช"   name="ncsaReportDate"><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item></Col>
+            <Col span={12}><Form.Item label="วันที่แจ้ง สกมช" name="ncsaReportDate" dependencies={['ncsaReported']} rules={[
+              ({ getFieldValue }) => ({
+                validator: (_: unknown, value: dayjs.Dayjs | null) =>
+                  getFieldValue('ncsaReported') === 'Y' && !value ? Promise.reject(new Error('ต้องระบุวันที่แจ้ง สกมช')) : Promise.resolve(),
+              }),
+            ]}><DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" /></Form.Item></Col>
           </Row>
         </Form>
       </Drawer>
