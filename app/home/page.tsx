@@ -25,6 +25,7 @@ import Navbar from '../components/Navbar'
 import { canSeeMenu, normalizeRoles, isRouteEnabled, SALARY_ID_ROLES } from '../lib/menuAccess'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 import { SkBlock } from '../components/Skeleton'
+import { LicenseNoField, fetchLicenseRule, needsLicense, type LicenseRule } from '../components/LicenseNoField'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
 import 'dayjs/locale/th'
@@ -283,6 +284,8 @@ const PageContent = () => {
   const [systems, setSystems] = useState<SystemOption[]>([])
   const [systemsLoading, setSystemsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [licenseRule, setLicenseRule] = useState<LicenseRule | null>(null)
+  const reqSystemId = Form.useWatch('system_id', reqForm) as number | undefined
 
   const loadSystems = useCallback(async () => {
     setSystemsLoading(true)
@@ -308,6 +311,11 @@ const PageContent = () => {
     reqForm.resetFields()
     setReqOpen(true)
     if (systems.length === 0) void loadSystems()
+    // ตำแหน่งวิชาชีพ + ระบบ HIS ต้องกรอกเลขใบอนุญาต — เติมเลขที่เคยกรอกไว้ให้
+    void fetchLicenseRule().then(rule => {
+      setLicenseRule(rule)
+      if (rule?.license_type && rule.last_license_no) reqForm.setFieldValue('license_no', rule.last_license_no)
+    })
   }
 
   const submitRequest = () => {
@@ -326,6 +334,7 @@ const PageContent = () => {
             phone: values.phone || user.phone || null,
             system_id: values.system_id,
             purpose: values.purpose || null,
+            license_no: needsLicense(licenseRule, values.system_id) ? values.license_no?.trim() || null : null,
           }),
         })
         const data = await res.json()
@@ -738,6 +747,9 @@ const PageContent = () => {
               placeholder="เลือกระบบที่ต้องการขอรหัส"
             />
           </Form.Item>
+          {licenseRule && needsLicense(licenseRule, reqSystemId) && (
+            <LicenseNoField rule={licenseRule} systemName={systems.find(s => s.id === reqSystemId)?.label} />
+          )}
           <Form.Item name="phone" label="เบอร์โทรติดต่อ">
             <Input placeholder="เบอร์โทรสำหรับติดต่อกลับ" />
           </Form.Item>

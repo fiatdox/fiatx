@@ -19,6 +19,7 @@ import { DashboardSkeleton } from '@/app/components/Skeleton'
 import EChart from '@/app/components/EChart'
 import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import { StatCard, gBtn, type Accent } from '@/app/components/StatCard'
+import { LicenseNoField, fetchLicenseRule, needsLicense, type LicenseRule } from '@/app/components/LicenseNoField'
 
 const { Title, Text } = Typography
 
@@ -50,6 +51,7 @@ interface SystemOption {
   label: string
   icon_key?: string
   color?: string
+  requires_license?: boolean
 }
 
 // คำร้อง — จาก GET /api/v1/it/user-requests
@@ -66,6 +68,8 @@ interface CredentialRequest {
   system_code?: string
   system_name?: string
   purpose?: string | null
+  license_type?: string | null
+  license_no?: string | null
   status: ReqStatus
   issued_by?: string | null
   issued_date?: string | null
@@ -170,6 +174,8 @@ const PageContent = () => {
   const [pickedUser, setPickedUser] = useState<SystemUser | null>(null)
   const [pickedLoading, setPickedLoading] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [addLicenseRule, setAddLicenseRule] = useState<LicenseRule | null>(null)
+  const addSystemId = Form.useWatch('system_id', addForm) as number | undefined
 
   // ── Drawer: ดูรายละเอียด ──
   const [viewOpen, setViewOpen] = useState(false)
@@ -217,11 +223,19 @@ const PageContent = () => {
         label: String(s.label ?? s.name_th ?? s.system_code ?? ''),
         icon_key: s.icon_key as string | undefined,
         color: s.color as string | undefined,
+        requires_license: s.requires_license === 'Y',
       })))
     } catch {
       message.error('โหลดรายการระบบไม่สำเร็จ')
     }
   }, [message])
+
+  // แถวเลขใบอนุญาตในรายละเอียด — แสดงเมื่อมีเลข หรือเป็นระบบ HIS (คำร้องเก่าที่ยังไม่มีเลข = เตือน)
+  const renderLicense = (r: CredentialRequest) => {
+    if (r.license_no) return <>{r.license_no}{r.license_type && <Text type="secondary"> · {r.license_type}</Text>}</>
+    if (systemById[r.system_id]?.requires_license) return <Text type="secondary">ไม่ได้ระบุ (ตรวจสอบตำแหน่งก่อนออกรหัส)</Text>
+    return null
+  }
 
   const loadRequests = useCallback(async () => {
     setListLoading(true)
@@ -464,14 +478,21 @@ const PageContent = () => {
   const openAdd = () => {
     addForm.resetFields()
     setPickedUser(null)
+    setAddLicenseRule(null)
     setAddOpen(true)
     if (users.length === 0) void loadUsers()
   }
 
   const onPickUser = async (userId?: number) => {
+    setAddLicenseRule(null)
+    addForm.setFieldValue('license_no', undefined)
     if (userId == null) { setPickedUser(null); return }
     setPickedUser(users.find(x => x.id === userId) ?? null)
     setPickedLoading(true)
+    void fetchLicenseRule(userId).then(rule => {
+      setAddLicenseRule(rule)
+      if (rule?.license_type && rule.last_license_no) addForm.setFieldValue('license_no', rule.last_license_no)
+    })
     try {
       const res = await fetch(`/api/v1/users/${userId}/info`)
       const data = await res.json()
@@ -507,6 +528,7 @@ const PageContent = () => {
             phone: u.phone ?? null,
             system_id: values.system_id,
             purpose: values.purpose ?? null,
+            license_no: needsLicense(addLicenseRule, values.system_id) ? values.license_no?.trim() || null : null,
           }),
         })
         const created = await createRes.json()
@@ -834,6 +856,7 @@ const PageContent = () => {
               </div>
               <Descriptions column={1} size="small" styles={{ label: { width: 110 } }}>
                 <Descriptions.Item label="ระบบที่ขอ">{renderSystem(selected)}</Descriptions.Item>
+                {renderLicense(selected) && <Descriptions.Item label="เลขใบอนุญาต">{renderLicense(selected)}</Descriptions.Item>}
                 <Descriptions.Item label="หน่วยงาน">
                   {requesterDetail?.mission_name ?? requesterDetail?.major_name ?? selected.department ?? '-'}
                 </Descriptions.Item>
@@ -958,6 +981,9 @@ const PageContent = () => {
           <Form.Item name="system_id" label="ระบบที่ขอใช้งาน" rules={[{ required: true, message: 'กรุณาเลือกระบบ' }]}>
             <Select options={systemSelectOptions} optionLabelProp="label" allowClear placeholder="เลือกระบบ" />
           </Form.Item>
+          {addLicenseRule && needsLicense(addLicenseRule, addSystemId) && (
+            <LicenseNoField rule={addLicenseRule} systemName={systemById[addSystemId!]?.label} />
+          )}
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Form.Item name="username" label="Username" rules={[{ required: true, message: 'กรุณากำหนด username' }]}>
@@ -1020,6 +1046,7 @@ const PageContent = () => {
               <Descriptions.Item label="ตำแหน่ง">{selected.position_name ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="หน่วยงาน">{selected.department ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="ระบบที่ใช้งาน">{renderSystem(selected)}</Descriptions.Item>
+              {renderLicense(selected) && <Descriptions.Item label="เลขใบอนุญาตประกอบวิชาชีพ">{renderLicense(selected)}</Descriptions.Item>}
               <Descriptions.Item label="วัตถุประสงค์">{selected.purpose ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="สถานะ"><Tag color={statusConfig[selected.status]?.color}>{statusConfig[selected.status]?.label}</Tag></Descriptions.Item>
               {selected.status === 'issued' && (
