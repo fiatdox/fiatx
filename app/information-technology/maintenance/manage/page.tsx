@@ -1400,12 +1400,14 @@ const PageContent = () => {
       nextStatus = 'pending_mission_approval'
     } else {
       // หัวหน้าภารกิจอนุมัติ — เดินตาม approve_process_id ของผลประเมินที่ช่างเลือก
-      // เช่น สั่งซื้ออะไหล่/จ้างนอก → 3 (ออก PR), แนะนำซื้อทดแทน → 11 (อนุมัติซื้อทดแทน)
+      // เช่น สั่งซื้ออะไหล่ → 3 (ออก PR), แนะนำซื้อทดแทน → 11, จ้างนอก → จบงาน (5)
       const assess = assessments.find(a => a.repair_assessment_id === req.repairAssessmentId)
       const pid = assess?.approve_process_id
       nextStatus = (pid != null ? STATUS_BY_PROCESS_ID[pid] : undefined) ?? 'purchase_approved'
     }
     const updates: Partial<ManageRepairRequest> = { status: nextStatus }
+    // จ้างบริษัทภายนอก: หัวหน้ากลุ่มภารกิจอนุมัติ = จบงาน (backend ปิดงานให้)
+    if (nextStatus === 'completed' && level === 'mission_head') updates.resolvedDate = fmtDate(new Date().toISOString())
     if (level === 'it_head') updates.itHeadApproval = approval
     else updates.missionHeadApproval = approval
     setRequests(prev => prev.map(r => r.id === req.id ? { ...r, ...updates } : r))
