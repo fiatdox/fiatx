@@ -11,7 +11,7 @@ import {
   IdcardOutlined, ReloadOutlined, SafetyCertificateOutlined,
   CheckCircleOutlined, SearchOutlined, UnorderedListOutlined, DashboardOutlined,
   ClockCircleOutlined, ApartmentOutlined, MoreOutlined, CloseCircleOutlined,
-  StopOutlined,
+  StopOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 import { FaUserShield, FaHospital, FaBoxes, FaBed, FaBuilding, FaMoneyBillWave, FaWifi } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
@@ -20,6 +20,7 @@ import EChart from '@/app/components/EChart'
 import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import { StatCard, gBtn, type Accent } from '@/app/components/StatCard'
 import { LicenseNoField, fetchLicenseRule, needsLicense, type LicenseRule } from '@/app/components/LicenseNoField'
+import { ConsentBox, fetchConsentTerm, printConsentForm, type ConsentTerm } from '@/app/components/UserConsent'
 
 const { Title, Text } = Typography
 
@@ -70,8 +71,13 @@ interface CredentialRequest {
   purpose?: string | null
   license_type?: string | null
   license_no?: string | null
+  consent_term_id?: number | null
+  consent_version?: string | null
+  consent_accepted_at?: string | null
+  consent_method?: 'self' | 'staff' | null
   status: ReqStatus
   issued_by?: string | null
+  issued_by_name?: string | null
   issued_date?: string | null
   notified_at?: string | null
   note?: string | null
@@ -175,6 +181,7 @@ const PageContent = () => {
   const [pickedLoading, setPickedLoading] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addLicenseRule, setAddLicenseRule] = useState<LicenseRule | null>(null)
+  const [consentTerm, setConsentTerm] = useState<ConsentTerm | null>(null)
   const addSystemId = Form.useWatch('system_id', addForm) as number | undefined
 
   // ── Drawer: ดูรายละเอียด ──
@@ -229,6 +236,23 @@ const PageContent = () => {
       message.error('โหลดรายการระบบไม่สำเร็จ')
     }
   }, [message])
+
+  // พิมพ์แบบยินยอม — ใช้ข้อตกลงฉบับที่ผู้ขอยอมรับไว้จริง (ไม่ใช่ฉบับปัจจุบัน)
+  const handlePrintConsent = async (r: CredentialRequest) => {
+    if (!r.consent_term_id) return
+    const term = await fetchConsentTerm(r.consent_term_id)
+    if (!term) { message.error('โหลดข้อตกลงการใช้งานไม่สำเร็จ'); return }
+    if (!printConsentForm({ ...r, system_name: r.system_name ?? systemById[r.system_id]?.label }, term)) {
+      message.error('กรุณาอนุญาต popup เพื่อพิมพ์แบบยินยอม')
+    }
+  }
+  const printConsentBtn = (r: CredentialRequest | null) => r?.consent_term_id ? (
+    <Button icon={<PrinterOutlined />} onClick={() => void handlePrintConsent(r)}>พิมพ์แบบยินยอม</Button>
+  ) : null
+  const renderConsent = (r: CredentialRequest) => r.consent_accepted_at
+    ? <>ยอมรับแล้ว (ฉบับ {r.consent_version ?? '-'}) · {fmtDateTime(r.consent_accepted_at)}<br />
+        <Text type="secondary" style={{ fontSize: 12 }}>{r.consent_method === 'staff' ? 'เจ้าหน้าที่บันทึกแทน — ให้ผู้ขอลงนามในแบบพิมพ์' : 'ผู้ขอยอมรับเองผ่านระบบ'}</Text></>
+    : <Text type="secondary">ไม่มี (คำร้องก่อนเริ่มใช้แบบยินยอม)</Text>
 
   // แถวเลขใบอนุญาตในรายละเอียด — แสดงเมื่อมีเลข หรือเป็นระบบ HIS (คำร้องเก่าที่ยังไม่มีเลข = เตือน)
   const renderLicense = (r: CredentialRequest) => {
@@ -479,6 +503,7 @@ const PageContent = () => {
     addForm.resetFields()
     setPickedUser(null)
     setAddLicenseRule(null)
+    void fetchConsentTerm().then(setConsentTerm)
     setAddOpen(true)
     if (users.length === 0) void loadUsers()
   }
@@ -529,6 +554,8 @@ const PageContent = () => {
             system_id: values.system_id,
             purpose: values.purpose ?? null,
             license_no: needsLicense(addLicenseRule, values.system_id) ? values.license_no?.trim() || null : null,
+            consent_term_id: consentTerm?.id ?? null,
+            consent_accepted: values.consent_accepted === true,
           }),
         })
         const created = await createRes.json()
@@ -633,6 +660,7 @@ const PageContent = () => {
               items: [
                 { key: 'reject', icon: <CloseCircleOutlined />, label: 'ปฏิเสธคำร้อง', danger: true, onClick: () => confirmAction(r, 'reject') },
                 { key: 'cancel', icon: <StopOutlined />, label: 'ยกเลิกคำร้อง', onClick: () => confirmAction(r, 'cancel') },
+                ...(r.consent_term_id ? [{ key: 'print', icon: <PrinterOutlined />, label: 'พิมพ์แบบยินยอม', onClick: () => void handlePrintConsent(r) }] : []),
               ],
             }}
           >
@@ -640,9 +668,16 @@ const PageContent = () => {
           </Dropdown>
         </Space>
       ) : (
-        <Button size="small" icon={<EyeOutlined />} onClick={() => openView(r)}>
-          ดูรายละเอียด
-        </Button>
+        <Space size={4}>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => openView(r)}>
+            ดูรายละเอียด
+          </Button>
+          {r.consent_term_id && (
+            <Tooltip title="พิมพ์แบบยินยอม">
+              <Button size="small" icon={<PrinterOutlined />} onClick={() => void handlePrintConsent(r)} />
+            </Tooltip>
+          )}
+        </Space>
       ),
     },
   ]
@@ -826,6 +861,7 @@ const PageContent = () => {
         extra={
           <Space>
             <Button onClick={() => setIssueOpen(false)}>ยกเลิก</Button>
+            {printConsentBtn(selected)}
             <Button type="primary" icon={<SafetyCertificateOutlined />} loading={issuing} onClick={handleIssue}>
               ออกรหัส + ส่งหมอพร้อม
             </Button>
@@ -857,6 +893,7 @@ const PageContent = () => {
               <Descriptions column={1} size="small" styles={{ label: { width: 110 } }}>
                 <Descriptions.Item label="ระบบที่ขอ">{renderSystem(selected)}</Descriptions.Item>
                 {renderLicense(selected) && <Descriptions.Item label="เลขใบอนุญาต">{renderLicense(selected)}</Descriptions.Item>}
+                <Descriptions.Item label="แบบยินยอม">{renderConsent(selected)}</Descriptions.Item>
                 <Descriptions.Item label="หน่วยงาน">
                   {requesterDetail?.mission_name ?? requesterDetail?.major_name ?? selected.department ?? '-'}
                 </Descriptions.Item>
@@ -1007,6 +1044,7 @@ const PageContent = () => {
           <Form.Item name="purpose" label="วัตถุประสงค์ / หมายเหตุ">
             <Input.TextArea rows={2} placeholder="เช่น ออกรหัสให้บุคลากรใหม่" />
           </Form.Item>
+          {consentTerm && <ConsentBox term={consentTerm} mode="staff" />}
         </Form>
       </Drawer>
 
@@ -1028,7 +1066,7 @@ const PageContent = () => {
         onClose={() => setViewOpen(false)}
         size="large"
         styles={{ body: { paddingBottom: 80 } }}
-        extra={<Button onClick={() => setViewOpen(false)}>ปิด</Button>}
+        extra={<Space>{printConsentBtn(selected)}<Button onClick={() => setViewOpen(false)}>ปิด</Button></Space>}
       >
         {selected && (
           <>
@@ -1047,6 +1085,7 @@ const PageContent = () => {
               <Descriptions.Item label="หน่วยงาน">{selected.department ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="ระบบที่ใช้งาน">{renderSystem(selected)}</Descriptions.Item>
               {renderLicense(selected) && <Descriptions.Item label="เลขใบอนุญาตประกอบวิชาชีพ">{renderLicense(selected)}</Descriptions.Item>}
+              <Descriptions.Item label="แบบยินยอม">{renderConsent(selected)}</Descriptions.Item>
               <Descriptions.Item label="วัตถุประสงค์">{selected.purpose ?? '-'}</Descriptions.Item>
               <Descriptions.Item label="สถานะ"><Tag color={statusConfig[selected.status]?.color}>{statusConfig[selected.status]?.label}</Tag></Descriptions.Item>
               {selected.status === 'issued' && (

@@ -26,6 +26,7 @@ import { canSeeMenu, normalizeRoles, isRouteEnabled, SALARY_ID_ROLES } from '../
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 import { SkBlock } from '../components/Skeleton'
 import { LicenseNoField, fetchLicenseRule, needsLicense, type LicenseRule } from '../components/LicenseNoField'
+import { ConsentBox, fetchConsentTerm, type ConsentTerm } from '../components/UserConsent'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
 import 'dayjs/locale/th'
@@ -285,6 +286,7 @@ const PageContent = () => {
   const [systemsLoading, setSystemsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [licenseRule, setLicenseRule] = useState<LicenseRule | null>(null)
+  const [consentTerm, setConsentTerm] = useState<ConsentTerm | null>(null)
   const reqSystemId = Form.useWatch('system_id', reqForm) as number | undefined
 
   const loadSystems = useCallback(async () => {
@@ -311,6 +313,7 @@ const PageContent = () => {
     reqForm.resetFields()
     setReqOpen(true)
     if (systems.length === 0) void loadSystems()
+    void fetchConsentTerm().then(setConsentTerm)
     // ตำแหน่งวิชาชีพ + ระบบ HIS ต้องกรอกเลขใบอนุญาต — เติมเลขที่เคยกรอกไว้ให้
     void fetchLicenseRule().then(rule => {
       setLicenseRule(rule)
@@ -335,6 +338,8 @@ const PageContent = () => {
             system_id: values.system_id,
             purpose: values.purpose || null,
             license_no: needsLicense(licenseRule, values.system_id) ? values.license_no?.trim() || null : null,
+            consent_term_id: consentTerm?.id ?? null,
+            consent_accepted: values.consent_accepted === true,
           }),
         })
         const data = await res.json()
@@ -756,6 +761,7 @@ const PageContent = () => {
           <Form.Item name="purpose" label="วัตถุประสงค์ / เหตุผลที่ขอใช้งาน">
             <Input.TextArea rows={3} placeholder="เช่น เริ่มงานใหม่ / ต้องใช้บันทึกข้อมูลผู้ป่วย" />
           </Form.Item>
+          {consentTerm && <ConsentBox term={consentTerm} mode="self" />}
         </Form>
       </Drawer>
     </div>
