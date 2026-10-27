@@ -240,7 +240,6 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
         {/* แถบอ้างอิงเอกสาร */}
         <View style={s.refBar}>
           <Text style={s.refText}>เลขที่เอกสาร PAY-{monthLabel.replace(/\s/g, '')}</Text>
-          <Text style={s.refText}>วันที่จ่าย {payDate}</Text>
         </View>
 
         {/* ── Employee info ── */}
