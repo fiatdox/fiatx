@@ -164,8 +164,8 @@ function AttendanceDocument({ data }: { data: AttendanceReportData }) {
         {/* ── Header band ── */}
         <View style={s.headerBand}>
           <View>
-            <Text style={s.hospitalName}>โรงพยาบาลพระยืน</Text>
-            <Text style={s.hospitalSub}>กรมการแพทย์ กระทรวงสาธารณสุข</Text>
+            <Text style={s.hospitalName}>โรงพยาบาลพะเยา</Text>
+            <Text style={s.hospitalSub}>กระทรวงสาธารณสุข</Text>
           </View>
           <View>
             <Text style={s.reportTitle}>รายงานการเข้า–ออกงาน</Text>
