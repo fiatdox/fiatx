@@ -1,5 +1,8 @@
 'use client'
-import { Document, Page, Text, View, StyleSheet, Font, PDFViewer } from '@react-pdf/renderer'
+import { useState } from 'react'
+import { Document, Page, Text, View, StyleSheet, Font, PDFViewer, pdf } from '@react-pdf/renderer'
+import { Button, App } from 'antd'
+import { DownloadOutlined } from '@ant-design/icons'
 import { withBase } from '@/app/lib/basePath'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
@@ -338,8 +341,91 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
   )
 }
 
+// ─── แสดง PDF ในหน้าได้ไหม ──────────────────────────────────────────────────
+// Chrome บน Android ไม่มีตัวแสดง PDF ในหน้า — iframe ของ PDFViewer จะว่างเปล่า
+// navigator.pdfViewerEnabled บอกตรง ๆ (Chrome 94+, Safari 16.4+); เบราว์เซอร์เก่าเดาจาก UA
+const canInlinePdf = () => {
+  const nav = navigator as Navigator & { pdfViewerEnabled?: boolean }
+  if (typeof nav.pdfViewerEnabled === 'boolean') return nav.pdfViewerEnabled
+  return !/Android|Mobi/i.test(nav.userAgent)
+}
+
+// ─── สลิปแบบหน้าเว็บ (มือถือที่แสดง PDF ในหน้าไม่ได้) + ปุ่มบันทึก PDF ──────────
+function SalarySlipHtml({ data }: { data: SalarySlipData }) {
+  const { message } = App.useApp()
+  const [saving, setSaving] = useState(false)
+  const { employee, monthLabel, payDate, earnings, deductions, totalEarnings, totalDeductions, netSalary } = data
+
+  const savePdf = async () => {
+    setSaving(true)
+    try {
+      const blob = await pdf(<SalarySlipDocument data={data} />).toBlob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `สลิปเงินเดือน-${monthLabel.replace(/\s+/g, '-')}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      message.error('สร้างไฟล์ PDF ไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const section = (title: string, items: SalaryEarning[], total: number, color: string) => (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontWeight: 600, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 4 }}>{title}</div>
+      {items.length === 0 && <div style={{ color: 'var(--app-text-3)', fontSize: 13, padding: '4px 0' }}>ไม่มีรายการ</div>}
+      {items.map((it, i) => (
+        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '4px 0', fontSize: 14, borderBottom: '1px dashed var(--app-border)' }}>
+          <span>{it.label}</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatNumber(it.amount)}</span>
+        </div>
+      ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, padding: '6px 0 0', fontSize: 14 }}>
+        <span>รวม{title}</span>
+        <span style={{ color, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(total)}</span>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: 16 }}>
+      <div style={{ background: TEAL, color: '#fff', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+        <div style={{ fontWeight: 700 }}>ใบแจ้งเงินเดือน · เดือน {monthLabel}</div>
+        <div style={{ fontSize: 12, opacity: 0.85 }}>โรงพยาบาลพะเยา · วันที่จ่าย {payDate}</div>
+      </div>
+      <div style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.7 }}>
+        <div><b>{employee.name}</b></div>
+        {employee.position && <div>{employee.position}</div>}
+        {employee.department && <div style={{ color: 'var(--app-text-3)' }}>{employee.department}</div>}
+      </div>
+      {section('รายรับ', earnings, totalEarnings, '#047857')}
+      {section('รายการหัก', deductions, totalDeductions, '#b91c1c')}
+      <div style={{ border: `2px solid ${TEAL}`, borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+          <span style={{ fontWeight: 600 }}>เงินได้สุทธิ</span>
+          <span style={{ fontSize: 20, fontWeight: 700, color: TEAL, fontVariantNumeric: 'tabular-nums' }}>{formatNumber(netSalary)} บาท</span>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>({numberToThaiText(netSalary)})</div>
+      </div>
+      {employee.bankAccount && (
+        <div style={{ fontSize: 13, marginBottom: 12 }}>โอนเข้าบัญชี {employee.bankName} — เลขที่บัญชี {employee.bankAccount}</div>
+      )}
+      <Button type="primary" block size="large" icon={<DownloadOutlined />} loading={saving} onClick={savePdf}
+        style={{ backgroundColor: TEAL }}>
+        บันทึกสลิปเป็น PDF
+      </Button>
+    </div>
+  )
+}
+
 // ─── Default export: PDFViewer wrapper ──────────────────────────────────────
 export default function SalarySlipPDFViewer({ data }: { data: SalarySlipData }) {
+  if (!canInlinePdf()) return <SalarySlipHtml data={data} />
   return (
     // iframe ต้องกำหนด height ตรง ๆ ให้เต็ม container — flex ใช้ไม่ได้กับ parent ปกติ
     <PDFViewer width="100%" height="100%" showToolbar
