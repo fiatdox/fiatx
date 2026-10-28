@@ -32,10 +32,11 @@ type Row = {
   submajor_name?: string | null
   salary_ids: SalaryLinkBrief[]
 }
-type Stats = { total: number; filled: number; missing: number; total_links: number; multi_id_users: number }
+type Stats = { total: number; filled: number; missing: number; self_only?: number; total_links: number; multi_id_users: number }
 type Major = { major_id: number; name: string; staff_count: number }
 type Period = { from: string | null; to: string | null; count: number }
-type Linked = { id: number; salary_id: number; is_current: boolean; source: string; note: string | null; period: Period | null; payroll_name?: string | null; name_match?: NameMatch }
+// id = null → เลขที่ผู้ใช้กรอกเอง (users.salary_id) ยังไม่อยู่ในตารางผูก
+type Linked = { id: number | null; salary_id: number; is_current: boolean; source: string; note: string | null; period: Period | null; payroll_name?: string | null; name_match?: NameMatch }
 type Suggestion = {
   salary_id: number; fname: string; lname: string
   match: 'id_card' | 'name'; confidence: 'high' | 'medium'
@@ -238,6 +239,7 @@ const PageContent = () => {
                 <Tag key={s.salary_id} color={s.is_current ? 'success' : 'default'} style={{ margin: 0 }}>
                   {s.is_current && <StarFilled style={{ fontSize: 10, marginRight: 4 }} />}
                   <span style={{ fontFamily: 'monospace' }}>{s.salary_id}</span>
+                  {s.source === 'self' && <Tooltip title="ผู้ใช้กรอกเองในหน้าตั้งค่า — ยังไม่ได้ยืนยันผูก"><span style={{ marginLeft: 4, opacity: 0.7 }}>(กรอกเอง)</span></Tooltip>}
                   {s.payroll_name && <span style={{ marginLeft: 6 }}>{s.payroll_name}</span>}
                   <span style={{ marginLeft: 6 }}><MatchBadge match={s.name_match ?? 'unknown'} payName={s.payroll_name} /></span>
                 </Tag>
@@ -288,6 +290,7 @@ const PageContent = () => {
           <Col xs={12} md={6}>
             <Card size="small" style={{ background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }}>
               <Statistic title="ผูกแล้ว" value={stats?.filled ?? 0} styles={{ content: { color: '#10b981' } }} />
+              {!!stats?.self_only && <Text type="secondary" style={{ fontSize: 12 }}>กรอกเองรอยืนยัน {stats.self_only.toLocaleString()} คน</Text>}
             </Card>
           </Col>
           <Col xs={12} md={6}>
@@ -367,7 +370,7 @@ const PageContent = () => {
             {detail.linked.length === 0 ? (
               <Empty description="ยังไม่ได้ผูกเลขที่เงินเดือน — เจ้าของบัญชีจะยังดูสลิปไม่ได้" />
             ) : detail.linked.map(l => (
-              <Card key={l.id} size="small" className="mb-2"
+              <Card key={l.id ?? `self-${l.salary_id}`} size="small" className="mb-2"
                 style={{ background: 'var(--app-bg)', border: '1px solid var(--app-border-strong)' }}>
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -376,6 +379,7 @@ const PageContent = () => {
                       {l.is_current && <Tag color="success">เลขปัจจุบัน</Tag>}
                       {l.source === 'auto_pid' && <Tag color="blue">ค้นจากเลขบัตร</Tag>}
                       {l.source === 'migrated' && <Tag>ข้อมูลเดิม</Tag>}
+                      {l.id == null && <Tag color="gold">ผู้ใช้กรอกเอง — ยังไม่ยืนยัน</Tag>}
                     </Space>
                     <div>
                       <Text style={{ fontSize: 13 }}>ชื่อในทะเบียน: {l.payroll_name ?? "ไม่พบเลขนี้ในทะเบียนปัจจุบัน"}</Text>{' '}
@@ -385,6 +389,11 @@ const PageContent = () => {
                     <div><Text type="secondary" style={{ fontSize: 12 }}>{fmtPeriod(l.period)}</Text></div>
                     {l.note && <div><Text type="secondary" style={{ fontSize: 11 }}>{l.note}</Text></div>}
                   </div>
+                  {l.id == null ? (
+                    <Tooltip title="ตรวจชื่อแล้ว ย้ายเข้าตารางผูกเลขอย่างเป็นทางการ">
+                      <Button size="small" type="primary" loading={busy} onClick={() => addLink(l.salary_id, 'self', 'ยืนยันจากเลขที่ผู้ใช้กรอกเอง')}>ยืนยันผูก</Button>
+                    </Tooltip>
+                  ) : (
                   <Space size={4}>
                     {!l.is_current && (
                       <Tooltip title="ตั้งเป็นเลขปัจจุบัน">
@@ -393,6 +402,7 @@ const PageContent = () => {
                     )}
                     <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeLink(l)} />
                   </Space>
+                  )}
                 </div>
               </Card>
             ))}
