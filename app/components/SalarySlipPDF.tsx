@@ -44,7 +44,6 @@ export interface SalaryDeduction {
 export interface SalarySlipData {
   employee: SalaryEmployee
   monthLabel: string       // e.g. "เมษายน พ.ศ. 2569"
-  payDate: string          // e.g. "30 เมษายน 2569"
   earnings: SalaryEarning[]
   deductions: SalaryDeduction[]
   totalEarnings: number
@@ -211,7 +210,7 @@ const s = StyleSheet.create({
 
 // ─── Document ─────────────────────────────────────────────────────────────────
 function SalarySlipDocument({ data }: { data: SalarySlipData }) {
-  const { employee, monthLabel, payDate, earnings, deductions, totalEarnings, totalDeductions, netSalary } = data
+  const { employee, monthLabel, earnings, deductions, totalEarnings, totalDeductions, netSalary } = data
   const printDate = new Date().toLocaleDateString('th-TH', {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
@@ -263,13 +262,9 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
               <Text style={s.infoLabel}>ตำแหน่ง&nbsp;</Text>
               <Text style={s.infoVal}>{employee.position} &nbsp;</Text>
             </View>
-            <View style={s.infoRow}>
+            <View style={[s.infoRow, { marginBottom: 0 }]}>
               <Text style={s.infoLabel}>กลุ่มงาน</Text>
               <Text style={s.infoVal}>{employee.department}&nbsp;</Text>
-            </View>
-            <View style={[s.infoRow, { marginBottom: 0 }]}>
-              <Text style={s.infoLabel}>งวดที่จ่าย</Text>
-              <Text style={s.infoVal}>{payDate}</Text>
             </View>
           </View>
         </View>
@@ -354,7 +349,7 @@ const canInlinePdf = () => {
 function SalarySlipHtml({ data }: { data: SalarySlipData }) {
   const { message } = App.useApp()
   const [saving, setSaving] = useState(false)
-  const { employee, monthLabel, payDate, earnings, deductions, totalEarnings, totalDeductions, netSalary } = data
+  const { employee, monthLabel, earnings, deductions, totalEarnings, totalDeductions, netSalary } = data
 
   const savePdf = async () => {
     setSaving(true)
@@ -396,7 +391,7 @@ function SalarySlipHtml({ data }: { data: SalarySlipData }) {
     <div style={{ height: '100%', overflowY: 'auto', padding: 16 }}>
       <div style={{ background: TEAL, color: '#fff', borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
         <div style={{ fontWeight: 700 }}>ใบแจ้งเงินเดือน · เดือน {monthLabel}</div>
-        <div style={{ fontSize: 12, opacity: 0.85 }}>โรงพยาบาลพะเยา · วันที่จ่าย {payDate}</div>
+        <div style={{ fontSize: 12, opacity: 0.85 }}>โรงพยาบาลพะเยา</div>
       </div>
       <div style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.7 }}>
         <div><b>{employee.name}</b></div>

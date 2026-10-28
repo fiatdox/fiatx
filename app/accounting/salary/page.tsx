@@ -12,7 +12,6 @@ import {
   RiseOutlined, FallOutlined, EyeOutlined, LockOutlined
 } from '@ant-design/icons'
 import { FaMoneyBillWave, FaFileInvoiceDollar, FaWallet, FaRegMoneyBillAlt, FaHistory } from 'react-icons/fa'
-import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { ListSkeleton } from '@/app/components/Skeleton'
@@ -68,15 +67,6 @@ const formatCurrency = (n: number) =>
 // mt "25690600" → "มิถุนายน 2569"
 const mtToLabel = (mt: string) =>
   `${THAI_MONTHS[Number(mt.slice(4, 6))] ?? '—'} ${mt.slice(0, 4)}`
-
-// mt → วันสิ้นเดือนแบบไทย เช่น "30 มิถุนายน 2569" (ใช้เป็นวันที่จ่ายบนสลิป)
-const mtToPayDate = (mt: string) => {
-  const beYear = Number(mt.slice(0, 4))
-  const month = Number(mt.slice(4, 6))
-  if (!beYear || !month) return ''
-  const endDay = dayjs(new Date(beYear - 543, month - 1, 1)).endOf('month').date()
-  return `${endDay} ${THAI_MONTHS[month]} ${beYear}`
-}
 
 // ─── Page Content ─────────────────────────────────────────────────────────────
 const PageContent = () => {
@@ -213,7 +203,6 @@ const PageContent = () => {
           bankName:    p?.bank ? `ธนาคาร${p.bank}${p.bankbranch ? ` สาขา${p.bankbranch}` : ''}` : '',
         },
         monthLabel: `${THAI_MONTHS[Number(mt.slice(4, 6))]} พ.ศ. ${mt.slice(0, 4)}`,
-        payDate: mtToPayDate(mt),
         earnings:   (d.earnings   as SlipItem[]).map(i => ({ label: i.label, amount: i.amount })),
         deductions: (d.deductions as SlipItem[]).map(i => ({ label: i.label, amount: i.amount })),
         totalEarnings:   d.total_earnings,
@@ -294,7 +283,6 @@ const PageContent = () => {
       render: (_: any, r: MonthSummary) => (
         <div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{mtToLabel(r.mt)}</div>
-          <Text type="secondary" style={{ fontSize: 11 }}>จ่าย {mtToPayDate(r.mt)}</Text>
         </div>
       ),
     },
