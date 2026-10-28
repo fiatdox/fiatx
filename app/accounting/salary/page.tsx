@@ -64,6 +64,10 @@ interface SlipItem {
 const formatCurrency = (n: number) =>
   n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
+// ร้อยละ 2 ตำแหน่ง — ฐานเป็น 0 คืน 0 (กันหารศูนย์)
+const pct = (part: number, whole: number) => (whole > 0 ? (part / whole) * 100 : 0)
+const formatPct = (n: number) => `${n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+
 // mt "25690600" → "มิถุนายน 2569"
 const mtToLabel = (mt: string) =>
   `${THAI_MONTHS[Number(mt.slice(4, 6))] ?? '—'} ${mt.slice(0, 4)}`
@@ -220,6 +224,24 @@ const PageContent = () => {
   // ── สรุปยอด ────────────────────────────────────────────────────────────────
   const latest = months[0]
   const previous = months[1]
+
+  // ── รายการรายรับ/รายการหักของงวดล่าสุด (โหลดจาก endpoint เดียวกับสลิป) ──────
+  const [latestItems, setLatestItems] = useState<{ mt: string; earnings: SlipItem[]; deductions: SlipItem[]; totalEarnings: number; totalDeductions: number } | null>(null)
+  const [latestItemsFailed, setLatestItemsFailed] = useState<string | null>(null) // mt ที่โหลดไม่สำเร็จ
+  const latestMt = latest?.mt
+  useEffect(() => {
+    if (!latestMt) return
+    fetch(`/api/v1/accounting/salary/slip/${latestMt}`)
+      .then(r => r.json())
+      .then(json => {
+        if (!json.success) { setLatestItemsFailed(latestMt); return }
+        setLatestItems({ mt: latestMt, earnings: json.data.earnings ?? [], deductions: json.data.deductions ?? [],
+          totalEarnings: json.data.total_earnings, totalDeductions: json.data.total_deductions })
+      })
+      .catch(() => setLatestItemsFailed(latestMt))
+  }, [latestMt])
+  // state เก็บ mt ไว้ด้วย — เปลี่ยนปีแล้วไม่แสดงรายการของงวดเก่าค้าง
+  const latestDetail = latestItems && latestItems.mt === latestMt ? latestItems : null
   const changeVsPrev = latest && previous ? latest.net - previous.net : 0
 
   const yearSummary = useMemo(() =>
@@ -524,6 +546,84 @@ const PageContent = () => {
                   </Button>
                 </div>
               </Col>
+            </Row>
+
+            {/* รายการรายรับ / รายการหัก ของงวดล่าสุด */}
+            <Row gutter={[24, 16]} style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--app-border)' }}>
+              {latestDetail ? (
+                ([
+                  ['รายรับ', latestDetail.earnings, latestDetail.totalEarnings, '#16a34a'],
+                  ['รายการหัก', latestDetail.deductions, latestDetail.totalDeductions, '#ef4444'],
+                ] as const).map(([title, items, total, color]) => {
+                  const isDeduction = title === 'รายการหัก'
+                  return (
+                  <Col xs={24} md={12} key={title}>
+                    <div className="flex justify-between gap-3" style={{ fontWeight: 600, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 4 }}>
+                      <span>{title}</span>
+                      <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--app-text-3)' }}>
+                        จำนวนเงิน · ร้อยละของ{title}
+                      </span>
+                    </div>
+                    {items.length === 0 && <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการ</Text>}
+                    {items.map(it => {
+                      const share = pct(it.amount, total)
+                      return (
+                        <div key={it.code} style={{ padding: '6px 0', fontSize: 14, borderBottom: '1px dashed var(--app-border)' }}>
+                          <div className="flex justify-between gap-3">
+                            <span>{it.label}</span>
+                            <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatCurrency(it.amount)}</span>
+                          </div>
+                          <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
+                            {/* แถบสัดส่วนในหมวด */}
+                            <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--app-border)', overflow: 'hidden' }}>
+                              <div style={{ width: `${Math.min(share, 100)}%`, height: '100%', borderRadius: 3, background: color }} />
+                            </div>
+                            <span style={{ fontSize: 12, color: 'var(--app-text-2)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', minWidth: 56, textAlign: 'right' }}>
+                              {formatPct(share)}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div className="flex justify-between gap-3" style={{ padding: '6px 0 0', fontSize: 14, fontWeight: 700 }}>
+                      <span>รวม{title}</span>
+                      <span style={{ color, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(total)}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--app-text-3)', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      {isDeduction
+                        ? `${formatPct(pct(total, latestDetail.totalEarnings))} ของรายรับ`
+                        : `${formatPct(100)} · ${items.length} รายการ`}
+                    </div>
+                  </Col>
+                  )
+                })
+              ) : (
+                <Col span={24}>
+                  {latestItemsFailed === latestMt
+                    ? <Text type="secondary">โหลดรายการของงวดนี้ไม่สำเร็จ — กด &quot;ดูสลิปเดือนล่าสุด&quot; เพื่อดูรายละเอียด</Text>
+                    : <div className="flex items-center gap-2"><Spin size="small" /><Text type="secondary">กำลังโหลดรายการ...</Text></div>}
+                </Col>
+              )}
+              {/* รายรับทั้งหมด = รายการหัก + เงินสุทธิ */}
+              {latestDetail && latestDetail.totalEarnings > 0 && (() => {
+                const dedPct = pct(latestDetail.totalDeductions, latestDetail.totalEarnings)
+                const netPct = 100 - dedPct
+                return (
+                  <Col span={24}>
+                    <Text strong style={{ fontSize: 13 }}>สัดส่วนรายรับทั้งหมด</Text>
+                    <div className="flex" style={{ height: 12, borderRadius: 6, overflow: 'hidden', margin: '6px 0', gap: 2 }}>
+                      {netPct > 0 && <div title={`เงินสุทธิ ${formatPct(netPct)}`} style={{ width: `${netPct}%`, background: '#0284c7' }} />}
+                      {dedPct > 0 && <div title={`รายการหัก ${formatPct(dedPct)}`} style={{ width: `${Math.min(dedPct, 100)}%`, background: '#ef4444' }} />}
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1" style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#0284c7', marginRight: 6 }} />
+                        เงินสุทธิ {formatCurrency(latestDetail.totalEarnings - latestDetail.totalDeductions)} บาท ({formatPct(netPct)})</span>
+                      <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#ef4444', marginRight: 6 }} />
+                        รายการหัก {formatCurrency(latestDetail.totalDeductions)} บาท ({formatPct(dedPct)})</span>
+                    </div>
+                  </Col>
+                )
+              })()}
             </Row>
           </Card>
         )}
