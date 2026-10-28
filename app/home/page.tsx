@@ -241,7 +241,8 @@ interface Profile {
 const PageContent = () => {
   const router = useRouter()
   const { message } = App.useApp()
-  const [currentTime, setCurrentTime] = useState(dayjs())
+  // null ตอน render ฝั่ง server — เวลา server กับเครื่องผู้ใช้ต่างกัน (ข้ามนาที/นาฬิกาเครื่องเพี้ยน) ทำให้ hydration ไม่ตรง
+  const [currentTime, setCurrentTime] = useState<dayjs.Dayjs | null>(null)
   const [user, setUser] = useState<Profile>({ name: '', position: '', department: '' })
 
   // สิทธิ์สำหรับกรองเมนูลัด — role มาจาก cookie, สิทธิ์อนุมัติการลา/โมดูลที่ปิดไว้ถาม backend
@@ -368,11 +369,13 @@ const PageContent = () => {
   }))
 
   useEffect(() => {
+    void Promise.resolve().then(() => setCurrentTime(dayjs()))
     const timer = setInterval(() => setCurrentTime(dayjs()), 60000)
     return () => clearInterval(timer)
   }, [])
 
   const greeting = (() => {
+    if (!currentTime) return 'สวัสดี'
     const h = currentTime.hour()
     if (h < 12) return 'สวัสดีตอนเช้า'
     if (h < 17) return 'สวัสดีตอนบ่าย'
@@ -419,7 +422,7 @@ const PageContent = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,0.55)', fontSize: 13 }}>
                 <CalendarOutlined />
-                <span>{currentTime.format('วันdddd ที่ D MMMM BBBB')} &nbsp;|&nbsp; {currentTime.format('HH:mm น.')}</span>
+                <span>{currentTime ? <>{currentTime.format('วันdddd ที่ D MMMM BBBB')} &nbsp;|&nbsp; {currentTime.format('HH:mm น.')}</> : '\u00a0'}</span>
               </div>
             </Col>
             <Col xs={24} md={8} style={{ textAlign: 'right' }}>
@@ -625,7 +628,7 @@ const PageContent = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <Text style={{ color: 'var(--app-text-2)', fontSize: 13, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              สรุปวันลาของฉัน · ปี {currentTime.format('BBBB')}
+              สรุปวันลาของฉัน{currentTime && ` · ปี ${currentTime.format('BBBB')}`}
             </Text>
             <Button
               type="link"

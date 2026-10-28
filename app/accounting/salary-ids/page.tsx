@@ -74,8 +74,13 @@ const PageContent = () => {
   const [detailLoading, setDetailLoading] = useState(false)
   const [manualId, setManualId] = useState('')
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<'people' | 'register'>(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'register' ? 'register' : 'people')
+  const [tab, setTab] = useState<'people' | 'register'>('people')
+  // อ่าน ?tab= หลัง mount — อ่านตอน render แรกจะได้ค่าไม่ตรงกับ HTML จาก server (hydration mismatch)
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      if (new URLSearchParams(window.location.search).get('tab') === 'register') setTab('register')
+    })
+  }, [])
   // ตรวจเลขก่อนผูกเอง: ดูชื่อในทะเบียนเงินเดือนเทียบกับผู้ใช้
   const [manualLookup, setManualLookup] = useState<Lookup | null>(null)
   const [manualChecking, setManualChecking] = useState(false)
