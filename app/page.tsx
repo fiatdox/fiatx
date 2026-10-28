@@ -15,6 +15,28 @@ import {
   FaArrowLeft,
 } from 'react-icons/fa'
 
+// เก็บรอบ OTP ไว้ใน sessionStorage — มือถือสลับไปเปิด Line แล้วแท็บโหลดใหม่ จะยังอยู่ขั้นกรอก OTP
+// ไม่ต้องล็อกอินใหม่ (ซึ่งจะได้รหัสชุดใหม่ แล้วรหัสในข้อความแรกใช้ไม่ได้)
+const OTP_STORE_KEY = 'otp_challenge'
+const OTP_STORE_MAX_MS = 10 * 60 * 1000 // เท่าอายุรอบ challenge ฝั่ง backend
+type StoredChallenge = { token: string; sentAt: number }
+
+const saveChallenge = (c: StoredChallenge | null) => {
+  try {
+    if (c) sessionStorage.setItem(OTP_STORE_KEY, JSON.stringify(c))
+    else sessionStorage.removeItem(OTP_STORE_KEY)
+  } catch { /* storage ใช้ไม่ได้ (private mode) — ทำงานแบบเดิม */ }
+}
+const loadChallenge = (): StoredChallenge | null => {
+  try {
+    const c = JSON.parse(sessionStorage.getItem(OTP_STORE_KEY) ?? 'null') as StoredChallenge | null
+    return c?.token && Date.now() - c.sentAt < OTP_STORE_MAX_MS ? c : null
+  } catch {
+    return null
+  }
+}
+const fmtTime = (ms: number) => new Date(ms).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+
 export default function LoginPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
@@ -25,10 +47,15 @@ export default function LoginPage() {
 
   // ── ขั้นยืนยัน OTP ผ่าน Line หมอพร้อม (แสดงเฉพาะเมื่อ backend ตอบ mfa_required) ──
   const [challengeToken, setChallengeToken] = useState<string | null>(null)
+  const [otpSentAt, setOtpSentAt] = useState<number | null>(null)
   const [otp, setOtp] = useState('')
   const [otpNotice, setOtpNotice] = useState('')
   const [cooldown, setCooldown] = useState(0)
   const otpInputRef = useRef<HTMLInputElement>(null)
+  // กันยิงซ้ำ: challenge ใช้ได้ครั้งเดียว — ยิงซ้ำหลังสำเร็จจะได้ 400 แล้วเด้งกลับหน้ารหัสผ่านทั้งที่ล็อกอินแล้ว
+  const verifyingRef = useRef(false)
+  // ยืนยันสำเร็จแล้ว กำลังพาเข้าหน้า home — ปุ่มต้องไม่กลับมากดได้ระหว่างรอโหลด
+  const [entering, setEntering] = useState(false)
 
   // นับถอยหลังปุ่ม "ขอรหัสใหม่"
   useEffect(() => {
@@ -36,6 +63,16 @@ export default function LoginPage() {
     const t = setTimeout(() => setCooldown(c => c - 1), 1000)
     return () => clearTimeout(t)
   }, [cooldown])
+
+  // กลับมาที่ขั้นกรอก OTP ถ้าแท็บถูกโหลดใหม่ระหว่างรอรหัส
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      const c = loadChallenge()
+      if (!c) { saveChallenge(null); return }
+      setChallengeToken(c.token)
+      setOtpSentAt(c.sentAt)
+    })
+  }, [])
 
   // โฟกัสช่อง OTP อัตโนมัติเมื่อเข้าสู่ขั้นยืนยัน
   useEffect(() => {
@@ -46,6 +83,7 @@ export default function LoginPage() {
   const completeLogin = (json: { token: string; data: { user_type_id: number }; username_change_required?: boolean }) => {
     // อายุ cookie = 8 ชม. ให้ตรงกับอายุ JWT ฝั่ง backend (exp: '8h')
     const COOKIE_HOURS = 8 / 24
+    saveChallenge(null)
     Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
     Cookies.set('user_data', JSON.stringify(json.data), { expires: COOKIE_HOURS, sameSite: 'Lax' })
     Cookies.set('user_type_id', String(json.data.user_type_id), { expires: COOKIE_HOURS, sameSite: 'Lax' })
@@ -54,6 +92,7 @@ export default function LoginPage() {
     //
     // นโยบายชื่อผู้ใช้โหมด force: พาไปตั้งชื่อใหม่ทันที (backend ปิดกั้น API อื่นไว้อยู่แล้ว
     // ถ้าพิมพ์ URL ตรงก็จะได้ 423 แล้วถูกพากลับมาที่นี่)
+    setEntering(true)
     router.push(json.username_change_required ? '/account/change-username' : '/home')
   }
 
@@ -74,7 +113,10 @@ export default function LoginPage() {
       }
       // ต้องยืนยัน OTP ก่อน — ยังไม่ได้ token
       if (json.mfa_required) {
+        const sentAt = Date.now()
         setChallengeToken(json.challenge_token)
+        setOtpSentAt(sentAt)
+        saveChallenge({ token: json.challenge_token, sentAt })
         setCooldown(json.resend_after_seconds ?? 60)
         setOtpNotice('ส่งรหัสยืนยันไปยัง Line หมอพร้อมแล้ว')
         setPassword('')
@@ -90,6 +132,8 @@ export default function LoginPage() {
 
   const handleVerifyOtp = async (e: { preventDefault: () => void }) => {
     e.preventDefault()
+    if (verifyingRef.current || entering) return
+    verifyingRef.current = true
     setError('')
     setOtpNotice('')
     setLoading(true)
@@ -112,6 +156,7 @@ export default function LoginPage() {
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
     } finally {
+      verifyingRef.current = false
       setLoading(false)
     }
   }
@@ -134,7 +179,10 @@ export default function LoginPage() {
         return
       }
       setOtp('')
-      setOtpNotice('ส่งรหัสยืนยันใหม่แล้ว')
+      const sentAt = Date.now()
+      setOtpSentAt(sentAt)
+      if (challengeToken) saveChallenge({ token: challengeToken, sentAt })
+      setOtpNotice('ส่งรหัสยืนยันใหม่แล้ว — ใช้รหัสจากข้อความล่าสุด')
       setCooldown(json.resend_after_seconds ?? 60)
     } catch {
       setError('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง')
@@ -145,6 +193,8 @@ export default function LoginPage() {
 
   const backToPassword = () => {
     setChallengeToken(null)
+    setOtpSentAt(null)
+    saveChallenge(null)
     setOtp('')
     setOtpNotice('')
     setCooldown(0)
@@ -267,6 +317,11 @@ export default function LoginPage() {
                     <FaMobileAlt className="mt-0.5 shrink-0 text-emerald-300" />
                     <div className="text-xs leading-relaxed text-emerald-100/90">
                       ส่งรหัสยืนยันไปยัง <span className="font-semibold">Line หมอพร้อม</span> ที่ผูกกับบัญชีของท่านแล้ว
+                      {otpSentAt && (
+                        <div className="mt-1 font-semibold text-emerald-100">
+                          ส่งเมื่อ {fmtTime(otpSentAt)} น. — ใช้รหัสจากข้อความเวลานี้ (ข้อความล่าสุด)
+                        </div>
+                      )}
                       <div className="mt-1 text-emerald-200/60">
                         หากไม่ได้รับ กรุณาตรวจสอบว่าเพิ่มเพื่อนและผูกบัญชี Line หมอพร้อมไว้แล้ว
                       </div>
@@ -307,11 +362,11 @@ export default function LoginPage() {
 
                   <button
                     type="submit"
-                    disabled={loading || otp.length < 6}
+                    disabled={loading || entering || otp.length < 6}
                     className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition-all hover:shadow-emerald-700/40 hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'กำลังยืนยัน...' : 'ยืนยันรหัส'}
-                    {!loading && <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />}
+                    {entering ? 'กำลังเข้าสู่ระบบ...' : loading ? 'กำลังยืนยัน...' : 'ยืนยันรหัส'}
+                    {!loading && !entering && <FaArrowRight className="text-xs transition-transform group-hover:translate-x-0.5" />}
                   </button>
 
                   <div className="flex items-center justify-between text-xs">
