@@ -88,8 +88,8 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR — เฉพาะ ADMIN / HR (ตรงกับ backend)
-  if (underPrefix(pathname, '/hr/leave/posts')) {
+  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR และตรวจวันลา / วันหยุด — เฉพาะ ADMIN / HR (ตรงกับ backend)
+  if (underPrefix(pathname, '/hr/leave/posts') || underPrefix(pathname, '/hr/leave/day-check')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => HR_POST_MANAGER_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()

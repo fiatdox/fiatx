@@ -94,6 +94,7 @@ const MENU_TREE: NavItem[] = [
           // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
           { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
           { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
+          { key: '/hr/leave/day-check', icon: <FaCalendarAlt />, label: 'ตรวจวันลา / วันหยุด' },
         ]
       },
       { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },

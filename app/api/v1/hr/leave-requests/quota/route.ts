@@ -6,5 +6,7 @@ export async function GET(req: NextRequest) {
   const qs = new URLSearchParams({ leave_type_id: sp.get('leave_type_id') ?? '' })
   const start = sp.get('start_date')
   if (start) qs.set('start_date', start)
+  const uid = sp.get('user_id')
+  if (uid) qs.set('user_id', uid)
   return proxy(req, `/api/v1/hr/leave-requests/quota?${qs.toString()}`)
 }

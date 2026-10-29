@@ -45,6 +45,7 @@ import buddhistEra from 'dayjs/plugin/buddhistEra'
 import thTH from 'antd/locale/th_TH'
 import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
+import { normalizeRoles } from '@/app/lib/menuAccess'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 
 const { Title, Text } = Typography
@@ -147,15 +148,48 @@ const LeavePageContent = () => {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([])
   const [leaveTypesLoading, setLeaveTypesLoading] = useState(false)
   const [entitlements, setEntitlements] = useState<Entitlement[]>([])
+  // HR / ADMIN ทำรายการลาแทนบุคลากรได้ (รวมลาพักผ่อนย้อนหลัง) — ผู้ใช้ทั่วไปยื่นได้เฉพาะของตัวเอง
+  const [me, setMe] = useState<{ id: number | null; isHr: boolean }>({ id: null, isHr: false })
+  useEffect(() => {
+    let id: number | null = null, isHr = false
+    try {
+      const u = JSON.parse(Cookies.get('user_data') ?? '{}')
+      id = Number(u?.id) || null
+      isHr = normalizeRoles(u?.roles).some(r => r === 'ADMIN' || r === 'HR')
+    } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
+    void Promise.resolve().then(() => setMe({ id, isHr }))
+  }, [])
+  const [onBehalfId, setOnBehalfId] = useState<number | null>(null)
+  const subjectId = onBehalfId ?? me.id
+  const subjectQs = onBehalfId ? `?user_id=${onBehalfId}` : ''
+
+  type StaffRow = { id: number; pname?: string; fname?: string; lname?: string; position_name?: string; is_active?: string }
+  const [staffOptions, setStaffOptions] = useState<{ value: number; label: string }[]>([])
+  useEffect(() => {
+    if (!me.isHr || editId) return
+    fetch('/api/v1/users')
+      .then(r => r.json())
+      .then(j => {
+        if (!j?.success || !Array.isArray(j.data)) return
+        setStaffOptions(j.data
+          .filter((u: StaffRow) => u.is_active !== 'N' && Number(u.id) !== me.id)
+          .map((u: StaffRow) => ({
+            value: Number(u.id),
+            label: `${u.pname ?? ''}${u.fname ?? ''} ${u.lname ?? ''}`.trim() + (u.position_name ? ` · ${u.position_name}` : ''),
+          })))
+      })
+      .catch(() => message.error('ไม่สามารถโหลดรายชื่อบุคลากรได้'))
+  }, [me, editId, message])
+
   // ผู้ยื่นใบลา — อ่านจาก DB ปัจจุบัน (ตำแหน่งต่อระดับสำหรับข้าราชการ / ลูกจ้างประจำ) ไม่ใช่ cookie ตอน login
-  const [applicant, setApplicant] = useState<{ name: string; staff_type: string | null; position: string } | null>(null)
+  const [applicant, setApplicant] = useState<{ name: string; staff_type: string | null; position: string; user_type_id?: number | null } | null>(null)
 
   useEffect(() => {
-    fetch('/api/v1/users/me/work-profile')
+    fetch(`/api/v1/users/me/work-profile${subjectQs}`)
       .then(r => r.json())
       .then(j => { if (j?.success) setApplicant(j.data) })
       .catch(() => { /* ไม่มีข้อมูลก็แสดงแค่หัวข้อ */ })
-  }, [])
+  }, [subjectQs])
   // role: 'supervisor' = ตัวจริง | 'acting' = รักษาการ (API เรียงตัวจริงมาก่อน)
   const [missionSupervisors, setMissionSupervisors] = useState<{ id: number; mission_name: string; mission_supervisor: string; role?: string }[]>([])
   const [majorSupervisors, setMajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
@@ -168,8 +202,8 @@ const LeavePageContent = () => {
   const [colleaguesLoading, setColleaguesLoading] = useState(false)
 
   useEffect(() => {
-    setColleaguesLoading(true)
-    fetch('/api/v1/users/me/colleagues')
+    void Promise.resolve().then(() => setColleaguesLoading(true))
+    fetch(`/api/v1/users/me/colleagues${subjectQs}`)
       .then(res => res.json())
       .then(json => {
         if (!json.success) return
@@ -178,20 +212,19 @@ const LeavePageContent = () => {
       })
       .catch(() => message.error('ไม่สามารถโหลดรายชื่อเพื่อนร่วมหน่วยงานได้'))
       .finally(() => setColleaguesLoading(false))
-  }, [message])
+  }, [message, subjectQs])
 
   // ถ้าผู้ login เป็นหัวหน้า/รักษาการกลุ่มภารกิจ → สายอนุมัติเปลี่ยนเป็นเสนอ ผอ. โดยตรง
   const [isMissionHead, setIsMissionHead] = useState(false)
   const [directorOptions, setDirectorOptions] = useState<{ value: string; label: string; role: string }[]>([])
 
   useEffect(() => {
-    const raw = Cookies.get('user_data')
-    if (!raw) return
-    const id = JSON.parse(raw)?.id
+    const id = subjectId
     if (!id) return
     fetch(`/api/v1/hr/mission-head-check/${id}`)
       .then(res => res.json())
       .then(json => {
+        setIsMissionHead(false)
         if (!json.success || !json.data.is_mission_head) return
         setIsMissionHead(true)
         // โหลด ผอ. / รักษาการ ผอ. จาก hr_settings มาเป็นผู้อนุมัติ
@@ -213,30 +246,28 @@ const LeavePageContent = () => {
           })
       })
       .catch(() => message.error('ไม่สามารถตรวจสอบสายอนุมัติได้'))
-  }, [message, form])
+  }, [message, form, subjectId])
 
   useEffect(() => {
-    setLeaveTypesLoading(true)
-    fetch('/api/v1/hr/leave-types')
+    void Promise.resolve().then(() => setLeaveTypesLoading(true))
+    fetch(`/api/v1/hr/leave-types${subjectQs}`)
       .then(res => res.json())
       .then(json => { if (json.success) setLeaveTypes(json.data) })
       .catch(() => message.error('ไม่สามารถโหลดประเภทการลาได้'))
       .finally(() => setLeaveTypesLoading(false))
-  }, [message])
+  }, [message, subjectQs])
 
   useEffect(() => {
-    const userTypeId = Cookies.get('user_type_id')
-    if (!userTypeId) return
+    const userTypeId = onBehalfId ? applicant?.user_type_id : Cookies.get('user_type_id')
+    if (!userTypeId) { void Promise.resolve().then(() => setEntitlements([])); return }
     fetch(`/api/v1/hr/leave-entitlements/${userTypeId}`)
       .then(res => res.json())
       .then(json => { if (json.success) setEntitlements(json.data) })
       .catch(() => message.error('ไม่สามารถโหลดสิทธิ์การลาได้'))
-  }, [message])
+  }, [message, onBehalfId, applicant?.user_type_id])
 
   useEffect(() => {
-    const raw = Cookies.get('user_data')
-    if (!raw) return
-    const id = JSON.parse(raw)?.id
+    const id = subjectId
     if (!id) return
     fetch(`/api/v1/hr/mission-supervisor/${id}`)
       .then(res => res.json())
@@ -249,12 +280,10 @@ const LeavePageContent = () => {
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มภารกิจได้'))
-  }, [message, form])
+  }, [message, form, subjectId])
 
   useEffect(() => {
-    const raw = Cookies.get('user_data')
-    if (!raw) return
-    const id = JSON.parse(raw)?.id
+    const id = subjectId
     if (!id) return
     fetch(`/api/v1/hr/major-supervisor/${id}`)
       .then(res => res.json())
@@ -266,12 +295,10 @@ const LeavePageContent = () => {
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มงานได้'))
-  }, [message, form])
+  }, [message, form, subjectId])
 
   useEffect(() => {
-    const raw = Cookies.get('user_data')
-    if (!raw) return
-    const id = JSON.parse(raw)?.id
+    const id = subjectId
     if (!id) return
     fetch(`/api/v1/hr/submajor-supervisor/${id}`)
       .then(res => res.json())
@@ -283,14 +310,26 @@ const LeavePageContent = () => {
         }
       })
       .catch(() => message.error('ไม่สามารถโหลดหัวหน้าหน่วยงาน/ตึกได้'))
-  }, [message, form])
+  }, [message, form, subjectId])
 
   const currentLeaveTypeInfo = leaveTypes.find(t => t.id === leaveType) ?? null
   const requiresDoc = currentLeaveTypeInfo?.requires_document_after_days
 
   // ลาพักผ่อน (ANNUAL) ต้องยื่นล่วงหน้า — เลือกวันที่ย้อนหลังไม่ได้ (ประเภทลาอื่น เช่น ลาป่วย ยื่นย้อนหลังได้ตามระเบียบ)
+  // ยกเว้น HR / ADMIN ทำรายการให้ (backend ตรวจซ้ำเสมอ)
   const isAnnualLeave = currentLeaveTypeInfo?.code === 'ANNUAL'
-  const disabledPastDate = (current: dayjs.Dayjs) => isAnnualLeave && current.isBefore(dayjs(), 'day')
+  const blockBackdate = isAnnualLeave && !me.isHr
+  // ลาล่วงหน้าได้ไม่เกิน max_advance_days วัน (ตั้งที่ env ฝั่ง backend — backend ตรวจซ้ำเสมอ)
+  const [maxAdvanceDays, setMaxAdvanceDays] = useState<number | null>(null)
+  useEffect(() => {
+    fetch('/api/v1/hr/leave-rules')
+      .then(r => r.json())
+      .then(j => { if (j?.success) setMaxAdvanceDays(Number(j.data.max_advance_days) || null) })
+      .catch(() => { /* ไม่ได้ค่าก็ปล่อยให้ backend ตรวจ */ })
+  }, [])
+  const disabledPastDate = (current: dayjs.Dayjs) =>
+    (blockBackdate && current.isBefore(dayjs(), 'day'))
+    || (maxAdvanceDays != null && current.isAfter(dayjs().add(maxAdvanceDays, 'day'), 'day'))
 
   // หา entitlement ของประเภทการลาที่เลือก (ใช้ min_service_months น้อยที่สุดเป็นฐาน)
   const currentEntitlement = entitlements
@@ -304,7 +343,7 @@ const LeavePageContent = () => {
       // สลับมาเป็นลาพักผ่อน (ANNUAL) แต่วันที่เลือกไว้เดิมย้อนหลังไปแล้ว → ล้างช่วงวันที่ทิ้ง กันเลือกวันย้อนหลังหลุดมาได้
       const newIsAnnual = leaveTypes.find(t => t.id === changedValues.leaveType)?.code === 'ANNUAL'
       const dr = allValues.dateRange
-      if (newIsAnnual && dr && dr[0] && dr[0].isBefore(dayjs(), 'day')) {
+      if (newIsAnnual && !me.isHr && dr && dr[0] && dr[0].isBefore(dayjs(), 'day')) {
         form.setFieldsValue({ dateRange: undefined, totalLeaveDays: 0 })
         setTotalLeaveDays(0)
         message.warning('ลาพักผ่อนไม่สามารถเลือกวันที่ย้อนหลังได้ กรุณาเลือกวันที่ใหม่')
@@ -317,20 +356,7 @@ const LeavePageContent = () => {
       setIsAbroad(changedValues.isAbroad)
     }
 
-    if ('dateRange' in changedValues || 'halfDay' in changedValues) {
-      const { dateRange, halfDay } = allValues
-      let days = 0
-      if (dateRange && dateRange[0] && dateRange[1]) {
-        days = dateRange[1].diff(dateRange[0], 'day') + 1
-      }
-
-      let calculatedDays = days
-      if (halfDay) {
-        calculatedDays = days > 0 ? days - 0.5 : 0
-      }
-      form.setFieldsValue({ totalLeaveDays: calculatedDays })
-      setTotalLeaveDays(calculatedDays)
-    }
+    // จำนวนวันคำนวณที่ backend (ไม่นับเสาร์-อาทิตย์ / วันหยุดราชการ ตามประเภทการลา) — ดู effect ของ dayCount
 
     if ('totalLeaveDays' in changedValues) {
       setTotalLeaveDays(changedValues.totalLeaveDays ?? 0)
@@ -347,18 +373,45 @@ const LeavePageContent = () => {
   } | null>(null)
 
   const watchedRange = Form.useWatch('dateRange', form)
+  const watchedHalfDay = Form.useWatch('halfDay', form)
   const quotaStart = watchedRange?.[0]
+
+  // นับจำนวนวันลาของช่วงที่เลือก แล้วเติมให้อัตโนมัติ (ผู้ลาแก้เองได้ เช่น เจ้าหน้าที่เวรที่ทำงานวันเสาร์)
+  const [dayCount, setDayCount] = useState<{
+    calendar_days: number; weekend_days: number; holidays: { date: string; name: string }[]
+    working_days_only: boolean; computed_days: number
+  } | null>(null)
+  const rangeKey = watchedRange?.[0] && watchedRange?.[1]
+    ? `${watchedRange[0].format('YYYY-MM-DD')}|${watchedRange[1].format('YYYY-MM-DD')}` : ''
   useEffect(() => {
-    if (!leaveType) { setQuota(null); return }
+    if (!rangeKey) { void Promise.resolve().then(() => setDayCount(null)); return }
+    const [start, end] = rangeKey.split('|')
+    const qs = new URLSearchParams({ start_date: start, end_date: end, is_half_day: String(!!watchedHalfDay) })
+    if (leaveType) qs.set('leave_type_id', String(leaveType))
+    let alive = true
+    fetch(`/api/v1/hr/leave-days/count?${qs}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j?.success) return
+        setDayCount(j.data)
+        form.setFieldsValue({ totalLeaveDays: j.data.computed_days })
+        setTotalLeaveDays(j.data.computed_days)
+      })
+      .catch(() => { /* นับไม่ได้ก็ให้กรอกเอง */ })
+    return () => { alive = false }
+  }, [rangeKey, watchedHalfDay, leaveType, form])
+  useEffect(() => {
+    if (!leaveType) { void Promise.resolve().then(() => setQuota(null)); return }
     const qs = new URLSearchParams({ leave_type_id: String(leaveType) })
     if (quotaStart) qs.set('start_date', quotaStart.format('YYYY-MM-DD'))
+    if (onBehalfId) qs.set('user_id', String(onBehalfId))
     let alive = true
     fetch(`/api/v1/hr/leave-requests/quota?${qs.toString()}`)
       .then(r => r.json())
       .then(j => { if (alive) setQuota(j?.success ? j.data : null) })
       .catch(() => { if (alive) setQuota(null) })
     return () => { alive = false }
-  }, [leaveType, quotaStart])
+  }, [leaveType, quotaStart, onBehalfId])
 
   const onFinish = async (values: any) => {
     const [from, to] = values.dateRange ?? []
@@ -393,6 +446,7 @@ const LeavePageContent = () => {
         method: editId ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...(onBehalfId && !editId ? { user_id: onBehalfId } : {}),
           leave_type_id: values.leaveType,
           start_date: from.format('YYYY-MM-DD'),
           end_date: to.format('YYYY-MM-DD'),
@@ -465,6 +519,32 @@ const LeavePageContent = () => {
               </Tag>
             </Space>
           </div>
+
+          {me.isHr && !editId && (
+            <Card variant="borderless" className="shadow-sm mb-4 rounded-xl" styles={{ body: { padding: '12px 16px' } }}>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ทำรายการแทนบุคลากร</Text>
+                <Select
+                  showSearch
+                  allowClear
+                  className="w-full md:max-w-120"
+                  placeholder="ยื่นของตัวเอง — หรือค้นหาชื่อบุคลากรเพื่อทำรายการแทน"
+                  options={staffOptions}
+                  value={onBehalfId ?? undefined}
+                  optionFilterProp="label"
+                  onChange={(v?: number) => {
+                    setOnBehalfId(v ?? null)
+                    // ประเภทการลา / สิทธิ์ / สายอนุมัติเป็นของผู้ลาคนใหม่ — เลือกประเภทใหม่
+                    form.setFieldsValue({ leaveType: undefined })
+                    setLeaveType(null)
+                  }}
+                />
+              </div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                งานทรัพยากรบุคคล / ผู้ดูแลระบบ บันทึกการลาย้อนหลังได้ทุกประเภท รวมถึงลาพักผ่อน · ใบลาเข้าสายอนุมัติของผู้ลาตามปกติ
+              </Text>
+            </Card>
+          )}
 
           <Form
             form={form}
@@ -668,6 +748,14 @@ const LeavePageContent = () => {
                   <Form.Item
                     name="totalLeaveDays"
                     label="จำนวนวันที่ใช้ลา (สามารถแก้ไขได้)"
+                    extra={dayCount && (dayCount.working_days_only
+                      ? (dayCount.weekend_days || dayCount.holidays.length
+                        ? `ไม่นับ${[
+                            dayCount.weekend_days ? `เสาร์-อาทิตย์ ${dayCount.weekend_days} วัน` : '',
+                            ...dayCount.holidays.map(h => h.name),
+                          ].filter(Boolean).join(', ')} · งานทรัพยากรบุคคลตรวจซ้ำอีกครั้ง`
+                        : 'นับเฉพาะวันทำการ')
+                      : `นับวันปฏิทินต่อเนื่อง ${dayCount.calendar_days} วัน (รวมวันหยุด)`)}
                     rules={[
                       { required: true, message: 'กรุณาระบุจำนวนวันลา' },
                       {

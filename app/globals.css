@@ -184,3 +184,6 @@ a.hr-news-text:hover {
 [data-theme="light"] a.hr-news-text:hover {
   color: #000;
 }
+
+/* หน้าตรวจวันลา (/hr/leave/day-check) — ใบที่ระบุวันน้อยกว่าที่ปฏิทินนับได้ */
+.leave-understated-row > td { background: rgba(239, 68, 68, 0.08) !important; }

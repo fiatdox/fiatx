@@ -23,6 +23,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/posts': HR_POST_MANAGER_ROLES,
   // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
   '/hr/leave/balance': ['ADMIN', 'HR'],
+  // ตรวจวันลาที่คร่อมวันหยุด + วันหยุดราชการ — แก้จำนวนวันลา/ยอดของทุกคน (proxy.ts กั้น URL ตรง)
+  '/hr/leave/day-check': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)
   '/hr/settings/supervisor': ['ADMIN', 'HR'],
   // ทะเบียนบุคลากร — สร้าง/แก้ไข/ระงับบัญชี (ตรงกับ requireRoles ใน userRoutes)
