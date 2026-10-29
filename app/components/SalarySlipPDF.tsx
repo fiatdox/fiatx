@@ -27,6 +27,7 @@ export interface SalaryEmployee {
   position: string
   department: string
   staffType: string
+  salaryNo?: string        // เลขที่เงินเดือนของงวดนี้
   bankAccount?: string
   bankName?: string
 }
@@ -50,6 +51,9 @@ export interface SalarySlipData {
   totalDeductions: number
   netSalary: number
 }
+
+// react-pdf ตัดตัวอักษรท้ายข้อความภาษาไทยทิ้ง (คำนวณความกว้างฟอนต์ไทยขาดไป) — เติมเว้นวรรคไม่ตัดบรรทัดท้ายข้อความกันไว้
+const PAD = '   '
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const formatNumber = (n: number) =>
@@ -152,18 +156,18 @@ const s = StyleSheet.create({
   tDividerHead: { borderLeft: '1px solid rgba(255,255,255,0.35)' },
   tDividerBody: { borderLeft: '1px solid #cbd5e1' },
   tHeadLabel:  { flex: 1, padding: '6px 10px', color: '#fff', fontWeight: 'bold', fontSize: 9.5 },
-  tHeadAmount: { width: 78, padding: '6px 10px', color: 'rgba(255,255,255,0.9)', fontSize: 8, textAlign: 'right' },
+  tHeadAmount: { width: 92, padding: '6px 10px', color: 'rgba(255,255,255,0.9)', fontSize: 8, textAlign: 'right' },
   tRow:    { flexDirection: 'row', borderTop: '0.5px solid #e5e7eb' },
   tRowAlt: { backgroundColor: '#f8fafc' },
   tLabel:  { flex: 1, padding: '4px 10px', fontSize: 9, color: '#374151' },
-  tAmount: { width: 78, padding: '4px 10px', fontSize: 9, color: '#111827', textAlign: 'right' },
+  tAmount: { width: 92, padding: '4px 10px', fontSize: 9, color: '#111827', textAlign: 'right' },
   tTotalRow: {
     flexDirection: 'row',
     borderTop: '1px solid #94a3b8',
     backgroundColor: '#f1f5f9',
   },
   tTotalLabel:  { flex: 1, padding: '6px 10px', fontSize: 9.5, fontWeight: 'bold', color: '#1f2937' },
-  tTotalAmount: { width: 78, padding: '6px 10px', fontSize: 9.5, fontWeight: 'bold', textAlign: 'right' },
+  tTotalAmount: { width: 92, padding: '6px 10px', fontSize: 9.5, fontWeight: 'bold', textAlign: 'right' },
 
   // ── เงินสุทธิ ──
   netBox: {
@@ -226,45 +230,51 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
     <Document title={`สลิปเงินเดือน - ${employee.name} - ${monthLabel}`}>
       <Page size="A4" style={s.page}>
 
-        <Text style={s.confidential} fixed>เอกสารลับ / CONFIDENTIAL</Text>
+        <Text style={s.confidential} fixed>เอกสารลับ / CONFIDENTIAL{PAD}</Text>
 
         {/* ── Header ── */}
         <View style={s.headerBand}>
           <View>
-            <Text style={s.hospitalName}>โรงพยาบาลพะเยา</Text>
-            <Text style={s.hospitalSub}>สำนักปลัดกระทรวงสาธารณสุข กระทรวงสาธารณสุข &nbsp;</Text>
+            <Text style={s.hospitalName}>โรงพยาบาลพะเยา{PAD}</Text>
+            <Text style={s.hospitalSub}>สำนักปลัดกระทรวงสาธารณสุข กระทรวงสาธารณสุข{PAD}</Text>
           </View>
           <View>
-            <Text style={s.reportTitle}>ใบแจ้งเงินเดือน</Text>
-            <Text style={s.reportSub}>เดือน {monthLabel}</Text>
+            <Text style={s.reportTitle}>ใบแจ้งเงินเดือน{PAD}</Text>
+            <Text style={s.reportSub}>เดือน {monthLabel}{PAD}</Text>
           </View>
         </View>
 
         {/* แถบอ้างอิงเอกสาร */}
         <View style={s.refBar}>
-          <Text style={s.refText}>เลขที่เอกสาร PAY-{monthLabel.replace(/\s/g, '')}</Text>
+          <Text style={s.refText}>เลขที่เอกสาร PAY-{monthLabel.replace(/\s/g, '')}{PAD}</Text>
         </View>
 
         {/* ── Employee info ── */}
         <View style={s.infoBox}>
           <View style={s.infoCol}>
             <View style={s.infoRow}>
-              <Text style={s.infoLabel}>ชื่อ–นามสกุล</Text>
-              <Text style={s.infoVal}>{employee.name}&nbsp;</Text>
+              <Text style={s.infoLabel}>ชื่อ–นามสกุล{PAD}</Text>
+              <Text style={s.infoVal}>{employee.name}{PAD}</Text>
             </View>
+            {employee.salaryNo && (
+              <View style={s.infoRow}>
+                <Text style={s.infoLabel}>เลขที่เงินเดือน{PAD}</Text>
+                <Text style={s.infoVal}>{employee.salaryNo}{PAD}</Text>
+              </View>
+            )}
             <View style={[s.infoRow, { marginBottom: 0 }]}>
-              <Text style={s.infoLabel}>ประเภทบุคลากร&nbsp;</Text>
-              <Text style={s.infoVal}>{employee.staffType}&nbsp;</Text>
+              <Text style={s.infoLabel}>ประเภทบุคลากร{PAD}</Text>
+              <Text style={s.infoVal}>{employee.staffType}{PAD}</Text>
             </View>
           </View>
           <View style={[s.infoCol, s.infoColRight]}>
             <View style={s.infoRow}>
-              <Text style={s.infoLabel}>ตำแหน่ง&nbsp;</Text>
-              <Text style={s.infoVal}>{employee.position} &nbsp;</Text>
+              <Text style={s.infoLabel}>ตำแหน่ง{PAD}</Text>
+              <Text style={s.infoVal}>{employee.position}{PAD}</Text>
             </View>
             <View style={[s.infoRow, { marginBottom: 0 }]}>
-              <Text style={s.infoLabel}>กลุ่มงาน</Text>
-              <Text style={s.infoVal}>{employee.department}&nbsp;</Text>
+              <Text style={s.infoLabel}>กลุ่มงาน{PAD}</Text>
+              <Text style={s.infoVal}>{employee.department}{PAD}</Text>
             </View>
           </View>
         </View>
@@ -274,23 +284,23 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
           {/* หัวตาราง */}
           <View style={s.tHead}>
             <View style={s.tHalf}>
-              <Text style={s.tHeadLabel}>รายรับ</Text>
-              <Text style={s.tHeadAmount}>จำนวนเงิน (บาท)</Text>
+              <Text style={s.tHeadLabel}>รายรับ{PAD}</Text>
+              <Text style={s.tHeadAmount}>จำนวนเงิน (บาท){PAD}</Text>
             </View>
             <View style={[s.tHalf, s.tDividerHead]}>
-              <Text style={s.tHeadLabel}>รายการหัก</Text>
-              <Text style={s.tHeadAmount}>จำนวนเงิน (บาท)</Text>
+              <Text style={s.tHeadLabel}>รายการหัก{PAD}</Text>
+              <Text style={s.tHeadAmount}>จำนวนเงิน (บาท){PAD}</Text>
             </View>
           </View>
           {/* แถวรายการ — สลับสีพื้นอ่านง่าย */}
           {rows.map((row, i) => (
             <View key={i} style={[s.tRow, ...(i % 2 === 1 ? [s.tRowAlt] : [])]}>
               <View style={s.tHalf}>
-                <Text style={s.tLabel}>{row.earn?.label ?? ' '}</Text>
+                <Text style={s.tLabel}>{row.earn?.label ?? ' '}{PAD}</Text>
                 <Text style={s.tAmount}>{row.earn ? formatNumber(row.earn.amount) : ' '}</Text>
               </View>
               <View style={[s.tHalf, s.tDividerBody]}>
-                <Text style={s.tLabel}>{row.deduct?.label ?? ' '}</Text>
+                <Text style={s.tLabel}>{row.deduct?.label ?? ' '}{PAD}</Text>
                 <Text style={s.tAmount}>{row.deduct ? formatNumber(row.deduct.amount) : ' '}</Text>
               </View>
             </View>
@@ -298,11 +308,11 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
           {/* แถวรวม — อยู่แนวเดียวกันทั้งสองฝั่งเสมอ */}
           <View style={s.tTotalRow}>
             <View style={s.tHalf}>
-              <Text style={s.tTotalLabel}>รวมรายรับ</Text>
+              <Text style={s.tTotalLabel}>รวมรายรับ{PAD}</Text>
               <Text style={[s.tTotalAmount, { color: '#047857' }]}>{formatNumber(totalEarnings)}</Text>
             </View>
             <View style={[s.tHalf, s.tDividerBody]}>
-              <Text style={s.tTotalLabel}>รวมรายการหัก</Text>
+              <Text style={s.tTotalLabel}>รวมรายการหัก{PAD}</Text>
               <Text style={[s.tTotalAmount, { color: '#b91c1c' }]}>{formatNumber(totalDeductions)}</Text>
             </View>
           </View>
@@ -311,26 +321,24 @@ function SalarySlipDocument({ data }: { data: SalarySlipData }) {
         {/* ── Net Salary ── */}
         <View style={s.netBox}>
           <View>
-            <Text style={s.netLabel}>เงินได้สุทธิ (รายรับ − รายการหัก)</Text>
-            <Text style={s.netText}>({numberToThaiText(netSalary)})</Text>
+            <Text style={s.netLabel}>เงินได้สุทธิ (รายรับ − รายการหัก){PAD}</Text>
+            <Text style={s.netText}>({numberToThaiText(netSalary)}){PAD}</Text>
           </View>
-          <Text style={s.netAmount}>{formatNumber(netSalary)} บาท</Text>
+          <Text style={s.netAmount}>{formatNumber(netSalary)} บาท{PAD}</Text>
         </View>
 
         {/* ── Bank info ── */}
         {employee.bankAccount && (
           <View style={s.bankRow}>
-            <Text style={[s.infoLabel, { width: 90 }]}>โอนเข้าบัญชี</Text>
+            <Text style={[s.infoLabel, { width: 90 }]}>โอนเข้าบัญชี{PAD}</Text>
             <Text style={s.infoVal}>
-              {employee.bankName} — เลขที่บัญชี {employee.bankAccount}
-            </Text>
+              {employee.bankName} — เลขที่บัญชี {employee.bankAccount}{PAD}</Text>
           </View>
         )}
 
         <Text style={s.footNote}>
           เอกสารฉบับนี้จัดทำโดยระบบอัตโนมัติและถือเป็นความลับระหว่างโรงพยาบาลกับพนักงาน
-          ห้ามเผยแพร่โดยไม่ได้รับอนุญาต · พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบการเงินและบัญชี
-        </Text>
+          ห้ามเผยแพร่โดยไม่ได้รับอนุญาต · พิมพ์เมื่อ {printDate} · PYHOS-EXP ระบบการเงินและบัญชี{PAD}</Text>
       </Page>
     </Document>
   )
@@ -395,6 +403,7 @@ function SalarySlipHtml({ data }: { data: SalarySlipData }) {
       </div>
       <div style={{ fontSize: 13, marginBottom: 12, lineHeight: 1.7 }}>
         <div><b>{employee.name}</b></div>
+        {employee.salaryNo && <div>เลขที่เงินเดือน {employee.salaryNo}</div>}
         {employee.position && <div>{employee.position}</div>}
         {employee.department && <div style={{ color: 'var(--app-text-3)' }}>{employee.department}</div>}
       </div>

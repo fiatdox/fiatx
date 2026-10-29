@@ -44,6 +44,7 @@ interface MonthSummary {
   income: number
   deduction: number
   net: number
+  salary_ids?: string[] // เลขที่เงินเดือนที่จ่ายจริงในงวดนี้
 }
 
 interface PayrollProfile {
@@ -61,6 +62,7 @@ interface SlipItem {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+const salaryNoText = (ids?: string[]) => (ids?.length ? ids.join(', ') : '-')
 const formatCurrency = (n: number) =>
   n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -199,10 +201,12 @@ const PageContent = () => {
       setSlipData({
         employee: {
           id:          profile.username || String(salaryId),
+          salaryNo:    salaryNoText(d.salary_ids),
           name:        profile.name || (p ? `${p.fname} ${p.lname}` : '—'),
-          position:    profile.position,
-          department:  profile.department,
-          staffType:   profile.staffType,
+          // ตำแหน่ง (ต่อระดับสำหรับข้าราชการ/ลูกจ้างประจำ) จาก DB ปัจจุบัน — cookie เป็นค่าตอน login ใช้สำรอง
+          position:    d.employee?.position || profile.position,
+          department:  d.employee?.department || profile.department,
+          staffType:   d.employee?.staff_type || profile.staffType,
           bankAccount: p?.accno ?? '',
           bankName:    p?.bank ? `ธนาคาร${p.bank}${p.bankbranch ? ` สาขา${p.bankbranch}` : ''}` : '',
         },
@@ -305,6 +309,7 @@ const PageContent = () => {
       render: (_: any, r: MonthSummary) => (
         <div>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{mtToLabel(r.mt)}</div>
+          <Text type="secondary" style={{ fontSize: 12 }}>เลขที่เงินเดือน {salaryNoText(r.salary_ids)}</Text>
         </div>
       ),
     },
@@ -495,6 +500,7 @@ const PageContent = () => {
                   <Text strong style={{ fontSize: 16 }}>
                     สลิปเงินเดือน · {mtToLabel(latest.mt)}
                   </Text>
+                  <Text type="secondary" style={{ fontSize: 13 }}>เลขที่เงินเดือน {salaryNoText(latest.salary_ids)}</Text>
                 </div>
                 <Row gutter={16}>
                   <Col span={8}>

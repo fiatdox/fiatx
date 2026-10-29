@@ -5,7 +5,9 @@ import {
   Drawer, Descriptions, Switch, Tooltip, Modal, Checkbox, Space,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { SearchOutlined, ReloadOutlined, EyeOutlined, LinkOutlined } from '@ant-design/icons'
+import { SearchOutlined, ReloadOutlined, EyeOutlined, LinkOutlined, FileTextOutlined, PrinterOutlined } from '@ant-design/icons'
+import dynamic from 'next/dynamic'
+import type { SalarySlipData } from '@/app/components/SalarySlipPDF'
 import { MatchBadge, LookupCard, fetchLookup, fmtMt, money, type Lookup, type NameMatch } from './shared'
 
 const { Text } = Typography
@@ -24,8 +26,39 @@ type Stats = { total: number; in_period: number; linked: number; unlinked: numbe
 type Month = { mt: string; income: number; deduction: number; net: number }
 type Detail = { person: Row; years: number[]; year: number | null; months: Month[] }
 type UserHit = { id: number; name: string; username: string; salary_ids: { salary_id: number }[] }
+type SlipItem = { code: string; label: string; amount: number }
+type Slip = {
+  mt: string; salary_ids: string[]; earnings: SlipItem[]; deductions: SlipItem[]; total_earnings: number; total_deductions: number; net: number
+  // ผูกกับผู้ใช้แล้วเท่านั้นจึงมีหัวสลิป (ชื่อ/ตำแหน่ง/กลุ่มงาน) ให้พิมพ์ PDF
+  linked_user: { id: number; name: string } | null
+  employee: { position: string; staff_type: string; department: string } | null
+}
+// ข้อมูลของหน้าต่างรายละเอียด — slip = null ระหว่างโหลด
+type SlipView = { id: string; name: string; mt: string; slip: Slip | null }
 
 const card = { background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }
+
+// PDF สลิปตัวเดียวกับหน้า /accounting/salary — โหลดเฉพาะตอนเปิด (react-pdf ใหญ่ และใช้ฝั่ง client เท่านั้น)
+const SalarySlipPDFViewer = dynamic(() => import('@/app/components/SalarySlipPDF'), { ssr: false })
+const THAI_MONTHS = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
+
+const toSlipData = (id: string, s: Slip): SalarySlipData | null => s.linked_user && ({
+  employee: {
+    id,
+    salaryNo: s.salary_ids?.length ? s.salary_ids.join(', ') : id,
+    name: s.linked_user.name,
+    position: s.employee?.position ?? '',
+    department: s.employee?.department ?? '',
+    staffType: s.employee?.staff_type ?? '',
+  },
+  monthLabel: `${THAI_MONTHS[Number(s.mt.slice(4, 6))]} พ.ศ. ${s.mt.slice(0, 4)}`,
+  earnings: s.earnings.map(i => ({ label: i.label, amount: i.amount })),
+  deductions: s.deductions.map(i => ({ label: i.label, amount: i.amount })),
+  totalEarnings: s.total_earnings,
+  totalDeductions: s.total_deductions,
+  netSalary: s.net,
+})
 
 /** ทะเบียนเงินเดือน (salarydb) — ใช้เป็นแท็บในหน้า "เลขที่เงินเดือนบุคลากร" ผูกเลขให้ผู้ใช้ได้จากที่นี่ */
 export default function RegisterTab() {
@@ -52,6 +85,22 @@ export default function RegisterTab() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+
+  // รายละเอียดรายการรับ/หักของงวดที่เลือก
+  const [slipView, setSlipView] = useState<SlipView | null>(null)
+  const [pdfData, setPdfData] = useState<SalarySlipData | null>(null)
+  const openSlip = async (id: string, name: string, m: string) => {
+    setSlipView({ id, name, mt: m, slip: null })
+    try {
+      const j = await fetch(`/api/v1/accounting/salary-register/${id}/slip/${m}`).then(r => r.json())
+      if (!j?.success) { message.error(j?.message || 'โหลดรายละเอียดไม่สำเร็จ'); setSlipView(null); return }
+      // ผู้ใช้อาจกดงวดอื่นไปแล้วระหว่างรอ — ใส่ผลเฉพาะงวดที่ยังเปิดอยู่
+      setSlipView(v => (v && v.id === id && v.mt === m ? { ...v, slip: j.data } : v))
+    } catch (e) {
+      message.error((e as Error).message)
+      setSlipView(null)
+    }
+  }
 
   // ผูกเลขให้ผู้ใช้
   const [linkRow, setLinkRow] = useState<Row | null>(null)
@@ -189,8 +238,18 @@ export default function RegisterTab() {
         : <Button size="small" icon={<LinkOutlined />} onClick={() => openLink(r)}>ผูก</Button>),
     },
     {
-      title: '', width: 60, align: 'center',
-      render: (_, r) => <Tooltip title="ดูประวัติรายงวด"><Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r.id)} /></Tooltip>,
+      title: '', width: 96, align: 'center',
+      render: (_, r) => (
+        <Space size={4}>
+          {/* รายละเอียดของงวดที่เลือกอยู่ — มีเฉพาะคนที่มีเงินเดือนในงวดนั้น */}
+          {r.net != null && mt && (
+            <Tooltip title={`รายละเอียดเงินเดือน ${fmtMt(mt)}`}>
+              <Button size="small" icon={<FileTextOutlined />} onClick={() => openSlip(r.id, r.name, mt)} />
+            </Tooltip>
+          )}
+          <Tooltip title="ดูประวัติรายงวด"><Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(r.id)} /></Tooltip>
+        </Space>
+      ),
     },
   ]
 
@@ -199,6 +258,12 @@ export default function RegisterTab() {
     { title: 'รายรับ', dataIndex: 'income', align: 'right', render: money },
     { title: 'รายการหัก', dataIndex: 'deduction', align: 'right', render: money },
     { title: 'สุทธิ', dataIndex: 'net', align: 'right', render: (v: number) => <Text strong>{money(v)}</Text> },
+    {
+      title: '', key: 'slip', width: 100, align: 'center',
+      render: (_, r) => detail && (
+        <Button size="small" icon={<FileTextOutlined />} onClick={() => openSlip(detail.person.id, detail.person.name, r.mt)}>รายละเอียด</Button>
+      ),
+    },
   ]
 
   return (
@@ -280,6 +345,73 @@ export default function RegisterTab() {
           <Checkbox className="mt-3" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)}>
             ตรวจสอบแล้ว ยืนยันว่าเป็นบุคคลเดียวกัน (เช่น เปลี่ยนชื่อ-สกุล)
           </Checkbox>
+        )}
+      </Modal>
+
+      <Modal
+        title={slipView ? `รายละเอียดเงินเดือน ${fmtMt(slipView.mt)} — ${slipView.name}` : 'รายละเอียดเงินเดือน'}
+        open={!!slipView} onCancel={() => setSlipView(null)} footer={null} width={720} destroyOnHidden
+        loading={!!slipView && !slipView.slip}
+      >
+        {slipView?.slip && (() => {
+          const s = slipView.slip
+          return (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Text type="secondary">เลขที่เงินเดือน <Text strong style={{ fontFamily: 'monospace' }}>{slipView.id}</Text></Text>
+                {s.linked_user ? (
+                  <Button type="primary" icon={<PrinterOutlined />} onClick={() => setPdfData(toSlipData(slipView.id, s))}>
+                    พิมพ์สลิป PDF
+                  </Button>
+                ) : (
+                  <Tooltip title="ผูกเลขที่เงินเดือนนี้กับผู้ใช้ก่อน จึงจะมีชื่อ ตำแหน่ง และกลุ่มงานสำหรับหัวสลิป">
+                    <Button icon={<PrinterOutlined />} disabled>พิมพ์สลิป PDF (ยังไม่ผูกผู้ใช้)</Button>
+                  </Tooltip>
+                )}
+              </div>
+              <ARow gutter={[24, 16]} className="mt-3">
+                {([
+                  ['รายการรับ', s.earnings, s.total_earnings, '#10b981'],
+                  ['รายการหัก', s.deductions, s.total_deductions, '#ef4444'],
+                ] as const).map(([title, items, total, color]) => (
+                  <Col xs={24} md={12} key={title}>
+                    <div style={{ fontWeight: 600, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 4 }}>
+                      {title} <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>{items.length} รายการ</Text>
+                    </div>
+                    {items.length === 0 && <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการ</Text>}
+                    {items.map(it => (
+                      <div key={it.code} className="flex justify-between gap-3" style={{ padding: '5px 0', fontSize: 14, borderBottom: '1px dashed var(--app-border)' }}>
+                        <span>{it.label}</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{money(it.amount)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between gap-3" style={{ padding: '6px 0 0', fontSize: 14, fontWeight: 700 }}>
+                      <span>รวม{title}</span>
+                      <span style={{ color, fontVariantNumeric: 'tabular-nums' }}>{money(total)}</span>
+                    </div>
+                  </Col>
+                ))}
+              </ARow>
+              <div className="mt-4 flex flex-wrap justify-between gap-2" style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid var(--app-border-strong)' }}>
+                <Text>รายรับ {money(s.total_earnings)} − รายการหัก {money(s.total_deductions)}</Text>
+                <Text strong style={{ color: '#0284c7', fontSize: 16 }}>เงินสุทธิ {money(s.net)} บาท</Text>
+              </div>
+            </>
+          )
+        })()}
+      </Modal>
+
+      <Modal
+        title={pdfData ? `สลิปเงินเดือน ${pdfData.monthLabel} — ${pdfData.employee.name}` : 'สลิปเงินเดือน'}
+        open={!!pdfData} onCancel={() => setPdfData(null)} footer={null}
+        width="90%" style={{ top: 24, maxWidth: 1100 }}
+        styles={{ body: { padding: 0, height: '80vh' } }}
+        destroyOnHidden
+      >
+        {pdfData && (
+          <div style={{ width: '100%', height: '100%' }}>
+            <SalarySlipPDFViewer data={pdfData} />
+          </div>
         )}
       </Modal>
 
