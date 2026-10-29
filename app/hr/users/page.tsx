@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, Card, Row, Col, Tag,
   Avatar, Drawer, Form, Select, Breadcrumb, Tooltip,
-  App, Typography, Badge, Spin, DatePicker,
+  App, Typography, Badge, Spin, DatePicker, ConfigProvider,
 } from 'antd'
 import {
   EditOutlined, SearchOutlined, UserOutlined, PlusOutlined,
@@ -13,9 +13,17 @@ import {
 import { FaUsersCog, FaUsers, FaFilter, FaFileExcel } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
+import buddhistEra from 'dayjs/plugin/buddhistEra'
+import thTH from 'antd/locale/th_TH'
 import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+
+dayjs.extend(buddhistEra)
+// วันที่แสดงเป็นปี พ.ศ. (BBBB) — ค่าที่ส่ง backend ยังเป็น ค.ศ. เพราะ format('YYYY-MM-DD') ตอนบันทึก
+const BE_DATE = 'DD/MM/BBBB'
+// locale ของ antd ไม่ได้แปลงปีในหัวปฏิทินเป็น พ.ศ. ให้ จึงตั้ง yearFormat เอง
+const TH_LOCALE = { ...thTH, DatePicker: { ...thTH.DatePicker!, lang: { ...thTH.DatePicker!.lang, yearFormat: 'BBBB' } } }
 
 const { Text, Title } = Typography
 
@@ -377,8 +385,8 @@ const PageContent = () => {
       'ระดับ': nameIn(levels, u.user_level_id),
       'ประเภท': nameIn(userTypes, u.user_type_id),
       'สถานะ': nameIn(userStatuses, u.user_status_id),
-      'วันเกิด': u.birthday ? dayjs(u.birthday).format('DD/MM/YYYY') : '',
-      'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format('DD/MM/YYYY') : '',
+      'วันเกิด': u.birthday ? dayjs(u.birthday).format(BE_DATE) : '',
+      'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format(BE_DATE) : '',
       'สถานะการใช้งาน': isActive(u) ? 'ใช้งาน' : 'ระงับ',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -623,6 +631,7 @@ const PageContent = () => {
         </Card>
 
         {/* ── Add/Edit Drawer ── */}
+        <ConfigProvider locale={TH_LOCALE}>
         <Drawer
           title={
             <div className="flex items-center gap-3">
@@ -683,12 +692,12 @@ const PageContent = () => {
             <Row gutter={12}>
               <Col span={12}>
                 <Form.Item name="birthday" label="วันเกิด">
-                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันเกิด" />
+                  <DatePicker style={{ width: '100%' }} format={BE_DATE} placeholder="เลือกวันเกิด" />
                 </Form.Item>
               </Col>
               <Col span={12}>
                 <Form.Item name="hire_date" label="วันที่บรรจุ">
-                  <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่บรรจุ" />
+                  <DatePicker style={{ width: '100%' }} format={BE_DATE} placeholder="เลือกวันที่บรรจุ" />
                 </Form.Item>
               </Col>
             </Row>
@@ -749,7 +758,7 @@ const PageContent = () => {
                     tooltip="วันสุดท้ายที่บุคลากรปฏิบัติงาน (เช่น วันลาออก/เกษียณ/โอนย้าย)"
                     rules={[{ required: true, message: 'กรุณาระบุวันที่สิ้นสุดการปฏิบัติงาน' }]}
                   >
-                    <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" placeholder="เลือกวันที่สิ้นสุด" />
+                    <DatePicker style={{ width: '100%' }} format={BE_DATE} placeholder="เลือกวันที่สิ้นสุด" />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
@@ -762,6 +771,7 @@ const PageContent = () => {
 
           </Form>
         </Drawer>
+        </ConfigProvider>
 
       </div>
     </div>

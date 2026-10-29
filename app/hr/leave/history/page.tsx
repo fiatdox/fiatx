@@ -7,7 +7,7 @@ import {
 import {
   HomeOutlined, FileTextOutlined, PrinterOutlined, EyeOutlined,
   CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined,
-  ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined,
+  ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined, EditOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
@@ -197,7 +197,7 @@ const LeaveHistoryContent = () => {
     }
   }
 
-  /** ใบที่ยังไม่มีผู้อนุมัติคนใดกดเลย ลบทิ้งได้จริง */
+  /** ใบที่ยังไม่มีผู้อนุมัติคนใดกดเลย ลบทิ้งหรือแก้ไขได้ (แก้ไขที่ฟอร์ม /hr/leave/new?edit=<id>) */
   const removeRequest = async (r: ApiRow) => {
     setActing(true)
     try {
@@ -348,7 +348,7 @@ const LeaveHistoryContent = () => {
       },
     },
     {
-      title: 'จัดการ', key: 'action', align: 'center' as const, width: 210, fixed: 'right' as const,
+      title: 'จัดการ', key: 'action', align: 'center' as const, width: 280, fixed: 'right' as const,
       render: (_: unknown, r: ApiRow) => (
         <Space size={4}>
           <Button size="small" icon={<EyeOutlined />} onClick={() => setDetail(r)}>รายละเอียด</Button>
@@ -356,6 +356,8 @@ const LeaveHistoryContent = () => {
           {/* ยังไม่มีผู้อนุมัติคนใดกด = ลบทิ้งได้ · กดไปแล้ว = ถอนใบ เก็บประวัติไว้ */}
           {String(r.status).toUpperCase() === 'PENDING' && (
             (r.actions?.length ?? 0) === 0 ? (
+              <>
+              <Button size="small" icon={<EditOutlined />} href={`/hr/leave/new?edit=${r.id}`}>แก้ไข</Button>
               <Popconfirm
                 title="ลบใบลานี้"
                 description="ยังไม่มีผู้อนุมัติคนใดดำเนินการ ลบออกจากระบบถาวร"
@@ -364,6 +366,7 @@ const LeaveHistoryContent = () => {
               >
                 <Button size="small" danger icon={<DeleteOutlined />} loading={acting}>ลบ</Button>
               </Popconfirm>
+              </>
             ) : (
               <Popconfirm
                 title="ถอนใบลานี้"
@@ -418,7 +421,7 @@ const LeaveHistoryContent = () => {
           </div>
           <Space>
             <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>รีเฟรช</Button>
-            <Button type="primary" href="/hr/leave">ยื่นใบลาใหม่</Button>
+            <Button type="primary" href="/hr/leave/new">ยื่นใบลาใหม่</Button>
           </Space>
         </div>
 

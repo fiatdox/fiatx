@@ -125,8 +125,12 @@ body {
 .home-arrow-next { right: 16px; }
 
 /* ปฏิทินวันลา: ให้บาร์ใบลาต่อเนื่อง "ลากยาว" ข้ามวันได้ (ไม่ถูก cell ตัดขอบ) */
+/* ปฏิทินการลา: ให้แถบ/กล่องใบลาลากยาวทับข้ามช่องวันได้ — antd ตั้ง overflow:auto + ความสูงตายตัวไว้ด้วย selector
+   ที่เฉพาะเจาะจงกว่า (เกิดแถบเลื่อนและตัดกล่องที่ขอบช่อง) จึงต้อง !important · ความสูงขั้นต่ำเท่าเดิม ยืดได้เมื่อมีหลายใบ */
 .leave-cal .ant-picker-calendar-date-content {
-  overflow: visible;
+  overflow: visible !important;
+  height: auto !important;
+  min-height: 86px;
 }
 .leave-cal .ant-picker-calendar-date {
   padding-left: 6px;
@@ -160,4 +164,23 @@ body {
 /* ผู้ใช้ที่ปิดภาพเคลื่อนไหวในระบบปฏิบัติการ — แสดงเป็นแถบนิ่ง */
 @media (prefers-reduced-motion: reduce) {
   .sk { animation: none; }
+}
+
+/* ข้อความข่าวงาน HR (/hr/leave, ป๊อปอัป) — ขาวล้วนโหมดมืด ดำล้วนโหมดสว่าง อ่านง่ายกว่าสีข้อความรอง */
+.hr-news-text {
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.75;
+}
+[data-theme="light"] .hr-news-text {
+  color: #000;
+}
+/* หัวข้อเอกสารที่เป็นลิงก์ — ใช้สีข้อความ ไม่ใช่สีฟ้าของลิงก์ และไม่ขีดเส้นใต้ */
+a.hr-news-text,
+a.hr-news-text:hover {
+  color: #fff;
+  text-decoration: none;
+}
+[data-theme="light"] a.hr-news-text:hover {
+  color: #000;
 }

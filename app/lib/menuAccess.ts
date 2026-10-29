@@ -8,6 +8,9 @@ export const IT_STAFF_ROLES = ['ADMIN', 'CHIEF_GROUP_IT', 'CHIEF_MISSION_IT', 'I
 // จัดการเลขที่เงินเดือนบุคลากร + ทะเบียนเงินเดือน — ผู้ดูแลระบบ เจ้าหน้าที่ IT และการเงิน/บัญชี (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
 export const SALARY_ID_ROLES = ['ADMIN', 'IT_STAFF', 'ACCOUNT', 'FINANCE']
 
+// จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR — ตรงกับ HR_POST_MANAGER_ROLES ฝั่ง backend
+export const HR_POST_MANAGER_ROLES = ['ADMIN', 'HR']
+
 // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
 // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
 export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
@@ -16,6 +19,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/accounting/salary-ids': SALARY_ID_ROLES,
   // กำหนดสิทธิ์การลา — แก้กฎการลาทั้งองค์กร (เฉพาะ ADMIN/HR — ตรงกับ requireRoles ฝั่ง backend)
   '/hr/leave/policy': ['ADMIN', 'HR'],
+  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
+  '/hr/leave/posts': HR_POST_MANAGER_ROLES,
   // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
   '/hr/leave/balance': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)

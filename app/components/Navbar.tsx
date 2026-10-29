@@ -23,9 +23,9 @@ import {
   FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
   FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
   FaWarehouse, FaExchangeAlt, FaQrcode,
-  FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
+  FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn, FaBullhorn
 } from 'react-icons/fa'
-import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES, IT_STAFF_ROLES } from '../lib/menuAccess'
+import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES, HR_POST_MANAGER_ROLES, IT_STAFF_ROLES } from '../lib/menuAccess'
 import { HEADER_GRADIENT, STAR_PATTERN } from '../lib/brand'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 
@@ -61,7 +61,7 @@ const MENU_TREE: NavItem[] = [
     children: [
       // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
       // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
-      { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+      { key: `${FAV_PREFIX}/hr/leave/new`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
       { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
       { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
       { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
@@ -84,8 +84,10 @@ const MENU_TREE: NavItem[] = [
         icon: <FaCalendarAlt />,
         label: 'การลา',
         children: [
-          { key: '/hr/leave',          icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+          { key: '/hr/leave',          icon: <FaBullhorn />,    label: 'ประชาสัมพันธ์ / ระเบียบการลา' },
+          { key: '/hr/leave/new',      icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
           { key: '/hr/leave/history',  icon: <FaHistory />,     label: 'ประวัติการลาของฉัน' },
+          { key: '/hr/leave/calendar', icon: <FaCalendarAlt />, label: 'ปฏิทินการลา' },
           { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
           { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
           { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
@@ -292,6 +294,7 @@ export const ROUTE_LABELS: Record<string, RouteLabel> = {
   '/account/usage': { label: 'สถิติการเข้าใช้งานระบบ', group: ACCOUNT_GROUP },
   '/account/user-credentials': { label: 'จัดการบัญชีเข้าใช้งาน', group: ACCOUNT_GROUP },
   '/accounting/salary-ids': { label: 'เลขที่เงินเดือนบุคลากร', group: ACCOUNT_GROUP },
+  '/hr/leave/posts': { label: 'จัดการข่าว / เอกสาร / ป๊อปอัป', group: ACCOUNT_GROUP },
 }
 
 const segmentsOf = (route: string) => route.split('/').filter(Boolean)
@@ -693,6 +696,9 @@ const Navbar: React.FC = () => {
               } else if (key === 'salary-ids') {
                 setOpenProfile(false)
                 router.push('/accounting/salary-ids')
+              } else if (key === 'hr-posts') {
+                setOpenProfile(false)
+                router.push('/hr/leave/posts')
               } else if (key === 'logout') {
                 Cookies.remove('auth_token')
                 Cookies.remove('user_data')
@@ -733,6 +739,10 @@ const Navbar: React.FC = () => {
               // ผูกเลขที่เงินเดือนให้บุคลากร (ตรงกับ SALARY_ID_ROLES ฝั่ง backend)
               ...(userRoles.some(r => SALARY_ID_ROLES.includes(r))
                 ? [{ key: 'salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร' }]
+                : []),
+              // ข่าว / เอกสาร / ป๊อปอัปงาน HR (ตรงกับ HR_POST_MANAGER_ROLES ฝั่ง backend)
+              ...(userRoles.some(r => HR_POST_MANAGER_ROLES.includes(r))
+                ? [{ key: 'hr-posts', icon: <FaBullhorn />, label: 'จัดการข่าว / เอกสาร / ป๊อปอัป' }]
                 : []),
               { key: 'logout', icon: <LogoutOutlined />, label: 'ออกจากระบบ', danger: true },
             ]}

@@ -22,6 +22,7 @@ import {
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
+import HrPopup from '../components/HrPopup'
 import { canSeeMenu, normalizeRoles, isRouteEnabled, SALARY_ID_ROLES } from '../lib/menuAccess'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 import { SkBlock } from '../components/Skeleton'
@@ -101,7 +102,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'บริการของฉัน',
     hint: 'ใช้ได้ทุกคน',
     items: [
-      { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669' },
+      { key: '/hr/leave/new', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669' },
       { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed' },
       { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป', color: '#006a5a' },
       { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์', color: '#0891b2' },
@@ -178,7 +179,7 @@ const announcements: Announcement[] = [
     date: '15 มิ.ย. 2569',
     gradient: 'linear-gradient(135deg, #b45309 0%, #d97706 100%)',
     image: 'https://images.unsplash.com/photo-1602088113235-229c19758e9f?q=80&w=1167&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    link: '/hr/leave',
+    link: '/hr/leave/new',
   },
 ]
 
@@ -387,6 +388,7 @@ const PageContent = () => {
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--app-bg)' }}>
       <Navbar />
+      <HrPopup />
       <div style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 20px 48px' }}>
 
         {/* ── Hero ── */}
@@ -635,7 +637,7 @@ const PageContent = () => {
               size="small"
               icon={<ArrowRightOutlined />}
               style={{ color: 'var(--app-text-3)', fontSize: 12 }}
-              onClick={() => router.push('/hr/leave')}
+              onClick={() => router.push('/hr/leave/new')}
             >
               ดูประวัติการลา
             </Button>
