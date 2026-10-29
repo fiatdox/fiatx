@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decodeSurveyToken } from '@/app/lib/surveyToken'
+import { clientHeaders } from '../../_proxy'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL
 
@@ -7,7 +8,7 @@ const BASE = process.env.NEXT_PUBLIC_API_URL
 // จึงไม่ต้องแนบ auth_token ของเจ้าหน้าที่ (และไม่ควรแนบ เพราะลิงก์ส่งให้ผู้รับบริการ)
 
 // GET /api/satisfaction/:token → ข้อมูลสรุปคำร้อง + สถานะว่าเคยประเมินแล้วหรือยัง
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
   const decoded = decodeSurveyToken(token)
   if (!decoded) {
@@ -16,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ tok
   if (!BASE) return NextResponse.json({ ok: true, id: decoded.id, summary: null, submitted: false })
   try {
     const res = await fetch(`${BASE}/api/v1/it/repair-requests/${decoded.id}/satisfaction`, {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...clientHeaders(req) },
       cache: 'no-store',
     })
     const data = await res.json().catch(() => ({}))
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
   try {
     const res = await fetch(`${BASE}/api/v1/it/repair-requests/${decoded.id}/satisfaction`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...clientHeaders(req) },
       body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))

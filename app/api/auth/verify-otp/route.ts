@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clientHeaders } from '../../_proxy'
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
 
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/verify-otp`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...clientHeaders(req) },
     body: JSON.stringify(body),
   })
 

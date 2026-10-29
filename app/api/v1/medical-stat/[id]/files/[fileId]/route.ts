@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { clientHeaders } from '../../../../../_proxy'
 
 // สตรีมไฟล์แนบจาก backend (proxy ปกติ json-parse ไม่ได้กับไฟล์ไบนารี)
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string; fileId: string }> }) {
   const { id, fileId } = await params
   const token = req.cookies.get('auth_token')?.value
   const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/medical-stat/${id}/files/${fileId}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: { ...clientHeaders(req), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   })
   if (!res.ok) {
     return NextResponse.json({ success: false }, { status: res.status })

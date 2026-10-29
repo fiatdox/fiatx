@@ -7,6 +7,18 @@ export function authHeader(req: NextRequest): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+// ส่ง IP / User-Agent ของผู้ใช้ต่อให้ backend — ไม่งั้น log และ rate limit ฝั่ง backend
+// เห็นทุก request เป็น IP ของเครื่อง Next.js และ User-Agent "node"
+// (Next.js ใส่ x-forwarded-for จาก socket ให้เอง ถ้ามี nginx ข้างหน้าจะต่อท้าย chain เดิม)
+export function clientHeaders(req: NextRequest): Record<string, string> {
+  const h: Record<string, string> = {}
+  const xff = req.headers.get('x-forwarded-for')
+  if (xff) h['X-Forwarded-For'] = xff
+  const ua = req.headers.get('user-agent')
+  if (ua) h['User-Agent'] = ua
+  return h
+}
+
 export async function proxy(
   req: NextRequest,
   path: string,
@@ -16,7 +28,7 @@ export async function proxy(
   const url = `${BASE}${path}`
   const res = await fetch(url, {
     method,
-    headers: { 'Content-Type': 'application/json', ...authHeader(req) },
+    headers: { 'Content-Type': 'application/json', ...clientHeaders(req), ...authHeader(req) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const data = await res.json().catch(() => ({}))
@@ -42,7 +54,7 @@ export async function proxyForm(req: NextRequest, path: string) {
   const bodyBlob = await req.blob()
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': contentType, ...authHeader(req) },
+    headers: { 'Content-Type': contentType, ...clientHeaders(req), ...authHeader(req) },
     body: bodyBlob,
   })
   const data = await res.json().catch(() => ({}))

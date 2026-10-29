@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authHeader } from '../../../../../_proxy'
+import { authHeader, clientHeaders } from '../../../../../_proxy'
 
 const BASE = process.env.NEXT_PUBLIC_API_URL
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ imageId: string }> }) {
   const { imageId } = await params
   const res = await fetch(`${BASE}/api/v1/it/repair-request-images/${imageId}/file`, {
-    headers: { ...authHeader(req) },
+    headers: { ...clientHeaders(req), ...authHeader(req) },
   })
   const contentType = res.headers.get('content-type') ?? 'image/jpeg'
   const buffer = await res.arrayBuffer()
