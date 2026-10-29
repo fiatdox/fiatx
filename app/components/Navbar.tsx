@@ -25,7 +25,7 @@ import {
   FaWarehouse, FaExchangeAlt, FaQrcode,
   FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn
 } from 'react-icons/fa'
-import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES } from '../lib/menuAccess'
+import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES, IT_STAFF_ROLES } from '../lib/menuAccess'
 import { HEADER_GRADIENT, STAR_PATTERN } from '../lib/brand'
 import { useServerMenuAccess } from '../lib/useMenuAccess'
 
@@ -273,6 +273,27 @@ const MENU_TREE: NavItem[] = [
   },
 ]
 
+// ชื่อหน้า + กลุ่มเมนูบนสุดของทุก route — หน้าสถิติการเข้าใช้งานใช้แสดงชื่อหน้าแทน path
+type RouteLabel = { label: string; group: string }
+const labelsOf = (items: NavItem[], group?: string): [string, RouteLabel][] =>
+  items.flatMap((it): [string, RouteLabel][] => it.children
+    ? labelsOf(it.children, group ?? String(it.label))
+    : it.key.startsWith(FAV_PREFIX) ? [] : [[it.key, { label: String(it.label), group: group ?? String(it.label) }]])
+const ACCOUNT_GROUP = 'บัญชีผู้ใช้ / ผู้ดูแลระบบ'
+export const ROUTE_LABELS: Record<string, RouteLabel> = {
+  ...Object.fromEntries(labelsOf(MENU_TREE)),
+  // เมนูในลิ้นชักโปรไฟล์ไม่อยู่ใน MENU_TREE
+  '/account/settings': { label: 'ตั้งค่าบัญชี', group: ACCOUNT_GROUP },
+  '/account/change-password': { label: 'เปลี่ยนรหัสผ่าน', group: ACCOUNT_GROUP },
+  '/account/change-username': { label: 'เปลี่ยนชื่อผู้ใช้', group: ACCOUNT_GROUP },
+  '/account/roles': { label: 'จัดการสิทธิ์การใช้งาน', group: ACCOUNT_GROUP },
+  '/account/mfa': { label: 'ยืนยันตัวตนสองชั้น (MFA)', group: ACCOUNT_GROUP },
+  '/account/modules': { label: 'เปิด/ปิดการมองเห็นระบบ', group: ACCOUNT_GROUP },
+  '/account/usage': { label: 'สถิติการเข้าใช้งานระบบ', group: ACCOUNT_GROUP },
+  '/account/user-credentials': { label: 'จัดการบัญชีเข้าใช้งาน', group: ACCOUNT_GROUP },
+  '/accounting/salary-ids': { label: 'เลขที่เงินเดือนบุคลากร', group: ACCOUNT_GROUP },
+}
+
 const segmentsOf = (route: string) => route.split('/').filter(Boolean)
 
 // เมนูปลายทางทั้งหมด พร้อม key ของกลุ่มที่ครอบอยู่ไล่จากบนลงล่าง
@@ -362,6 +383,14 @@ const Navbar: React.FC = () => {
       .then(r => r.json())
       .then(j => setPwdStatus(j?.success ? j.data : null))
       .catch(() => setPwdStatus(null))
+  }, [pathname])
+
+  // นับการเปิดหน้า (ดูสรุปที่ /account/usage) — ส่งแล้วไม่รอผล backend กันนับซ้ำเองภายใน 10 วินาที
+  useEffect(() => {
+    fetch('/api/v1/page-views', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: pathname }), keepalive: true,
+    }).catch(() => {})
   }, [pathname])
 
   // นโยบายชื่อผู้ใช้ — โหมด force จะพาไปหน้าตั้งชื่อใหม่ (backend ก็ปิดกั้น API ไว้อีกชั้น)
@@ -655,6 +684,9 @@ const Navbar: React.FC = () => {
               } else if (key === 'modules') {
                 setOpenProfile(false)
                 router.push('/account/modules')
+              } else if (key === 'usage') {
+                setOpenProfile(false)
+                router.push('/account/usage')
               } else if (key === 'user-credentials') {
                 setOpenProfile(false)
                 router.push('/account/user-credentials')
@@ -689,6 +721,10 @@ const Navbar: React.FC = () => {
               // เปิด/ปิดการมองเห็นแต่ละระบบ — เฉพาะ ADMIN (ตรงกับ requireRoles ฝั่ง backend)
               ...(userRoles.includes('ADMIN')
                 ? [{ key: 'modules', icon: <FaToggleOn />, label: 'เปิด/ปิดการมองเห็นระบบ' }]
+                : []),
+              // สถิติการเข้าใช้งานแต่ละหน้า (ตรงกับ STATS_ROLES ฝั่ง backend)
+              ...(userRoles.some(r => IT_STAFF_ROLES.includes(r))
+                ? [{ key: 'usage', icon: <FaChartBar />, label: 'สถิติการเข้าใช้งานระบบ' }]
                 : []),
               // จัดการ username/รหัสผ่าน/เลขบัตรของบุคลากร (ตรงกับ CREDENTIAL_ROLES ฝั่ง backend)
               ...(userRoles.some(r => ['ADMIN', 'IT_STAFF'].includes(r))
