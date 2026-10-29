@@ -59,6 +59,8 @@ const PageContent = () => {
   const [leaveTypeId, setLeaveTypeId] = useState<number | null>(null)
   const [fiscalYears, setFiscalYears] = useState<number[]>([])
   const [fiscalYear, setFiscalYear] = useState<number | null>(null)
+  // งานยกยอดอัตโนมัติเมื่อข้ามปีงบ (backend) — last_fiscal_year = ปีล่าสุดที่ยกยอดแล้ว
+  const [autoRollover, setAutoRollover] = useState<{ enabled: boolean; last_fiscal_year: number | null } | null>(null)
 
   useEffect(() => {
     if (!hasAccess) return
@@ -74,6 +76,7 @@ const PageContent = () => {
       if (meta.success) {
         setFiscalYears(meta.data.fiscal_years)
         setFiscalYear(meta.data.current_fiscal_year)
+        setAutoRollover(meta.data.auto_rollover ?? null)
       }
     }).catch(() => message.error('ไม่สามารถโหลดข้อมูลตั้งต้นได้'))
   }, [hasAccess, message])
@@ -205,8 +208,8 @@ const PageContent = () => {
         message.error(json.message || 'ยกยอดไม่สำเร็จ')
         return
       }
-      const { created, skipped_existing, skipped_no_entitlement } = json.data
-      message.success(`ยกยอดสำเร็จ: สร้างใหม่ ${created} ราย, ข้าม (มีอยู่แล้ว) ${skipped_existing} ราย, ข้าม (ไม่มีสิทธิ์สะสม) ${skipped_no_entitlement} ราย`)
+      const { created, filled, skipped_existing, skipped_no_entitlement } = json.data
+      message.success(`ยกยอดสำเร็จ: สร้างใหม่ ${created} ราย${filled ? `, เติมยอดยกมา ${filled} ราย` : ''}, ข้าม (มีอยู่แล้ว) ${skipped_existing} ราย, ข้าม (ไม่มีสิทธิ์สะสม) ${skipped_no_entitlement} ราย`)
       setRolloverOpen(false)
       if (!fiscalYears.includes(values.to_fiscal_year)) setFiscalYears(prev => [values.to_fiscal_year, ...prev].sort((a, b) => b - a))
       loadRows()
@@ -325,6 +328,15 @@ const PageContent = () => {
                   ยกยอดปีงบประมาณใหม่
                 </Button>
               </div>
+              {autoRollover && (
+                <div className="md:text-right" style={{ marginTop: 6 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
+                    {autoRollover.enabled
+                      ? `ยกยอดอัตโนมัติเมื่อข้ามปีงบ (1 ต.ค.)${autoRollover.last_fiscal_year ? ` · ล่าสุดถึงปีงบ ${autoRollover.last_fiscal_year}` : ''}`
+                      : 'ปิดการยกยอดอัตโนมัติอยู่ — กดยกยอดเองเมื่อข้ามปีงบ'}
+                  </Text>
+                </div>
+              )}
             </Col>
           </Row>
         </Card>
@@ -467,7 +479,8 @@ const PageContent = () => {
             <Tag color="#10b981" style={{ marginBottom: 12 }}>ประเภทการลา: ลาพักผ่อน (ทำเฉพาะประเภทนี้เท่านั้น)</Tag>
             <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
               ระบบจะคำนวณ &quot;คงเหลือ&quot; ของปีงบเดิม (จำกัดเพดานตามเกณฑ์สะสมสูงสุดของแต่ละคน) แล้วสร้างยอดยกมาให้ในปีงบใหม่
-              — ข้ามคนที่มีข้อมูลปีใหม่อยู่แล้วโดยอัตโนมัติ (กดซ้ำได้ไม่ซ้อนข้อมูล)
+              — ข้ามคนที่มีข้อมูลปีใหม่อยู่แล้วโดยอัตโนมัติ (กดซ้ำได้ไม่ซ้อนข้อมูล) · คนที่ยื่นลาปีใหม่ไปก่อนยกยอด จะถูกเติมยอดยกมาให้
+              · ปกติระบบยกยอดให้เองเมื่อข้ามปีงบ ปุ่มนี้ใช้กรณียกยอดปีแรกหรือแก้ไขย้อนหลัง
             </Text>
           </Form>
         </Modal>
