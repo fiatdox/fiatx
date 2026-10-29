@@ -43,6 +43,7 @@ const MASKED_COLOR = '#64748b'
 const WEEKDAYS = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.']
 // รออนุมัติ = ลายทางทับสีประเภท (เห็นชัดกว่าสีจาง และยังอ่านสีประเภทได้)
 const PENDING_STRIPES = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0 6px, transparent 6px 12px)'
+const HOLIDAY_BG = 'rgba(239,68,68,0.10)'
 const colorOf = (e: LeaveEvent) => (e.leave_type_code && TYPE_COLOR[e.leave_type_code]) || MASKED_COLOR
 const STATUS_LABEL: Record<LeaveEvent['status'], string> = {
   PENDING: 'รออนุมัติ', APPROVED: 'อนุมัติแล้ว', CANCEL_PENDING: 'รอยกเลิก',
@@ -108,6 +109,21 @@ export default function LeaveCalendarCard() {
     return () => { alive = false }
   }, [range, scope, requestKey])
 
+  // วันหยุดราชการ (งาน HR จัดการที่ /hr/leave/day-check) — โหลดแยก ไม่บล็อกปฏิทิน
+  const [holidays, setHolidays] = useState<Map<string, string>>(new Map())
+  useEffect(() => {
+    if (!range) return
+    let alive = true
+    fetch(`/api/v1/hr/holidays?${new URLSearchParams({ from: range.from, to: range.to })}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j?.success) return
+        setHolidays(new Map((j.data as { holiday_date: string; name_th: string }[]).map(h => [h.holiday_date, h.name_th])))
+      })
+      .catch(() => { /* ไม่มีวันหยุดก็แสดงปฏิทินตามปกติ */ })
+    return () => { alive = false }
+  }, [range])
+
   const events = useMemo(() => data?.events ?? [], [data])
   const currentScope = scope ?? data?.scope ?? null
 
@@ -151,23 +167,35 @@ export default function LeaveCalendarCard() {
       </div>
       {weeks.map(week => (
         <div key={week.days[0].format('YYYY-MM-DD')} style={{ position: 'relative', borderTop: cellBorder, minHeight: 112 }}>
-          {/* พื้นหลังช่องวัน — เสาร์อาทิตย์สีเข้มกว่า */}
+          {/* พื้นหลังช่องวัน — เสาร์อาทิตย์สีเข้มกว่า · วันหยุดราชการสีแดงอ่อน */}
           <div className="grid grid-cols-7" style={{ position: 'absolute', inset: 0 }}>
             {week.days.map((d, i) => (
-              <div key={i} style={{ borderLeft: i ? cellBorder : 'none', background: d.day() === 0 || d.day() === 6 ? 'var(--app-bg)' : 'transparent' }} />
+              <div key={i} style={{
+                borderLeft: i ? cellBorder : 'none',
+                background: holidays.has(d.format('YYYY-MM-DD')) ? HOLIDAY_BG : d.day() === 0 || d.day() === 6 ? 'var(--app-bg)' : 'transparent',
+              }} />
             ))}
           </div>
           <div className="grid grid-cols-7" style={{ position: 'relative' }}>
             {week.days.map((d, i) => {
               const isToday = d.format('YYYY-MM-DD') === todayStr
               const inMonth = d.month() === month.month()
+              const holiday = holidays.get(d.format('YYYY-MM-DD'))
               return (
-                <div key={i} style={{ textAlign: 'right', padding: '4px 8px', fontSize: 13 }}>
+                <div key={i} className="flex items-start justify-end gap-1" style={{ padding: '4px 8px', fontSize: 13, minWidth: 0 }}>
+                  {holiday && (
+                    <Tooltip title={holiday}>
+                      <span style={{
+                        flex: 1, minWidth: 0, fontSize: 11, lineHeight: '24px', color: '#ef4444', fontWeight: 600,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: inMonth ? 1 : 0.6,
+                      }}>{holiday}</span>
+                    </Tooltip>
+                  )}
                   <span style={{
-                    display: 'inline-block', minWidth: 24, height: 24, lineHeight: '24px', textAlign: 'center', borderRadius: 12,
+                    display: 'inline-block', minWidth: 24, height: 24, lineHeight: '24px', textAlign: 'center', borderRadius: 12, flexShrink: 0,
                     background: isToday ? '#10b981' : 'transparent',
-                    color: isToday ? '#fff' : !inMonth ? 'var(--app-text-3)' : d.day() === 0 ? '#ef4444' : 'var(--app-text)',
-                    fontWeight: isToday ? 700 : 400,
+                    color: isToday ? '#fff' : !inMonth ? 'var(--app-text-3)' : d.day() === 0 || holiday ? '#ef4444' : 'var(--app-text)',
+                    fontWeight: isToday || holiday ? 700 : 400,
                   }}>{d.date()}</span>
                 </div>
               )
@@ -254,6 +282,12 @@ export default function LeaveCalendarCard() {
           <span className="flex items-center gap-1" style={{ fontSize: 12 }}>
             <span style={{ width: 14, height: 10, borderRadius: 2, backgroundColor: MASKED_COLOR, backgroundImage: PENDING_STRIPES, display: 'inline-block' }} />
             <Text type="secondary" style={{ fontSize: 12 }}>ลายทาง = รออนุมัติ</Text>
+          </span>
+        )}
+        {holidays.size > 0 && (
+          <span className="flex items-center gap-1" style={{ fontSize: 12 }}>
+            <span style={{ width: 14, height: 10, borderRadius: 2, backgroundColor: HOLIDAY_BG, border: '1px solid #ef4444', display: 'inline-block' }} />
+            <Text type="secondary" style={{ fontSize: 12 }}>วันหยุดราชการ</Text>
           </span>
         )}
       </div>
