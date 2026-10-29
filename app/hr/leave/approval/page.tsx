@@ -4,7 +4,7 @@ import {
   Table, Tag, Card, Typography, Breadcrumb, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
   Row, Col, Divider, Space, Alert, Avatar, Calendar, Segmented, Tabs,
-  Result, Skeleton, Empty, Badge,
+  Result, Skeleton, Empty, Badge, Tooltip,
 } from 'antd'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
@@ -60,6 +60,8 @@ interface LeaveApprovalRequest {
   startISO: string
   endISO: string
   totalDays: number
+  /** จำนวนวันที่ปฏิทินนับได้ (ไม่นับเสาร์-อาทิตย์/วันหยุดราชการตามประเภท) — มากกว่า totalDays = ใบระบุวันน้อยกว่าที่ควร */
+  computedDays: number | null
   reason: string
   color: string
   approvalChain: ApprovalStep[]
@@ -139,6 +141,7 @@ interface ApiLeaveRequest {
   cancellation_id?: number | null
   cancellation_status?: string | null
   cancellation_reason?: string | null
+  day_count?: { computed_days: number } | null
 }
 
 const thaiStamp = (v?: string | null) =>
@@ -203,6 +206,7 @@ const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
     startISO: dateOnly(r.start_date),
     endISO: dateOnly(r.end_date),
     totalDays: Number(r.total_days),
+    computedDays: r.day_count?.computed_days ?? null,
     reason: r.reason || '-',
     color: COLORS[i % COLORS.length],
     approvalChain,
@@ -562,10 +566,15 @@ const LeaveApprovalContent = () => {
 
   const periodColumn = (badgeColor: string) => ({
     title: 'ช่วงวันที่', key: 'date', width: 210,
-    render: (_: unknown, r: { startISO: string; endISO: string; totalDays: number }) => (
+    render: (_: unknown, r: { startISO: string; endISO: string; totalDays: number; computedDays?: number | null }) => (
       <div style={{ lineHeight: 1.35 }}>
         <div style={{ fontSize: 12 }}>{fmtThai(r.startISO)} – {fmtThai(r.endISO)}</div>
         <Tag color={badgeColor} style={{ marginInlineEnd: 0, fontSize: 11 }}>{r.totalDays} วัน</Tag>
+        {r.computedDays != null && r.computedDays > r.totalDays && (
+          <Tooltip title={`ช่วงวันที่นี้ปฏิทินนับได้ ${r.computedDays} วัน แต่ใบระบุ ${r.totalDays} วัน — งานทรัพยากรบุคคลจะตรวจจำนวนวันอีกครั้ง`}>
+            <Tag color="red" style={{ marginInlineStart: 4, marginInlineEnd: 0, fontSize: 11 }}>ปฏิทิน {r.computedDays} วัน</Tag>
+          </Tooltip>
+        )}
       </div>
     ),
   })
@@ -1037,6 +1046,9 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="วันที่ลา">{fmtThai(selected.startISO)} – {fmtThai(selected.endISO)}</Descriptions.Item>
                 <Descriptions.Item label="จำนวนวัน">
                   <Text style={{ color: '#10b981', fontWeight: 700 }}>{selected.totalDays} วัน</Text>
+                  {selected.computedDays != null && selected.computedDays > selected.totalDays && (
+                    <div><Text type="danger" style={{ fontSize: 12 }}>ปฏิทินนับได้ {selected.computedDays} วัน — ใบระบุน้อยกว่า งาน HR จะตรวจอีกครั้ง</Text></div>
+                  )}
                 </Descriptions.Item>
                 <Descriptions.Item label="เหตุผล" span={{ xs: 1, sm: 2, md: 3 }}>{selected.reason}</Descriptions.Item>
               </Descriptions>
