@@ -25,6 +25,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/balance': ['ADMIN', 'HR'],
   // ตรวจวันลาที่คร่อมวันหยุด + วันหยุดราชการ — แก้จำนวนวันลา/ยอดของทุกคน (proxy.ts กั้น URL ตรง)
   '/hr/leave/day-check': ['ADMIN', 'HR'],
+  // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
+  '/hr/leave/legacy-import': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)
   '/hr/settings/supervisor': ['ADMIN', 'HR'],
   // ทะเบียนบุคลากร — สร้าง/แก้ไข/ระงับบัญชี (ตรงกับ requireRoles ใน userRoutes)

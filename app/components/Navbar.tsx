@@ -10,6 +10,7 @@ import {
   FileTextOutlined,
   SettingOutlined,
   LogoutOutlined,
+  CloudDownloadOutlined,
   BellOutlined,
   SunOutlined,
   MoonOutlined,
@@ -95,6 +96,7 @@ const MENU_TREE: NavItem[] = [
           { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
           { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
           { key: '/hr/leave/day-check', icon: <FaCalendarAlt />, label: 'ตรวจวันลา / วันหยุด' },
+          { key: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม' },
         ]
       },
       { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },
