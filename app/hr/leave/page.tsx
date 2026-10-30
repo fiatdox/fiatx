@@ -1,12 +1,12 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Card, Typography, Breadcrumb, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge } from 'antd'
+import { Card, Typography, Breadcrumb, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge, Progress } from 'antd'
 import {
   HomeOutlined, LinkOutlined, PushpinFilled, NotificationOutlined,
   FolderOpenOutlined, FormOutlined, HistoryOutlined, AuditOutlined, RightOutlined, TeamOutlined, CalendarOutlined,
 } from '@ant-design/icons'
-import { FaUsersCog, FaCalendarAlt } from 'react-icons/fa'
+import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import HrPopup from '@/app/components/HrPopup'
@@ -17,13 +17,109 @@ import {
 
 const { Text, Paragraph } = Typography
 
-interface QuickLink { href: string; icon: React.ReactNode; label: string; desc: string; color: string; badge?: number }
+interface QuickLink { href: string; icon: React.ReactNode; label: string; desc: string; color: string; badge?: number; badgeColor?: string; highlight?: boolean }
 
 const QUICK_LINKS: QuickLink[] = [
   { href: '/hr/leave/new', icon: <FormOutlined />, label: 'ยื่นคำขอลา', desc: 'ยื่นใบลาใหม่ ตรวจสิทธิ์วันลาคงเหลือ', color: '#10b981' },
   { href: '/hr/leave/history', icon: <HistoryOutlined />, label: 'ประวัติการลาของฉัน', desc: 'ใบลาทั้งหมด ติดตามสถานะการอนุมัติ', color: '#3b82f6' },
   { href: '/hr/leave/calendar', icon: <CalendarOutlined />, label: 'ปฏิทินการลา', desc: 'ดูว่าใครลาวันไหน ตามสิทธิ์ของตน', color: '#0d9488' },
 ]
+
+// ── สรุปวันลาปีงบปัจจุบันของฉัน ─────────────────────────────────────────────
+interface OverviewType {
+  code: string
+  name_th: string
+  has_entitlement: boolean
+  entitled: number          // สิทธิ์รวม (ปีนี้ + ยกมา)
+  entitled_this_year: number
+  carried_in: number
+  used: number              // อนุมัติแล้ว/หักแล้ว ไม่รวมใบรออนุมัติ
+  pending: number
+  remaining: number
+}
+
+const OVERVIEW_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
+  ANNUAL: { label: 'วันลาพักผ่อน', icon: <FaUmbrellaBeach />, color: '#10b981' },
+  PERS: { label: 'ลากิจส่วนตัว', icon: <FaBriefcase />, color: '#3b82f6' },
+  SICK: { label: 'ลาป่วย', icon: <FaUserMd />, color: '#f97316' },
+  MAT: { label: 'ลาคลอดบุตร', icon: <FaBaby />, color: '#db2777' },
+}
+const fmtDays = (n: number) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 1 })
+
+const LeaveOverviewCards = () => {
+  const [data, setData] = useState<{ fiscal_year: number; types: OverviewType[] } | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    fetch('/api/v1/hr/leave-requests/overview')
+      .then(r => r.json())
+      .then(j => { if (j?.success) setData(j.data); else setFailed(true) })
+      .catch(() => setFailed(true))
+  }, [])
+  if (failed) return null
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <Text type="secondary" style={{ fontSize: 13 }}>
+        วันลาของฉัน{data ? ` · ปีงบประมาณ ${data.fiscal_year}` : ''}
+      </Text>
+      <Row gutter={[16, 16]} style={{ marginTop: 8 }}>
+        {!data ? [0, 1, 2, 3].map(i => (
+          <Col key={i} xs={24} sm={12} lg={6}>
+            <Card style={{ borderRadius: 12, border: 'none' }}><Skeleton active paragraph={{ rows: 1 }} /></Card>
+          </Col>
+        )) : data.types.map(t => {
+          const m = OVERVIEW_META[t.code] ?? { label: t.name_th, icon: <CalendarOutlined />, color: '#64748b' }
+          const annual = t.code === 'ANNUAL'
+          const total = Number(t.entitled) || 0
+          const used = Number(t.used) || 0
+          const pending = Number(t.pending) || 0
+          // ใบที่รออนุมัติถูกตัดยอดทันทีตั้งแต่ยื่น จึงนับรวมใน "ใช้ไป" ด้วย (บรรทัดล่างบอกส่วนที่ยังรออนุมัติ)
+          const usedNow = used + pending
+          return (
+            <Col key={t.code} xs={24} sm={12} lg={6}>
+              <Card style={{ borderRadius: 12, border: 'none', height: '100%' }} styles={{ body: { padding: 16 } }}>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="flex items-center justify-center rounded-lg"
+                    style={{ width: 32, height: 32, flexShrink: 0, fontSize: 16, color: m.color, backgroundColor: `${m.color}1f` }}
+                  >
+                    {m.icon}
+                  </span>
+                  <Text strong style={{ minWidth: 0 }}>{m.label}</Text>
+                  {/* ลาพักผ่อน: ที่มาของสิทธิ์ + คงเหลือ ไว้มุมขวาบน */}
+                  {annual && t.has_entitlement && (
+                    <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: 12, lineHeight: 1.35, color: 'var(--app-text-2)' }}>
+                      <div>ปีนี้ {fmtDays(t.entitled_this_year)} + สะสม {fmtDays(t.carried_in)}</div>
+                      <div>คงเหลือ <b style={{ color: 'var(--app-text)' }}>{fmtDays(t.remaining)}</b> วัน</div>
+                    </div>
+                  )}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>ใช้ไป</Text>{' '}
+                  <span style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1 }}>{fmtDays(usedNow)}</span>
+                  {annual && t.has_entitlement
+                    ? <Text type="secondary" style={{ fontSize: 15 }}> / {fmtDays(total)} วัน</Text>
+                    : <Text type="secondary" style={{ fontSize: 15 }}> วัน</Text>}
+                </div>
+                {annual && t.has_entitlement && (
+                  <Progress
+                    percent={total ? Math.min((usedNow / total) * 100, 100) : 0}
+                    success={{ percent: total ? Math.min((used / total) * 100, 100) : 0, strokeColor: m.color }}
+                    strokeColor="#f59e0b" showInfo={false} size="small" style={{ margin: '6px 0 2px' }}
+                  />
+                )}
+                <div style={{ fontSize: 12, color: 'var(--app-text-2)', marginTop: 4 }}>
+                  {/* ลากิจ/ลาป่วย/ลาคลอด แสดงเฉพาะวันที่ใช้ไป — ไม่โชว์สิทธิ์/คงเหลือ กันเข้าใจว่าเป็นโควตาที่ต้องลาให้ครบ */}
+                  {pending > 0 && <div style={{ color: '#f59e0b' }}>รวมรออนุมัติ {fmtDays(pending)} วัน</div>}
+                </div>
+              </Card>
+            </Col>
+          )
+        })}
+      </Row>
+    </div>
+  )
+}
 
 // หน้าอ่านอย่างเดียว — เพิ่ม/แก้ไขอยู่ที่ /hr/leave/posts (เฉพาะ ADMIN / HR)
 const HrLeaveHomeContent = () => {
@@ -60,16 +156,38 @@ const HrLeaveHomeContent = () => {
     return () => { alive = false }
   }, [])
 
+  // จำนวนใบลาของฉัน (ทั้งหมด / รออนุมัติ) — แสดงบนปุ่มประวัติการลา
+  const [mine, setMine] = useState<{ total: number; pending: number } | null>(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/v1/hr/leave-requests/mine')
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j?.success || !Array.isArray(j.data)) return
+        const rows = j.data as { status: string }[]
+        setMine({ total: rows.length, pending: rows.filter(r => ['PENDING', 'CANCEL_PENDING'].includes(String(r.status).toUpperCase())).length })
+      })
+      .catch(() => { /* ไม่มีตัวเลขก็แสดงปุ่มตามปกติ */ })
+    return () => { alive = false }
+  }, [])
+
+  const baseLinks: QuickLink[] = QUICK_LINKS.map(l => l.href === '/hr/leave/history' && mine
+    ? {
+        ...l, badge: mine.total, badgeColor: l.color, highlight: mine.pending > 0,
+        desc: mine.total ? `ใบลาทั้งหมด ${mine.total} ใบ${mine.pending ? ` · รออนุมัติ ${mine.pending} ใบ` : ''}` : 'ยังไม่มีใบลา',
+      }
+    : l)
+
   const quickLinks: QuickLink[] = approver
     ? [
-        ...QUICK_LINKS,
-        { href: '/hr/leave/status', icon: <TeamOutlined />, label: 'รายงานการลาในสังกัด', desc: 'สรุปการลาของบุคลากรในหน่วยที่ดูแล', color: '#8b5cf6' },
+        ...baseLinks,
+        { href: '/hr/leave/status', icon: <TeamOutlined />, label: 'สถิติการลา', desc: 'สรุปการลาของบุคลากรในหน่วยที่ดูแล', color: '#8b5cf6' },
         {
-          href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: approver.pending,
+          href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: approver.pending, highlight: approver.pending > 0,
           desc: approver.pending ? `รอการอนุมัติ ${approver.pending} รายการ` : 'ไม่มีใบลารออนุมัติ',
         },
       ]
-    : QUICK_LINKS
+    : baseLinks
 
   const news = useMemo(() => posts.filter(p => p.kind === 'news'), [posts])
   const docGroups = useMemo(() => {
@@ -113,6 +231,8 @@ const HrLeaveHomeContent = () => {
 
         <LeaveHeader />
 
+        <LeaveOverviewCards />
+
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
           {quickLinks.map(l => (
             <Col key={l.href} xs={24} sm={12} lg={6}>
@@ -128,13 +248,13 @@ const HrLeaveHomeContent = () => {
                     <div style={{ minWidth: 0 }}>
                       <Text strong style={{ fontSize: 15 }}>{l.label}</Text>
                       <div>
-                        {l.badge
+                        {l.highlight
                           ? <Text strong style={{ fontSize: 12, color: '#f59e0b' }}>{l.desc}</Text>
                           : <Text type="secondary" style={{ fontSize: 12 }}>{l.desc}</Text>}
                       </div>
                     </div>
                     <span className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
-                      {!!l.badge && <Badge count={l.badge} overflowCount={99} />}
+                      {!!l.badge && <Badge count={l.badge} overflowCount={999} color={l.badgeColor} />}
                       <RightOutlined style={{ color: 'var(--app-text-3)' }} />
                     </span>
                   </div>

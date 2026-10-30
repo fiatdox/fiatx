@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, type Key } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
@@ -249,6 +249,31 @@ const toCancelRequest = (r: ApiLeaveRequest): LeaveCancelRequest => {
   }
 }
 
+// ─── แถบอนุมัติแบบกลุ่ม ──────────────────────────────────────────────────────
+const BulkBar = ({ count, selectable, acting, label, onSelectAll, onClear, onRun }: {
+  count: number; selectable: number; acting: boolean; label: string
+  onSelectAll: () => void; onClear: () => void; onRun: () => void
+}) => {
+  if (selectable === 0 && count === 0) return null
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 mb-3"
+      style={{ padding: '8px 12px', borderRadius: 8, background: count ? 'var(--ant-color-primary-bg)' : 'var(--app-surface)' }}
+    >
+      <Text style={{ fontSize: 13 }}>
+        {count ? <>เลือกแล้ว <b>{count}</b> รายการ</> : `รอท่านพิจารณา ${selectable} รายการ — ติ๊กหน้าแถวเพื่ออนุมัติหลายรายการพร้อมกัน`}
+      </Text>
+      <Space size={6} style={{ marginInlineStart: 'auto' }} wrap>
+        {count < selectable && <Button size="small" onClick={onSelectAll}>เลือกทั้งหมดที่รอท่าน ({selectable})</Button>}
+        {count > 0 && <Button size="small" onClick={onClear}>ล้าง</Button>}
+        <Button size="small" type="primary" icon={<CheckCircleOutlined />} disabled={!count} loading={acting} onClick={onRun}>
+          {label}{count ? ` (${count})` : ''}
+        </Button>
+      </Space>
+    </div>
+  )
+}
+
 // ─── Tag Helpers ──────────────────────────────────────────────────────────────
 const leaveTypeColor: Record<string, string> = {
   'ลาป่วย': 'volcano', 'ลาพักผ่อน': 'green', 'ลากิจ': 'blue', 'ลาคลอด': 'magenta',
@@ -295,7 +320,7 @@ type FilterKey = 'mine' | 'inprogress' | 'approved' | 'rejected' | 'all'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const LeaveApprovalContent = () => {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [activeMainTab, setActiveMainTab] = useState<string>('approve')
 
   // ── สิทธิ์เข้าหน้านี้: ต้องเป็นหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN) ──
@@ -320,12 +345,16 @@ const LeaveApprovalContent = () => {
   const [cancelRequests, setCancelRequests] = useState<LeaveCancelRequest[]>([])
   const [listLoading, setListLoading] = useState(true)
   const [acting, setActing] = useState(false)
+  // ความเห็นประกอบการอนุมัติ (ไม่บังคับ) — ว่างใช้ข้อความตั้งต้น
+  const [approveComment, setApproveComment] = useState('')
+  const [cancelApproveComment, setCancelApproveComment] = useState('')
   const [selected, setSelected] = useState<LeaveApprovalRequest | null>(null)
   const [rejectMode, setRejectMode] = useState(false)
   const [filterStatus, setFilterStatus] = useState<FilterKey>('mine')
   const [keyword, setKeyword] = useState('')
   const [view, setView] = useState<string>('list')
   const [calMonth, setCalMonth] = useState<Dayjs>(dayjs())
+  // ฟอร์มเหตุผลแสดงเฉพาะตอนกด "ไม่อนุมัติ" — preserve={false} ล้างค่าเองเมื่อซ่อน (ไม่ resetFields ตอนยังไม่ mount → antd เตือน)
   const [rejectForm] = Form.useForm()
 
   const [selectedCancel, setSelectedCancel] = useState<LeaveCancelRequest | null>(null)
@@ -361,7 +390,7 @@ const LeaveApprovalContent = () => {
   const openDetail = (record: LeaveApprovalRequest) => {
     setSelected(record)
     setRejectMode(false)
-    rejectForm.resetFields()
+    setApproveComment('')
   }
 
   /** ยิง API แล้วโหลดรายการใหม่ — ไม่แก้สถานะในหน้าจอเอง ให้ฐานข้อมูลเป็นตัวตัดสิน */
@@ -382,7 +411,6 @@ const LeaveApprovalContent = () => {
       message.success(json.message ?? okMsg)
       setSelected(null)
       setRejectMode(false)
-      rejectForm.resetFields()
       await reload()
     } catch {
       message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
@@ -391,7 +419,7 @@ const LeaveApprovalContent = () => {
     }
   }
 
-  const handleApprove = () => act('approve', { comment: 'อนุมัติ' }, 'อนุมัติเรียบร้อย')
+  const handleApprove = () => act('approve', { comment: approveComment.trim() || 'อนุมัติ' }, 'อนุมัติเรียบร้อย')
 
   const handleReject = () => {
     rejectForm.validateFields().then(values => act('reject', { comment: values.reason }, 'บันทึกการไม่อนุมัติแล้ว'))
@@ -414,7 +442,6 @@ const LeaveApprovalContent = () => {
       message.success(json.message ?? 'บันทึกเรียบร้อย')
       setSelectedCancel(null)
       setCancelRejectMode(false)
-      cancelRejectForm.resetFields()
       await reload()
     } catch {
       message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
@@ -423,10 +450,122 @@ const LeaveApprovalContent = () => {
     }
   }
 
-  const handleCancelApprove = () => actCancel('approve', { comment: 'อนุมัติการยกเลิก' })
+  const handleCancelApprove = () => actCancel('approve', { comment: cancelApproveComment.trim() || 'อนุมัติการยกเลิก' })
 
   const handleCancelReject = () => {
     cancelRejectForm.validateFields().then(values => actCancel('reject', { comment: values.reason }))
+  }
+
+  // ── อนุมัติแบบกลุ่ม: เลือกได้เฉพาะใบที่ถึงคิวผู้ใช้ ──────────────────────────
+  const [selectedKeys, setSelectedKeys] = useState<Key[]>([])
+  const [selectedCancelKeys, setSelectedCancelKeys] = useState<Key[]>([])
+
+  type BulkResult = { id: number; success: boolean; message?: string; refunded_days?: number }
+  const runBulk = async (path: 'approve' | 'cancel-approve', ids: number[], labelOf: (id: number) => string, comment?: string) => {
+    setActing(true)
+    try {
+      const res = await fetch(`/api/v1/hr/leave-requests/bulk/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, comment: comment?.trim() || null }),
+      })
+      const json = await res.json()
+      if (!json?.success) { message.error(json?.message ?? 'ทำรายการไม่สำเร็จ'); return }
+      const results: BulkResult[] = json.data?.results ?? []
+      const failed = results.filter(r => !r.success)
+      if (failed.length === 0) message.success(json.message)
+      else {
+        modal.warning({
+          title: json.message,
+          width: 560,
+          content: (
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>รายการที่ไม่ผ่าน (อาจมีผู้อื่นดำเนินการไปแล้ว หรือยังไม่ถึงคิวของท่าน)</Text>
+              {failed.map(f => (
+                <div key={f.id} style={{ fontSize: 13, marginTop: 6 }}>
+                  <Text strong>{labelOf(f.id)}</Text> — {f.message ?? 'ไม่สำเร็จ'}
+                </div>
+              ))}
+            </div>
+          ),
+        })
+      }
+      if (path === 'approve') setSelectedKeys([]); else setSelectedCancelKeys([])
+      await reload()
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const confirmBulkApprove = () => {
+    const rows = requests.filter(r => selectedKeys.includes(r.id) && r.waitingOnMe)
+    if (rows.length === 0) return
+    const understated = rows.filter(r => r.computedDays != null && r.computedDays > r.totalDays)
+    const days = rows.reduce((s, r) => s + r.totalDays, 0)
+    const note = { value: '' }   // กล่องยืนยันของ modal.confirm ไม่ re-render ตาม state — เก็บค่าไว้นอก React
+    modal.confirm({
+      title: `อนุมัติใบลา ${rows.length} รายการ`,
+      icon: <CheckSquareOutlined />,
+      width: 520,
+      okText: 'อนุมัติทั้งหมด',
+      cancelText: 'ยกเลิก',
+      content: (
+        <div>
+          <div>รวม {days} วัน · ผู้ลา {new Set(rows.map(r => r.employeeName)).size} คน</div>
+          {understated.length > 0 && (
+            <Alert
+              type="warning" showIcon className="mt-2"
+              title={`มี ${understated.length} ใบที่ระบุจำนวนวันน้อยกว่าที่ปฏิทินนับได้`}
+              description={understated.map(r => `${r.id} ${r.employeeName}`).join(' · ')}
+            />
+          )}
+          <div style={{ marginTop: 8, fontSize: 12, color: 'var(--app-text-2)' }}>
+            แต่ละใบจะส่งต่อขั้นถัดไป หรือเป็น &ldquo;อนุมัติแล้ว&rdquo; ถ้าท่านเป็นขั้นสุดท้าย
+          </div>
+          <Input.TextArea
+            className="mt-3" rows={2} maxLength={500} showCount
+            placeholder="ความเห็น (ไม่บังคับ) — ใช้กับทุกใบที่เลือก"
+            onChange={e => { note.value = e.target.value }}
+          />
+        </div>
+      ),
+      onOk: () => runBulk('approve', rows.map(r => apiIdOf(r.id)), id => `LV-${String(id).padStart(6, '0')}`, note.value),
+    })
+  }
+
+  const confirmBulkCancelApprove = () => {
+    const rows = cancelRequests.filter(r => selectedCancelKeys.includes(r.id) && r.waitingOnMe)
+    if (rows.length === 0) return
+    const lastStep = rows.filter(r => r.myStep?.step === r.approvalChain.length)
+    const note = { value: '' }
+    modal.confirm({
+      title: `อนุมัติการยกเลิกการลา ${rows.length} รายการ`,
+      icon: <RollbackOutlined />,
+      width: 520,
+      okText: 'อนุมัติยกเลิกทั้งหมด',
+      cancelText: 'ปิด',
+      content: (
+        <div>
+          {lastStep.length > 0 ? (
+            <Alert
+              type="info" showIcon
+              title={`ท่านเป็นขั้นสุดท้ายของ ${lastStep.length} รายการ`}
+              description={`ใบลาเหล่านั้นจะถูกยกเลิก และคืนวันลารวม ${lastStep.reduce((s, r) => s + r.totalDays, 0)} วันให้ผู้ลาทันที`}
+            />
+          ) : (
+            <div>อนุมัติแล้วส่งต่อขั้นถัดไป วันลาจะคืนเมื่ออนุมัติครบทุกขั้น</div>
+          )}
+          <Input.TextArea
+            className="mt-3" rows={2} maxLength={500} showCount
+            placeholder="ความเห็น (ไม่บังคับ) — ใช้กับทุกรายการที่เลือก"
+            onChange={e => { note.value = e.target.value }}
+          />
+        </div>
+      ),
+      onOk: () => runBulk('cancel-approve', rows.map(r => apiIdOf(r.refLeaveId)), id => `LV-${String(id).padStart(6, '0')}`, note.value),
+    })
   }
 
   // ── สรุปยอด ────────────────────────────────────────────────────────────────
@@ -674,7 +813,7 @@ const LeaveApprovalContent = () => {
           size="small"
           type={record.waitingOnMe ? 'primary' : 'default'}
           icon={<EyeOutlined />}
-          onClick={() => { setSelectedCancel(record); setCancelRejectMode(false); cancelRejectForm.resetFields() }}
+          onClick={() => { setSelectedCancel(record); setCancelRejectMode(false); setCancelApproveComment('') }}
         >
           {record.waitingOnMe ? 'พิจารณา' : 'ดู'}
         </Button>
@@ -881,10 +1020,29 @@ const LeaveApprovalContent = () => {
               title={<span style={{ fontSize: 15, fontWeight: 600 }}>รายการใบลา</span>}
               extra={<Tag>{displayed.length} รายการ</Tag>}
             >
+              <BulkBar
+                count={selectedKeys.length}
+                selectable={displayed.filter(r => r.waitingOnMe).length}
+                acting={acting}
+                label="อนุมัติที่เลือก"
+                onSelectAll={() => setSelectedKeys(displayed.filter(r => r.waitingOnMe).map(r => r.id))}
+                onClear={() => setSelectedKeys([])}
+                onRun={confirmBulkApprove}
+              />
               <Table
                 columns={columns}
                 dataSource={displayed}
                 rowKey="id"
+                rowSelection={{
+                  selectedRowKeys: selectedKeys,
+                  onChange: keys => setSelectedKeys(keys),
+                  getCheckboxProps: r => ({ disabled: !r.waitingOnMe }),
+                  columnTitle: (
+                    <Tooltip title="เลือกได้เฉพาะใบที่รอท่านพิจารณา">
+                      <CheckSquareOutlined style={{ color: 'var(--app-text-3)' }} />
+                    </Tooltip>
+                  ),
+                }}
                 loading={listLoading}
                 size="small"
                 pagination={{ pageSize: 15, showSizeChanger: true, showTotal: t => `ทั้งหมด ${t} รายการ` }}
@@ -972,10 +1130,29 @@ const LeaveApprovalContent = () => {
               title={<span style={{ fontSize: 15, fontWeight: 600 }}>คำขอยกเลิกการลา</span>}
               extra={<Tag>{displayedCancels.length} รายการ</Tag>}
             >
+              <BulkBar
+                count={selectedCancelKeys.length}
+                selectable={displayedCancels.filter(r => r.waitingOnMe).length}
+                acting={acting}
+                label="อนุมัติยกเลิกที่เลือก"
+                onSelectAll={() => setSelectedCancelKeys(displayedCancels.filter(r => r.waitingOnMe).map(r => r.id))}
+                onClear={() => setSelectedCancelKeys([])}
+                onRun={confirmBulkCancelApprove}
+              />
               <Table
                 columns={cancelColumns}
                 dataSource={displayedCancels}
                 rowKey="id"
+                rowSelection={{
+                  selectedRowKeys: selectedCancelKeys,
+                  onChange: keys => setSelectedCancelKeys(keys),
+                  getCheckboxProps: r => ({ disabled: !r.waitingOnMe }),
+                  columnTitle: (
+                    <Tooltip title="เลือกได้เฉพาะคำขอที่รอท่านพิจารณา">
+                      <CheckSquareOutlined style={{ color: 'var(--app-text-3)' }} />
+                    </Tooltip>
+                  ),
+                }}
                 loading={listLoading}
                 size="small"
                 pagination={{ pageSize: 15, showTotal: t => `ทั้งหมด ${t} รายการ` }}
@@ -1050,7 +1227,7 @@ const LeaveApprovalContent = () => {
                     <div><Text type="danger" style={{ fontSize: 12 }}>ปฏิทินนับได้ {selected.computedDays} วัน — ใบระบุน้อยกว่า งาน HR จะตรวจอีกครั้ง</Text></div>
                   )}
                 </Descriptions.Item>
-                <Descriptions.Item label="เหตุผล" span={{ xs: 1, sm: 2, md: 3 }}>{selected.reason}</Descriptions.Item>
+                <Descriptions.Item label="เหตุผล" span="filled">{selected.reason}</Descriptions.Item>
               </Descriptions>
 
               {/* ── ปฏิทินช่วงวันลา + เพื่อนร่วมงาน ── */}
@@ -1166,6 +1343,14 @@ const LeaveApprovalContent = () => {
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !rejectMode && (
+                <Input.TextArea
+                  className="mb-3" rows={2} maxLength={500} showCount
+                  value={approveComment} onChange={e => setApproveComment(e.target.value)}
+                  placeholder="ความเห็นประกอบการอนุมัติ (ไม่บังคับ)"
+                  aria-label="ความเห็นประกอบการอนุมัติ"
+                />
+              )}
+              {canAct && !rejectMode && (
                 <Alert
                   title="ใบลานี้รอการพิจารณาของท่าน"
                   description={`ขั้นที่ ${selected.myStep?.step} · ${selected.approvalChain[pendingIdx].actor}`}
@@ -1180,7 +1365,7 @@ const LeaveApprovalContent = () => {
               )}
 
               {canAct && rejectMode && (
-                <Form form={rejectForm} layout="vertical">
+                <Form form={rejectForm} layout="vertical" preserve={false}>
                   <Form.Item name="reason" label="เหตุผลที่ไม่อนุมัติ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
                     <Input.TextArea rows={3} placeholder="ระบุเหตุผล..." />
                   </Form.Item>
@@ -1259,7 +1444,7 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="จำนวนวัน">
                   <Text style={{ color: '#f59e0b', fontWeight: 700 }}>{selectedCancel.totalDays} วัน</Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="เหตุผลการยกเลิก" span={{ xs: 1, sm: 2 }}>{selectedCancel.cancelReason}</Descriptions.Item>
+                <Descriptions.Item label="เหตุผลการยกเลิก" span="filled">{selectedCancel.cancelReason}</Descriptions.Item>
               </Descriptions>
 
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการอนุมัติ</Divider>
@@ -1280,9 +1465,20 @@ const LeaveApprovalContent = () => {
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !cancelRejectMode && (
+                <Input.TextArea
+                  className="mb-3" rows={2} maxLength={500} showCount
+                  value={cancelApproveComment} onChange={e => setCancelApproveComment(e.target.value)}
+                  placeholder="ความเห็นประกอบการอนุมัติยกเลิก (ไม่บังคับ)"
+                  aria-label="ความเห็นประกอบการอนุมัติยกเลิก"
+                />
+              )}
+              {canAct && !cancelRejectMode && (
                 <Alert
                   title="คำขอยกเลิกนี้รอการพิจารณาของท่าน"
-                  description={`ขั้นที่ ${selectedCancel.myStep?.step} · ${selectedCancel.approvalChain[pendingIdx].actor}`}
+                  description={`ขั้นที่ ${selectedCancel.myStep?.step} · ${selectedCancel.approvalChain[pendingIdx].actor}`
+                    + (selectedCancel.myStep?.step === selectedCancel.approvalChain.length
+                      ? ` · ท่านเป็นขั้นสุดท้าย อนุมัติแล้วใบลาจะถูกยกเลิกและคืนวันลา ${selectedCancel.totalDays} วันให้ผู้ลาทันที`
+                      : ' · อนุมัติแล้วส่งต่อขั้นถัดไป วันลาจะคืนเมื่ออนุมัติครบทุกขั้น')}
                   type="warning" showIcon className="mb-0"
                   action={
                     <Space orientation="vertical">
@@ -1294,7 +1490,7 @@ const LeaveApprovalContent = () => {
               )}
 
               {canAct && cancelRejectMode && (
-                <Form form={cancelRejectForm} layout="vertical">
+                <Form form={cancelRejectForm} layout="vertical" preserve={false}>
                   <Form.Item name="reason" label="เหตุผลที่ไม่อนุมัติยกเลิก" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
                     <Input.TextArea rows={3} placeholder="ระบุเหตุผล..." />
                   </Form.Item>

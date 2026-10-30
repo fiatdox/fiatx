@@ -37,7 +37,8 @@ import {
   SafetyOutlined,
   TeamOutlined,
   UserSwitchOutlined,
-  SmileOutlined
+  SmileOutlined,
+  PhoneOutlined
 } from '@ant-design/icons'
 import { GiPrayerBeads, GiWalkingBoot } from 'react-icons/gi'
 import dayjs from 'dayjs'
@@ -111,6 +112,8 @@ const LeavePageContent = () => {
 
   // ?edit=<id> = แก้ไขใบลาเดิม (จากหน้าประวัติการลา — เฉพาะใบที่ยังไม่มีผู้อนุมัติคนใดกด)
   const [editId, setEditId] = useState<number | null>(null)
+  // ผู้ปฏิบัติงานแทนที่บันทึกไว้ในใบเดิม — อาจไม่อยู่ในรายชื่อกลุ่มงานแล้ว (ย้ายหน่วย) ต้องมีตัวเลือกให้แสดงชื่อ
+  const [savedSubstitute, setSavedSubstitute] = useState<{ value: string; label: string } | null>(null)
   useEffect(() => {
     const id = Number(new URLSearchParams(window.location.search).get('edit'))
     if (id > 0) void Promise.resolve().then(() => setEditId(id))
@@ -136,7 +139,10 @@ const LeavePageContent = () => {
           halfDayType: r.half_day_period === 'PM' ? 'afternoon' : 'morning',
           totalLeaveDays: days,
           reason: r.reason ?? undefined,
+          substitute: r.substitute_user_id != null ? String(r.substitute_user_id) : undefined,
+          contactInfo: r.contact_info ?? undefined,
         })
+        if (r.substitute_user_id != null) setSavedSubstitute({ value: String(r.substitute_user_id), label: r.substitute_name ?? `บุคลากร #${r.substitute_user_id}` })
         // setFieldsValue ไม่เรียก onValuesChange — ตั้ง state ที่ผูกกับช่องเหล่านี้เอง
         setLeaveType(Number(r.leave_type_id))
         setIsHalfDay(!!r.is_half_day)
@@ -370,6 +376,8 @@ const LeavePageContent = () => {
   const [quota, setQuota] = useState<{
     fiscal_year: number; has_entitlement: boolean
     entitled: number; used: number; pending: number; remaining: number
+    /** อายุงาน ณ วันเริ่มลายังไม่ถึงเกณฑ์ (เช่น ข้าราชการบรรจุไม่ถึง 6 เดือน ไม่มีสิทธิ์ลาพักผ่อน) */
+    service_short?: { required_months: number; service_months: number }
   } | null>(null)
 
   const watchedRange = Form.useWatch('dateRange', form)
@@ -455,6 +463,8 @@ const LeavePageContent = () => {
           // ฟอร์มใช้ morning/afternoon แต่ฐานข้อมูลเก็บ AM/PM
           half_day_period: values.halfDay ? (values.halfDayType === 'afternoon' ? 'PM' : 'AM') : null,
           reason: values.reason ?? null,
+          substitute_user_id: values.substitute ? Number(values.substitute) : null,
+          contact_info: values.contactInfo?.trim() || null,
         }),
       })
       const json = await res.json()
@@ -713,6 +723,15 @@ const LeavePageContent = () => {
                     <TextArea rows={3} placeholder="ระบุเหตุผลการลา (ถ้ามี)" />
                   </Form.Item>
 
+                  <Form.Item name="contactInfo" label="ในระหว่างลาติดต่อได้ที่">
+                    <Input
+                      maxLength={255}
+                      showCount
+                      placeholder="ที่อยู่ / เบอร์โทรศัพท์ที่ติดต่อได้ระหว่างลา (ถ้ามี)"
+                      prefix={<PhoneOutlined className="text-app-text-2" />}
+                    />
+                  </Form.Item>
+
                   <Form.Item
                     name="substitute"
                     label="ผู้ปฏิบัติงานแทน (ถ้ามี)"
@@ -728,10 +747,13 @@ const LeavePageContent = () => {
                       filterOption={(input, option) =>
                         (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
                       }
-                      options={colleagues.map(c => ({
-                        value: String(c.id),
-                        label: `${c.pname ?? ''}${c.fname} ${c.lname}${c.position_name ? ` — ${c.position_name}` : ''}`,
-                      }))}
+                      options={[
+                        ...colleagues.map(c => ({
+                          value: String(c.id),
+                          label: `${c.pname ?? ''}${c.fname} ${c.lname}${c.position_name ? ` — ${c.position_name}` : ''}`,
+                        })),
+                        ...(savedSubstitute && !colleagues.some(c => String(c.id) === savedSubstitute.value) ? [savedSubstitute] : []),
+                      ]}
                     />
                   </Form.Item>
                 </Card>
@@ -786,26 +808,34 @@ const LeavePageContent = () => {
                       }}
                     />
                   </Form.Item>
-                  {/* สิทธิ์คงเหลือคิดจากยอดจริงในฐานข้อมูล (หักที่ใช้ไปแล้วและที่ยังรออนุมัติ) */}
+                  {/* สิทธิ์คงเหลือคิดจากยอดจริงในฐานข้อมูล (หักที่ใช้ไปแล้วและที่ยังรออนุมัติ)
+                      แสดงสิทธิ์ทั้งปี/คงเหลือเฉพาะลาพักผ่อน — ลากิจ/ลาป่วย ไม่โชว์ กันเข้าใจว่าเป็นโควตาที่ลาได้เรื่อยๆ จนหมด
+                      (ยังตรวจเกินสิทธิ์ตามปกติ และเตือนเมื่อใบนี้เกิน) */}
                   {quota?.has_entitlement ? (
                     <>
-                      <div className="grid grid-cols-3 gap-2">
-                        <MiniStat label="สิทธิ์ทั้งปี" value={nf(quota.entitled)} unit="วัน" color="#0ea5e9" />
-                        <MiniStat label="ใช้ไปแล้ว" value={nf(quota.used)} unit="วัน" color="#f59e0b" />
-                        <MiniStat
-                          label="คงเหลือ"
-                          value={nf(quota.remaining)}
-                          unit="วัน"
-                          color={quota.remaining <= 0 ? '#ef4444' : quota.remaining <= 3 ? '#f59e0b' : '#22c55e'}
-                        />
-                      </div>
+                      {isAnnualLeave ? (
+                        <div className="grid grid-cols-3 gap-2">
+                          <MiniStat label="สิทธิ์ทั้งปี" value={nf(quota.entitled)} unit="วัน" color="#0ea5e9" />
+                          <MiniStat label="ใช้ไปแล้ว" value={nf(quota.used)} unit="วัน" color="#f59e0b" />
+                          <MiniStat
+                            label="คงเหลือ"
+                            value={nf(quota.remaining)}
+                            unit="วัน"
+                            color={quota.remaining <= 0 ? '#ef4444' : quota.remaining <= 3 ? '#f59e0b' : '#22c55e'}
+                          />
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 gap-2">
+                          <MiniStat label="ใช้ไปแล้วในปีงบนี้" value={nf(quota.used)} unit="วัน" color="#f59e0b" />
+                        </div>
+                      )}
                       <div className="mt-2 space-y-0.5">
                         {quota.pending > 0 && (
                           <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
                             รวมใบที่ยังรออนุมัติอยู่ {nf(quota.pending)} วันไว้ในยอดที่ใช้ไปแล้ว
                           </Text>
                         )}
-                        {currentEntitlement?.carry_over && (
+                        {isAnnualLeave && currentEntitlement?.carry_over && (
                           <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
                             สะสมข้ามปีได้สูงสุด {currentEntitlement.carry_over_max_days} วัน
                           </Text>
@@ -821,6 +851,15 @@ const LeavePageContent = () => {
                         />
                       )}
                     </>
+                  ) : quota?.service_short ? (
+                    <Alert
+                      type="error"
+                      showIcon
+                      className="mt-3"
+                      title={`ยังไม่มีสิทธิ์${currentLeaveTypeInfo?.name_th ?? 'การลาประเภทนี้'}`}
+                      description={`ต้องมีอายุงานอย่างน้อย ${quota.service_short.required_months} เดือน ณ วันเริ่มลา`
+                        + ` (ขณะนี้ ${quota.service_short.service_months} เดือน) — หากวันเริ่มงานไม่ถูกต้อง กรุณาติดต่อฝ่ายบุคคล`}
+                    />
                   ) : (
                     <Alert
                       type="info"

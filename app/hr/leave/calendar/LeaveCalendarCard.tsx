@@ -3,7 +3,7 @@
 // ผอ. / ADMIN / HR = ทั้งโรงพยาบาล · หัวหน้า/รักษาการ = หน่วยที่ดูแล · ทุกคน = เพื่อนร่วมกลุ่มงาน (ไม่เห็นประเภทการลา) + ของฉัน
 import React, { useEffect, useMemo, useState } from 'react'
 import { Card, Select, Button, Tag, Typography, Empty, Spin, Grid, Tooltip } from 'antd'
-import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
+import { CalendarOutlined, LeftOutlined, RightOutlined, CheckCircleFilled, ClockCircleFilled, StopFilled } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
 import 'dayjs/locale/th'
@@ -28,8 +28,8 @@ interface LeaveEvent {
   half_day_period: string | null
   status: 'PENDING' | 'APPROVED' | 'CANCEL_PENDING'
   is_mine: boolean
-  reason: string | null      // backend ส่งเฉพาะใบของตัวเอง
-  // รออนุมัติ: ผู้อนุมัติลำดับที่ใบกำลังรอ — ลำดับก่อนหน้ากดแล้วจะเลื่อนไปลำดับถัดไป
+  reason: string | null      // backend ส่งให้เจ้าของใบ, ADMIN/HR และผู้อนุมัติในสาย (เพื่อนร่วมกลุ่มงานไม่เห็น)
+  // รออนุมัติ / รออนุมัติยกเลิก: ผู้อนุมัติลำดับที่ใบกำลังรอ — ลำดับก่อนหน้ากดแล้วจะเลื่อนไปลำดับถัดไป
   waiting_for: { step: number; total: number; level_name: string; approver_name: string; is_acting: boolean } | null
 }
 interface CalendarData { scope: string; options: ScopeOption[]; masked: boolean; events: LeaveEvent[] }
@@ -46,14 +46,25 @@ const PENDING_STRIPES = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.22
 const HOLIDAY_BG = 'rgba(239,68,68,0.10)'
 const colorOf = (e: LeaveEvent) => (e.leave_type_code && TYPE_COLOR[e.leave_type_code]) || MASKED_COLOR
 const STATUS_LABEL: Record<LeaveEvent['status'], string> = {
-  PENDING: 'รออนุมัติ', APPROVED: 'อนุมัติแล้ว', CANCEL_PENDING: 'รอยกเลิก',
+  PENDING: 'รออนุมัติ', APPROVED: 'อนุมัติครบทุกลำดับ', CANCEL_PENDING: 'รออนุมัติยกเลิก',
+}
+// ไอคอนสถานะหน้าแถบ — อ่านสถานะได้โดยไม่ต้องพึ่งสี/ลายทางอย่างเดียว
+const STATUS_ICON: Record<LeaveEvent['status'], React.ComponentType<{ style?: React.CSSProperties }>> = {
+  APPROVED: CheckCircleFilled, PENDING: ClockCircleFilled, CANCEL_PENDING: StopFilled,
+}
+const STATUS_COLOR: Record<LeaveEvent['status'], string> = {
+  APPROVED: '#10b981', PENDING: '#f59e0b', CANCEL_PENDING: '#ef4444',
+}
+const StatusIcon = ({ status, color, size = 12 }: { status: LeaveEvent['status']; color?: string; size?: number }) => {
+  const Icon = STATUS_ICON[status]
+  return <Icon style={{ fontSize: size, color: color ?? STATUS_COLOR[status], flexShrink: 0 }} aria-label={STATUS_LABEL[status]} />
 }
 
 const th = (d: Dayjs) => d.locale('th')
 
 /** "รออนุมัติ ลำดับ 2/3: หัวหน้ากลุ่มงาน — ชื่อ (รักษาการ)" */
 const waitingText = (e: LeaveEvent) => e.waiting_for && (
-  `รออนุมัติ ลำดับ ${e.waiting_for.step}/${e.waiting_for.total}: ${e.waiting_for.level_name}`
+  `${STATUS_LABEL[e.status]} ลำดับ ${e.waiting_for.step}/${e.waiting_for.total}: ${e.waiting_for.level_name}`
   + ` — ${e.waiting_for.approver_name}${e.waiting_for.is_acting ? ' (รักษาการ)' : ''}`
 )
 const fmtDay = (iso: string) => th(dayjs(iso)).format('D MMM BB')
@@ -214,17 +225,20 @@ export default function LeaveCalendarCard() {
                   boxShadow: e.is_mine ? 'inset 0 0 0 2px rgba(255,255,255,0.85)' : undefined,
                 }}>
                   <div className="flex items-center gap-1.5" style={{ minWidth: 0 }}>
+                    <StatusIcon status={e.status} color="#fff" size={13} />
                     {e.is_mine && (
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#fff', boxShadow: '0 0 0 2px rgba(255,255,255,0.35)', flexShrink: 0 }} />
                     )}
                     <span style={{ fontWeight: e.is_mine ? 700 : 500 }}>{barText(e)}</span>
                   </div>
-                  {e.is_mine && (
-                    <div style={{ opacity: 0.95 }}>{e.leave_type_name ?? 'ลา'}{e.reason ? ` · ${e.reason}` : ''}</div>
+                  {(e.is_mine || e.reason) && (
+                    <div style={{ opacity: 0.95, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {e.leave_type_name ?? 'ลา'}{e.reason ? ` · เหตุผล: ${e.reason}` : ''}
+                    </div>
                   )}
                   {e.waiting_for && (
                     <div style={{ fontSize: 11, opacity: 0.95 }}>
-                      รออนุมัติ ลำดับ {e.waiting_for.step}/{e.waiting_for.total} · {e.waiting_for.approver_name}{e.waiting_for.is_acting ? ' (รักษาการ)' : ''}
+                      {STATUS_LABEL[e.status]} ลำดับ {e.waiting_for.step}/{e.waiting_for.total} · {e.waiting_for.approver_name}{e.waiting_for.is_acting ? ' (รักษาการ)' : ''}
                     </div>
                   )}
                 </div>
@@ -278,6 +292,12 @@ export default function LeaveCalendarCard() {
             <Text style={{ fontSize: 12 }}>การลาของฉัน (มีกรอบขาว)</Text>
           </span>
         )}
+        {(['APPROVED', 'PENDING', 'CANCEL_PENDING'] as const).filter(st => events.some(e => e.status === st)).map(st => (
+          <span key={st} className="flex items-center gap-1" style={{ fontSize: 12 }}>
+            <StatusIcon status={st} />
+            <Text style={{ fontSize: 12 }}>{STATUS_LABEL[st]}</Text>
+          </span>
+        ))}
         {events.some(e => e.status !== 'APPROVED') && (
           <span className="flex items-center gap-1" style={{ fontSize: 12 }}>
             <span style={{ width: 14, height: 10, borderRadius: 2, backgroundColor: MASKED_COLOR, backgroundImage: PENDING_STRIPES, display: 'inline-block' }} />
@@ -326,12 +346,17 @@ export default function LeaveCalendarCard() {
                       ? <span style={{ width: 10, height: 10, marginTop: 6, borderRadius: '50%', background: colorOf(e), boxShadow: `0 0 0 2px ${colorOf(e)}40`, flexShrink: 0 }} />
                       : <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: colorOf(e), opacity: e.status === 'APPROVED' ? 1 : 0.55, flexShrink: 0 }} />}
                     <div style={{ minWidth: 0 }}>
-                      <Text strong>{e.employee_name}</Text>
+                      <span className="flex items-center gap-1.5">
+                        <StatusIcon status={e.status} />
+                        <Text strong>{e.employee_name}</Text>
+                      </span>
                       <div>
                         <Text type="secondary" style={{ fontSize: 12 }}>
                           {e.leave_type_name ?? 'ลา'} · {fmtDay(e.start_date)}{e.end_date !== e.start_date ? ` – ${fmtDay(e.end_date)}` : ''}
                         </Text>
-                        {e.status !== 'APPROVED' && <Tag style={{ marginInlineStart: 6, fontSize: 11 }}>{STATUS_LABEL[e.status]}</Tag>}
+                        <Tag color={e.status === 'APPROVED' ? 'success' : e.status === 'PENDING' ? 'warning' : 'error'} style={{ marginInlineStart: 6, fontSize: 11 }}>
+                          {STATUS_LABEL[e.status]}
+                        </Tag>
                       </div>
                       {e.reason && <div><Text style={{ fontSize: 12 }}>เหตุผล: {e.reason}</Text></div>}
                       {e.waiting_for && <div><Text style={{ fontSize: 12, color: '#d97706' }}>{waitingText(e)}</Text></div>}

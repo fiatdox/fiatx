@@ -2,11 +2,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
   Table, Tag, Card, Typography, Breadcrumb, Select, Space, Button, Empty,
-  Segmented, DatePicker, Checkbox, Alert, Avatar, Divider,
+  Segmented, DatePicker, Checkbox, Alert, Avatar, Divider, Modal, App, Spin,
 } from 'antd'
 import {
   HomeOutlined, FileTextOutlined, CalendarOutlined, FilterOutlined,
-  ClearOutlined, TeamOutlined, ScissorOutlined,
+  ClearOutlined, TeamOutlined, ScissorOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 import { FaFileExcel, FaRegCalendarCheck, FaRegClipboard } from 'react-icons/fa'
 import dayjs, { Dayjs } from 'dayjs'
@@ -14,6 +14,15 @@ import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
 import EChart from '@/app/components/EChart'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import dynamic from 'next/dynamic'
+import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
+import { buildLeaveFormData } from '@/app/lib/leaveFormData'
+
+// react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
+const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
+  ssr: false,
+  loading: () => <div style={{ padding: 24 }}>กำลังเตรียมเอกสาร...</div>,
+})
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -75,7 +84,7 @@ const shortLeaveType = (name: string) => {
 }
 
 /**
- * คอลัมน์หลักของรายงาน — ตายตัว 3 ประเภทที่ใช้บ่อยที่สุด ที่เหลือรวมเป็น "ลาอื่น ๆ"
+ * คอลัมน์หลักของรายงาน — ตายตัว 4 ประเภทที่ใช้บ่อยที่สุด ที่เหลือรวมเป็น "ลาอื่น ๆ"
  * ตั้งใจให้คอลัมน์คงที่ทุกครั้ง แม้รอบที่เลือกจะไม่มีการลาประเภทนั้นเลย
  * จะได้เทียบข้ามรอบ/ข้ามหน่วยได้ และหัวตารางไม่ขยับไปมา
  * จับกลุ่มด้วย code ของประเภทการลา ไม่ใช่ชื่อไทย เพราะชื่ออาจถูกแก้ทีหลัง
@@ -84,13 +93,14 @@ const BUCKETS = [
   { key: 'ANNUAL', label: 'ลาพักผ่อน', color: '#6366f1' },
   { key: 'SICK', label: 'ลาป่วย', color: '#22c55e' },
   { key: 'PERS', label: 'ลากิจส่วนตัว', color: '#f59e0b' },
+  { key: 'MAT', label: 'ลาคลอดบุตร', color: '#ec4899' },
   { key: 'OTHER', label: 'ลาอื่น ๆ', color: '#94a3b8' },
 ] as const
 
 type BucketKey = typeof BUCKETS[number]['key']
 
 const bucketOf = (code: string): BucketKey =>
-  code === 'ANNUAL' || code === 'SICK' || code === 'PERS' ? code : 'OTHER'
+  code === 'ANNUAL' || code === 'SICK' || code === 'PERS' || code === 'MAT' ? code : 'OTHER'
 
 
 const STATUS_MAP: Record<string, 'approved' | 'pending' | 'rejected'> = {
@@ -180,7 +190,25 @@ const straddles = (r: Rec, from: Dayjs, to: Dayjs) =>
 
 // ─── หน้า ─────────────────────────────────────────────────────────────────────
 const LeaveSummaryContent = () => {
+  const { message } = App.useApp()
   const [rows, setRows] = useState<Rec[]>([])
+  // พิมพ์แบบใบลารายใบ — ข้อมูลกรอกแบบฟอร์มดึงจาก backend (ตรวจสิทธิ์ตามขอบเขตรายงาน)
+  const [printing, setPrinting] = useState<{ id: number; data: LeaveFormData | null } | null>(null)
+  const openPrint = async (id: number) => {
+    setPrinting({ id, data: null })
+    try {
+      const j = await (await fetch(`/api/v1/hr/leave-requests/${id}/print`)).json()
+      if (!j?.success || !j.data?.request) {
+        message.error(j?.message ?? 'โหลดข้อมูลใบลาไม่สำเร็จ')
+        setPrinting(null)
+        return
+      }
+      setPrinting({ id, data: buildLeaveFormData(j.data.request, { rows: j.data.rows ?? [], profile: j.data.profile ?? null, approvers: j.data.approvers ?? {} }) })
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+      setPrinting(null)
+    }
+  }
   const [loading, setLoading] = useState(true)
   const [canSeeAll, setCanSeeAll] = useState(false)
 
@@ -194,6 +222,7 @@ const LeaveSummaryContent = () => {
   const [withPending, setWithPending] = useState(true)
   const [unit, setUnit] = useState<string | null>(null)
   const [userType, setUserType] = useState<string | null>(null)
+  const [leaveTypes, setLeaveTypes] = useState<string[]>([])
   const [showStraddle, setShowStraddle] = useState(false)
 
   const [from, to] = useMemo<[Dayjs, Dayjs]>(
@@ -248,9 +277,18 @@ const LeaveSummaryContent = () => {
     [inPeriod],
   )
 
+  // เลือกตามประเภทการลารายตัว (ไม่ใช่กลุ่มคอลัมน์) — ใช้แยกดูลาอื่น ๆ เช่น ลาคลอด/ลาอุปสมบท ได้
+  const leaveTypeOptions = useMemo(
+    () => [...new Set(inPeriod.map(r => r.leaveType))].sort((a, b) => a.localeCompare(b, 'th')),
+    [inPeriod],
+  )
+
   const filtered = useMemo(
-    () => inPeriod.filter(r => (!unit || r.unit === unit) && (!userType || r.userType === userType)),
-    [inPeriod, unit, userType],
+    () => inPeriod.filter(r =>
+      (!unit || r.unit === unit) && (!userType || r.userType === userType) &&
+      (leaveTypes.length === 0 || leaveTypes.includes(r.leaveType)),
+    ),
+    [inPeriod, unit, userType, leaveTypes],
   )
 
   const straddling = useMemo(() => inPeriod.filter(r => straddles(r, from, to)), [inPeriod, from, to])
@@ -369,6 +407,61 @@ const LeaveSummaryContent = () => {
     },
   ]), [])
 
+  // ── ตารางย่อย: ใบลารายใบของแต่ละคน ─────────────────────────────────────────
+  const recColumns = [
+    {
+      title: '#', key: 'no', width: 44, align: 'center' as const,
+      render: (_: unknown, __: Rec, i: number) => <Text type="secondary">{i + 1}</Text>,
+    },
+    {
+      title: 'ประเภทการลา', dataIndex: 'leaveType', key: 'leaveType', width: 200,
+      render: (t: string, r: Rec) => (
+        <Space size={8}>
+          <span style={{
+            display: 'inline-block', width: 8, height: 8, borderRadius: 4,
+            background: BUCKETS.find(b => b.key === r.bucket)?.color,
+          }} />
+          <Text>{t}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'วันที่ลา', key: 'date', width: 230,
+      render: (_: unknown, r: Rec) => (
+        <Text>
+          {r.start.isSame(r.end, 'day') ? beDate(r.start) : `${beDate(r.start)} – ${beDate(r.end)}`}
+        </Text>
+      ),
+    },
+    {
+      title: 'จำนวนวัน', key: 'days', width: 130, align: 'center' as const,
+      render: (_: unknown, r: Rec) => straddles(r, from, to) ? (
+        <div style={{ lineHeight: 1.3 }}>
+          <Text strong>{nf(daysInWindow(r, from, to, fullBill))}</Text>
+          <div><Text type="secondary" style={{ fontSize: 11 }}>จากทั้งใบ {nf(r.days)} วัน (คร่อมรอบ)</Text></div>
+        </div>
+      ) : <Text strong>{nf(r.days)}</Text>,
+    },
+    {
+      title: 'สถานะ', dataIndex: 'status', key: 'status', width: 120, align: 'center' as const,
+      render: (s: Rec['status']) => s === 'pending'
+        ? <Tag color="warning" style={{ marginInlineEnd: 0 }}>รออนุมัติ</Tag>
+        : <Tag color="success" style={{ marginInlineEnd: 0 }}>อนุมัติแล้ว</Tag>,
+    },
+    {
+      title: '', key: 'print', width: 110, align: 'center' as const,
+      render: (_: unknown, r: Rec) => (
+        <Button
+          size="small" icon={<PrinterOutlined />}
+          loading={printing?.id === r.id && !printing.data}
+          onClick={() => openPrint(r.id)}
+        >
+          พิมพ์ใบลา
+        </Button>
+      ),
+    },
+  ]
+
   // ── กราฟ ───────────────────────────────────────────────────────────────────
   const donutOption = useMemo(() => ({
     backgroundColor: 'transparent',
@@ -430,7 +523,7 @@ const LeaveSummaryContent = () => {
     XLSX.writeFile(wb, `สรุปการลา_ปีงบ${fy}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
   }
 
-  const clearFilters = () => { setUnit(null); setUserType(null) }
+  const clearFilters = () => { setUnit(null); setUserType(null); setLeaveTypes([]) }
   const isCurrentFY = fy === currentFY()
   const rangeDays = to.diff(from, 'day') + 1
 
@@ -572,9 +665,14 @@ const LeaveSummaryContent = () => {
               placeholder="ประเภทเจ้าหน้าที่ (ทั้งหมด)" style={{ minWidth: 220 }}
               options={typeOptions.map(v => ({ value: v, label: v }))}
             />
+            <Select
+              mode="multiple" value={leaveTypes} onChange={setLeaveTypes} allowClear
+              maxTagCount="responsive" placeholder="ประเภทการลา (ทั้งหมด)" style={{ minWidth: 240 }}
+              options={leaveTypeOptions.map(v => ({ value: v, label: v }))}
+            />
             <Button
               type="text" size="small" icon={<ClearOutlined />}
-              disabled={!unit && !userType}
+              disabled={!unit && !userType && leaveTypes.length === 0}
               onClick={clearFilters}
             >
               ล้างตัวกรอง
@@ -659,20 +757,26 @@ const LeaveSummaryContent = () => {
             locale={{ emptyText: <Empty description="ไม่มีข้อมูลการลาในรอบที่เลือก" /> }}
             expandable={{
               expandedRowRender: (p: PersonRow) => (
-                <div style={{ fontSize: 12, paddingInlineStart: 8 }}>
-                  {p.recs.map(r => (
-                    <div key={r.id} className="flex flex-wrap items-center gap-2 py-0.5">
-                      <Tag color="default" style={{ marginInlineEnd: 0 }}>{r.leaveType}</Tag>
-                      <span>{beDate(r.start)} – {beDate(r.end)}</span>
-                      <Text type="secondary">{nf(r.days)} วัน</Text>
-                      {straddles(r, from, to) && (
-                        <Tag color="warning" style={{ marginInlineEnd: 0 }}>
-                          คร่อมรอบ · นับ {nf(daysInWindow(r, from, to, fullBill))} วัน
-                        </Tag>
-                      )}
-                      {r.status === 'pending' && <Tag color="warning" style={{ marginInlineEnd: 0 }}>รออนุมัติ</Tag>}
-                    </div>
-                  ))}
+                <div style={{ padding: '4px 8px 8px 32px' }}>
+                  <Table<Rec>
+                    columns={recColumns}
+                    dataSource={p.recs}
+                    rowKey="id"
+                    size="small"
+                    pagination={false}
+                    style={{ maxWidth: 960 }}
+                    summary={recs => (
+                      <Table.Summary.Row>
+                        <Table.Summary.Cell index={0} colSpan={3} align="right">
+                          <Text type="secondary">รวม {nf(recs.length)} ครั้ง</Text>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell index={3} align="center">
+                          <Text strong>{nf(recs.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0))}</Text>
+                        </Table.Summary.Cell>
+                        <Table.Summary.Cell index={4} colSpan={2} />
+                      </Table.Summary.Row>
+                    )}
+                  />
                 </div>
               ),
             }}
@@ -697,6 +801,20 @@ const LeaveSummaryContent = () => {
           />
         </Card>
       </div>
+
+      {/* ── พิมพ์แบบใบลา ── */}
+      <Modal
+        title={<span><PrinterOutlined className="mr-2" />แบบใบลา — LV-{String(printing?.id ?? 0).padStart(6, '0')}</span>}
+        open={!!printing?.data}
+        onCancel={() => setPrinting(null)}
+        width="92vw"
+        style={{ top: 16 }}
+        styles={{ body: { height: '80vh', padding: 0 } }}
+        footer={null}
+        destroyOnHidden
+      >
+        {printing?.data ? <LeaveFormPDF data={printing.data} /> : <Spin />}
+      </Modal>
     </div>
   )
 }
