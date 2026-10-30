@@ -14,6 +14,13 @@ import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
+import {
+  beShort, nf, parseChain, buildLeaveFormData,
+  type ApiChainStep, type ApiAction, type LeaveProfile, type Approvers,
+} from '@/app/lib/leaveFormData'
+
+// ประเภทที่มีแบบฟอร์มของตัวเอง: แบบใบลาพักผ่อน / แบบใบลาป่วย กิจส่วนตัว ลาคลอดบุตร — ประเภทอื่นยืมแบบใบลาพักผ่อน
+const OWN_FORM_CODES = ['ANNUAL', 'SICK', 'PERS', 'MAT']
 
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
 const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
@@ -23,43 +30,7 @@ const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
 
 const { Title, Text } = Typography
 
-// ── ข้อมูลหน่วยงานที่พิมพ์ลงหัวกระดาษ ────────────────────────────────────────
-// ยังไม่มีตารางตั้งค่าระดับองค์กรในระบบ จึงกำหนดไว้ที่นี่ก่อน
-const ORG_NAME = 'โรงพยาบาลพะเยา'
-const PROVINCE_OFFICE = 'สำนักงานสาธารณสุขจังหวัดพะเยา'
-
-const TH_MONTH = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-const TH_MONTH_ABBR = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
-
-const beShort = (v: string) => {
-  const d = dayjs(v)
-  return `${d.date()} ${TH_MONTH_ABBR[d.month()]} ${d.year() + 543}`
-}
-const beLong = (v: string) => {
-  const d = dayjs(v)
-  return `${d.date()} เดือน ${TH_MONTH[d.month()]} พ.ศ. ${d.year() + 543}`
-}
-const nf = (n: number) => Number(n).toLocaleString('th-TH', { maximumFractionDigits: 2 })
-
 // ── ข้อมูลจาก API ────────────────────────────────────────────────────────────
-interface ApiChainStep {
-  step: number
-  level: string
-  level_name: string
-  approver_name: string
-  unit_name: string | null
-  is_acting: boolean
-}
-interface ApiAction {
-  step: number
-  action: string
-  comment: string | null
-  actioned_at: string
-  approver_name?: string
-  level?: string
-}
 interface ApiRow {
   id: number
   leave_type_id: number
@@ -83,26 +54,12 @@ interface ApiRow {
   cancellation_id: number | null
   cancellation_status: string | null
   cancellation_reason: string | null
+  /** คำขอยกเลิกรอบล่าสุด — ขอใหม่ได้ถ้ารอบก่อนไม่ได้รับอนุมัติ */
+  cancellation_refunded_days: string | number | null
+  cancellation_reject_comment: string | null
+  substitute_name: string | null
+  contact_info: string | null
 }
-interface Profile {
-  pname: string | null
-  fname: string | null
-  lname: string | null
-  position_name: string | null
-  user_type_name: string | null
-  submajor_name: string | null
-  major_name: string | null
-  mission_name: string | null
-}
-
-const parseChain = (raw: ApiRow['approval_chain']): ApiChainStep[] => {
-  if (Array.isArray(raw)) return raw
-  if (typeof raw === 'string' && raw.trim()) {
-    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [] } catch { return [] }
-  }
-  return []
-}
-
 const STATUS_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   DRAFT: { label: 'ร่าง', color: 'default', icon: <FileTextOutlined /> },
   PENDING: { label: 'รออนุมัติ', color: 'warning', icon: <ClockCircleOutlined /> },
@@ -119,7 +76,8 @@ type FilterKey = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
 const LeaveHistoryContent = () => {
   const { message } = App.useApp()
   const [rows, setRows] = useState<ApiRow[]>([])
-  const [profile, setProfile] = useState<Profile | null>(null)
+  const [profile, setProfile] = useState<LeaveProfile | null>(null)
+  const [approvers, setApprovers] = useState<Approvers>({})
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterKey>('ALL')
   const [detail, setDetail] = useState<ApiRow | null>(null)
@@ -135,6 +93,7 @@ const LeaveHistoryContent = () => {
       if (json?.success && Array.isArray(json.data)) {
         setRows(json.data)
         setProfile(json.profile ?? null)
+        setApprovers(json.approvers ?? {})
       } else {
         setRows([])
       }
@@ -234,71 +193,7 @@ const LeaveHistoryContent = () => {
   }
 
   // ── แปลงใบลาหนึ่งใบเป็นข้อมูลสำหรับแบบฟอร์มที่พิมพ์ ────────────────────────
-  const toFormData = (r: ApiRow): LeaveFormData => {
-    const chain = parseChain(r.approval_chain)
-    const actionOf = (step: number) => r.actions?.find(a => Number(a.step) === Number(step))
-    const opinionOf = (level: string) => {
-      const c = chain.find(x => x.level === level)
-      if (!c) return null
-      const act = actionOf(c.step)
-      return {
-        // ยังไม่อนุมัติก็ปล่อยว่างให้เซ็นด้วยมือ ไม่ใส่ข้อความแทนให้เอง
-        comment: act ? (act.action === 'REJECTED' ? 'ไม่อนุญาต' : 'เห็นควรอนุญาต') : '',
-        name: act ? c.approver_name : '',
-        position: act ? `${c.level_name}${c.is_acting ? ' (รักษาการ)' : ''}` : '',
-        date: act ? beShort(act.actioned_at) : '',
-      }
-    }
-
-    // คำสั่งอนุญาต = ขั้นสุดท้ายของสายอนุมัติ (ผู้มีอำนาจสั่งการ)
-    const lastStep = chain.length > 0 ? chain[chain.length - 1] : null
-    const lastAct = lastStep ? actionOf(lastStep.step) : undefined
-    const order = {
-      approved: lastAct ? lastAct.action !== 'REJECTED' : null,
-      name: lastAct && lastStep ? lastStep.approver_name : '',
-      position: lastAct && lastStep ? `${lastStep.level_name}${lastStep.is_acting ? ' (รักษาการ)' : ''}` : '',
-      date: lastAct ? beShort(lastAct.actioned_at) : '',
-    }
-
-    // สถิติการลา: นับเฉพาะใบที่อนุมัติแล้ว ประเภทเดียวกัน ปีงบเดียวกัน และเริ่มลาก่อนใบนี้
-    const prior = rows.filter(x =>
-      x.id !== r.id
-      && Number(x.leave_type_id) === Number(r.leave_type_id)
-      && Number(x.fiscal_year) === Number(r.fiscal_year)
-      && String(x.status).toUpperCase() === 'APPROVED'
-      && (dayjs(x.start_date).isBefore(dayjs(r.start_date), 'day')
-        || (dayjs(x.start_date).isSame(dayjs(r.start_date), 'day') && x.id < r.id))
-    ).reduce((a, x) => a + Number(x.total_days), 0)
-    const thisDays = Number(r.total_days)
-
-    const subject = (r.leave_type_name || '').replace(/^การ/, '')
-    const annual = r.entitled_per_year
-    return {
-      orgName: ORG_NAME,
-      provinceOffice: PROVINCE_OFFICE,
-      writtenDate: beLong(r.created_at),
-      subject,
-      fullName,
-      userType: profile?.user_type_name ?? '',
-      position: profile?.position_name ?? '',
-      unitName: profile?.major_name ?? profile?.submajor_name ?? '',
-      carriedDays: nf(Number(r.carried_in) || 0),
-      annualDays: annual != null ? nf(annual) : '',
-      totalDays: annual != null ? nf((Number(r.carried_in) || 0) + annual) : '',
-      startDate: beShort(r.start_date),
-      endDate: beShort(r.end_date),
-      requestedDays: nf(Number(r.total_days)),
-      contact: '',
-      substitute: '',
-      note: r.reason ?? '',
-      unitHead: opinionOf('SUBMAJOR'),
-      majorHead: opinionOf('MAJOR') ?? opinionOf('MISSION') ?? opinionOf('DIRECTOR'),
-      order,
-      statPrior: nf(prior),
-      statThis: nf(thisDays),
-      statTotal: nf(prior + thisDays),
-    }
-  }
+  const toFormData = (r: ApiRow): LeaveFormData => buildLeaveFormData(r, { rows, profile, approvers })
 
   const columns = [
     {
@@ -338,10 +233,18 @@ const LeaveHistoryContent = () => {
         return (
           <div style={{ lineHeight: 1.35 }}>
             <Tag icon={m.icon} color={m.color} style={{ marginInlineEnd: 0 }}>{m.label}</Tag>
-            {String(r.status).toUpperCase() === 'PENDING' && waiting && (
+            {['PENDING', 'CANCEL_PENDING'].includes(String(r.status).toUpperCase()) && waiting && (
               <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>
                 รอ{waiting.level_name} · {waiting.approver_name}
               </div>
+            )}
+            {String(r.status).toUpperCase() === 'CANCELLED' && Number(r.cancellation_refunded_days) > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>
+                คืนวันลา {nf(Number(r.cancellation_refunded_days))} วัน
+              </div>
+            )}
+            {String(r.status).toUpperCase() === 'APPROVED' && r.cancellation_status === 'REJECTED' && (
+              <div style={{ fontSize: 11, color: 'var(--ant-color-error)' }}>ไม่อนุมัติการยกเลิก</div>
             )}
           </div>
         )
@@ -378,7 +281,7 @@ const LeaveHistoryContent = () => {
               </Popconfirm>
             )
           )}
-          {String(r.status).toUpperCase() === 'APPROVED' && !r.cancellation_id && (
+          {String(r.status).toUpperCase() === 'APPROVED' && r.cancellation_status !== 'PENDING' && (
             <Button
               size="small" danger icon={<RollbackOutlined />}
               onClick={() => { setCancelling(r); cancelForm.resetFields() }}
@@ -556,17 +459,34 @@ const LeaveHistoryContent = () => {
                     {detail.entitled_per_year != null && ` · ประจำปี ${nf(detail.entitled_per_year)} วัน`}
                   </Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="เหตุผล" span={{ xs: 1, sm: 2, md: 3 }}>
+                <Descriptions.Item label="เหตุผล" span="filled">
                   {detail.reason || '-'}
                 </Descriptions.Item>
+                {detail.contact_info && (
+                  <Descriptions.Item label="ติดต่อระหว่างลา" span="filled">{detail.contact_info}</Descriptions.Item>
+                )}
+                {detail.substitute_name && (
+                  <Descriptions.Item label="ผู้ปฏิบัติงานแทน" span="filled">{detail.substitute_name}</Descriptions.Item>
+                )}
                 {detail.reject_reason && (
-                  <Descriptions.Item label="เหตุผลที่ไม่อนุมัติ" span={{ xs: 1, sm: 2, md: 3 }}>
+                  <Descriptions.Item label="เหตุผลที่ไม่อนุมัติ" span="filled">
                     <Text type="danger">{detail.reject_reason}</Text>
                   </Descriptions.Item>
                 )}
                 {detail.cancellation_reason && (
-                  <Descriptions.Item label="เหตุผลที่ขอยกเลิก" span={{ xs: 1, sm: 2, md: 3 }}>
+                  <Descriptions.Item label="เหตุผลที่ขอยกเลิก" span="filled">
                     {detail.cancellation_reason}
+                  </Descriptions.Item>
+                )}
+                {detail.cancellation_status === 'REJECTED' && (
+                  <Descriptions.Item label="ไม่อนุมัติการยกเลิก" span="filled">
+                    <Text type="danger">{detail.cancellation_reject_comment || '-'}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}> · ยังลาตามเดิม ขอยกเลิกใหม่ได้</Text>
+                  </Descriptions.Item>
+                )}
+                {detail.cancellation_status === 'APPROVED' && (
+                  <Descriptions.Item label="คืนวันลา" span="filled">
+                    {nf(Number(detail.cancellation_refunded_days) || 0)} วัน
                   </Descriptions.Item>
                 )}
               </Descriptions>
@@ -636,16 +556,16 @@ const LeaveHistoryContent = () => {
       >
         {printing && (
           <>
-            {String(printing.leave_type_code) !== 'ANNUAL' && (
+            {!OWN_FORM_CODES.includes(String(printing.leave_type_code)) && (
               <Alert
                 type="info"
                 showIcon
                 style={{ margin: 12 }}
-                title="แบบฟอร์มนี้อ้างอิงจากแบบใบลาพักผ่อน"
-                description="ประเภทการลาอื่นยังไม่ได้กำหนดแบบฟอร์มเฉพาะไว้ในระบบ หัวข้อและช่องกรอกจะยังเป็นโครงเดียวกัน กรุณาตรวจก่อนเสนอลงนาม"
+                title="แบบฟอร์มนี้ใช้โครงเดียวกับแบบใบลาพักผ่อน"
+                description="ประเภทการลานี้ยังไม่มีแบบฟอร์มเฉพาะในระบบ — ตัดส่วนวันลาสะสม/สิทธิ์ออกแล้ว กรุณาตรวจก่อนเสนอลงนาม"
               />
             )}
-            <div style={{ height: String(printing.leave_type_code) !== 'ANNUAL' ? 'calc(80vh - 96px)' : '80vh' }}>
+            <div style={{ height: !OWN_FORM_CODES.includes(String(printing.leave_type_code)) ? 'calc(80vh - 96px)' : '80vh' }}>
               <LeaveFormPDF data={toFormData(printing)} />
             </div>
           </>
@@ -667,7 +587,7 @@ const LeaveHistoryContent = () => {
           showIcon
           className="mb-3"
           title="คำขอยกเลิกต้องผ่านการอนุมัติตามสายเดิมอีกครั้ง"
-          description="วันลาจะถูกคืนให้ก็ต่อเมื่อผู้บังคับบัญชาอนุมัติการยกเลิกครบทุกขั้น"
+          description={`เมื่อผู้บังคับบัญชาอนุมัติการยกเลิกครบทุกขั้น ระบบจะคืนวันลา ${nf(Number(cancelling?.total_days) || 0)} วันเข้ายอดคงเหลือให้อัตโนมัติ`}
         />
         <Form form={cancelForm} layout="vertical">
           <Form.Item name="reason" label="เหตุผลที่ขอยกเลิก" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}>
