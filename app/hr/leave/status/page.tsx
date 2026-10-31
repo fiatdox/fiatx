@@ -95,13 +95,14 @@ const BUCKETS = [
   { key: 'SICK', label: 'ลาป่วย', color: '#22c55e' },
   { key: 'PERS', label: 'ลากิจส่วนตัว', color: '#f59e0b' },
   { key: 'MAT', label: 'ลาคลอดบุตร', color: '#ec4899' },
+  { key: 'PAT', label: 'ลาไปช่วยเลี้ยงบุตร', color: '#06b6d4' },
   { key: 'OTHER', label: 'ลาอื่น ๆ', color: '#94a3b8' },
 ] as const
 
 type BucketKey = typeof BUCKETS[number]['key']
 
 const bucketOf = (code: string): BucketKey =>
-  code === 'ANNUAL' || code === 'SICK' || code === 'PERS' || code === 'MAT' ? code : 'OTHER'
+  code === 'ANNUAL' || code === 'SICK' || code === 'PERS' || code === 'MAT' || code === 'PAT' ? code : 'OTHER'
 
 
 const STATUS_MAP: Record<string, 'approved' | 'pending' | 'rejected'> = {
@@ -211,6 +212,8 @@ const LeaveSummaryContent = () => {
     }
   }
   const [loading, setLoading] = useState(true)
+  // หน้าของตารางรายบุคคล — ใช้คิดเลขลำดับต่อเนื่องข้ามหน้า
+  const [page, setPage] = useState({ current: 1, pageSize: 25 })
   const [canSeeAll, setCanSeeAll] = useState(false)
 
   const [fy, setFy] = useState(currentFY())
@@ -354,7 +357,14 @@ const LeaveSummaryContent = () => {
     }).sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name, 'th'))
   }, [filtered, from, to, fullBill])
 
+  // กรองแล้วคนน้อยลงจนหน้าเดิมไม่มี — ตารางจะกลับไปหน้าสุดท้ายเอง เลขลำดับต้องคิดจากหน้าเดียวกัน
+  const curPage = Math.min(page.current, Math.max(1, Math.ceil(personRows.length / page.pageSize)))
+
   const columns = useMemo(() => ([
+    {
+      title: 'ลำดับ', key: 'no', fixed: 'left' as const, width: 60, align: 'center' as const,
+      render: (_: unknown, __: PersonRow, i: number) => <Text type="secondary">{nf((curPage - 1) * page.pageSize + i + 1)}</Text>,
+    },
     {
       title: 'ชื่อ-สกุล', dataIndex: 'name', key: 'name', fixed: 'left' as const, width: 230,
       render: (t: string) => (
@@ -406,7 +416,7 @@ const LeaveSummaryContent = () => {
         },
       ],
     },
-  ]), [])
+  ]), [curPage, page.pageSize])
 
   // ── ตารางย่อย: ใบลารายใบของแต่ละคน ─────────────────────────────────────────
   const recColumns = [
@@ -508,7 +518,7 @@ const LeaveSummaryContent = () => {
   const exportExcel = () => {
     const data = personRows.map(p => {
       const o: Record<string, string | number> = {
-        'ชื่อ-สกุล': p.name, 'ตำแหน่ง': p.position, 'ประเภทเจ้าหน้าที่': p.userType, 'สังกัด': p.unit,
+        'ลำดับ': personRows.indexOf(p) + 1, 'ชื่อ-สกุล': p.name, 'ตำแหน่ง': p.position, 'ประเภทเจ้าหน้าที่': p.userType, 'สังกัด': p.unit,
       }
       BUCKETS.forEach(b => {
         o[`${b.label} (ครั้ง)`] = Number(p[`c_${b.key}`]) || 0
@@ -754,7 +764,10 @@ const LeaveSummaryContent = () => {
             size="small"
             bordered
             scroll={{ x: 'max-content' }}
-            pagination={{ pageSize: 25, showSizeChanger: true, showTotal: t => `ทั้งหมด ${nf(t)} คน` }}
+            pagination={{
+              current: curPage, pageSize: page.pageSize, showSizeChanger: true, showTotal: t => `ทั้งหมด ${nf(t)} คน`,
+              onChange: (current, pageSize) => setPage({ current: pageSize === page.pageSize ? current : 1, pageSize }),
+            }}
             locale={{ emptyText: <Empty description="ไม่มีข้อมูลการลาในรอบที่เลือก" /> }}
             expandable={{
               expandedRowRender: (p: PersonRow) => (
@@ -784,16 +797,16 @@ const LeaveSummaryContent = () => {
             summary={() => personRows.length === 0 ? null : (
               <Table.Summary fixed>
                 <Table.Summary.Row style={{ fontWeight: 700 }}>
-                  <Table.Summary.Cell index={0} colSpan={5}>รวมทั้งสิ้น</Table.Summary.Cell>
+                  <Table.Summary.Cell index={0} colSpan={6}>รวมทั้งสิ้น</Table.Summary.Cell>
                   {BUCKETS.map((b, i) => (
-                    <Table.Summary.Cell key={b.key} index={5 + i} align="center">
+                    <Table.Summary.Cell key={b.key} index={6 + i} align="center">
                       <span style={{ color: b.color }}>{nf(daysByBucket.get(b.key) ?? 0)}</span>
                     </Table.Summary.Cell>
                   ))}
-                  <Table.Summary.Cell index={5 + BUCKETS.length} align="center">
+                  <Table.Summary.Cell index={6 + BUCKETS.length} align="center">
                     {nf(filtered.length)}
                   </Table.Summary.Cell>
-                  <Table.Summary.Cell index={6 + BUCKETS.length} align="center">
+                  <Table.Summary.Cell index={7 + BUCKETS.length} align="center">
                     {nf(totalDays)}
                   </Table.Summary.Cell>
                 </Table.Summary.Row>
