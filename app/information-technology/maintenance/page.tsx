@@ -4,9 +4,10 @@ import React, { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import {
   ConfigProvider, App, theme, Form, Input, Select, Button, Upload, Table, Tag, Tabs,
-  Typography, Breadcrumb, Row, Col, Card, Tooltip, Badge, InputNumber,
+  Typography, Row, Col, Card, Tooltip, Badge, InputNumber,
   Radio, Modal, Space, Avatar, Descriptions, Timeline, Spin, DatePicker, Image as AntImage,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   DesktopOutlined, ToolOutlined, PaperClipOutlined, PlusOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,

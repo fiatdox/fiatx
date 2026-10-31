@@ -3,9 +3,10 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import {
-  Card, Form, Input, Button, Breadcrumb, Typography,
+  Card, Form, Input, Button, Typography,
   Row, Col, Progress, Tag, Space, Avatar, Divider, Alert
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, LockOutlined, KeyOutlined, EyeInvisibleOutlined, EyeTwoTone,
   SafetyCertificateOutlined, CheckCircleFilled, CloseCircleFilled, UserOutlined,

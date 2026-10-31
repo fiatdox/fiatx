@@ -13,7 +13,6 @@ import {
   Col,
   Typography,
   Space,
-  Breadcrumb,
   Divider,
   Alert,
   Upload,
@@ -22,6 +21,7 @@ import {
   Tag,
   App
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined,
   FileTextOutlined,

@@ -4,9 +4,10 @@
 // ส่วนคำนวณอยู่ที่ insights.ts, option ของกราฟอยู่ที่ charts.ts
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Card, Typography, Breadcrumb, Row, Col, Tag, Progress, Button, Select, Tabs, Table, Segmented, Alert, Result, Tooltip,
+  Card, Typography, Row, Col, Tag, Progress, Button, Select, Tabs, Table, Segmented, Alert, Result, Tooltip,
   ConfigProvider,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import { HomeOutlined, ReloadOutlined, InfoCircleOutlined, WarningOutlined, RightOutlined, TeamOutlined, EditOutlined } from '@ant-design/icons'
 import { FaUsersCog, FaChartPie, FaVenusMars, FaUserClock, FaSignOutAlt, FaHourglassHalf, FaDatabase } from 'react-icons/fa'

@@ -1,10 +1,11 @@
 'use client'
 import React, { useState } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button,
+  ConfigProvider, theme, Typography, Card, Tag, Button,
   Descriptions, Divider, Steps, Form, Input, Select, InputNumber,
   Upload, Row, Col, Alert, Space, Modal, Timeline
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, ToolOutlined, PlusOutlined,
   CheckCircleOutlined, ClockCircleOutlined,

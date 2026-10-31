@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { Card, Typography, Breadcrumb, Row, Col, Spin, Empty, App } from 'antd'
+import { Card, Typography, Row, Col, Spin, Empty, App } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import { HomeOutlined } from '@ant-design/icons'
 import { FaChartPie } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'

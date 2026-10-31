@@ -1,10 +1,11 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  App, Typography, Breadcrumb, Card, Row, Col, Tag, Button, Table,
+  App, Typography, Card, Row, Col, Tag, Button, Table,
   Input, Select, Modal, Form, Space, Statistic, Progress, Popconfirm,
   InputNumber
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FundOutlined, PlusOutlined, EditOutlined, DeleteOutlined,
   SaveOutlined, ReloadOutlined, AimOutlined, SearchOutlined, TrophyOutlined

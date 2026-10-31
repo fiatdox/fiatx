@@ -2,8 +2,9 @@
 import React, { useState } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
-  Select, Breadcrumb, message, Tooltip, Row, Col, Statistic, Avatar, theme
+  Select, message, Tooltip, Row, Col, Statistic, Avatar, theme
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   EditOutlined, DeleteOutlined, SearchOutlined, UserOutlined,
   PlusOutlined, HomeOutlined, SettingOutlined, ToolOutlined

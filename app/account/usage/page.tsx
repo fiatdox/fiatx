@@ -4,8 +4,9 @@
 // กดแถวในตารางหน้าเพื่อดูแนวโน้ม ช่วงเวลา และกลุ่มงานของหน้านั้นหน้าเดียว
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  Typography, Breadcrumb, Card, Row, Col, Segmented, DatePicker, Select, Table, Input, Tag, Alert, Result, Empty, Button, ConfigProvider, Grid,
+  Typography, Card, Row, Col, Segmented, DatePicker, Select, Table, Input, Tag, Alert, Result, Empty, Button, ConfigProvider, Grid,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import { HomeOutlined, SearchOutlined, CloseOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { FaChartBar, FaEye, FaUsers, FaCalendarDay, FaFileAlt } from 'react-icons/fa'

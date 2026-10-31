@@ -2,10 +2,11 @@
 import React, { useState, useMemo } from 'react'
 import dayjs from 'dayjs'
 import {
-  Typography, Breadcrumb, Card, Tag, Button, Table, Tabs, Badge,
+  Typography, Card, Tag, Button, Table, Tabs, Badge,
   Modal, Form, Input, Select, Row, Col, Alert, Space, InputNumber, App,
   DatePicker, Tooltip, Statistic, Empty,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { Dayjs } from 'dayjs'
 import {
   CalendarOutlined, PlusOutlined, SwapOutlined, UserAddOutlined,

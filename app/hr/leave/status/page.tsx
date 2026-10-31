@@ -1,9 +1,10 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, Select, Space, Button, Empty,
+  Table, Tag, Card, Typography, Select, Space, Button, Empty,
   Segmented, DatePicker, Checkbox, Alert, Avatar, Divider, Modal, App, Spin,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, CalendarOutlined, FilterOutlined,
   ClearOutlined, TeamOutlined, ScissorOutlined, PrinterOutlined,

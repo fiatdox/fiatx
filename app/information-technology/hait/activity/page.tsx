@@ -2,9 +2,10 @@
 import { useState, useMemo, useEffect, useCallback, useSyncExternalStore } from 'react'
 import {
   Table, Input, Button, Space, ConfigProvider, Card, Tag, Drawer, Form,
-  Select, Breadcrumb, Tooltip, Row, Col, DatePicker,
+  Select, Tooltip, Row, Col, DatePicker,
   Typography, InputNumber, Tabs, Progress, Alert, theme, Empty, App, Spin,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   EditOutlined, DeleteOutlined, SearchOutlined, PlusOutlined, HomeOutlined,
   DesktopOutlined, UserOutlined, BarChartOutlined, CalendarOutlined,

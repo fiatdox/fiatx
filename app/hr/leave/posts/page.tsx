@@ -1,9 +1,10 @@
 'use client'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Card, Typography, Breadcrumb, Button, Modal, Form, Input, Switch, Space, App, Empty, Tooltip,
+  Card, Typography, Button, Modal, Form, Input, Switch, Space, App, Empty, Tooltip,
   Popconfirm, Tag, Upload, Segmented, AutoComplete, Checkbox, DatePicker, ConfigProvider, Table, Tabs,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { UploadFile } from 'antd'
 import {
   HomeOutlined, PlusOutlined, EditOutlined, DeleteOutlined, PaperClipOutlined, LinkOutlined,

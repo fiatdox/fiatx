@@ -6,9 +6,10 @@ import Cookies from 'js-cookie'
 import dayjs, { Dayjs } from 'dayjs'
 import {
   ConfigProvider, App, theme, Form, Input, DatePicker, Button, Table, Tag, Tabs,
-  Typography, Breadcrumb, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select,
+  Typography, Row, Col, Card, Badge, Modal, Space, Radio, Alert, Descriptions, Select,
   Spin, Image as AntImage, Checkbox,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   ToolOutlined, CheckCircleOutlined, CloseCircleOutlined, HomeOutlined,
   ShoppingCartOutlined, SwapOutlined, InfoCircleOutlined, FileTextOutlined,

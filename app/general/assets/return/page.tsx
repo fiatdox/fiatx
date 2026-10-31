@@ -2,10 +2,11 @@
 import React, { useState, useMemo, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
+  ConfigProvider, theme, Typography, Card, Tag, Button, Table,
   Form, Input, Select, Upload, Divider, Row, Col, Alert, Steps, Modal,
   Descriptions, Timeline, Badge, Space
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, InboxOutlined, CheckCircleOutlined,
   CameraOutlined, UserOutlined, SafetyOutlined, WarningOutlined,

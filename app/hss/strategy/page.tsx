@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
-import { Typography, Breadcrumb, Row, Col, Card } from 'antd'
+import { Typography, Row, Col, Card } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import { 
   HomeOutlined, 
   FundOutlined, 

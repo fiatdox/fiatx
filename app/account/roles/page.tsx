@@ -2,9 +2,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Card, Row, Col, Select, Transfer, Button, Breadcrumb, Typography,
+  Card, Row, Col, Select, Transfer, Button, Typography,
   App, Spin, Tag, Empty, Space, Result,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { TransferProps } from 'antd'
 import {
   HomeOutlined, SafetyCertificateOutlined, SaveOutlined,

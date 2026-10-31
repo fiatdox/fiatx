@@ -1,8 +1,9 @@
 'use client'
 import { useState, useMemo } from 'react'
 import {
-  Card, Typography, Breadcrumb, Row, Col, Select, Table, Tag, Space, Segmented,
+  Card, Typography, Row, Col, Select, Table, Tag, Space, Segmented,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, TeamOutlined, MedicineBoxOutlined, RiseOutlined,
   SwapOutlined, ScissorOutlined,

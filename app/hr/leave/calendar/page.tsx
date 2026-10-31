@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import { Breadcrumb } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import { HomeOutlined } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'

@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Switch,
+  ConfigProvider, App, Typography, Card, Tag, theme, Button, Switch,
   Alert, Empty, Row, Col, Space, Input,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import { HomeOutlined, ReloadOutlined, SaveOutlined, SearchOutlined } from '@ant-design/icons'
 import { FaToggleOn } from 'react-icons/fa'
 import Swal from 'sweetalert2'

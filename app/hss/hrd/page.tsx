@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import {
-  Typography, Breadcrumb, Row, Col, Card,
+  Typography, Row, Col, Card,
   Statistic, Progress, Tag, Space, Divider, Table
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FundOutlined, AimOutlined, ReadOutlined,
   CompassOutlined, TrophyOutlined, RiseOutlined, TeamOutlined

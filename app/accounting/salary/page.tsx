@@ -2,10 +2,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import Cookies from 'js-cookie'
 import {
-  Table, Tag, Card, Typography, Breadcrumb,
+  Table, Tag, Card, Typography, 
   Select, Button, Modal, Space, Spin, Row, Col,
   Statistic, Avatar, Empty, Input, App
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FilePdfOutlined, BankOutlined,
   UserOutlined, IdcardOutlined, ApartmentOutlined, DownloadOutlined,

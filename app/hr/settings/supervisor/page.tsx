@@ -2,10 +2,11 @@
 import { withBase } from '@/app/lib/basePath'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  Button, Card, Tag, Avatar, Drawer, Input, Breadcrumb,
+  Button, Card, Tag, Avatar, Drawer, Input, 
   Table, Empty, Tooltip, Select, Row, Col, Typography, App, Tabs, Badge, Spin,
   ConfigProvider
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   SearchOutlined, UserOutlined, HomeOutlined, PlusOutlined,
   ApartmentOutlined, CrownOutlined, DeleteOutlined, SwapOutlined,

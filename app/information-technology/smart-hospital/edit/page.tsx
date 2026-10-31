@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useState } from 'react'
 import {
-  Card, Typography, ConfigProvider, Breadcrumb, Row, Col, Tabs, Table,
+  Card, Typography, ConfigProvider, Row, Col, Tabs, Table,
   InputNumber, Button, Space, Tag, Progress, Divider, Popconfirm, theme, App
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, DesktopOutlined, SaveOutlined, RollbackOutlined,
   DashboardOutlined, ReloadOutlined

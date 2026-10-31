@@ -1,10 +1,11 @@
 'use client'
 import React, { useState, useMemo } from 'react'
 import {
-  Typography, Breadcrumb, Card, Row, Col, Table,
+  Typography, Card, Row, Col, Table,
   Tag, Select, Button, Progress, Statistic, Tooltip, Divider, Badge,
   Space, Input
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FundOutlined, DotChartOutlined, CheckCircleOutlined,
   CloseCircleOutlined, WarningOutlined, SyncOutlined, SearchOutlined,

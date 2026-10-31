@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react'
-import { Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, Result, Breadcrumb, Row, Col, Alert, Divider, Steps, theme } from 'antd'
+import { Form, Input, Button, Select, DatePicker, Typography, Card, ConfigProvider, Result, Row, Col, Alert, Divider, Steps, theme } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import { HomeOutlined, FileTextOutlined, CheckCircleOutlined, ToolOutlined } from '@ant-design/icons'
 import Navbar from '../../components/Navbar'
 

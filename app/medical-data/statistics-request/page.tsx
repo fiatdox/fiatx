@@ -2,10 +2,11 @@
 import { withBase } from '@/app/lib/basePath'
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, Button, Drawer, Form, Input,
+  Table, Tag, Card, Typography, Button, Drawer, Form, Input,
   Select, Row, Col, Space, Alert, Steps, Timeline, DatePicker,
   App, Upload, Spin, Empty,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, PlusOutlined, EyeOutlined, SearchOutlined,
   CalendarOutlined, SendOutlined, UploadOutlined, PaperClipOutlined,

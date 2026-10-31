@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, Card, Row, Col, Tag,
-  Avatar, Drawer, Form, Select, Breadcrumb, Tooltip,
+  Avatar, Drawer, Form, Select, Tooltip,
   App, Typography, Badge, Spin, DatePicker, ConfigProvider,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   EditOutlined, SearchOutlined, UserOutlined, PlusOutlined,
   HomeOutlined, IdcardOutlined,

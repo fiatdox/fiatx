@@ -2,9 +2,10 @@
 import { useState } from 'react'
 import {
   ConfigProvider, App, theme, Form, Input, Select, Button, Upload, Table, Tag, Tabs,
-  Typography, Breadcrumb, Row, Col, Card, Tooltip, Badge, Radio, Modal, Steps,
+  Typography, Row, Col, Card, Tooltip, Badge, Radio, Modal, Steps,
   Descriptions, Timeline, Space,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   ToolOutlined, PaperClipOutlined, PlusOutlined,
   ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined,

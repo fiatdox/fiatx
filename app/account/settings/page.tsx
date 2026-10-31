@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react'
 import Cookies from 'js-cookie'
 import {
-  Card, Form, Input, Button, Breadcrumb, Typography,
+  Card, Form, Input, Button, Typography,
   Row, Col, Tag, Space, Avatar, Divider, Tabs, Select, DatePicker, Switch, Alert,
   Upload, Tooltip, Badge, Spin
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { UploadProps } from 'antd'
 import {
   HomeOutlined, UserOutlined, IdcardOutlined, BankOutlined, PhoneOutlined,

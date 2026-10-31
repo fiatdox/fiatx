@@ -2,10 +2,11 @@
 import { withBase } from '@/app/lib/basePath'
 import React, { useState, useEffect, Suspense } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Tag, Button, Table,
+  ConfigProvider, theme, Typography, Card, Tag, Button, Table,
   Modal, Form, Input, InputNumber, Select, Divider, Row, Col, Alert,
   Descriptions, Steps, Space, message
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, SwapOutlined,
   CheckCircleOutlined, ShoppingCartOutlined, ExclamationCircleOutlined, ArrowRightOutlined

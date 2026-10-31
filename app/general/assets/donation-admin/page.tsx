@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Modal,
+  ConfigProvider, App, Typography, Card, Tag, theme, Button, Modal,
   Form, Input, InputNumber, Select, Space, Table, Tabs, Switch, Popconfirm, Empty,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import { HomeOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons'
 import { FaUsersCog } from 'react-icons/fa'

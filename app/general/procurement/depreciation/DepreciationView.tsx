@@ -1,10 +1,11 @@
 'use client'
 import React, { useState, useEffect, useMemo } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Alert, App,
+  ConfigProvider, theme, Typography, Card, Alert, App,
   Input, DatePicker, Button, Space, Table, Form, Modal, Row, Col, InputNumber,
   Segmented, Statistic, Tag, Progress, Select, Tooltip, Tabs, Descriptions, Spin,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, SearchOutlined, CalendarOutlined,
   ReloadOutlined, QrcodeOutlined, PrinterOutlined, FilePdfOutlined,

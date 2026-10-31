@@ -1,10 +1,11 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Table,
+  ConfigProvider, App, Typography, Card, Tag, theme, Button, Table,
   Input, Select, Space, Empty, Alert, Statistic, Row, Col, Progress, Result,
   Drawer, Divider, Tooltip, Tabs, Checkbox,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import {
   HomeOutlined, SearchOutlined, DeleteOutlined, ReloadOutlined,

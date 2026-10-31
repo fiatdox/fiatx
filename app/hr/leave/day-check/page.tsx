@@ -2,9 +2,10 @@
 // งาน HR ตรวจจำนวนวันลาที่คร่อมเสาร์-อาทิตย์ / วันหยุดราชการ + จัดการวันหยุดราชการ (เฉพาะ ADMIN / HR)
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  Card, Typography, Breadcrumb, Button, Modal, Form, Input, InputNumber, Space, App, Tag, Tooltip,
+  Card, Typography, Button, Modal, Form, Input, InputNumber, Space, App, Tag, Tooltip,
   Popconfirm, Segmented, DatePicker, ConfigProvider, Table, Tabs, Select, Badge,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import {
   HomeOutlined, CheckOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined,

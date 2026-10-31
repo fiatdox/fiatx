@@ -1,11 +1,12 @@
 'use client'
 import { useState, useMemo, useEffect, useCallback, type Key } from 'react'
 import {
-  Table, Tag, Card, Typography, Breadcrumb, App,
+  Table, Tag, Card, Typography, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
   Row, Col, Divider, Space, Alert, Avatar, Calendar, Segmented, Tabs,
   Result, Skeleton, Empty, Badge, Tooltip,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {

@@ -5,7 +5,6 @@ import {
   Tag,
   Card,
   Typography,
-  Breadcrumb,
   ConfigProvider,
   App,
   Button,
@@ -22,6 +21,7 @@ import {
   Radio,
   theme
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined,
   FileTextOutlined,

@@ -2,7 +2,8 @@
 
 'use client'
 import React from 'react'
-import { Card, Typography, Breadcrumb, ConfigProvider, App, Row, Col, theme } from 'antd'
+import { Card, Typography, ConfigProvider, App, Row, Col, theme } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined,
   SettingOutlined,

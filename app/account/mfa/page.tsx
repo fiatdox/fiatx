@@ -1,10 +1,11 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import {
-  ConfigProvider, App, Typography, Breadcrumb, Card, Tag, theme, Button, Modal,
+  ConfigProvider, App, Typography, Card, Tag, theme, Button, Modal,
   Form, InputNumber, Select, Table, Tabs, Switch, Empty, Alert, Statistic, Row, Col,
   DatePicker, Space, Input,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import { HomeOutlined, PlusOutlined, DeleteOutlined, ReloadOutlined, UsergroupAddOutlined } from '@ant-design/icons'
 import { FaShieldAlt } from 'react-icons/fa'

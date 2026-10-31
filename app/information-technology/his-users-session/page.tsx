@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   ConfigProvider, App, theme, Table, Tag, Button, Input,
-  Typography, Breadcrumb, Space, Tooltip, Spin,
+  Typography, Space, Tooltip, Spin,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { TableColumnsType } from 'antd'
 import {
   HomeOutlined, LogoutOutlined, SearchOutlined,

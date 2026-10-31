@@ -1,9 +1,10 @@
 'use client'
 import React, { useMemo } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Button, Table,
+  ConfigProvider, theme, Typography, Card, Button, Table,
   Row, Col, Alert, Progress, App
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined,
   CheckCircleOutlined, FieldTimeOutlined, FundOutlined, TeamOutlined

@@ -1,9 +1,10 @@
 'use client'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ConfigProvider, theme, Typography, Breadcrumb, Card, Alert, App,
+  ConfigProvider, theme, Typography, Card, Alert, App,
   Button, Space, Table, Select, Statistic, Tabs, Input, Row, Col, Tooltip, Modal, Progress,
 } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import { HomeOutlined, ReloadOutlined, SearchOutlined, InfoCircleOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons'
 import { FaBuilding, FaFileExcel, FaTable } from 'react-icons/fa'
