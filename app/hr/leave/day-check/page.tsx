@@ -8,7 +8,7 @@ import {
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { ColumnsType } from 'antd/es/table'
 import {
-  HomeOutlined, CheckOutlined, EditOutlined, DeleteOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined,
+  HomeOutlined, CheckOutlined, EditOutlined, RollbackOutlined, DeleteOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
@@ -97,6 +97,8 @@ const DayCheckTab = () => {
   }
 
   const verify = async (r: CheckRow) => { if (await post(`/api/v1/hr/leave-day-check/${r.id}/verify`, {})) void load() }
+  // ยกเลิกผลการตรวจ — กลับเป็นยังไม่ตรวจ และแบบใบลาไม่พิมพ์ชื่อผู้ตรวจ (จำนวนวันที่แก้ไว้คงเดิม)
+  const cancelCheck = async (r: CheckRow) => { if (await post(`/api/v1/hr/leave-day-check/${r.id}/cancel`, {})) void load() }
   const openAdjust = (r: CheckRow) => {
     setAdjusting(r)
     form.setFieldsValue({ total_days: r.count.computed_days || r.total_days, note: '' })
@@ -184,7 +186,7 @@ const DayCheckTab = () => {
       ) : r.needs_review ? <Badge status="warning" text={r.mismatch ? 'จำนวนวันไม่ตรง' : 'รอตรวจ'} /> : <Text type="secondary">—</Text>,
     },
     {
-      title: '', key: 'act', width: 180, fixed: 'right',
+      title: '', key: 'act', width: 220, fixed: 'right',
       render: (_, r) => (
         <Space size={4}>
           <Popconfirm
@@ -196,6 +198,16 @@ const DayCheckTab = () => {
             <Button size="small" icon={<CheckOutlined />}>ถูกต้อง</Button>
           </Popconfirm>
           <Button size="small" type="primary" icon={<EditOutlined />} onClick={() => openAdjust(r)}>แก้วัน</Button>
+          {r.day_check_status && (
+            <Popconfirm
+              title="ยกเลิกผลการตรวจสอบ?"
+              description={`ใบนี้จะกลับเป็น "ยังไม่ตรวจ" และแบบใบลาจะไม่พิมพ์ชื่อผู้ตรวจสอบ${r.day_check_status === 'ADJUSTED' ? ' (จำนวนวันที่แก้ไว้คงเดิม)' : ''}`}
+              okText="ยกเลิกการตรวจ" cancelText="ไม่" okButtonProps={{ danger: true }}
+              onConfirm={() => cancelCheck(r)}
+            >
+              <Tooltip title="ยกเลิกการตรวจสอบ"><Button size="small" danger icon={<RollbackOutlined />} /></Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

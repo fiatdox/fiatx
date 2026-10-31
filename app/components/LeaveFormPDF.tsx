@@ -64,6 +64,8 @@ export interface LeaveFormData {
   majorHead: Opinion | null
   /** คำสั่งอนุญาต/ไม่อนุญาต — ขั้นสุดท้ายของสายอนุมัติ */
   order: { approved: boolean | null; comment: string; signName: string; name: string; position: string; date: string }
+  /** ผู้ตรวจสอบสถิติการลา (งาน HR ตรวจวันลาแล้ว) — null = ยังไม่ตรวจ เว้นว่างให้เซ็นด้วยมือ */
+  checker: { signName: string; name: string; position: string; date: string } | null
   /** สถิติการลาในปีงบประมาณนี้ (วันทำการ) */
   statPrior: string          // ลามาแล้ว
   statThis: string           // ลาครั้งนี้
@@ -230,10 +232,9 @@ const FormPage = ({ d, title, children }: { d: LeaveFormData; title: string; chi
 
       {children}
 
-      {/* ท้ายกระดาษ — อ้างอิงใบลาในระบบ */}
-      <View style={s.footer} fixed>
-        <T>{`เลขที่ใบลา ${d.refNo}`}</T>
-        <T>{`พิมพ์จากระบบการลา ${d.orgName} เมื่อ ${d.printedAt}`}</T>
+      {/* ท้ายกระดาษ — วันเวลาที่พิมพ์ (ชิดขวา) */}
+      <View style={[s.footer, { justifyContent: 'flex-end' }]} fixed>
+        <T>{`พิมพ์เมื่อ ${d.printedAt}`}</T>
       </View>
     </Page>
   </Document>
@@ -314,7 +315,7 @@ const Approvals = ({ d, stats }: { d: LeaveFormData; stats: React.ReactNode }) =
         <T style={[s.boxHead, s.center]}>สถิติการลาในปีงบประมาณนี้</T>
         <View style={s.boxBody}>
           {stats}
-          <SignLines role="ผู้ตรวจสอบ" />
+          <SignLines role="ผู้ตรวจสอบ" signName={d.checker?.signName} name={d.checker?.name} position={d.checker?.position} date={d.checker?.date} />
         </View>
       </View>
 

@@ -67,6 +67,10 @@ export interface LeaveFormRow {
   entitled_per_year: number | null
   substitute_name: string | null
   contact_info: string | null
+  /** งาน HR ตรวจวันลาแล้ว — ผู้ตรวจ (ชื่อ ตำแหน่ง) และเวลาที่ตรวจ */
+  day_check_status?: string | null
+  day_checked_at?: string | null
+  day_checker?: { pname: string | null; fname: string | null; lname: string | null; position_name: string | null } | null
 }
 
 export interface LeaveProfile {
@@ -129,7 +133,8 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
   }
   const opinionOf = (level: string) => {
     const c = chain.find(x => x.level === level)
-    if (!c || (c === lastStep && chain.length > 1)) return null
+    // ขั้นสุดท้ายอยู่ในช่องคำสั่งแล้ว ไม่ซ้ำในช่องความเห็น (รวมสายขั้นเดียว เช่น หัวหน้ากลุ่มงานลา → หัวหน้ากลุ่มภารกิจ)
+    if (!c || c === lastStep) return null
     const act = actionOf(c.step)
     const p = person(c, act)
     return {
@@ -218,6 +223,13 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
     unitHead: opinionOf('SUBMAJOR'),
     majorHead: opinionOf('MAJOR') ?? opinionOf('MISSION'),
     order,
+    // ผู้ตรวจสอบ (ช่องใต้สถิติการลา) — ใส่เมื่องาน HR ตรวจวันลาแล้ว ยังไม่ตรวจปล่อยว่างให้เซ็นด้วยมือ
+    checker: r.day_check_status && r.day_checker ? {
+      signName: `${r.day_checker.fname ?? ''} ${r.day_checker.lname ?? ''}`.replace(/\s+/g, ' ').trim(),
+      name: `${r.day_checker.pname ?? ''}${r.day_checker.fname ?? ''} ${r.day_checker.lname ?? ''}`.replace(/\s+/g, ' ').trim(),
+      position: r.day_checker.position_name ?? '',
+      date: r.day_checked_at ? beShort(r.day_checked_at) : '',
+    } : null,
     statPrior: nf(prior),
     statThis: nf(thisDays),
     statTotal: nf(prior + thisDays),

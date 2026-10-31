@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox,
-  Drawer, Descriptions, Timeline, Alert, Modal, Spin, App, Avatar, Tooltip, Image, InputNumber
+  Drawer, Descriptions, Timeline, Alert, Modal, Spin, App, Avatar, Tooltip, Image, InputNumber, Popconfirm
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
@@ -78,6 +78,32 @@ const DayCheck = ({ r, onDone }: { r: Row; onDone: () => void }) => {
   const max = r.is_half_day ? spanOf(r) - 0.5 : spanOf(r)
   const canCheck = CHECKABLE.includes(String(r.status).toUpperCase())
 
+  // ยกเลิกผลการตรวจ — ใบกลับเป็นยังไม่ตรวจ ผู้ลาแก้จำนวนวันได้อีก และแบบใบลาไม่พิมพ์ชื่อผู้ตรวจ
+  const cancelCheck = async () => {
+    setSaving(true)
+    try {
+      const j = await (await fetch(`/api/v1/hr/leave-day-check/${r.id}/cancel`, { method: 'POST' })).json()
+      if (!j?.success) { message.error(j?.message ?? 'ยกเลิกไม่สำเร็จ'); return }
+      message.success(j.message ?? 'ยกเลิกการตรวจสอบแล้ว')
+      onDone()
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const cancelButton = r.day_check_status ? (
+    <Popconfirm
+      title="ยกเลิกผลการตรวจสอบ?"
+      description={<span>ใบนี้จะกลับเป็น &quot;ยังไม่ตรวจ&quot; และแบบใบลาจะไม่พิมพ์ชื่อผู้ตรวจสอบ{r.day_check_status === 'ADJUSTED' ? <><br />จำนวนวันที่แก้ไว้จะคงเดิม</> : null}</span>}
+      okText="ยกเลิกการตรวจ" cancelText="ไม่" okButtonProps={{ danger: true }}
+      onConfirm={cancelCheck}
+    >
+      <Button danger icon={<RollbackOutlined />} loading={saving}>ยกเลิกการตรวจสอบ</Button>
+    </Popconfirm>
+  ) : null
+
   const save = async () => {
     if (mode === 'adjust') {
       if (!days || days <= 0) { message.warning('กรุณาระบุจำนวนวัน'); return }
@@ -137,13 +163,17 @@ const DayCheck = ({ r, onDone }: { r: Row; onDone: () => void }) => {
       )}
 
       {!canCheck ? (
-        <div className="mt-3"><Text type="secondary" style={{ fontSize: 12 }}>ใบที่ไม่อนุมัติหรือยกเลิกแล้ว ไม่ต้องตรวจจำนวนวัน</Text></div>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Text type="secondary" style={{ fontSize: 12 }}>ใบที่ไม่อนุมัติหรือยกเลิกแล้ว ไม่ต้องตรวจจำนวนวัน</Text>
+          {cancelButton}
+        </div>
       ) : mode === 'view' ? (
         <Space className="mt-3" wrap>
           <Button type="primary" icon={<CheckCircleOutlined />} onClick={() => setMode('verify')}>
             {r.day_check_status ? 'ยืนยันใหม่ว่าถูกต้อง' : 'ยืนยันว่าถูกต้อง'}
           </Button>
           <Button icon={<EditOutlined />} onClick={() => { setDays(inForm); setMode('adjust') }}>แก้จำนวนวัน</Button>
+          {cancelButton}
         </Space>
       ) : (
         <div className="mt-3 flex flex-col gap-2">
