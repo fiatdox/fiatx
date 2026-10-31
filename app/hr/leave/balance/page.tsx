@@ -342,7 +342,7 @@ const PageContent = () => {
           </Row>
         </Card>
 
-        <Card style={{ borderRadius: 12, border: '1px solid var(--app-border)' }} styles={{ body: { padding: 20 } }} className="mb-4">
+        <Card style={{ marginBottom: 16, borderRadius: 12, border: '1px solid var(--app-border)' }} styles={{ body: { padding: 20 } }}>
           <Row gutter={[12, 12]} align="middle">
             <Col xs={24} md={5}>
               <Text type="secondary" style={{ fontSize: 12 }}>ประเภทการลา</Text>

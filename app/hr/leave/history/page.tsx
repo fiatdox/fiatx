@@ -11,9 +11,12 @@ import {
   ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined, EditOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import Cookies from 'js-cookie'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import { normalizeRoles } from '@/app/lib/menuAccess'
+import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import {
   beShort, nf, parseChain, buildLeaveFormData,
@@ -32,7 +35,7 @@ const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
 const { Title, Text } = Typography
 
 // ── ข้อมูลจาก API ────────────────────────────────────────────────────────────
-interface ApiRow {
+interface ApiRow extends DayCheckInfo {
   id: number
   leave_type_id: number
   leave_type_name: string
@@ -76,6 +79,15 @@ type FilterKey = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'
 // ─── หน้า ─────────────────────────────────────────────────────────────────────
 const LeaveHistoryContent = () => {
   const { message } = App.useApp()
+  // ADMIN / HR แก้ใบลาของตัวเองได้แม้งาน HR ตรวจแล้ว — ผู้ลาทั่วไปแก้ไม่ได้ (backend ตรวจซ้ำ)
+  const [isHr, setIsHr] = useState(false)
+  useEffect(() => {
+    let hr = false
+    try {
+      hr = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).some(r => r === 'ADMIN' || r === 'HR')
+    } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
+    void Promise.resolve().then(() => setIsHr(hr))
+  }, [])
   const [rows, setRows] = useState<ApiRow[]>([])
   const [profile, setProfile] = useState<LeaveProfile | null>(null)
   const [approvers, setApprovers] = useState<Approvers>({})
@@ -215,9 +227,12 @@ const LeaveHistoryContent = () => {
       render: (_: unknown, r: ApiRow) => (
         <div style={{ lineHeight: 1.35 }}>
           <div style={{ fontSize: 12 }}>{beShort(r.start_date)} – {beShort(r.end_date)}</div>
-          <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 11 }}>
-            {nf(Number(r.total_days))} วัน{r.is_half_day ? ` (ครึ่งวัน${r.half_day_period === 'PM' ? 'บ่าย' : 'เช้า'})` : ''}
-          </Tag>
+          <Space size={4} wrap>
+            <Tag color="green" style={{ marginInlineEnd: 0, fontSize: 11 }}>
+              {nf(Number(r.total_days))} วัน{r.is_half_day ? ` (ครึ่งวัน${r.half_day_period === 'PM' ? 'บ่าย' : 'เช้า'})` : ''}
+            </Tag>
+            <DayCheckBadge c={r} />
+          </Space>
         </div>
       ),
     },
@@ -261,7 +276,9 @@ const LeaveHistoryContent = () => {
           {String(r.status).toUpperCase() === 'PENDING' && (
             (r.actions?.length ?? 0) === 0 ? (
               <>
-              <Button size="small" icon={<EditOutlined />} href={`/hr/leave/new?edit=${r.id}`}>แก้ไข</Button>
+              {(!r.day_check_status || isHr) && (
+                <Button size="small" icon={<EditOutlined />} href={`/hr/leave/new?edit=${r.id}`}>แก้ไข</Button>
+              )}
               <Popconfirm
                 title="ลบใบลานี้"
                 description="ยังไม่มีผู้อนุมัติคนใดดำเนินการ ลบออกจากระบบถาวร"
@@ -340,7 +357,7 @@ const LeaveHistoryContent = () => {
           ))}
         </div>
 
-        <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+        <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
           <div className="flex flex-wrap items-center gap-3">
             <Text type="secondary" style={{ fontSize: 12 }}><FilterOutlined /> กรองสถานะ</Text>
             <Segmented
@@ -413,9 +430,9 @@ const LeaveHistoryContent = () => {
               {chain.length > 0 && (
                 <Card
                   variant="borderless"
-                  className="mb-3 rounded-xl"
+                  className="rounded-xl"
                   styles={{ body: { padding: '18px 20px 6px' } }}
-                  style={{ background: 'var(--app-surface)' }}
+                  style={{ marginBottom: 12, background: 'var(--app-surface)' }}
                 >
                   <Steps
                     size="small"
@@ -433,11 +450,11 @@ const LeaveHistoryContent = () => {
                 </Card>
               )}
 
-              <Descriptions
+              <Descriptions style={{ marginBottom: 12 }}
                 bordered
                 size="small"
                 column={{ xs: 1, sm: 2, md: 3 }}
-                className="mb-3"
+               
                 styles={{ label: { width: 110, whiteSpace: 'nowrap' } }}
               >
                 <Descriptions.Item label="ประเภทการลา">{detail.leave_type_name}</Descriptions.Item>
@@ -446,6 +463,13 @@ const LeaveHistoryContent = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="จำนวนวัน">
                   <Text strong style={{ color: '#10b981' }}>{nf(Number(detail.total_days))} วัน</Text>
+                  {' '}<DayCheckBadge c={detail} showPending={['PENDING', 'APPROVED', 'CANCEL_PENDING'].includes(String(detail.status).toUpperCase())} />
+                  {detail.day_check_status && (
+                    <div><Text type="secondary" style={{ fontSize: 12 }}>{dayCheckDetail(detail)}</Text></div>
+                  )}
+                  {detail.day_check_status && !isHr && (
+                    <div><Text type="secondary" style={{ fontSize: 12 }}>งาน HR ตรวจจำนวนวันแล้ว — ผู้ลาแก้ไขใบนี้ไม่ได้ ติดต่องาน HR หากต้องแก้ไข</Text></div>
+                  )}
                   {detail.is_half_day && (
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {' '}(ครึ่งวัน{detail.half_day_period === 'PM' ? 'บ่าย' : 'เช้า'})
@@ -583,10 +607,10 @@ const LeaveHistoryContent = () => {
         okText="ส่งคำขอยกเลิก"
         cancelText="ปิด"
       >
-        <Alert
+        <Alert style={{ marginBottom: 12 }}
           type="warning"
           showIcon
-          className="mb-3"
+         
           title="คำขอยกเลิกต้องผ่านการอนุมัติตามสายเดิมอีกครั้ง"
           description={`เมื่อผู้บังคับบัญชาอนุมัติการยกเลิกครบทุกขั้น ระบบจะคืนวันลา ${nf(Number(cancelling?.total_days) || 0)} วันเข้ายอดคงเหลือให้อัตโนมัติ`}
         />

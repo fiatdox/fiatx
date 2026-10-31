@@ -18,7 +18,7 @@ import {
   FaUmbrellaBeach, FaUserClock, FaChevronLeft, FaChevronRight,
   FaCalendarAlt, FaWrench, FaCar, FaUserTie, FaUsers, FaTachometerAlt,
   FaIdCard, FaShieldAlt, FaGift, FaWarehouse, FaClipboardList, FaMicrochip,
-  FaUsersCog, FaLock,
+  FaUsersCog, FaLock, FaHistory,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
@@ -133,6 +133,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       { key: '/hr/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard ทรัพยากรบุคคล', color: '#0ea5e9', roles: ['ADMIN', 'HR'] },
       { key: '/hr/leave/status', icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ', color: '#10b981', roles: ['ADMIN', 'HR'] },
+      { key: '/hr/leave/staff-history', icon: <FaHistory />, label: 'ประวัติการลาเจ้าหน้าที่', color: '#0d9488', roles: ['ADMIN', 'HR'] },
+      { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard วิเคราะห์การลา', color: '#6366f1', roles: ['ADMIN', 'HR'] },
       { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร', color: '#0891b2', roles: ['ADMIN', 'HR', 'IT_STAFF'] },
       { key: '/hr/leave/policy', icon: <FaClipboardList />, label: 'กำหนดสิทธิ์การลา', color: '#f59e0b' },
       { key: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', color: '#14b8a6' },

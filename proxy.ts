@@ -88,9 +88,10 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · โอนข้อมูลโปรแกรมเดิม — เฉพาะ ADMIN / HR (ตรงกับ backend)
+  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · โอนข้อมูลโปรแกรมเดิม · ประวัติการลาเจ้าหน้าที่ · Dashboard การลา — เฉพาะ ADMIN / HR (ตรงกับ backend)
   if (underPrefix(pathname, '/hr/leave/posts') || underPrefix(pathname, '/hr/leave/day-check')
-      || underPrefix(pathname, '/hr/leave/legacy-import')) {
+      || underPrefix(pathname, '/hr/leave/legacy-import') || underPrefix(pathname, '/hr/leave/staff-history')
+      || underPrefix(pathname, '/hr/leave/dashboard')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => HR_POST_MANAGER_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()

@@ -215,7 +215,7 @@ const LegacyImportContent = () => {
         </div>
 
         {options && !options.configured && (
-          <Alert type="error" showIcon className="mb-4" title="ยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูลโปรแกรมเดิม" description="ติดต่อผู้ดูแลระบบให้ตั้งค่า DB_LEAVE_* ที่เซิร์ฟเวอร์" />
+          <Alert style={{ marginBottom: 16 }} type="error" showIcon title="ยังไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูลโปรแกรมเดิม" description="ติดต่อผู้ดูแลระบบให้ตั้งค่า DB_LEAVE_* ที่เซิร์ฟเวอร์" />
         )}
 
         <Row gutter={[16, 16]}>
@@ -297,15 +297,15 @@ const LegacyImportContent = () => {
           </Col>
         </Row>
 
-        <Card
-          variant="borderless" className="shadow-sm rounded-xl mt-4" title="ประวัติการโอน"
+        <Card style={{ marginTop: 16 }}
+          variant="borderless" className="shadow-sm rounded-xl" title="ประวัติการโอน"
           extra={
             <Tooltip title="โหลดใหม่">
               <Button size="small" icon={<ReloadOutlined />} onClick={loadRuns} />
             </Tooltip>
           }
         >
-          {busy && <Alert type="info" showIcon className="mb-3" title="มีงานกำลังทำอยู่ — รอให้เสร็จก่อนสั่งงานใหม่" />}
+          {busy && <Alert style={{ marginBottom: 12 }} type="info" showIcon title="มีงานกำลังทำอยู่ — รอให้เสร็จก่อนสั่งงานใหม่" />}
           <Table
             rowKey="id" columns={columns} dataSource={runs} loading={loading} size="small"
             pagination={{ pageSize: 10 }} scroll={{ x: 'max-content' }}
@@ -321,7 +321,7 @@ const LegacyImportContent = () => {
           <>
             <div style={{ marginBottom: 8 }}>
               <Text type="secondary">{scopeText(report)} · {report.created_by_name ?? '-'} · {fmtTime(report.created_at)}</Text>
-              {report.status === 'FAILED' && <Alert type="error" showIcon className="mt-2" title={report.error} />}
+              {report.status === 'FAILED' && <Alert style={{ marginTop: 8 }} type="error" showIcon title={report.error} />}
               {report.status === 'DONE' && <div><Text strong>{totalsText(report)}</Text></div>}
             </div>
             <pre

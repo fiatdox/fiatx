@@ -19,6 +19,7 @@ import {
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
 
 const { Title, Text } = Typography
 
@@ -63,6 +64,8 @@ interface LeaveApprovalRequest {
   totalDays: number
   /** จำนวนวันที่ปฏิทินนับได้ (ไม่นับเสาร์-อาทิตย์/วันหยุดราชการตามประเภท) — มากกว่า totalDays = ใบระบุวันน้อยกว่าที่ควร */
   computedDays: number | null
+  /** ผลการตรวจจำนวนวันของงาน HR */
+  dayCheck: DayCheckInfo
   reason: string
   color: string
   approvalChain: ApprovalStep[]
@@ -120,7 +123,7 @@ interface ApiChainStep {
   unit_name: string | null
 }
 
-interface ApiLeaveRequest {
+interface ApiLeaveRequest extends DayCheckInfo {
   id: number
   employee_name: string
   position_name: string | null
@@ -208,6 +211,10 @@ const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
     endISO: dateOnly(r.end_date),
     totalDays: Number(r.total_days),
     computedDays: r.day_count?.computed_days ?? null,
+    dayCheck: {
+      day_check_status: r.day_check_status, day_check_note: r.day_check_note,
+      day_checked_at: r.day_checked_at, day_checked_by_name: r.day_checked_by_name,
+    },
     reason: r.reason || '-',
     color: COLORS[i % COLORS.length],
     approvalChain,
@@ -516,8 +523,8 @@ const LeaveApprovalContent = () => {
         <div>
           <div>รวม {days} วัน · ผู้ลา {new Set(rows.map(r => r.employeeName)).size} คน</div>
           {understated.length > 0 && (
-            <Alert
-              type="warning" showIcon className="mt-2"
+            <Alert style={{ marginTop: 8 }}
+              type="warning" showIcon
               title={`มี ${understated.length} ใบที่ระบุจำนวนวันน้อยกว่าที่ปฏิทินนับได้`}
               description={understated.map(r => `${r.id} ${r.employeeName}`).join(' · ')}
             />
@@ -525,8 +532,8 @@ const LeaveApprovalContent = () => {
           <div style={{ marginTop: 8, fontSize: 12, color: 'var(--app-text-2)' }}>
             แต่ละใบจะส่งต่อขั้นถัดไป หรือเป็น &ldquo;อนุมัติแล้ว&rdquo; ถ้าท่านเป็นขั้นสุดท้าย
           </div>
-          <Input.TextArea
-            className="mt-3" rows={2} maxLength={500} showCount
+          <Input.TextArea style={{ marginTop: 12 }}
+            rows={2} maxLength={500} showCount
             placeholder="ความเห็น (ไม่บังคับ) — ใช้กับทุกใบที่เลือก"
             onChange={e => { note.value = e.target.value }}
           />
@@ -558,8 +565,8 @@ const LeaveApprovalContent = () => {
           ) : (
             <div>อนุมัติแล้วส่งต่อขั้นถัดไป วันลาจะคืนเมื่ออนุมัติครบทุกขั้น</div>
           )}
-          <Input.TextArea
-            className="mt-3" rows={2} maxLength={500} showCount
+          <Input.TextArea style={{ marginTop: 12 }}
+            rows={2} maxLength={500} showCount
             placeholder="ความเห็น (ไม่บังคับ) — ใช้กับทุกรายการที่เลือก"
             onChange={e => { note.value = e.target.value }}
           />
@@ -706,11 +713,12 @@ const LeaveApprovalContent = () => {
 
   const periodColumn = (badgeColor: string) => ({
     title: 'ช่วงวันที่', key: 'date', width: 210,
-    render: (_: unknown, r: { startISO: string; endISO: string; totalDays: number; computedDays?: number | null }) => (
+    render: (_: unknown, r: { startISO: string; endISO: string; totalDays: number; computedDays?: number | null; dayCheck?: DayCheckInfo }) => (
       <div style={{ lineHeight: 1.35 }}>
         <div style={{ fontSize: 12 }}>{fmtThai(r.startISO)} – {fmtThai(r.endISO)}</div>
         <Tag color={badgeColor} style={{ marginInlineEnd: 0, fontSize: 11 }}>{r.totalDays} วัน</Tag>
-        {r.computedDays != null && r.computedDays > r.totalDays && (
+        {r.dayCheck?.day_check_status && <span style={{ marginInlineStart: 4 }}><DayCheckBadge c={r.dayCheck} /></span>}
+        {!r.dayCheck?.day_check_status && r.computedDays != null && r.computedDays > r.totalDays && (
           <Tooltip title={`ช่วงวันที่นี้ปฏิทินนับได้ ${r.computedDays} วัน แต่ใบระบุ ${r.totalDays} วัน — งานทรัพยากรบุคคลจะตรวจจำนวนวันอีกครั้ง`}>
             <Tag color="red" style={{ marginInlineStart: 4, marginInlineEnd: 0, fontSize: 11 }}>ปฏิทิน {r.computedDays} วัน</Tag>
           </Tooltip>
@@ -900,7 +908,7 @@ const LeaveApprovalContent = () => {
 
         {/* ── หมวกที่ท่านถืออยู่ ─────────────────────────────────────────────── */}
         {scopeTags.length > 0 && (
-          <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+          <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
             <div className="flex flex-wrap items-center gap-2">
               <Text type="secondary" style={{ fontSize: 12 }}>
                 <SolutionOutlined /> ขอบเขตที่ท่านดูแล
@@ -917,11 +925,11 @@ const LeaveApprovalContent = () => {
           </Card>
         )}
 
-        <Tabs
+        <Tabs style={{ marginBottom: 12 }}
           activeKey={activeMainTab}
           onChange={setActiveMainTab}
           type="card"
-          className="mb-3"
+         
           items={[
             {
               key: 'approve',
@@ -979,7 +987,7 @@ const LeaveApprovalContent = () => {
           </div>
 
           {/* ตัวกรอง */}
-          <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+          <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
             <div className="flex flex-wrap items-center gap-3">
               <Segmented
                 value={filterStatus}
@@ -1110,7 +1118,7 @@ const LeaveApprovalContent = () => {
         {/* ══ TAB: ยกเลิกลา ══ */}
         {activeMainTab === 'cancel' && (
           <>
-            <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+            <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
               <div className="flex flex-wrap items-center gap-3">
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   คำขอยกเลิกใบลาที่อนุมัติไปแล้ว — ต้องเดินสายอนุมัติชุดเดิมอีกรอบ
@@ -1185,10 +1193,10 @@ const LeaveApprovalContent = () => {
           return (
             <div className="mt-4">
               {selected.myStep && (
-                <Alert
+                <Alert style={{ marginBottom: 16 }}
                   type={canAct ? 'warning' : 'info'}
                   showIcon
-                  className="mb-4"
+                 
                   title={canAct
                     ? `ท่านพิจารณาใบนี้ในฐานะ${selected.myStep.level_name}${selected.myStep.is_acting ? ' (รักษาการ)' : ''}`
                     : `ท่านอยู่ในสายอนุมัติใบนี้ในฐานะ${selected.myStep.level_name}${selected.myStep.is_acting ? ' (รักษาการ)' : ''}`}
@@ -1204,15 +1212,15 @@ const LeaveApprovalContent = () => {
               )}
 
               {/* Steps */}
-              <Steps
+              <Steps style={{ marginBottom: 24 }}
                 current={step}
                 status={overall === 'rejected' ? 'error' : overall === 'approved' ? 'finish' : 'process'}
                 items={selected.approvalChain.map(s => ({ title: s.level, content: s.actor }))}
-                className="mb-6"
+               
               />
 
               {/* Details */}
-              <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }} size="small" className="mb-4">
+              <Descriptions style={{ marginBottom: 16 }} bordered column={{ xs: 1, sm: 2, md: 3 }} size="small">
                 <Descriptions.Item label="ผู้ขอลา"><UserOutlined className="mr-1" />{selected.employeeName}</Descriptions.Item>
                 <Descriptions.Item label="หน่วยงาน">{selected.department}</Descriptions.Item>
                 <Descriptions.Item label="ตำแหน่ง">{selected.position}</Descriptions.Item>
@@ -1224,7 +1232,11 @@ const LeaveApprovalContent = () => {
                 <Descriptions.Item label="วันที่ลา">{fmtThai(selected.startISO)} – {fmtThai(selected.endISO)}</Descriptions.Item>
                 <Descriptions.Item label="จำนวนวัน">
                   <Text style={{ color: '#10b981', fontWeight: 700 }}>{selected.totalDays} วัน</Text>
-                  {selected.computedDays != null && selected.computedDays > selected.totalDays && (
+                  {' '}<DayCheckBadge c={selected.dayCheck} showPending />
+                  {selected.dayCheck.day_check_status && (
+                    <div><Text type="secondary" style={{ fontSize: 12 }}>{dayCheckDetail(selected.dayCheck)}</Text></div>
+                  )}
+                  {!selected.dayCheck.day_check_status && selected.computedDays != null && selected.computedDays > selected.totalDays && (
                     <div><Text type="danger" style={{ fontSize: 12 }}>ปฏิทินนับได้ {selected.computedDays} วัน — ใบระบุน้อยกว่า งาน HR จะตรวจอีกครั้ง</Text></div>
                   )}
                 </Descriptions.Item>
@@ -1238,11 +1250,11 @@ const LeaveApprovalContent = () => {
 
               {overlapping.length > 0 ? (
                 <>
-                  <Alert
+                  <Alert style={{ marginBottom: 16 }}
                     title={`มีเจ้าหน้าที่ ${overlapping.length} คน ลาทับช่วงเวลาเดียวกัน`}
                     type="warning"
                     showIcon
-                    className="mb-4"
+                   
                   />
                   {/* Visual date strip */}
                   <div className="mb-4 overflow-x-auto">
@@ -1321,7 +1333,7 @@ const LeaveApprovalContent = () => {
                   </div>
                 </>
               ) : (
-                <Alert title="ไม่มีเพื่อนร่วมงานลาทับช่วงเวลาเดียวกัน" type="success" showIcon className="mb-2" />
+                <Alert style={{ marginBottom: 8 }} title="ไม่มีเพื่อนร่วมงานลาทับช่วงเวลาเดียวกัน" type="success" showIcon />
               )}
 
               {/* Timeline */}
@@ -1344,18 +1356,18 @@ const LeaveApprovalContent = () => {
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !rejectMode && (
-                <Input.TextArea
-                  className="mb-3" rows={2} maxLength={500} showCount
+                <Input.TextArea style={{ marginBottom: 12 }}
+                  rows={2} maxLength={500} showCount
                   value={approveComment} onChange={e => setApproveComment(e.target.value)}
                   placeholder="ความเห็นประกอบการอนุมัติ (ไม่บังคับ)"
                   aria-label="ความเห็นประกอบการอนุมัติ"
                 />
               )}
               {canAct && !rejectMode && (
-                <Alert
+                <Alert style={{ marginBottom: 0 }}
                   title="ใบลานี้รอการพิจารณาของท่าน"
                   description={`ขั้นที่ ${selected.myStep?.step} · ${selected.approvalChain[pendingIdx].actor}`}
-                  type="warning" showIcon className="mb-0"
+                  type="warning" showIcon
                   action={
                     <Space orientation="vertical">
                       <Button block type="primary" icon={<CheckCircleOutlined />} loading={acting} onClick={handleApprove}>อนุมัติ</Button>
@@ -1414,10 +1426,10 @@ const LeaveApprovalContent = () => {
           return (
             <div className="mt-4">
               {selectedCancel.myStep && (
-                <Alert
+                <Alert style={{ marginBottom: 16 }}
                   type={canAct ? 'warning' : 'info'}
                   showIcon
-                  className="mb-4"
+                 
                   title={`ท่านพิจารณาคำขอนี้ในฐานะ${selectedCancel.myStep.level_name}${selectedCancel.myStep.is_acting ? ' (รักษาการ)' : ''}`}
                   description={canAct
                     ? 'คำขอยกเลิกนี้รอการตัดสินใจของท่านอยู่'
@@ -1425,14 +1437,14 @@ const LeaveApprovalContent = () => {
                 />
               )}
 
-              <Steps
+              <Steps style={{ marginBottom: 24 }}
                 current={step}
                 status={overall === 'rejected' ? 'error' : overall === 'approved' ? 'finish' : 'process'}
                 items={selectedCancel.approvalChain.map(s => ({ title: s.level, content: s.actor }))}
-                className="mb-6"
+               
               />
 
-              <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small" className="mb-4">
+              <Descriptions style={{ marginBottom: 16 }} bordered column={{ xs: 1, sm: 2 }} size="small">
                 <Descriptions.Item label="ผู้ขอยกเลิก"><UserOutlined className="mr-1" />{selectedCancel.employeeName}</Descriptions.Item>
                 <Descriptions.Item label="หน่วยงาน">{selectedCancel.department}</Descriptions.Item>
                 <Descriptions.Item label="อ้างอิงใบลา"><Text strong>{selectedCancel.refLeaveId}</Text></Descriptions.Item>
@@ -1466,21 +1478,21 @@ const LeaveApprovalContent = () => {
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>การดำเนินการ</Divider>
 
               {canAct && !cancelRejectMode && (
-                <Input.TextArea
-                  className="mb-3" rows={2} maxLength={500} showCount
+                <Input.TextArea style={{ marginBottom: 12 }}
+                  rows={2} maxLength={500} showCount
                   value={cancelApproveComment} onChange={e => setCancelApproveComment(e.target.value)}
                   placeholder="ความเห็นประกอบการอนุมัติยกเลิก (ไม่บังคับ)"
                   aria-label="ความเห็นประกอบการอนุมัติยกเลิก"
                 />
               )}
               {canAct && !cancelRejectMode && (
-                <Alert
+                <Alert style={{ marginBottom: 0 }}
                   title="คำขอยกเลิกนี้รอการพิจารณาของท่าน"
                   description={`ขั้นที่ ${selectedCancel.myStep?.step} · ${selectedCancel.approvalChain[pendingIdx].actor}`
                     + (selectedCancel.myStep?.step === selectedCancel.approvalChain.length
                       ? ` · ท่านเป็นขั้นสุดท้าย อนุมัติแล้วใบลาจะถูกยกเลิกและคืนวันลา ${selectedCancel.totalDays} วันให้ผู้ลาทันที`
                       : ' · อนุมัติแล้วส่งต่อขั้นถัดไป วันลาจะคืนเมื่ออนุมัติครบทุกขั้น')}
-                  type="warning" showIcon className="mb-0"
+                  type="warning" showIcon
                   action={
                     <Space orientation="vertical">
                       <Button block type="primary" icon={<CheckCircleOutlined />} loading={acting} onClick={handleCancelApprove}>อนุมัติยกเลิก</Button>

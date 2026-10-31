@@ -91,6 +91,7 @@ const MENU_TREE: NavItem[] = [
           { key: '/hr/leave/calendar', icon: <FaCalendarAlt />, label: 'ปฏิทินการลา' },
           { key: '/hr/leave/approval',  icon: <FaUserTie />,    label: 'สถานะอนุมัติการลา' },
           { key: '/hr/leave/status',    icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
+          { key: '/hr/leave/staff-history', icon: <FaHistory />, label: 'ประวัติการลาเจ้าหน้าที่' },
           { key: '/hr/leave/dashboard', icon: <FaTachometerAlt />, label: 'Dashboard การลา' },
           // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
           { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },

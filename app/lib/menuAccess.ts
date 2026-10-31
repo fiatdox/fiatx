@@ -27,6 +27,10 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/day-check': ['ADMIN', 'HR'],
   // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
   '/hr/leave/legacy-import': ['ADMIN', 'HR'],
+  // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR')
+  '/hr/leave/staff-history': ['ADMIN', 'HR'],
+  // Dashboard วิเคราะห์การลา — ข้อมูลการลาทั้งองค์กรรายบุคคล (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
+  '/hr/leave/dashboard': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)
   '/hr/settings/supervisor': ['ADMIN', 'HR'],
   // ทะเบียนบุคลากร — สร้าง/แก้ไข/ระงับบัญชี (ตรงกับ requireRoles ใน userRoutes)

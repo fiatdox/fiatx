@@ -560,7 +560,7 @@ const LeaveSummaryContent = () => {
         </div>
 
         {/* ── เลือกรอบการดู ──────────────────────────────────────────────── */}
-        <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+        <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
           <div className="flex flex-wrap items-center gap-3">
             <Text type="secondary" style={{ fontSize: 12 }}><CalendarOutlined /> รอบการดู</Text>
             <Segmented
@@ -621,11 +621,11 @@ const LeaveSummaryContent = () => {
 
         {/* ── ใบลาที่คร่อมรอยต่อของรอบ ───────────────────────────────────── */}
         {straddling.length > 0 && (
-          <Alert
+          <Alert style={{ marginBottom: 12 }}
             type="warning"
             showIcon
             icon={<ScissorOutlined />}
-            className="mb-3"
+           
             title={
               <span style={{ fontSize: 13 }}>
                 มีใบลา <b>{straddling.length}</b> รายการที่คร่อมรอยต่อของรอบนี้ —{' '}
@@ -653,7 +653,7 @@ const LeaveSummaryContent = () => {
         )}
 
         {/* ── ตัวกรอง ─────────────────────────────────────────────────────── */}
-        <Card variant="borderless" className="mb-4 shadow-sm" styles={{ body: { padding: 14 } }}>
+        <Card style={{ marginBottom: 16 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
           <div className="flex flex-wrap items-center gap-3">
             <Text type="secondary" style={{ fontSize: 12 }}><FilterOutlined /> กรองข้อมูล</Text>
             <Select

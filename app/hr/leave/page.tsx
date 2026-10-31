@@ -1,15 +1,19 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Card, Typography, Breadcrumb, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge, Progress } from 'antd'
+import Cookies from 'js-cookie'
+import { Card, Typography, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge, Progress } from 'antd'
+import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, LinkOutlined, PushpinFilled, NotificationOutlined,
   FolderOpenOutlined, FormOutlined, HistoryOutlined, AuditOutlined, RightOutlined, TeamOutlined, CalendarOutlined,
+  FileSearchOutlined, DashboardOutlined,
 } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import HrPopup from '@/app/components/HrPopup'
+import { normalizeRoles } from '@/app/lib/menuAccess'
 import LeaveHeader from './LeaveHeader'
 import {
   type HrPost, KIND_LABEL, NO_CATEGORY, categoryRank, fileIcon, fileUrl, fmtDate, fmtSize, isImage,
@@ -178,16 +182,34 @@ const HrLeaveHomeContent = () => {
       }
     : l)
 
-  const quickLinks: QuickLink[] = approver
-    ? [
-        ...baseLinks,
-        { href: '/hr/leave/status', icon: <TeamOutlined />, label: 'สถิติการลา', desc: 'สรุปการลาของบุคลากรในหน่วยที่ดูแล', color: '#8b5cf6' },
-        {
-          href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: approver.pending, highlight: approver.pending > 0,
-          desc: approver.pending ? `รอการอนุมัติ ${approver.pending} รายการ` : 'ไม่มีใบลารออนุมัติ',
-        },
-      ]
-    : baseLinks
+  // ADMIN / HR — เห็นการ์ดสถิติการลาทั้งองค์กรและประวัติการลาเจ้าหน้าที่ (backend ตรวจสิทธิ์ซ้ำ)
+  const [isHr, setIsHr] = useState(false)
+  useEffect(() => {
+    let hr = false
+    try {
+      hr = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).some(r => r === 'ADMIN' || r === 'HR')
+    } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
+    void Promise.resolve().then(() => setIsHr(hr))
+  }, [])
+
+  const quickLinks: QuickLink[] = [
+    ...baseLinks,
+    ...(approver || isHr ? [{
+      href: '/hr/leave/status', icon: <TeamOutlined />, label: 'สถิติการลา', color: '#8b5cf6',
+      desc: isHr ? 'สรุปการลาของบุคลากรทั้งองค์กร' : 'สรุปการลาของบุคลากรในหน่วยที่ดูแล',
+    }] : []),
+    ...(isHr ? [{
+      href: '/hr/leave/staff-history', icon: <FileSearchOutlined />, label: 'ประวัติการลาเจ้าหน้าที่', color: '#0891b2',
+      desc: 'รายละเอียดใบลาทุกคน พร้อมไฟล์แนบ',
+    }, {
+      href: '/hr/leave/dashboard', icon: <DashboardOutlined />, label: 'Dashboard วิเคราะห์การลา', color: '#6366f1',
+      desc: 'การตรวจวันลา แนวโน้ม และรูปแบบการลา',
+    }] : []),
+    ...(approver ? [{
+      href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: approver.pending, highlight: approver.pending > 0,
+      desc: approver.pending ? `รอการอนุมัติ ${approver.pending} รายการ` : 'ไม่มีใบลารออนุมัติ',
+    }] : []),
+  ]
 
   const news = useMemo(() => posts.filter(p => p.kind === 'news'), [posts])
   const docGroups = useMemo(() => {
