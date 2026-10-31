@@ -2,19 +2,20 @@
 import { useState, useEffect } from 'react'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox,
-  Drawer, Descriptions, Timeline, Alert, Modal, Spin, App, Avatar, Tooltip, Image, InputNumber, Popconfirm
+  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, PaperClipOutlined, EyeOutlined, PrinterOutlined, FilterOutlined,
   ClearOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, RollbackOutlined,
-  ExportOutlined, SafetyCertificateOutlined, EditOutlined,
+  SafetyCertificateOutlined, EditOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
+import AttachmentModal from '../AttachmentModal'
 import { beShort, nf, parseChain, buildLeaveFormData, type ApiChainStep, type ApiAction } from '@/app/lib/leaveFormData'
 
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
@@ -204,9 +205,6 @@ const DayCheck = ({ r, onDone }: { r: Row; onDone: () => void }) => {
   )
 }
 
-const IMAGE_EXT = ['jpg', 'jpeg', 'jfif', 'png', 'gif', 'webp']
-const extOf = (name: string) => name.split('.').pop()?.toLowerCase() ?? ''
-const docUrl = (id: number) => `/api/v1/hr/leave-requests/${id}/document`
 const lvNo = (id: number) => `LV-${String(id).padStart(6, '0')}`
 
 // ── ข้อมูลจาก API ────────────────────────────────────────────────────────────
@@ -265,31 +263,6 @@ const Attachment = ({ r, onOpen }: { r: Row; onOpen: () => void }) => {
   )
 }
 
-/** ตัวอย่างไฟล์ใน modal — รูปแสดงพร้อมซูมได้ · PDF ฝังเต็มกรอบ · ชนิดอื่นให้ดาวน์โหลด */
-const AttachmentPreview = ({ r }: { r: Row }) => {
-  const [missing, setMissing] = useState(false)
-  const name = r.document_name ?? ''
-  const ext = extOf(name)
-  if (missing) return <Alert type="warning" showIcon title="ยังไม่มีไฟล์นี้ในเซิร์ฟเวอร์" />
-  if (IMAGE_EXT.includes(ext)) {
-    return (
-      <div className="flex justify-center">
-        <Image
-          src={docUrl(r.id)} alt={name} onError={() => setMissing(true)}
-          style={{ maxHeight: '72vh', maxWidth: '100%', objectFit: 'contain' }}
-        />
-      </div>
-    )
-  }
-  if (ext === 'pdf') {
-    return <iframe src={docUrl(r.id)} title={name} style={{ width: '100%', height: '72vh', border: 0 }} />
-  }
-  return (
-    <Empty
-      description={<Text type="secondary">ไฟล์ชนิด .{ext} แสดงตัวอย่างในหน้าไม่ได้ — กด “ดาวน์โหลด” เพื่อเปิดด้วยโปรแกรมในเครื่อง</Text>}
-    />
-  )
-}
 
 // ── ประวัติการอนุมัติ: ขั้นที่กดแล้ว + ขั้นที่ยังรอ ──────────────────────────────
 const ApprovalTimeline = ({ r }: { r: Row }) => {
@@ -656,30 +629,13 @@ const StaffLeaveHistoryContent = () => {
       </Drawer>
 
       {/* ── ไฟล์แนบ ── */}
-      <Modal
-        title={viewingDoc && (
-          <span>
-            <PaperClipOutlined className="mr-2" />ไฟล์แนบ — {viewingDoc.employee_name}
-            <Text type="secondary" style={{ fontSize: 12, fontWeight: 400, marginInlineStart: 8 }}>
-              {viewingDoc.leave_type_name.replace(/^การลา/, '')} · {dateRange(viewingDoc)}
-            </Text>
-          </span>
-        )}
-        open={viewingDoc != null}
-        onCancel={() => setViewingDoc(null)}
-        width={960}
-        style={{ top: 24 }}
-        destroyOnHidden
-        footer={viewingDoc && (
-          <Space>
-            <Text type="secondary" style={{ fontSize: 12 }}>{viewingDoc.document_name}</Text>
-            <Button icon={<ExportOutlined />} href={docUrl(viewingDoc.id)} target="_blank" rel="noopener">ดาวน์โหลด / เปิดแท็บใหม่</Button>
-            <Button type="primary" onClick={() => setViewingDoc(null)}>ปิด</Button>
-          </Space>
-        )}
-      >
-        {viewingDoc && <AttachmentPreview key={viewingDoc.id} r={viewingDoc} />}
-      </Modal>
+      <AttachmentModal
+        doc={viewingDoc && viewingDoc.document_name ? {
+          id: viewingDoc.id, name: viewingDoc.document_name, title: viewingDoc.employee_name,
+          subtitle: `${viewingDoc.leave_type_name.replace(/^การลา/, '')} · ${dateRange(viewingDoc)}`,
+        } : null}
+        onClose={() => setViewingDoc(null)}
+      />
 
       {/* ── พิมพ์แบบใบลา ── */}
       <Modal

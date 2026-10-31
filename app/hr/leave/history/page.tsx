@@ -2,13 +2,14 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Table, Tag, Card, Typography, Space, Button, Empty, Modal,
-  Segmented, Steps, Timeline, Descriptions, Alert, App, Input, Form, Popconfirm, Select,
+  Segmented, Steps, Timeline, Descriptions, Alert, App, Input, Form, Popconfirm, Select, Tooltip,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, PrinterOutlined, EyeOutlined,
   CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined,
   ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined, EditOutlined, UserSwitchOutlined,
+  PaperClipOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import Cookies from 'js-cookie'
@@ -16,6 +17,7 @@ import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import { normalizeRoles } from '@/app/lib/menuAccess'
+import AttachmentModal from '../AttachmentModal'
 import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import {
@@ -48,6 +50,8 @@ interface ApiRow extends DayCheckInfo {
   status: string
   reason: string | null
   reject_reason: string | null
+  /** ชื่อไฟล์แนบ (ว่าง = ไม่มี) */
+  document_url: string | null
   current_step: number
   approval_chain: ApiChainStep[] | string | null
   actions: ApiAction[]
@@ -118,6 +122,7 @@ const LeaveHistoryContent = () => {
   const [cancelling, setCancelling] = useState<ApiRow | null>(null)
   const [cancelForm] = Form.useForm()
   const [acting, setActing] = useState(false)
+  const [viewingDoc, setViewingDoc] = useState<ApiRow | null>(null)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -228,7 +233,13 @@ const LeaveHistoryContent = () => {
   // ── แปลงใบลาหนึ่งใบเป็นข้อมูลสำหรับแบบฟอร์มที่พิมพ์ ────────────────────────
   const toFormData = (r: ApiRow): LeaveFormData => buildLeaveFormData(r, { rows, profile, approvers })
 
+  const noOf = useMemo(() => new Map(filtered.map((r, i) => [r.id, i + 1])), [filtered])
+
   const columns = [
+    {
+      title: 'ลำดับ', key: 'no', width: 60, align: 'center' as const,
+      render: (_: unknown, r: ApiRow) => <Text type="secondary">{noOf.get(r.id)}</Text>,
+    },
     {
       title: 'เลขที่ใบลา', dataIndex: 'id', key: 'id', width: 120,
       render: (v: number, r: ApiRow) => (
@@ -255,6 +266,22 @@ const LeaveHistoryContent = () => {
           </Space>
         </div>
       ),
+    },
+    {
+      title: 'เหตุผล', dataIndex: 'reason', key: 'reason', width: 220, ellipsis: { showTitle: false },
+      render: (v: string | null) => v
+        ? <Tooltip title={v}><Text style={{ fontSize: 13 }}>{v}</Text></Tooltip>
+        : <Text type="secondary">-</Text>,
+    },
+    {
+      title: 'ไฟล์แนบ', key: 'doc', width: 80, align: 'center' as const,
+      render: (_: unknown, r: ApiRow) => r.document_url?.trim()
+        ? (
+          <Tooltip title={`ดูไฟล์แนบ: ${r.document_url}`}>
+            <Button type="text" size="small" icon={<PaperClipOutlined style={{ fontSize: 16, color: 'var(--ant-color-primary)' }} />} onClick={() => setViewingDoc(r)} />
+          </Tooltip>
+        )
+        : <Text type="secondary">-</Text>,
     },
     {
       title: 'ปีงบ', dataIndex: 'fiscal_year', key: 'fy', width: 80, align: 'center' as const,
@@ -342,6 +369,14 @@ const LeaveHistoryContent = () => {
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
+      <AttachmentModal
+        doc={viewingDoc && viewingDoc.document_url?.trim() ? {
+          id: viewingDoc.id, name: viewingDoc.document_url.trim(),
+          title: `${viewingDoc.leave_type_name.replace(/^การลา/, 'ลา')} · LV-${String(viewingDoc.id).padStart(6, '0')}`,
+          subtitle: `${beShort(viewingDoc.start_date)} – ${beShort(viewingDoc.end_date)}`,
+        } : null}
+        onClose={() => setViewingDoc(null)}
+      />
       <div className="p-4 md:p-6">
         <Breadcrumb
           items={[
