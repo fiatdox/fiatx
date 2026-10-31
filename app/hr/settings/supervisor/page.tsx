@@ -1,6 +1,6 @@
 'use client'
 import { withBase } from '@/app/lib/basePath'
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useDeferredValue, memo } from 'react'
 import {
   Button, Card, Tag, Avatar, Drawer, Input, 
   Table, Empty, Tooltip, Select, Row, Col, Typography, App, Tabs, Badge, Spin,
@@ -21,6 +21,113 @@ const { Text, Title } = Typography
 // จำนวนตัวอักษรขั้นต่ำก่อนเริ่มค้นหา + จำนวนผลลัพธ์สูงสุดที่เรนเดอร์ต่อครั้ง
 const MIN_SEARCH = 3
 const MAX_SHOWN = 50
+
+// ── ตัวเลือกบุคลากรใน drawer แต่งตั้ง ─────────────────────────────────────────
+// เก็บคำค้นไว้ในตัวเอง — เดิมอยู่ที่หน้าหลัก พิมพ์ทีละตัวเรนเดอร์ตารางทุกแท็บใหม่ทั้งหมดจึงหน่วง
+// useDeferredValue ให้ช่องพิมพ์ตอบสนองทันที ส่วนรายการตามมาทีหลัง
+// ข้อความค้นหาของแต่ละคนสร้างครั้งเดียวต่อรายชื่อ ไม่ต่อสตริงใหม่ทุกครั้งที่พิมพ์
+interface EmployeePickerProps {
+  users: UserInfo[]
+  loading: boolean
+  savingId: number | null
+  onPick: (id: number) => void
+}
+const EmployeePicker = memo(function EmployeePicker({ users, loading, savingId, onPick }: EmployeePickerProps) {
+  const [search, setSearch] = useState('')
+  const deferred = useDeferredValue(search)
+  const index = useMemo(() => users.map(u => ({
+    u, text: `${u.pname}${u.fname} ${u.fname} ${u.lname} ${u.position ?? ''} ${u.userType ?? ''}`.toLowerCase(),
+  })), [users])
+  const q = deferred.trim().toLowerCase()
+  const results = useMemo(() => {
+    if (q.length < MIN_SEARCH) return { list: [] as UserInfo[], total: 0 }
+    // หลายคำ = ต้องเจอทุกคำ (เช่น "สม ใจ")
+    const words = q.split(/\s+/).filter(Boolean)
+    const hits = index.filter(x => words.every(w => x.text.includes(w)))
+    return { list: hits.slice(0, MAX_SHOWN).map(x => x.u), total: hits.length }
+  }, [index, q])
+  const busy = savingId != null
+
+  return (
+    <>
+      <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Input
+          placeholder="ค้นหาชื่อ, ตำแหน่ง หรือ ประเภทเจ้าหน้าที่..."
+          prefix={<SearchOutlined className="text-app-text-2" />}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          allowClear
+          autoFocus
+          size="large"
+          disabled={busy}
+        />
+      </div>
+
+      <Spin spinning={loading}>
+        <div className="px-4 py-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)', opacity: deferred !== search ? 0.6 : 1 }}>
+          {search.trim().length < MIN_SEARCH ? (
+            <div className="py-16 flex flex-col items-center gap-2 text-center px-6">
+              <SearchOutlined style={{ fontSize: 30, color: 'var(--app-text-3)' }} />
+              <Text type="secondary">พิมพ์อย่างน้อย {MIN_SEARCH} ตัวอักษร เพื่อค้นหาชื่อหรือตำแหน่ง</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>({users.length.toLocaleString()} รายชื่อ)</Text>
+            </div>
+          ) : results.total === 0 ? (
+            !loading && <Empty description="ไม่พบรายชื่อบุคลากร" className="py-12" />
+          ) : (
+            <>
+              {results.list.map(u => {
+                const saving = savingId === u.id
+                return (
+                  <div key={u.id}
+                    className="group flex items-center gap-3 p-4 rounded-xl transition-all"
+                    style={{
+                      borderBottom: '1px solid var(--app-border)',
+                      cursor: busy ? 'wait' : 'pointer',
+                      opacity: busy && !saving ? 0.5 : 1,
+                    }}
+                    onClick={() => { if (!busy) onPick(u.id) }}
+                  >
+                    <Avatar size={44} icon={<UserOutlined />}
+                      style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <Text strong style={{ fontSize: 14 }}>{u.pname}{u.fname} {u.lname}</Text>
+                      <br />
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        {u.position && (
+                          <Tag color="cyan" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.position}</Tag>
+                        )}
+                        {u.userType && (
+                          <Tag color="geekblue" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.userType}</Tag>
+                        )}
+                        {!u.position && !u.userType && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>ไม่ระบุตำแหน่ง</Text>
+                        )}
+                      </div>
+                    </div>
+                    {saving ? (
+                      <Spin size="small" />
+                    ) : (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Tag color="green" style={{ borderRadius: 12, margin: 0, fontSize: 11 }}>เลือก</Tag>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {results.total > MAX_SHOWN && (
+                <div className="py-3 text-center">
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    แสดง {MAX_SHOWN} จาก {results.total.toLocaleString()} รายการ — พิมพ์เพิ่มเพื่อค้นให้แคบลง
+                  </Text>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Spin>
+    </>
+  )
+})
 
 // map prefix ของ slotKey → entity ของ API (m=ภารกิจ, w=กลุ่มงาน, u=หน่วยงาน)
 const SLOT_API: Record<string, string> = { m: 'missions', w: 'majors', u: 'submajors' }
@@ -146,7 +253,8 @@ const PageContent = () => {
   // UI state
   const [isAssignOpen,   setIsAssignOpen]   = useState(false)
   const [activeRef,      setActiveRef]      = useState<{ slotKey: string; mode: 'main' | 'acting' } | null>(null)
-  const [empSearch,      setEmpSearch]      = useState('')
+  // คนที่กำลังบันทึกการแต่งตั้ง — แสดงหมุนที่แถวที่เลือก และกันกดซ้ำระหว่างรอ
+  const [savingId,       setSavingId]       = useState<number | null>(null)
   const [activeTab,      setActiveTab]      = useState<SlotType>('ผู้อำนวยการ')
   const [filterMission,  setFilterMission]  = useState<string>('all')
   const [filterMajor,    setFilterMajor]    = useState<string>('all')
@@ -266,7 +374,6 @@ const PageContent = () => {
 
   const handleOpenAssign = (slotKey: string, mode: 'main' | 'acting') => {
     setActiveRef({ slotKey, mode })
-    setEmpSearch('')
     setIsAssignOpen(true)
   }
 
@@ -310,7 +417,9 @@ const PageContent = () => {
     if (!activeRef) return
     const { slotKey, mode } = activeRef
     // ทุกระดับ (ผอ./ภารกิจ/กลุ่มงาน/หน่วยงาน) บันทึกผ่าน API + กันซ้ำ — ถ้าไม่สำเร็จค้าง drawer ให้เลือกใหม่
+    setSavingId(employeeId)
     const ok = await persistSupervisor(slotKey, mode, employeeId)
+    setSavingId(null)
     if (!ok) return
     setIsAssignOpen(false)
     setActiveRef(null)
@@ -478,14 +587,6 @@ const PageContent = () => {
 
   // ── Tab items ──────────────────────────────────────────────────────────────
 
-  // ค้นหาเมื่อพิมพ์ครบ MIN_SEARCH ตัวอักษรขึ้นไป (กันการเรนเดอร์รายชื่อทั้งหมดพร้อมกัน = ช้า)
-  const filteredEmployees = useMemo(() => {
-    const q = empSearch.trim().toLowerCase()
-    if (q.length < MIN_SEARCH) return []
-    return allUsers.filter(u =>
-      `${u.pname}${u.fname} ${u.lname} ${u.position ?? ''} ${u.userType ?? ''}`.toLowerCase().includes(q)
-    )
-  }, [allUsers, empSearch])
 
   const tabItems = TAB_TYPES.map(tab => {
     const config = SLOT_TYPE_CONFIG[tab.key]
@@ -734,8 +835,9 @@ const PageContent = () => {
       <Drawer
         title={null}
         size="large"
-        onClose={() => setIsAssignOpen(false)}
+        onClose={() => { if (savingId == null) setIsAssignOpen(false) }}
         open={isAssignOpen}
+        destroyOnHidden
         styles={{ body: { padding: 0 } }}
       >
         <div style={{ background: 'linear-gradient(135deg, #006a5a 0%, #059669 100%)', padding: '24px' }}>
@@ -748,68 +850,14 @@ const PageContent = () => {
           </div>
         </div>
 
-        <div className="px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <Input
-            placeholder="ค้นหาชื่อ, ตำแหน่ง หรือ ประเภทเจ้าหน้าที่..."
-            prefix={<SearchOutlined className="text-app-text-2" />}
-            value={empSearch}
-            onChange={e => setEmpSearch(e.target.value)}
-            allowClear
-            size="large"
-          />
-        </div>
-
-        <Spin spinning={usersLoading}>
-          <div className="px-4 py-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
-            {empSearch.trim().length < MIN_SEARCH ? (
-              <div className="py-16 flex flex-col items-center gap-2 text-center px-6">
-                <SearchOutlined style={{ fontSize: 30, color: 'var(--app-text-3)' }} />
-                <Text type="secondary">พิมพ์อย่างน้อย {MIN_SEARCH} ตัวอักษร เพื่อค้นหาชื่อหรือตำแหน่ง</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>({allUsers.length.toLocaleString()} รายชื่อ)</Text>
-              </div>
-            ) : filteredEmployees.length === 0 ? (
-              !usersLoading && <Empty description="ไม่พบรายชื่อบุคลากร" className="py-12" />
-            ) : (
-              <>
-                {filteredEmployees.slice(0, MAX_SHOWN).map((u: UserInfo) => (
-                  <div key={u.id}
-                    className="group flex items-center gap-3 p-4 cursor-pointer rounded-xl transition-all"
-                    style={{ borderBottom: '1px solid var(--app-border)' }}
-                    onClick={() => handleAssignEmployee(u.id)}
-                  >
-                    <Avatar size={44} icon={<UserOutlined />}
-                      style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
-                    <div className="flex-1 min-w-0">
-                      <Text strong style={{ fontSize: 14 }}>{u.pname}{u.fname} {u.lname}</Text>
-                      <br />
-                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                        {u.position && (
-                          <Tag color="cyan" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.position}</Tag>
-                        )}
-                        {u.userType && (
-                          <Tag color="geekblue" style={{ borderRadius: 8, margin: 0, fontSize: 11 }}>{u.userType}</Tag>
-                        )}
-                        {!u.position && !u.userType && (
-                          <Text type="secondary" style={{ fontSize: 12 }}>ไม่ระบุตำแหน่ง</Text>
-                        )}
-                      </div>
-                    </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Tag color="green" style={{ borderRadius: 12, margin: 0, fontSize: 11 }}>เลือก</Tag>
-                    </div>
-                  </div>
-                ))}
-                {filteredEmployees.length > MAX_SHOWN && (
-                  <div className="py-3 text-center">
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      แสดง {MAX_SHOWN} จาก {filteredEmployees.length.toLocaleString()} รายการ — พิมพ์เพิ่มเพื่อค้นให้แคบลง
-                    </Text>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </Spin>
+        {/* key ตามช่องที่แต่งตั้ง — เปิดช่องใหม่แล้วคำค้นเริ่มว่าง */}
+        <EmployeePicker
+          key={activeRef ? `${activeRef.slotKey}-${activeRef.mode}` : 'none'}
+          users={allUsers}
+          loading={usersLoading}
+          savingId={savingId}
+          onPick={handleAssignEmployee}
+        />
       </Drawer>
     </div>
   )
