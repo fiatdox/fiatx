@@ -2,13 +2,13 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   Table, Tag, Card, Typography, Space, Button, Empty, Modal,
-  Segmented, Steps, Timeline, Descriptions, Alert, App, Input, Form, Popconfirm,
+  Segmented, Steps, Timeline, Descriptions, Alert, App, Input, Form, Popconfirm, Select,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, PrinterOutlined, EyeOutlined,
   CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined,
-  ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined, EditOutlined,
+  ReloadOutlined, RollbackOutlined, FilterOutlined, DeleteOutlined, EditOutlined, UserSwitchOutlined,
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import Cookies from 'js-cookie'
@@ -81,12 +81,32 @@ const LeaveHistoryContent = () => {
   const { message } = App.useApp()
   // ADMIN / HR แก้ใบลาของตัวเองได้แม้งาน HR ตรวจแล้ว — ผู้ลาทั่วไปแก้ไม่ได้ (backend ตรวจซ้ำ)
   const [isHr, setIsHr] = useState(false)
+  // ADMIN: ดูประวัติการลาของบุคลากรคนอื่นแบบที่เจ้าตัวเห็น — อ่านอย่างเดียว ไม่มีปุ่มแก้ไข / ลบ / ถอน / ขอยกเลิก
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [viewAs, setViewAs] = useState<number | null>(null)
+  const [staffOptions, setStaffOptions] = useState<{ value: number; label: string }[]>([])
+  const readOnly = viewAs != null
   useEffect(() => {
-    let hr = false
+    let hr = false, admin = false
     try {
-      hr = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).some(r => r === 'ADMIN' || r === 'HR')
+      const roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles)
+      hr = roles.some(r => r === 'ADMIN' || r === 'HR')
+      admin = roles.includes('ADMIN')
     } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
-    void Promise.resolve().then(() => setIsHr(hr))
+    void Promise.resolve().then(() => { setIsHr(hr); setIsAdmin(admin) })
+    if (!admin) return
+    fetch('/api/v1/users')
+      .then(r => r.json())
+      .then(j => {
+        if (!j?.success || !Array.isArray(j.data)) return
+        setStaffOptions(j.data
+          .filter((u: { is_active?: string }) => u.is_active !== 'N')
+          .map((u: { id: number; pname?: string; fname?: string; lname?: string; position_name?: string }) => ({
+            value: Number(u.id),
+            label: `${u.pname ?? ''}${u.fname ?? ''} ${u.lname ?? ''}`.trim() + (u.position_name ? ` · ${u.position_name}` : ''),
+          })))
+      })
+      .catch(() => { /* ไม่มีรายชื่อ = ใช้โหมดนี้ไม่ได้ */ })
   }, [])
   const [rows, setRows] = useState<ApiRow[]>([])
   const [profile, setProfile] = useState<LeaveProfile | null>(null)
@@ -102,7 +122,7 @@ const LeaveHistoryContent = () => {
   const reload = useCallback(async () => {
     setLoading(true)
     try {
-      const json = await (await fetch('/api/v1/hr/leave-requests/mine')).json()
+      const json = await (await fetch(`/api/v1/hr/leave-requests/mine${viewAs ? `?as_user_id=${viewAs}` : ''}`)).json()
       if (json?.success && Array.isArray(json.data)) {
         setRows(json.data)
         setProfile(json.profile ?? null)
@@ -115,7 +135,7 @@ const LeaveHistoryContent = () => {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [viewAs])
 
   useEffect(() => { reload() }, [reload])
 
@@ -273,7 +293,7 @@ const LeaveHistoryContent = () => {
           <Button size="small" icon={<EyeOutlined />} onClick={() => setDetail(r)}>รายละเอียด</Button>
           <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={() => setPrinting(r)}>พิมพ์</Button>
           {/* ยังไม่มีผู้อนุมัติคนใดกด = ลบทิ้งได้ · กดไปแล้ว = ถอนใบ เก็บประวัติไว้ */}
-          {String(r.status).toUpperCase() === 'PENDING' && (
+          {!readOnly && String(r.status).toUpperCase() === 'PENDING' && (
             (r.actions?.length ?? 0) === 0 ? (
               <>
               {(!r.day_check_status || isHr) && (
@@ -299,7 +319,7 @@ const LeaveHistoryContent = () => {
               </Popconfirm>
             )
           )}
-          {String(r.status).toUpperCase() === 'APPROVED' && r.cancellation_status !== 'PENDING' && (
+          {!readOnly && String(r.status).toUpperCase() === 'APPROVED' && r.cancellation_status !== 'PENDING' && (
             <Button
               size="small" danger icon={<RollbackOutlined />}
               onClick={() => { setCancelling(r); cancelForm.resetFields() }}
@@ -334,17 +354,45 @@ const LeaveHistoryContent = () => {
 
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <Title level={3} className="m-0">ประวัติการลาของฉัน</Title>
+            <Title level={3} className="m-0">{readOnly ? 'ประวัติการลา' : 'ประวัติการลาของฉัน'}</Title>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              ใบลาทุกใบที่ท่านยื่น พร้อมพิมพ์แบบใบลาเพื่อเสนอลงนาม
+              {readOnly ? 'ใบลาทุกใบของบุคลากรที่เลือก (ดูอย่างเดียว)' : 'ใบลาทุกใบที่ท่านยื่น พร้อมพิมพ์แบบใบลาเพื่อเสนอลงนาม'}
               {fullName && <> · {fullName}</>}
             </Text>
           </div>
           <Space>
             <Button icon={<ReloadOutlined />} loading={loading} onClick={reload}>รีเฟรช</Button>
-            <Button type="primary" href="/hr/leave/new">ยื่นใบลาใหม่</Button>
+            {!readOnly && <Button type="primary" href="/hr/leave/new">ยื่นใบลาใหม่</Button>}
           </Space>
         </div>
+
+        {isAdmin && (
+          <Card variant="borderless" className="mb-3 shadow-sm" styles={{ body: { padding: 14 } }}>
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+              <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ดูแบบเจ้าหน้าที่ (ADMIN)</Text>
+              <Select
+                showSearch allowClear
+                className="w-full md:max-w-120"
+                placeholder="ดูของตัวเอง — หรือค้นหาชื่อบุคลากรเพื่อดูประวัติการลาแบบที่เจ้าตัวเห็น"
+                options={staffOptions}
+                value={viewAs ?? undefined}
+                optionFilterProp="label"
+                onChange={(v?: number) => { setViewAs(v ?? null); setDetail(null); setFilter('ALL') }}
+              />
+            </div>
+            {readOnly ? (
+              <Alert
+                className="mt-3" type="warning" showIcon
+                title={`กำลังดูแบบ ${staffOptions.find(o => o.value === viewAs)?.label ?? `ผู้ใช้ #${viewAs}`}`}
+                description="โหมดดูอย่างเดียว — ไม่มีสิทธิ์แก้ไข ลบ ถอน หรือขอยกเลิกใบลาแทนเจ้าหน้าที่ (ดูรายละเอียดและพิมพ์แบบใบลาได้)"
+              />
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ใช้ตรวจสอบว่าเจ้าหน้าที่แต่ละคนเห็นประวัติการลาของตัวเองอย่างไร · อ่านอย่างเดียว
+              </Text>
+            )}
+          </Card>
+        )}
 
         <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {statCards.map(c => (
