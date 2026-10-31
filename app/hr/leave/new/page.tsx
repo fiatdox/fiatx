@@ -19,6 +19,7 @@ import {
   InputNumber,
   Checkbox,
   Tag,
+  Steps,
   App
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
@@ -48,6 +49,13 @@ import Cookies from 'js-cookie'
 import Navbar from '@/app/components/Navbar'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+
+/** สายอนุมัติที่ backend คำนวณจากผังบังคับบัญชา (GET /hr/leave-requests/approval-chain) */
+interface ApprovalPreview {
+  steps: { step: number; level_name: string; approver_name: string; unit_name: string | null; is_acting: boolean }[]
+  skipped: { level_name: string; reason: string }[]
+  can_submit: boolean
+}
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
@@ -196,10 +204,10 @@ const LeavePageContent = () => {
       .then(j => { if (j?.success) setApplicant(j.data) })
       .catch(() => { /* ไม่มีข้อมูลก็แสดงแค่หัวข้อ */ })
   }, [subjectQs])
-  // role: 'supervisor' = ตัวจริง | 'acting' = รักษาการ (API เรียงตัวจริงมาก่อน)
-  const [missionSupervisors, setMissionSupervisors] = useState<{ id: number; mission_name: string; mission_supervisor: string; role?: string }[]>([])
-  const [majorSupervisors, setMajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
-  const [submajorSupervisors, setSubmajorSupervisors] = useState<{ id: number; major_name: string; major_supervisor: string; role?: string }[]>([])
+  // สายอนุมัติจริงที่ backend จะใช้ตอนบันทึก (ข้ามขั้นที่ผู้ลาเป็นหัวหน้าเอง / หน่วยไม่มีหัวหน้า / หัวหน้าคนเดียวกันหลายขั้น)
+  // ผู้ลาเลือกผู้อนุมัติเองไม่ได้ — สายมาจากผังบังคับบัญชาเสมอ
+  const [chain, setChain] = useState<ApprovalPreview | null>(null)
+  const [chainLoading, setChainLoading] = useState(false)
 
   // ผู้ปฏิบัติงานแทน — บุคลากรในกลุ่มงานของหัวหน้าลำดับต่ำสุด (backend เลือกกลุ่มงานให้ ดู getMyColleagues)
   const router = useRouter()
@@ -220,39 +228,15 @@ const LeavePageContent = () => {
       .finally(() => setColleaguesLoading(false))
   }, [message, subjectQs])
 
-  // ถ้าผู้ login เป็นหัวหน้า/รักษาการกลุ่มภารกิจ → สายอนุมัติเปลี่ยนเป็นเสนอ ผอ. โดยตรง
-  const [isMissionHead, setIsMissionHead] = useState(false)
-  const [directorOptions, setDirectorOptions] = useState<{ value: string; label: string; role: string }[]>([])
-
   useEffect(() => {
-    const id = subjectId
-    if (!id) return
-    fetch(`/api/v1/hr/mission-head-check/${id}`)
+    if (!subjectId) return
+    void Promise.resolve().then(() => setChainLoading(true))
+    fetch(`/api/v1/hr/leave-requests/approval-chain${subjectQs}`)
       .then(res => res.json())
-      .then(json => {
-        setIsMissionHead(false)
-        if (!json.success || !json.data.is_mission_head) return
-        setIsMissionHead(true)
-        // โหลด ผอ. / รักษาการ ผอ. จาก hr_settings มาเป็นผู้อนุมัติ
-        return fetch('/api/v1/hr/director')
-          .then(res => res.json())
-          .then(dj => {
-            if (!dj.success) return
-            const opts: { value: string; label: string; role: string }[] = []
-            if (dj.data.director_id != null) {
-              opts.push({ value: String(dj.data.director_id), label: `${dj.data.director_name ?? dj.data.director_id} — ผู้อำนวยการ`, role: 'supervisor' })
-            }
-            if (dj.data.acting_director_id != null) {
-              opts.push({ value: String(dj.data.acting_director_id), label: `${dj.data.acting_director_name ?? dj.data.acting_director_id} — ผู้อำนวยการ (รักษาการ)`, role: 'acting' })
-            }
-            setDirectorOptions(opts)
-            // auto-select ผอ. ตัวจริงก่อน ถ้าไม่มีใช้รักษาการ
-            const main = opts.find(o => o.role === 'supervisor') ?? opts[0]
-            if (main) form.setFieldsValue({ approverDirector: main.value })
-          })
-      })
-      .catch(() => message.error('ไม่สามารถตรวจสอบสายอนุมัติได้'))
-  }, [message, form, subjectId])
+      .then(json => { if (json.success) setChain(json.data) })
+      .catch(() => message.error('ไม่สามารถโหลดสายอนุมัติได้'))
+      .finally(() => setChainLoading(false))
+  }, [message, subjectId, subjectQs])
 
   useEffect(() => {
     void Promise.resolve().then(() => setLeaveTypesLoading(true))
@@ -271,52 +255,6 @@ const LeavePageContent = () => {
       .then(json => { if (json.success) setEntitlements(json.data) })
       .catch(() => message.error('ไม่สามารถโหลดสิทธิ์การลาได้'))
   }, [message, onBehalfId, applicant?.user_type_id])
-
-  useEffect(() => {
-    const id = subjectId
-    if (!id) return
-    fetch(`/api/v1/hr/mission-supervisor/${id}`)
-      .then(res => res.json())
-      .then(json => {
-        if (json.success) {
-          setMissionSupervisors(json.data)
-          // auto-select ตัวจริงก่อน ถ้าไม่มีค่อยใช้รักษาการ
-          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
-          if (main) form.setFieldsValue({ approver3: String(main.id) })
-        }
-      })
-      .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มภารกิจได้'))
-  }, [message, form, subjectId])
-
-  useEffect(() => {
-    const id = subjectId
-    if (!id) return
-    fetch(`/api/v1/hr/major-supervisor/${id}`)
-      .then(res => res.json())
-      .then(json => {
-        if (json.success) {
-          setMajorSupervisors(json.data)
-          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
-          if (main) form.setFieldsValue({ approver2: String(main.id) })
-        }
-      })
-      .catch(() => message.error('ไม่สามารถโหลดหัวหน้ากลุ่มงานได้'))
-  }, [message, form, subjectId])
-
-  useEffect(() => {
-    const id = subjectId
-    if (!id) return
-    fetch(`/api/v1/hr/submajor-supervisor/${id}`)
-      .then(res => res.json())
-      .then(json => {
-        if (json.success) {
-          setSubmajorSupervisors(json.data)
-          const main = json.data.find((s: any) => s.role !== 'acting') ?? json.data[0]
-          if (main) form.setFieldsValue({ approver1: String(main.id) })
-        }
-      })
-      .catch(() => message.error('ไม่สามารถโหลดหัวหน้าหน่วยงาน/ตึกได้'))
-  }, [message, form, subjectId])
 
   const currentLeaveTypeInfo = leaveTypes.find(t => t.id === leaveType) ?? null
   const requiresDoc = currentLeaveTypeInfo?.requires_document_after_days
@@ -531,7 +469,7 @@ const LeavePageContent = () => {
           </div>
 
           {me.isHr && !editId && (
-            <Card variant="borderless" className="shadow-sm mb-4 rounded-xl" styles={{ body: { padding: '12px 16px' } }}>
+            <Card style={{ marginBottom: 16 }} variant="borderless" className="shadow-sm rounded-xl" styles={{ body: { padding: '12px 16px' } }}>
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
                 <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ทำรายการแทนบุคลากร</Text>
                 <Select
@@ -567,9 +505,9 @@ const LeavePageContent = () => {
             <Row gutter={16}>
               {/* ส่วนข้อมูลการลา */}
               <Col xs={24} lg={16}>
-                <Card
+                <Card style={{ marginBottom: 16 }}
                   variant="borderless"
-                  className="shadow-sm mb-4 rounded-xl"
+                  className="shadow-sm rounded-xl"
                   title={
                     <span style={{ fontSize: 15, fontWeight: 600 }}>
                       <CalendarOutlined className="text-primary" /> รายละเอียดการลา
@@ -624,10 +562,10 @@ const LeavePageContent = () => {
                         <Checkbox>ลาไปต่างประเทศ</Checkbox>
                       </Form.Item>
                       {isAbroad && (
-                        <Form.Item
+                        <Form.Item style={{ marginTop: 16, marginBottom: 0 }}
                           name="abroadCountry"
                           label="ระบุประเทศ/สถานที่"
-                          className="mt-4 mb-0"
+                         
                           rules={[{ required: true, message: 'กรุณาระบุประเทศ' }]}
                         >
                           <Input placeholder="เช่น ญี่ปุ่น, สิงคโปร์" />
@@ -638,11 +576,11 @@ const LeavePageContent = () => {
 
                   {leaveType === 2 && (
                     <div className="mb-6 p-4 bg-app-surface rounded-lg border border-app-border">
-                      <Form.Item
+                      <Form.Item style={{ marginBottom: 0 }}
                         name="maternityType"
                         label="ประเภทการลาคลอด"
                         rules={[{ required: true, message: 'กรุณาเลือกประเภทการลาคลอด' }]}
-                        className="mb-0"
+                       
                       >
                         <Radio.Group>
                           <Space orientation="vertical">
@@ -761,9 +699,9 @@ const LeavePageContent = () => {
 
               {/* ส่วนผู้อนุมัติและสรุป */}
               <Col xs={24} lg={8}>
-                <Card
+                <Card style={{ marginBottom: 16 }}
                   variant="borderless"
-                  className="shadow-sm mb-4 rounded-xl"
+                  className="shadow-sm rounded-xl"
                   title={<span style={{ fontSize: 15, fontWeight: 600 }}>สรุปวันลาและสิทธิ์คงเหลือ</span>}
                   extra={quota ? <Tag>ปีงบ {quota.fiscal_year}</Tag> : null}
                 >
@@ -842,29 +780,29 @@ const LeavePageContent = () => {
                         )}
                       </div>
                       {totalLeaveDays > quota.remaining && (
-                        <Alert
+                        <Alert style={{ marginTop: 12 }}
                           type="error"
                           showIcon
-                          className="mt-3"
+                         
                           title={`ใบนี้ขอลา ${nf(totalLeaveDays)} วัน เกินสิทธิ์ที่เหลือ ${nf(quota.remaining)} วัน`}
                           description="ส่งคำขอไม่ได้จนกว่าจะลดจำนวนวัน"
                         />
                       )}
                     </>
                   ) : quota?.service_short ? (
-                    <Alert
+                    <Alert style={{ marginTop: 12 }}
                       type="error"
                       showIcon
-                      className="mt-3"
+                     
                       title={`ยังไม่มีสิทธิ์${currentLeaveTypeInfo?.name_th ?? 'การลาประเภทนี้'}`}
                       description={`ต้องมีอายุงานอย่างน้อย ${quota.service_short.required_months} เดือน ณ วันเริ่มลา`
                         + ` (ขณะนี้ ${quota.service_short.service_months} เดือน) — หากวันเริ่มงานไม่ถูกต้อง กรุณาติดต่อฝ่ายบุคคล`}
                     />
                   ) : (
-                    <Alert
+                    <Alert style={{ marginTop: 12 }}
                       type="info"
                       showIcon
-                      className="mt-3"
+                     
                       title={quota
                         ? `ปีงบ ${quota.fiscal_year} · ยังไม่ได้กำหนดสิทธิ์การลาประเภทนี้ไว้`
                         : 'กำลังตรวจสอบสิทธิ์การลา'}
@@ -882,76 +820,34 @@ const LeavePageContent = () => {
                     </span>
                   }
                 >
-                  {isMissionHead ? (
-                    /* หัวหน้า/รักษาการกลุ่มภารกิจ → ลากับ ผอ. โดยตรง */
+                  {chainLoading && !chain ? (
+                    <Text type="secondary">กำลังโหลดสายอนุมัติ...</Text>
+                  ) : chain && chain.steps.length > 0 ? (
                     <>
-                      <Alert
-                        type="info"
-                        showIcon
-                        className="mb-4"
-                        title="ท่านดำรงตำแหน่งหัวหน้า/รักษาการกลุ่มภารกิจ"
-                        description="คำขอลาจะเสนอผู้อำนวยการอนุมัติโดยตรง"
+                      <Steps
+                        orientation="vertical" size="small" current={-1}
+                        items={chain.steps.map(st => ({
+                          status: 'wait' as const,
+                          title: `${st.step}. ${st.level_name}${st.is_acting ? ' (รักษาการ)' : ''}`,
+                          content: (
+                            <span>
+                              <Text strong>{st.approver_name}</Text>
+                              {st.unit_name && <Text type="secondary" style={{ fontSize: 12 }}> — {st.unit_name}</Text>}
+                            </span>
+                          ),
+                        }))}
                       />
-                      <Form.Item
-                        name="approverDirector"
-                        label="ผู้อนุมัติ: ผู้อำนวยการ"
-                        rules={[{ required: directorOptions.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
-                      >
-                        <Select
-                          placeholder={directorOptions.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งผู้อำนวยการ'}
-                          disabled={directorOptions.length === 0}
-                          options={directorOptions.map(o => ({ value: o.value, label: o.label }))}
-                        />
-                      </Form.Item>
+                      {chain.skipped.length > 0 && (
+                        <div style={{ fontSize: 12 }}>
+                          {chain.skipped.map((k, i) => (
+                            <div key={i}><Text type="secondary">ข้ามขั้น{k.level_name}: {k.reason}</Text></div>
+                          ))}
+                        </div>
+                      )}
                     </>
-                  ) : (
-                  <Space orientation="vertical" className="w-full" size="large">
-                    <Form.Item
-                      name="approver1"
-                      label="1. หัวหน้าหน่วยงาน/ตึก"
-                      rules={[{ required: submajorSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
-                    >
-                      <Select
-                        placeholder={submajorSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้าหน่วยงาน'}
-                        disabled={submajorSupervisors.length === 0}
-                        options={submajorSupervisors.map(s => ({
-                          value: String(s.id),
-                          label: `${s.major_supervisor} — ${s.major_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
-                        }))}
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      name="approver2"
-                      label="2. หัวหน้ากลุ่มงาน"
-                      rules={[{ required: majorSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
-                    >
-                      <Select
-                        placeholder={majorSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้ากลุ่มงาน'}
-                        disabled={majorSupervisors.length === 0}
-                        options={majorSupervisors.map(s => ({
-                          value: String(s.id),
-                          label: `${s.major_supervisor} — ${s.major_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
-                        }))}
-                      />
-                    </Form.Item>
-
-                    <Form.Item
-                      name="approver3"
-                      label="3. หัวหน้ากลุ่มภารกิจ"
-                      rules={[{ required: missionSupervisors.length > 0, message: 'กรุณาเลือกผู้อนุมัติ' }]}
-                    >
-                      <Select
-                        placeholder={missionSupervisors.length > 0 ? 'เลือกผู้อนุมัติ' : 'ยังไม่มีการแต่งตั้งหัวหน้ากลุ่มภารกิจ'}
-                        disabled={missionSupervisors.length === 0}
-                        options={missionSupervisors.map(s => ({
-                          value: String(s.id),
-                          label: `${s.mission_supervisor} — ${s.mission_name}${s.role === 'acting' ? ' (รักษาการ)' : ''}`,
-                        }))}
-                      />
-                    </Form.Item>
-                  </Space>
-                  )}
+                  ) : chain ? (
+                    <Alert type="error" showIcon title="ไม่พบผู้อนุมัติในสายบังคับบัญชา" description="กรุณาติดต่องานทรัพยากรบุคคลเพื่อตั้งค่าหัวหน้าหน่วยงาน" />
+                  ) : null}
 
                   <Divider style={{ margin: '12px 0' }} />
 

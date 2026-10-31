@@ -33,6 +33,8 @@ export interface ApiChainStep {
   approver_name: string
   unit_name: string | null
   is_acting: boolean
+  /** ผู้อนุมัตินอกระบบ (นพ.สสจ.) — ผู้กดในระบบคือ HR ที่บันทึกผล ไม่ใช่ผู้ลงนาม */
+  external?: boolean
 }
 export interface ApiAction {
   step: number
@@ -83,6 +85,7 @@ export type Approvers = Record<string, { pname: string | null; fname: string | n
 /** ตำแหน่งตามผัง ณ วันยื่นใบลา — หัวหน้า{หน่วย} / รองผู้อำนวยการ{ด้าน...} / ผู้อำนวยการ{โรงพยาบาล} · รักษาการนำหน้า */
 export const chainTitle = (c: ApiChainStep) => {
   const unit = (c.unit_name ?? '').trim()
+  if (c.level === 'PROVINCIAL') return c.unit_name ? c.unit_name.replace(/^สำนักงาน/, 'นายแพทย์') : c.level_name
   const base = c.level === 'DIRECTOR' ? `ผู้อำนวยการ${ORG_NAME}`
     : c.level === 'MISSION' ? (unit.startsWith('ด้าน') ? `รองผู้อำนวยการ${unit}` : `หัวหน้ากลุ่มภารกิจ${unit}`)
     : unit ? `หัวหน้า${unit}` : c.level_name
@@ -116,6 +119,8 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
   // ผู้อนุมัติในสาย: (ลงชื่อ) = ชื่อ สกุล เมื่ออนุมัติแล้ว · (วงเล็บ) = คำนำหน้าชื่อ สกุล และตำแหน่งตามผัง แสดงทุกครั้ง
   // อนุมัติแล้วใช้ผู้ที่กดจริง (ใบที่โอนจากระบบเดิมอาจไม่ใช่คนเดียวกับสายปัจจุบัน)
   const person = (c: ApiChainStep, act?: ApiAction) => {
+    // นพ.สสจ. ลงนามในกระดาษเอง — ไม่ใส่ชื่อ HR ที่กดบันทึกผล · ชื่อในวงเล็บใส่เมื่อตั้งชื่อบุคคลไว้ (ไม่ใช่ชื่อตำแหน่ง)
+    if (c.external) return { sign: '', full: c.approver_name === chainTitle(c) ? '' : c.approver_name }
     const a = approvers[String(act?.approver_id ?? c.approver_id)]
     const fallback = act?.approver_name ?? c.approver_name
     const sign = a ? `${a.fname ?? ''} ${a.lname ?? ''}`.trim() : fallback

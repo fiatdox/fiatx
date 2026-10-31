@@ -50,6 +50,8 @@ interface MyStep {
   level_name: string
   unit_name: string | null
   is_acting: boolean
+  /** ขั้นนอกระบบ (นพ.สสจ. — ใบลาของ ผอ.) งาน HR / ADMIN บันทึกผลตามหนังสือที่ลงนามแล้ว */
+  external: boolean
 }
 
 interface LeaveApprovalRequest {
@@ -121,6 +123,7 @@ interface ApiChainStep {
   approver_name: string
   is_acting: boolean
   unit_name: string | null
+  external?: boolean
 }
 
 interface ApiLeaveRequest extends DayCheckInfo {
@@ -170,8 +173,14 @@ const toMyStep = (raw: unknown): MyStep | null => {
     level_name: s.level_name,
     unit_name: s.unit_name ?? null,
     is_acting: Boolean(s.is_acting),
+    external: Boolean(s.external),
   }
 }
+
+/** "ท่าน...ในฐานะ" — ขั้นนอกระบบ HR ไม่ได้อนุมัติเอง แต่บันทึกผลแทน */
+const asRole = (s: MyStep) => s.external
+  ? `ผู้บันทึกผลแทน${s.level_name} (ใบลาของผู้อำนวยการ — บันทึกตามหนังสือที่ลงนามแล้ว)`
+  : `${s.level_name}${s.is_acting ? ' (รักษาการ)' : ''}`
 
 const buildChain = (r: ApiLeaveRequest): ApprovalStep[] => {
   const chain = r.approval_chain ?? []
@@ -316,6 +325,7 @@ const myStepTag = (s: MyStep | null) => {
       <Text style={{ fontSize: 12, fontWeight: 600 }}>
         {s.level_name}{s.is_acting && <Text type="secondary" style={{ fontSize: 11 }}> (รักษาการ)</Text>}
       </Text>
+      {s.external && <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>HR บันทึกผลแทน</div>}
       {s.unit_name && <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>{s.unit_name}</div>}
     </div>
   )
@@ -1198,8 +1208,8 @@ const LeaveApprovalContent = () => {
                   showIcon
                  
                   title={canAct
-                    ? `ท่านพิจารณาใบนี้ในฐานะ${selected.myStep.level_name}${selected.myStep.is_acting ? ' (รักษาการ)' : ''}`
-                    : `ท่านอยู่ในสายอนุมัติใบนี้ในฐานะ${selected.myStep.level_name}${selected.myStep.is_acting ? ' (รักษาการ)' : ''}`}
+                    ? `ท่านพิจารณาใบนี้ในฐานะ${asRole(selected.myStep)}`
+                    : `ท่านอยู่ในสายอนุมัติใบนี้ในฐานะ${asRole(selected.myStep)}`}
                   description={[
                     selected.myStep.unit_name ? `หน่วย: ${selected.myStep.unit_name}` : null,
                     canAct
@@ -1430,7 +1440,7 @@ const LeaveApprovalContent = () => {
                   type={canAct ? 'warning' : 'info'}
                   showIcon
                  
-                  title={`ท่านพิจารณาคำขอนี้ในฐานะ${selectedCancel.myStep.level_name}${selectedCancel.myStep.is_acting ? ' (รักษาการ)' : ''}`}
+                  title={`ท่านพิจารณาคำขอนี้ในฐานะ${asRole(selectedCancel.myStep)}`}
                   description={canAct
                     ? 'คำขอยกเลิกนี้รอการตัดสินใจของท่านอยู่'
                     : `ขณะนี้รอ${selectedCancel.pendingLevel ?? 'ขั้นถัดไป'} — ท่านยังกดไม่ได้`}
