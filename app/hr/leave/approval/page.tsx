@@ -3,8 +3,8 @@ import { useState, useMemo, useEffect, useCallback, type Key } from 'react'
 import {
   Table, Tag, Card, Typography, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
-  Row, Col, Divider, Space, Alert, Avatar, Calendar, Segmented, Tabs,
-  Result, Skeleton, Empty, Badge, Tooltip,
+  Divider, Space, Alert, Avatar, Segmented, Tabs, Grid,
+  Result, Skeleton, Empty, Badge, Tooltip, Select, Spin, ConfigProvider,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { Dayjs } from 'dayjs'
@@ -14,12 +14,24 @@ import {
   CloseCircleOutlined, ClockCircleOutlined, AuditOutlined,
   EyeOutlined, UserOutlined, CalendarOutlined, UnorderedListOutlined,
   RollbackOutlined, CheckSquareOutlined, SearchOutlined, ReloadOutlined,
-  SolutionOutlined, HourglassOutlined,
+  SolutionOutlined, HourglassOutlined, UserSwitchOutlined, PrinterOutlined, LeftOutlined, RightOutlined,
 } from '@ant-design/icons'
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
-import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import Cookies from 'js-cookie'
+import { normalizeRoles } from '@/app/lib/menuAccess'
+import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
+import LeaveMonthGrid, { LeaveLegend, ThisMonthButton, StatusIcon, STATUS_LABEL, colorOf, fmtDay, monthRange, th, useHolidays, waitingText, type LeaveEvent } from '../LeaveMonthGrid'
+import dynamic from 'next/dynamic'
+import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
+import { buildLeaveFormData } from '@/app/lib/leaveFormData'
+
+// react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
+const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
+  ssr: false,
+  loading: () => <div style={{ padding: 24 }}>กำลังเตรียมเอกสาร...</div>,
+})
 
 const { Title, Text } = Typography
 
@@ -74,7 +86,15 @@ interface LeaveApprovalRequest {
   myStep: MyStep | null
   waitingOnMe: boolean
   pendingLevel: string | null
+  /** ใช้แสดงบนปฏิทิน (สีตามประเภท / ครึ่งวัน / สถานะจริงของใบ) */
+  cal: CalInfo
 }
+
+interface CalInfo { typeCode: string | null; isHalfDay: boolean; halfDayPeriod: string | null; status: string; reason: string | null }
+const calInfoOf = (r: ApiLeaveRequest): CalInfo => ({
+  typeCode: r.leave_type_code ?? null, isHalfDay: !!r.is_half_day, halfDayPeriod: r.half_day_period ?? null,
+  status: r.status, reason: r.reason,
+})
 
 interface LeaveCancelRequest {
   id: string
@@ -90,6 +110,7 @@ interface LeaveCancelRequest {
   myStep: MyStep | null
   waitingOnMe: boolean
   pendingLevel: string | null
+  cal: CalInfo
 }
 
 // ─── Helper: สถานะรวม ───────────────────────────────────────────────────────
@@ -134,6 +155,9 @@ interface ApiLeaveRequest extends DayCheckInfo {
   major_name: string | null
   mission_name: string | null
   leave_type_name: string
+  leave_type_code?: string | null
+  is_half_day?: boolean
+  half_day_period?: string | null
   start_date: string
   end_date: string
   total_days: string | number
@@ -231,6 +255,7 @@ const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
     // กดได้ก็ต่อเมื่อใบยังรออนุมัติ และขั้นที่ค้างอยู่เป็นขั้นของเราเท่านั้น
     waitingOnMe: r.status === 'PENDING' && myStep != null && myStep.step === Number(r.current_step),
     pendingLevel: pendingLevelOf(approvalChain),
+    cal: calInfoOf(r),
   }
 }
 
@@ -263,6 +288,7 @@ const toCancelRequest = (r: ApiLeaveRequest): LeaveCancelRequest => {
     myStep,
     waitingOnMe: myStep != null && myStep.step === Number(r.current_step),
     pendingLevel: pendingLevelOf(approvalChain),
+    cal: calInfoOf(r),
   }
 }
 
@@ -379,11 +405,35 @@ const LeaveApprovalContent = () => {
   const [cancelRejectMode, setCancelRejectMode] = useState(false)
   const [cancelRejectForm] = Form.useForm()
 
+  // ── ADMIN: ดูแบบหัวหน้าคนอื่น (as role) — ตรวจว่าหัวหน้าแต่ละคนเห็นใบลาอะไรบ้าง อ่านอย่างเดียว กดอนุมัติไม่ได้ ──
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [viewAs, setViewAs] = useState<number | null>(null)
+  const [staffOptions, setStaffOptions] = useState<{ value: number; label: string }[]>([])
+  const readOnly = viewAs != null
+  useEffect(() => {
+    let admin = false
+    try { admin = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).includes('ADMIN') } catch { /* cookie เสีย = ไม่ใช่ ADMIN */ }
+    if (!admin) return
+    void Promise.resolve().then(() => setIsAdmin(true))
+    // เฉพาะผู้ที่เป็นหัวหน้า/รักษาการ (หน่วยงาน · กลุ่มงาน · กลุ่มภารกิจ) หรือ ผอ. อยู่ตอนนี้
+    fetch('/api/v1/hr/leave-approvers')
+      .then(r => r.json())
+      .then(j => {
+        if (!j?.success || !Array.isArray(j.data)) return
+        setStaffOptions(j.data.map((u: { id: number; name: string; heads: { role: string; unit: string | null }[] }) => ({
+          value: Number(u.id),
+          label: `${u.name} · ${u.heads.map(h => h.unit ? `${h.role}${h.unit}` : h.role).join(', ')}`,
+        })))
+      })
+      .catch(() => { /* ไม่มีรายชื่อ = ใช้โหมดนี้ไม่ได้ */ })
+  }, [])
+
   // scope=all = เห็นทั้งใบที่รอเราและใบที่เราเคยกดไปแล้ว จะได้ดูย้อนหลังได้ในหน้าเดียว
   const reload = useCallback(async () => {
     setListLoading(true)
     try {
-      const json = await (await fetch('/api/v1/hr/leave-requests/pending-approval?scope=all')).json()
+      const qs = viewAs ? `&as_user_id=${viewAs}` : ''
+      const json = await (await fetch(`/api/v1/hr/leave-requests/pending-approval?scope=all${qs}`)).json()
       if (json?.success && Array.isArray(json.data)) {
         const rows: ApiLeaveRequest[] = json.data
         setRequests(rows.filter(r => r.status !== 'CANCEL_PENDING').map(toRequest))
@@ -398,12 +448,35 @@ const LeaveApprovalContent = () => {
     } finally {
       setListLoading(false)
     }
-  }, [])
+  }, [viewAs])
 
   useEffect(() => { reload() }, [reload])
 
   /** id ที่ใช้เรียก API — หน้าจอโชว์เป็น LV-000123 แต่ API ใช้ตัวเลขล้วน */
   const apiIdOf = (display: string) => Number(display.replace(/\D/g, ''))
+
+  // ── ดูแบบใบลา (PDF) ใน Modal — ข้อมูลชุดเดียวกับหน้าพิมพ์ของผู้ลา (backend ตรวจว่าเราอยู่ในสายอนุมัติ) ──
+  const [printing, setPrinting] = useState<{ id: string; data: LeaveFormData | null } | null>(null)
+  const openPrint = async (display: string) => {
+    setPrinting({ id: display, data: null })
+    try {
+      const j = await (await fetch(`/api/v1/hr/leave-requests/${apiIdOf(display)}/print`)).json()
+      if (!j?.success || !j.data?.request) {
+        message.error(j?.message ?? 'โหลดข้อมูลใบลาไม่สำเร็จ')
+        setPrinting(null)
+        return
+      }
+      setPrinting({ id: display, data: buildLeaveFormData(j.data.request, { rows: j.data.rows ?? [], profile: j.data.profile ?? null, approvers: j.data.approvers ?? {} }) })
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+      setPrinting(null)
+    }
+  }
+  const printButton = (display: string) => (
+    <Tooltip title="ดูแบบใบลา">
+      <Button size="small" icon={<PrinterOutlined />} loading={printing?.id === display && !printing.data} onClick={() => openPrint(display)} />
+    </Tooltip>
+  )
 
   const openDetail = (record: LeaveApprovalRequest) => {
     setSelected(record)
@@ -624,74 +697,40 @@ const LeaveApprovalContent = () => {
     [cancelRequests, matchKeyword],
   )
 
-  // ─── Calendar: จัดเลน (lane) ให้ใบลาแต่ละใบมีแถวคงที่ตลอดทั้งเดือน ───────────
-  // เพื่อให้บาร์ของใบลาต่อเนื่อง "ลากยาว" ข้ามวันโดยอยู่แถวเดิม (ไม่สลับขึ้นลง)
-  const laneInfo = useMemo(() => {
-    const sorted = [...requests].sort(
-      (a, b) => a.startISO.localeCompare(b.startISO) || a.endISO.localeCompare(b.endISO)
-    )
-    const laneEnd: string[] = []          // endISO ล่าสุดของแต่ละเลน
-    const map: Record<string, number> = {}
-    for (const r of sorted) {
-      let lane = laneEnd.findIndex(end => end < r.startISO)   // เลนแรกที่ว่าง
-      if (lane === -1) { lane = laneEnd.length; laneEnd.push(r.endISO) }
-      else laneEnd[lane] = r.endISO
-      map[r.id] = lane
+  // ─── Calendar: แบบเดียวกับหน้าปฏิทินการลา — ใบที่ยังมีผล (รออนุมัติ / อนุมัติแล้ว / รออนุมัติยกเลิก) ───
+  const screens = Grid.useBreakpoint()
+  const narrow = !screens.md
+  const holidays = useHolidays(useMemo(() => monthRange(calMonth.startOf('month')), [calMonth]))
+  const calEvents = useMemo<LeaveEvent[]>(() => {
+    const waitingOf = (chain: ApprovalStep[]): LeaveEvent['waiting_for'] => {
+      const i = chain.findIndex(st => st.status === 'pending')
+      return i === -1 ? null : { step: i + 1, total: chain.length, level_name: chain[i].level, approver_name: chain[i].actor, is_acting: false }
     }
-    return map
-  }, [requests])
-
-  // ─── Calendar: render บาร์วันลาแบบต่อเนื่องในแต่ละ cell ──────────────────────
-  const cellRender = (date: Dayjs) => {
-    if (date.month() !== calMonth.month()) return null
-    const ds = date.format('YYYY-MM-DD')
-    const active = requests.filter(r => ds >= r.startISO && ds <= r.endISO)
-    if (!active.length) return null
-
-    const byLane: Record<number, LeaveApprovalRequest> = {}
-    active.forEach(r => { byLane[laneInfo[r.id]] = r })
-    const maxLane = Math.max(...active.map(r => laneInfo[r.id]))
-    const dow = date.day()   // 0 = อาทิตย์, 6 = เสาร์
-
-    const rows = []
-    for (let i = 0; i <= maxLane; i++) {
-      const r = byLane[i]
-      if (!r) { rows.push(<div key={i} style={{ height: 16 }} />); continue }   // spacer คงแถว
-      const isStart = ds === r.startISO
-      const isEnd = ds === r.endISO
-      const openLeft = isStart || dow === 0   // ต้นใบลา หรือ ต้นสัปดาห์
-      const openRight = isEnd || dow === 6   // ปลายใบลา หรือ ปลายสัปดาห์
-      rows.push(
-        <div
-          key={i}
-          style={{
-            backgroundColor: r.color,
-            height: 16,
-            lineHeight: '16px',
-            padding: '0 5px',
-            fontSize: 10,
-            color: '#fff',
-            overflow: 'hidden',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-            cursor: 'pointer',
-            // ลากบาร์ให้ชนขอบ cell เพื่อต่อกันข้ามวัน (เปิดด้านที่ยังลาต่อ)
-            marginLeft: openLeft ? 0 : -9,
-            marginRight: openRight ? 0 : -9,
-            borderTopLeftRadius: openLeft ? 3 : 0,
-            borderBottomLeftRadius: openLeft ? 3 : 0,
-            borderTopRightRadius: openRight ? 3 : 0,
-            borderBottomRightRadius: openRight ? 3 : 0,
-            outline: r.waitingOnMe ? '1px solid #fff' : undefined,
-          }}
-          onClick={(e) => { e.stopPropagation(); openDetail(r) }}
-          title={`${r.employeeName} — ${shortType(r.leaveType)} (${fmtThai(r.startISO)} – ${fmtThai(r.endISO)})`}
-        >
-          {openLeft ? r.shortName : ' '}
-        </div>
-      )
-    }
-    return <div className="flex flex-col gap-0.5 mt-0.5">{rows}</div>
+    const base = (r: LeaveApprovalRequest | LeaveCancelRequest, status: LeaveEvent['status']): LeaveEvent => ({
+      id: r.id, employee_name: r.employeeName,
+      leave_type_code: r.cal.typeCode, leave_type_name: r.leaveType,
+      start_date: r.startISO, end_date: r.endISO, total_days: r.totalDays,
+      is_half_day: r.cal.isHalfDay, half_day_period: r.cal.halfDayPeriod,
+      status, is_mine: false, reason: r.cal.reason,
+      waiting_for: status === 'APPROVED' ? null : waitingOf(r.approvalChain),
+      marked: r.waitingOnMe,
+    })
+    return [
+      ...requests.filter(r => r.cal.status === 'PENDING' || r.cal.status === 'APPROVED')
+        .map(r => base(r, r.cal.status as 'PENDING' | 'APPROVED')),
+      ...cancelRequests.map(r => base(r, 'CANCEL_PENDING')),
+    ]
+  }, [requests, cancelRequests])
+  const monthEvents = useMemo(() => {
+    const a = calMonth.startOf('month').format('YYYY-MM-DD')
+    const b = calMonth.endOf('month').format('YYYY-MM-DD')
+    return calEvents.filter(e => e.end_date >= a && e.start_date <= b)
+  }, [calEvents, calMonth])
+  const openEvent = (e: LeaveEvent) => {
+    const r = requests.find(x => x.id === e.id)
+    if (r) { openDetail(r); return }
+    const c = cancelRequests.find(x => x.id === e.id)
+    if (c) { setSelectedCancel(c); setCancelRejectMode(false); setCancelApproveComment('') }
   }
 
   // เพื่อนร่วมงานที่ลาทับช่วงเวลาเดียวกัน (ใช้ใน modal)
@@ -767,8 +806,18 @@ const LeaveApprovalContent = () => {
     },
   }
 
+  // ลำดับตามรายการที่กรองแล้ว — ต่อเนื่องข้ามหน้า
+  const noColumn = <T extends { id: string }>(list: T[]) => {
+    const no = new Map(list.map((r, i) => [r.id, i + 1]))
+    return {
+      title: 'ลำดับ', key: 'no', width: 60, align: 'center' as const,
+      render: (_: unknown, r: T) => <Text type="secondary">{no.get(r.id)}</Text>,
+    }
+  }
+
   // ─── Table columns: อนุมัติลา ───────────────────────────────────────────────
   const columns = [
+    noColumn(displayed),
     personColumn('ผู้ขอลา'),
     {
       title: 'ประเภท', dataIndex: 'leaveType', key: 'leaveType', width: 140,
@@ -785,22 +834,26 @@ const LeaveApprovalContent = () => {
     },
     chainColumn,
     {
-      title: 'จัดการ', key: 'action', align: 'center' as const, width: 110, fixed: 'right' as const,
+      title: 'จัดการ', key: 'action', align: 'center' as const, width: 140, fixed: 'right' as const,
       render: (_: unknown, record: LeaveApprovalRequest) => (
-        <Button
-          size="small"
-          type={record.waitingOnMe ? 'primary' : 'default'}
-          icon={<EyeOutlined />}
-          onClick={() => openDetail(record)}
-        >
-          {record.waitingOnMe ? 'พิจารณา' : 'ดู'}
-        </Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            type={record.waitingOnMe ? 'primary' : 'default'}
+            icon={<EyeOutlined />}
+            onClick={() => openDetail(record)}
+          >
+            {record.waitingOnMe ? 'พิจารณา' : 'ดู'}
+          </Button>
+          {printButton(record.id)}
+        </Space>
       ),
     },
   ]
 
   // ─── Table columns: ยกเลิกลา ────────────────────────────────────────────────
   const cancelColumns = [
+    noColumn(displayedCancels),
     personColumn('ผู้ขอยกเลิก'),
     {
       title: 'ใบลาที่ขอยกเลิก', key: 'ref', width: 190,
@@ -826,16 +879,19 @@ const LeaveApprovalContent = () => {
     },
     chainColumn,
     {
-      title: 'จัดการ', key: 'action', align: 'center' as const, width: 110, fixed: 'right' as const,
+      title: 'จัดการ', key: 'action', align: 'center' as const, width: 140, fixed: 'right' as const,
       render: (_: unknown, record: LeaveCancelRequest) => (
-        <Button
-          size="small"
-          type={record.waitingOnMe ? 'primary' : 'default'}
-          icon={<EyeOutlined />}
-          onClick={() => { setSelectedCancel(record); setCancelRejectMode(false); setCancelApproveComment('') }}
-        >
-          {record.waitingOnMe ? 'พิจารณา' : 'ดู'}
-        </Button>
+        <Space size={4}>
+          <Button
+            size="small"
+            type={record.waitingOnMe ? 'primary' : 'default'}
+            icon={<EyeOutlined />}
+            onClick={() => { setSelectedCancel(record); setCancelRejectMode(false); setCancelApproveComment('') }}
+          >
+            {record.waitingOnMe ? 'พิจารณา' : 'ดู'}
+          </Button>
+          {printButton(record.refLeaveId)}
+        </Space>
       ),
     },
   ]
@@ -916,8 +972,40 @@ const LeaveApprovalContent = () => {
           </Space>
         </div>
 
+        {isAdmin && (
+          <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+              <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ดูแบบหัวหน้า (ADMIN)</Text>
+              <Select
+                showSearch allowClear
+                className="w-full md:max-w-120"
+                placeholder="ดูของตัวเอง — หรือค้นหาชื่อหัวหน้า/หน่วยงาน เพื่อดูรายการแบบที่หัวหน้าคนนั้นเห็น"
+                options={staffOptions}
+                value={viewAs ?? undefined}
+                optionFilterProp="label"
+                onChange={(v?: number) => {
+                  setViewAs(v ?? null)
+                  setSelectedKeys([]); setSelectedCancelKeys([])
+                  setSelected(null); setSelectedCancel(null)
+                }}
+              />
+            </div>
+            {readOnly ? (
+              <Alert
+                style={{ marginTop: 10 }} type="warning" showIcon
+                title={`กำลังดูแบบ ${staffOptions.find(o => o.value === viewAs)?.label ?? `ผู้ใช้ #${viewAs}`}`}
+                description="โหมดตรวจสอบการมองเห็นเท่านั้น — ไม่มีสิทธิ์บันทึกอนุมัติ / ไม่อนุมัติ แทนหัวหน้า"
+              />
+            ) : (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ใช้ตรวจว่าหัวหน้าแต่ละคนเห็นใบลาใดบ้างตามสายอนุมัติ · อ่านอย่างเดียว ไม่สามารถกดอนุมัติแทนได้
+              </Text>
+            )}
+          </Card>
+        )}
+
         {/* ── หมวกที่ท่านถืออยู่ ─────────────────────────────────────────────── */}
-        {scopeTags.length > 0 && (
+        {!readOnly && scopeTags.length > 0 && (
           <Card style={{ marginBottom: 12 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
             <div className="flex flex-wrap items-center gap-2">
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -1004,10 +1092,10 @@ const LeaveApprovalContent = () => {
                 onChange={v => setFilterStatus(v as FilterKey)}
                 options={[
                   { value: 'mine', label: `รอท่านพิจารณา (${summary.mine})` },
-                  { value: 'inprogress', label: 'รอขั้นอื่น' },
-                  { value: 'approved', label: 'อนุมัติแล้ว' },
-                  { value: 'rejected', label: 'ไม่อนุมัติ' },
-                  { value: 'all', label: 'ทั้งหมด' },
+                  { value: 'inprogress', label: `รอขั้นอื่น (${summary.inprogress})` },
+                  { value: 'approved', label: `อนุมัติแล้ว (${summary.approved})` },
+                  { value: 'rejected', label: `ไม่อนุมัติ (${summary.rejected})` },
+                  { value: 'all', label: `ทั้งหมด (${requests.length})` },
                 ]}
               />
               <Input
@@ -1039,7 +1127,7 @@ const LeaveApprovalContent = () => {
               title={<span style={{ fontSize: 15, fontWeight: 600 }}>รายการใบลา</span>}
               extra={<Tag>{displayed.length} รายการ</Tag>}
             >
-              <BulkBar
+              {!readOnly && <BulkBar
                 count={selectedKeys.length}
                 selectable={displayed.filter(r => r.waitingOnMe).length}
                 acting={acting}
@@ -1047,12 +1135,12 @@ const LeaveApprovalContent = () => {
                 onSelectAll={() => setSelectedKeys(displayed.filter(r => r.waitingOnMe).map(r => r.id))}
                 onClear={() => setSelectedKeys([])}
                 onRun={confirmBulkApprove}
-              />
+              />}
               <Table
                 columns={columns}
                 dataSource={displayed}
                 rowKey="id"
-                rowSelection={{
+                rowSelection={readOnly ? undefined : {
                   selectedRowKeys: selectedKeys,
                   onChange: keys => setSelectedKeys(keys),
                   getCheckboxProps: r => ({ disabled: !r.waitingOnMe }),
@@ -1074,54 +1162,50 @@ const LeaveApprovalContent = () => {
 
           {/* ── CALENDAR VIEW ── */}
           {view === 'calendar' && (
-            <Row gutter={12}>
-              <Col xs={24} xl={18}>
-                <Card variant="borderless" className="rounded-xl shadow-sm overflow-hidden">
-                  <Calendar
-                    className="leave-cal"
-                    value={calMonth}
-                    onPanelChange={v => setCalMonth(v)}
-                    cellRender={cellRender}
-                    style={{ background: 'transparent' }}
-                  />
-                </Card>
-              </Col>
-
-              <Col xs={24} xl={6}>
-                <Card
-                  variant="borderless"
-                  className="rounded-xl shadow-sm"
-                  title={<span style={{ fontSize: 13 }}>ผู้ลาในเดือนนี้</span>}
-                >
-                  {(() => {
-                    const mStart = calMonth.startOf('month').format('YYYY-MM-DD')
-                    const mEnd = calMonth.endOf('month').format('YYYY-MM-DD')
-                    const inMonth = requests.filter(r => r.startISO <= mEnd && r.endISO >= mStart)
-                    if (inMonth.length === 0) return <Empty description="ไม่มีการลาในเดือนนี้" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                    return inMonth.map(r => (
+            <Card variant="borderless" className="rounded-xl shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-1">
+                  <Button size="small" icon={<LeftOutlined />} onClick={() => setCalMonth(calMonth.subtract(1, 'month'))} aria-label="เดือนก่อน" />
+                  <Text strong style={{ minWidth: 130, textAlign: 'center', fontSize: 15 }}>{th(calMonth).format('MMMM BBBB')}</Text>
+                  <Button size="small" icon={<RightOutlined />} onClick={() => setCalMonth(calMonth.add(1, 'month'))} aria-label="เดือนถัดไป" />
+                  <ThisMonthButton month={calMonth} onClick={() => setCalMonth(dayjs())} />
+                </div>
+                <LeaveLegend events={calEvents} holidays={holidays} markedLabel="รอท่านพิจารณา (มีกรอบขาว)" />
+              </div>
+              <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
+                แสดงใบลาที่ยังมีผลในสายอนุมัติของท่าน (รออนุมัติ / อนุมัติแล้ว / รออนุมัติยกเลิก) — กดที่แถบเพื่อพิจารณาหรือดูรายละเอียด
+              </Text>
+              {narrow ? (
+                monthEvents.length === 0 ? <Empty description="ไม่มีการลาในเดือนนี้" /> : (
+                  <div className="flex flex-col">
+                    {monthEvents.map((e, i) => (
                       <div
-                        key={r.id}
-                        className="flex items-start gap-2 mb-3 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => openDetail(r)}
+                        key={e.id} className="flex items-start gap-2 cursor-pointer"
+                        style={{ padding: '8px 0', borderTop: i ? '1px solid var(--app-border-strong)' : 'none' }}
+                        onClick={() => openEvent(e)}
                       >
-                        <span style={{ width: 12, height: 12, borderRadius: 2, backgroundColor: r.color, flexShrink: 0, marginTop: 3 }} />
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{r.employeeName}</div>
-                          <div style={{ fontSize: 11, color: 'var(--app-text-2)' }}>
-                            {shortType(r.leaveType)} · {fmtThai(r.startISO)}–{fmtThai(r.endISO)}
+                        <span style={{ width: 4, alignSelf: 'stretch', borderRadius: 2, background: colorOf(e), opacity: e.status === 'APPROVED' ? 1 : 0.55, flexShrink: 0 }} />
+                        <div style={{ minWidth: 0 }}>
+                          <span className="flex items-center gap-1.5">
+                            <StatusIcon status={e.status} />
+                            <Text strong>{e.employee_name}</Text>
+                            {e.marked && <Tag color="warning" style={{ marginInlineEnd: 0 }}>รอท่านพิจารณา</Tag>}
+                          </span>
+                          <div>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {e.leave_type_name ?? 'ลา'} · {fmtDay(e.start_date)}{e.end_date !== e.start_date ? ` – ${fmtDay(e.end_date)}` : ''} · {STATUS_LABEL[e.status]}
+                            </Text>
                           </div>
-                          <div style={{ marginTop: 2 }}>
-                            {r.waitingOnMe
-                              ? <Tag color="warning" style={{ marginInlineEnd: 0 }}>รอท่านพิจารณา</Tag>
-                              : overallTag(getOverall(r.approvalChain))}
-                          </div>
+                          {e.waiting_for && <div><Text style={{ fontSize: 12, color: '#d97706' }}>{waitingText(e)}</Text></div>}
                         </div>
                       </div>
-                    ))
-                  })()}
-                </Card>
-              </Col>
-            </Row>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <LeaveMonthGrid month={calMonth.startOf('month')} events={calEvents} holidays={holidays} onEventClick={openEvent} />
+              )}
+            </Card>
           )}
         </>}
 
@@ -1149,7 +1233,7 @@ const LeaveApprovalContent = () => {
               title={<span style={{ fontSize: 15, fontWeight: 600 }}>คำขอยกเลิกการลา</span>}
               extra={<Tag>{displayedCancels.length} รายการ</Tag>}
             >
-              <BulkBar
+              {!readOnly && <BulkBar
                 count={selectedCancelKeys.length}
                 selectable={displayedCancels.filter(r => r.waitingOnMe).length}
                 acting={acting}
@@ -1157,12 +1241,12 @@ const LeaveApprovalContent = () => {
                 onSelectAll={() => setSelectedCancelKeys(displayedCancels.filter(r => r.waitingOnMe).map(r => r.id))}
                 onClear={() => setSelectedCancelKeys([])}
                 onRun={confirmBulkCancelApprove}
-              />
+              />}
               <Table
                 columns={cancelColumns}
                 dataSource={displayedCancels}
                 rowKey="id"
-                rowSelection={{
+                rowSelection={readOnly ? undefined : {
                   selectedRowKeys: selectedCancelKeys,
                   onChange: keys => setSelectedCancelKeys(keys),
                   getCheckboxProps: r => ({ disabled: !r.waitingOnMe }),
@@ -1184,9 +1268,33 @@ const LeaveApprovalContent = () => {
         )}
       </div>
 
+      {/* ─── Modal แบบใบลา (PDF) — เปิดซ้อนบน Modal พิจารณาได้ ─── */}
+      <Modal
+        title={<span><PrinterOutlined className="mr-2" />แบบใบลา — {printing?.id}</span>}
+        open={!!printing?.data}
+        onCancel={() => setPrinting(null)}
+        width="92vw"
+        style={{ top: 16 }}
+        styles={{ body: { height: '80vh', padding: 0 } }}
+        zIndex={1100}
+        footer={null}
+        destroyOnHidden
+      >
+        {printing?.data ? <LeaveFormPDF data={printing.data} /> : <Spin />}
+      </Modal>
+
       {/* ─── Modal พิจารณา (อนุมัติลา) ─── */}
       <Modal
-        title={<span><AuditOutlined className="mr-2" />พิจารณาใบลา: {selected?.id}</span>}
+        title={
+          <div className="flex items-center gap-3 pr-8">
+            <span><AuditOutlined className="mr-2" />พิจารณาใบลา: {selected?.id}</span>
+            {selected && (
+              <Button size="small" icon={<PrinterOutlined />} loading={printing?.id === selected.id && !printing.data} onClick={() => openPrint(selected.id)}>
+                ดูแบบใบลา
+              </Button>
+            )}
+          </div>
+        }
         open={!!selected}
         onCancel={() => { setSelected(null); setRejectMode(false) }}
         width="80%"
@@ -1197,7 +1305,7 @@ const LeaveApprovalContent = () => {
           const step = getCurrentStep(selected.approvalChain)
           const pendingIdx = selected.approvalChain.findIndex(s => s.status === 'pending')
           // กดได้เฉพาะเมื่อขั้นที่ค้างอยู่เป็นขั้นของเราเอง — ขั้นของคนอื่นดูได้อย่างเดียว
-          const canAct = selected.waitingOnMe && pendingIdx !== -1
+          const canAct = selected.waitingOnMe && pendingIdx !== -1 && !readOnly
           const overlapping = getOverlapping(selected)
 
           return (
@@ -1421,7 +1529,16 @@ const LeaveApprovalContent = () => {
 
       {/* ─── Modal พิจารณา (ยกเลิกลา) ─── */}
       <Modal
-        title={<span><RollbackOutlined className="mr-2" />พิจารณายกเลิกลา: {selectedCancel?.id}</span>}
+        title={
+          <div className="flex items-center gap-3 pr-8">
+            <span><RollbackOutlined className="mr-2" />พิจารณายกเลิกลา: {selectedCancel?.id}</span>
+            {selectedCancel && (
+              <Button size="small" icon={<PrinterOutlined />} loading={printing?.id === selectedCancel.refLeaveId && !printing.data} onClick={() => openPrint(selectedCancel.refLeaveId)}>
+                ดูแบบใบลา
+              </Button>
+            )}
+          </div>
+        }
         open={!!selectedCancel}
         onCancel={() => { setSelectedCancel(null); setCancelRejectMode(false) }}
         width="60%"
@@ -1431,7 +1548,7 @@ const LeaveApprovalContent = () => {
           const overall = getOverall(selectedCancel.approvalChain)
           const step = getCurrentStep(selectedCancel.approvalChain)
           const pendingIdx = selectedCancel.approvalChain.findIndex(s => s.status === 'pending')
-          const canAct = selectedCancel.waitingOnMe && pendingIdx !== -1
+          const canAct = selectedCancel.waitingOnMe && pendingIdx !== -1 && !readOnly
 
           return (
             <div className="mt-4">
@@ -1546,9 +1663,36 @@ const LeaveApprovalContent = () => {
   )
 }
 
+/**
+ * สีแท็บ (อนุมัติลา / ยกเลิกลา) และปุ่มกรอง (Segmented) ให้อ่านชัดทั้งสองโหมด
+ * ค่าตั้งต้นของ antd: แท็บที่ไม่ได้เลือกกลืนกับพื้น และตัวอักษรขาวบนเขียวสว่าง (#10b981) คอนทราสต์ต่ำ
+ * ใช้เขียวเข้ม #047857 เป็นพื้นของตัวที่เลือก (ตัวอักษรขาว ~5.5:1) · ตัวที่ไม่ได้เลือกใช้สีข้อความหลักโทนเทา
+ */
+const TabColors = ({ children }: { children: React.ReactNode }) => {
+  const dark = useThemeMode().mode === 'dark'
+  return (
+    <ConfigProvider
+      theme={{
+        components: {
+          Tabs: dark
+            ? { cardBg: '#0f172a', itemColor: '#cbd5e1', itemHoverColor: '#ffffff', itemSelectedColor: '#6ee7b7', itemActiveColor: '#6ee7b7', inkBarColor: '#6ee7b7' }
+            : { cardBg: '#e2e8f0', itemColor: '#334155', itemHoverColor: '#0f172a', itemSelectedColor: '#047857', itemActiveColor: '#047857', inkBarColor: '#047857' },
+          Segmented: dark
+            ? { trackBg: '#0f172a', itemColor: '#cbd5e1', itemHoverColor: '#ffffff', itemHoverBg: 'rgba(255,255,255,0.08)', itemSelectedBg: '#047857', itemSelectedColor: '#ffffff', itemActiveBg: 'rgba(255,255,255,0.12)' }
+            : { trackBg: '#e2e8f0', itemColor: '#334155', itemHoverColor: '#0f172a', itemHoverBg: 'rgba(15,23,42,0.06)', itemSelectedBg: '#047857', itemSelectedColor: '#ffffff', itemActiveBg: 'rgba(15,23,42,0.1)' },
+        },
+      }}
+    >
+      {children}
+    </ConfigProvider>
+  )
+}
+
 const LeaveApprovalPage = () => (
   <AppThemeProvider colorPrimary="#10b981">
-    <LeaveApprovalContent />
+    <TabColors>
+      <LeaveApprovalContent />
+    </TabColors>
   </AppThemeProvider>
 )
 

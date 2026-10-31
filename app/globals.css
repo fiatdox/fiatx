@@ -124,19 +124,6 @@ body {
 .home-arrow-prev { left: 16px; }
 .home-arrow-next { right: 16px; }
 
-/* ปฏิทินวันลา: ให้บาร์ใบลาต่อเนื่อง "ลากยาว" ข้ามวันได้ (ไม่ถูก cell ตัดขอบ) */
-/* ปฏิทินการลา: ให้แถบ/กล่องใบลาลากยาวทับข้ามช่องวันได้ — antd ตั้ง overflow:auto + ความสูงตายตัวไว้ด้วย selector
-   ที่เฉพาะเจาะจงกว่า (เกิดแถบเลื่อนและตัดกล่องที่ขอบช่อง) จึงต้อง !important · ความสูงขั้นต่ำเท่าเดิม ยืดได้เมื่อมีหลายใบ */
-.leave-cal .ant-picker-calendar-date-content {
-  overflow: visible !important;
-  height: auto !important;
-  min-height: 86px;
-}
-.leave-cal .ant-picker-calendar-date {
-  padding-left: 6px;
-  padding-right: 6px;
-}
-
 /* ใบลาที่รอผู้ใช้คนนี้กด — ขีดสีส้มด้านซ้ายให้หาเจอในตารางยาว ๆ */
 .leave-row-mine > td:first-child {
   box-shadow: inset 3px 0 0 0 #f59e0b;
