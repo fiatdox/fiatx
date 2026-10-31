@@ -9,10 +9,10 @@ import {
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { UploadProps } from 'antd'
 import {
-  HomeOutlined, UserOutlined, IdcardOutlined, BankOutlined, PhoneOutlined,
-  MailOutlined, SafetyCertificateOutlined, BellOutlined, EnvironmentOutlined,
+  HomeOutlined, UserOutlined, IdcardOutlined, BankOutlined,
+  SafetyCertificateOutlined, BellOutlined, EnvironmentOutlined,
   EditOutlined, SaveOutlined, ReloadOutlined, CameraOutlined, InfoCircleOutlined,
-  CheckCircleFilled, ContactsOutlined, NumberOutlined, SolutionOutlined,
+  CheckCircleFilled, NumberOutlined, SolutionOutlined,
   CalendarOutlined, GlobalOutlined, ApartmentOutlined, ClockCircleOutlined
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
@@ -55,8 +55,6 @@ interface PayrollProfile {
 const SettingsContent = () => {
   const [profileForm] = Form.useForm()
   const [codesForm] = Form.useForm()
-  const [contactForm] = Form.useForm()
-  const [emergencyForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('profile')
 
@@ -167,26 +165,12 @@ const SettingsContent = () => {
 
   // ตัวอย่างค่าเริ่มต้น
   const initialProfile = {
-    nickname: 'ชาย',
     gender: 'male',
     birthdate: dayjs('1990-08-15'),
     nationality: 'ไทย',
     religion: 'พุทธ',
     maritalStatus: 'single',
     bloodType: 'O',
-  }
-  const initialContact = {
-    email: 'somchai.j@hospital.go.th',
-    mobile: '081-234-5678',
-    phone: '02-123-4567 ต่อ 2410',
-    address: '123/45 ถ.ราชวิถี แขวงทุ่งพญาไท เขตราชเทวี กรุงเทพฯ 10400',
-    line: 'somchai_jd',
-  }
-  const initialEmergency = {
-    contactName: 'นางสุดา ใจดี',
-    contactRelation: 'มารดา',
-    contactPhone: '081-987-6543',
-    contactAddress: 'ที่อยู่เดียวกับเจ้าหน้าที่',
   }
 
   const [notify, setNotify] = useState({
@@ -351,11 +335,6 @@ const SettingsContent = () => {
                       onFinish={() => handleSave('ข้อมูลส่วนตัว')}
                     >
                       <Row gutter={[16, 0]}>
-                        <Col xs={24} sm={12} md={8}>
-                          <Form.Item label="ชื่อเล่น" name="nickname">
-                            <Input placeholder="ชื่อเล่น" prefix={<UserOutlined className="text-app-text-3" />} />
-                          </Form.Item>
-                        </Col>
                         <Col xs={24} sm={12} md={8}>
                           <Form.Item label="เพศ" name="gender">
                             <Select
@@ -525,127 +504,6 @@ const SettingsContent = () => {
                       </Button>
                       <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
                         บันทึกรหัสประจำตัว
-                      </Button>
-                    </div>
-                  </Form>
-                ),
-              },
-              {
-                key: 'contact',
-                label: <Space><ContactsOutlined />ข้อมูลติดต่อ</Space>,
-                children: (
-                  <Form
-                    form={contactForm}
-                    layout="vertical"
-                    initialValues={initialContact}
-                    onFinish={() => handleSave('ข้อมูลติดต่อ')}
-                  >
-                    <Row gutter={[16, 0]}>
-                      <Col xs={24} sm={12}>
-                        <Form.Item
-                          label="อีเมล"
-                          name="email"
-                          rules={[{ type: 'email', message: 'รูปแบบอีเมลไม่ถูกต้อง' }]}
-                        >
-                          <Input prefix={<MailOutlined className="text-app-text-3" />} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12}>
-                        <Form.Item
-                          label="เบอร์มือถือ"
-                          name="mobile"
-                          rules={[{ required: true, message: 'กรุณากรอกเบอร์มือถือ' }]}
-                        >
-                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12}>
-                        <Form.Item label="โทรศัพท์ภายใน" name="phone">
-                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12}>
-                        <Form.Item label="LINE ID" name="line">
-                          <Input />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24}>
-                        <Form.Item label="ที่อยู่ปัจจุบัน" name="address">
-                          <Input.TextArea
-                            rows={3}
-                            placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์"
-                          />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
-
-                    <div className="flex justify-end gap-2">
-                      <Button icon={<ReloadOutlined />} onClick={() => contactForm.resetFields()}>
-                        คืนค่าเดิม
-                      </Button>
-                      <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
-                        บันทึกข้อมูลติดต่อ
-                      </Button>
-                    </div>
-                  </Form>
-                ),
-              },
-              {
-                key: 'emergency',
-                label: <Space><SafetyCertificateOutlined />ผู้ติดต่อฉุกเฉิน</Space>,
-                children: (
-                  <Form
-                    form={emergencyForm}
-                    layout="vertical"
-                    initialValues={initialEmergency}
-                    onFinish={() => handleSave('ผู้ติดต่อฉุกเฉิน')}
-                  >
-                    <Row gutter={[16, 0]}>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item
-                          label="ชื่อ-นามสกุล"
-                          name="contactName"
-                          rules={[{ required: true, message: 'กรุณากรอกชื่อ' }]}
-                        >
-                          <Input prefix={<UserOutlined className="text-app-text-3" />} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item label="ความสัมพันธ์" name="contactRelation">
-                          <Select
-                            options={['บิดา', 'มารดา', 'คู่สมรส', 'พี่/น้อง', 'บุตร', 'ญาติ', 'อื่นๆ'].map(v => ({ value: v, label: v }))}
-                          />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24} sm={12} md={8}>
-                        <Form.Item
-                          label="เบอร์ติดต่อ"
-                          name="contactPhone"
-                          rules={[{ required: true, message: 'กรุณากรอกเบอร์โทร' }]}
-                        >
-                          <Input prefix={<PhoneOutlined className="text-app-text-3" />} />
-                        </Form.Item>
-                      </Col>
-                      <Col xs={24}>
-                        <Form.Item
-                          label={<span><EnvironmentOutlined /> ที่อยู่</span>}
-                          name="contactAddress"
-                        >
-                          <Input.TextArea rows={2} />
-                        </Form.Item>
-                      </Col>
-                    </Row>
-
-                    <Divider style={{ borderColor: 'var(--app-surface)' }} />
-
-                    <div className="flex justify-end gap-2">
-                      <Button icon={<ReloadOutlined />} onClick={() => emergencyForm.resetFields()}>
-                        คืนค่าเดิม
-                      </Button>
-                      <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
-                        บันทึกผู้ติดต่อฉุกเฉิน
                       </Button>
                     </div>
                   </Form>
