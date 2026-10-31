@@ -1,0 +1,6 @@
+/* ลำดับ layer ของทั้งระบบ — ต้องโหลดก่อน globals.css (ดู app/layout.tsx)
+   antd อยู่ใต้ utilities ของ Tailwind: className อย่าง mb-4 / mt-3 / p-0 บนคอมโพเนนต์ antd จึงมีผล
+   (เดิมสไตล์ antd ไม่อยู่ใน layer เลยชนะ utilities เสมอ: margin ถูก reset เป็น 0 กล่องติดกันทั้งระบบ)
+   คู่กับ <StyleProvider layer> ใน ThemeModeProvider
+   แยกไฟล์เพราะถ้าเขียนไว้ใน globals.css ตัวประมวลผลของ Tailwind ตัดบรรทัดนี้ทิ้ง (layer antd ไม่มีกฎในไฟล์นั้น) */
+@layer theme, base, antd, components, utilities;

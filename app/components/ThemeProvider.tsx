@@ -1,6 +1,7 @@
 'use client'
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { ConfigProvider, theme, App } from 'antd'
+import { StyleProvider } from '@ant-design/cssinjs'
 
 export type ThemeMode = 'light' | 'dark'
 
@@ -58,7 +59,8 @@ export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   return (
     <ThemeModeContext.Provider value={{ mode, setMode: applyMode, toggle }}>
-      {children}
+      {/* สไตล์ antd ทั้งระบบอยู่ใน @layer antd — ให้ Tailwind utilities ทับได้ (ลำดับ layer อยู่ใน globals.css) */}
+      <StyleProvider layer>{children}</StyleProvider>
     </ThemeModeContext.Provider>
   )
 }

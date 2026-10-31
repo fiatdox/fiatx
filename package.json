@@ -1,6 +1,6 @@
 {
   "name": "fiatx",
-  "version": "0.1.60",
+  "version": "0.1.61",
   "private": true,
   "scripts": {
     "dev": "next dev --port=5555",
@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^2.1.2",
     "@react-pdf/pdfkit": "^5.0.0",
     "@react-pdf/renderer": "^4.4.1",
     "@svar-ui/react-gantt": "^2.6.1",

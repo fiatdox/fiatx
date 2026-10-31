@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Sarabun } from "next/font/google";
+import "./layers.css";
 import "./globals.css";
 import { ThemeModeProvider } from "./components/ThemeProvider";
 import BasePathShim from "./components/BasePathShim";
