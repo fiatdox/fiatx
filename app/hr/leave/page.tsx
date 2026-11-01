@@ -2,18 +2,19 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
-import { Card, Typography, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge, Progress } from 'antd'
+import { Card, Typography, Button, Space, Empty, Tag, Skeleton, Row, Col, Badge, Progress, Select, Alert, Table, Tooltip } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, LinkOutlined, PushpinFilled, NotificationOutlined,
   FolderOpenOutlined, FormOutlined, HistoryOutlined, AuditOutlined, RightOutlined, TeamOutlined, CalendarOutlined,
-  FileSearchOutlined, DashboardOutlined,
+  FileSearchOutlined, DashboardOutlined, UserSwitchOutlined, CheckCircleFilled, MinusCircleOutlined, WarningFilled,
+  ScheduleOutlined, SafetyCertificateOutlined, SettingOutlined, CloudDownloadOutlined, ToolOutlined, CloudSyncOutlined,
 } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import HrPopup from '@/app/components/HrPopup'
-import { normalizeRoles } from '@/app/lib/menuAccess'
+import { normalizeRoles, MENU_ROLE_REQUIREMENTS, canSeeMenu } from '@/app/lib/menuAccess'
 import LeaveHeader from './LeaveHeader'
 import {
   type HrPost, KIND_LABEL, NO_CATEGORY, categoryRank, fileIcon, fileUrl, fmtDate, fmtSize, isImage,
@@ -27,6 +28,17 @@ const QUICK_LINKS: QuickLink[] = [
   { href: '/hr/leave/new', icon: <FormOutlined />, label: 'ยื่นคำขอลา', desc: 'ยื่นใบลาใหม่ ตรวจสิทธิ์วันลาคงเหลือ', color: '#10b981' },
   { href: '/hr/leave/history', icon: <HistoryOutlined />, label: 'ประวัติการลาของฉัน', desc: 'ใบลาทั้งหมด ติดตามสถานะการอนุมัติ', color: '#3b82f6' },
   { href: '/hr/leave/calendar', icon: <CalendarOutlined />, label: 'ปฏิทินการลา', desc: 'ดูว่าใครลาวันไหน ตามสิทธิ์ของตน', color: '#0d9488' },
+]
+
+// เครื่องมือของงานทรัพยากรบุคคล — การ์ดแสดงตามสิทธิ์ใน MENU_ROLE_REQUIREMENTS (กติกาเดียวกับ Navbar และ proxy.ts)
+const HR_TOOL_LINKS: QuickLink[] = [
+  { href: '/hr/leave/day-check', icon: <ScheduleOutlined />, label: 'ตรวจวันลา / วันหยุด', desc: 'ตรวจจำนวนวันลาหลังอนุมัติ และวันหยุดราชการ', color: '#0ea5e9' },
+  { href: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', desc: 'ยอดยกมาลาพักผ่อน และยกยอดปีงบประมาณ', color: '#14b8a6' },
+  { href: '/hr/leave/balance-audit', icon: <SafetyCertificateOutlined />, label: 'ตรวจแก้วันลาสะสม', desc: 'หายอดวันลาที่ผิด แก้ไขพร้อมเก็บประวัติ', color: '#047857' },
+  { href: '/hr/leave/balance-transfer', icon: <CloudSyncOutlined />, label: 'ตรวจสอบการโอนยอดสะสม', desc: 'ใครยังไม่ได้โอนยอด แยกตามประเภทบุคลากร', color: '#0e7490' },
+  { href: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา', desc: 'ประเภทการลา และสิทธิ์ตามประเภทบุคลากร', color: '#f59e0b' },
+  { href: '/hr/leave/posts', icon: <NotificationOutlined />, label: 'ข่าว / เอกสารงาน HR', desc: 'ประกาศข่าว แบบฟอร์ม และป๊อปอัป', color: '#10b981' },
+  { href: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม', desc: 'นำเข้าประวัติการลาและวันเริ่มงาน', color: '#64748b' },
 ]
 
 // ── สรุปวันลาปีงบปัจจุบันของฉัน ─────────────────────────────────────────────
@@ -50,16 +62,20 @@ const OVERVIEW_META: Record<string, { label: string; icon: React.ReactNode; colo
 }
 const fmtDays = (n: number) => Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 1 })
 
-const LeaveOverviewCards = () => {
-  const [data, setData] = useState<{ fiscal_year: number; types: OverviewType[] } | null>(null)
+type OverviewData = { fiscal_year: number; types: OverviewType[] }
+
+/** override = ข้อมูลของบุคลากรที่ ADMIN เลือกดูแทน (ไม่ส่ง = ของผู้ login) */
+const LeaveOverviewCards = ({ override }: { override?: OverviewData | null }) => {
+  const [own, setOwn] = useState<OverviewData | null>(null)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     fetch('/api/v1/hr/leave-requests/overview')
       .then(r => r.json())
-      .then(j => { if (j?.success) setData(j.data); else setFailed(true) })
+      .then(j => { if (j?.success) setOwn(j.data); else setFailed(true) })
       .catch(() => setFailed(true))
   }, [])
-  if (failed) return null
+  const data = override !== undefined ? override : own
+  if (override === undefined && failed) return null
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -125,6 +141,71 @@ const LeaveOverviewCards = () => {
   )
 }
 
+// ── ADMIN ดูแบบเจ้าหน้าที่ (view as) ─────────────────────────────────────────────
+interface ApproverScope { id: number; name: string; is_primary: boolean }
+interface ApproverInfo { is_approver: boolean; is_director: boolean; is_admin: boolean; missions: ApproverScope[]; majors: ApproverScope[]; submajors: ApproverScope[] }
+interface AccessPreview {
+  user: { id: number; name: string; is_active: boolean }
+  roles: string[]
+  approver: ApproverInfo | null
+  pending_approvals: number
+  mine: { total: number; pending: number }
+  overview: OverviewData | null
+}
+
+const HR_ROLES = ['ADMIN', 'HR']
+/** หน้าในระบบการลาทั้งหมด — ที่มา: card = การ์ดในหน้านี้ · menu = เมนูใน Navbar (menuAccess) */
+const LEAVE_PAGES: { href: string; label: string; where: 'card' | 'menu' }[] = [
+  { href: '/hr/leave/new', label: 'ยื่นคำขอลา', where: 'card' },
+  { href: '/hr/leave/history', label: 'ประวัติการลาของฉัน', where: 'card' },
+  { href: '/hr/leave/calendar', label: 'ปฏิทินการลา', where: 'card' },
+  { href: '/hr/leave/status', label: 'สถิติการลา', where: 'card' },
+  { href: '/hr/leave/approval', label: 'อนุมัติการลา', where: 'card' },
+  { href: '/hr/leave/staff-history', label: 'ประวัติการลาเจ้าหน้าที่', where: 'card' },
+  { href: '/hr/leave/dashboard', label: 'Dashboard วิเคราะห์การลา', where: 'card' },
+  { href: '/hr/leave/day-check', label: 'ตรวจวันลา / วันหยุด', where: 'card' },
+  { href: '/hr/leave/balance', label: 'วันลาสะสม', where: 'card' },
+  { href: '/hr/leave/balance-audit', label: 'ตรวจแก้วันลาสะสม', where: 'card' },
+  { href: '/hr/leave/balance-transfer', label: 'ตรวจสอบการโอนยอดวันลาสะสม', where: 'card' },
+  { href: '/hr/leave/policy', label: 'กำหนดสิทธิ์การลา', where: 'card' },
+  { href: '/hr/leave/posts', label: 'ข่าว / เอกสารงาน HR', where: 'card' },
+  { href: '/hr/leave/legacy-import', label: 'โอนข้อมูลโปรแกรมเดิม', where: 'card' },
+]
+
+/** หัวหน้า/รักษาการ/ผอ. ที่บุคคลนี้ถืออยู่ — ข้อความสั้นสำหรับบอกที่มาของสิทธิ์ */
+const headTitles = (a: ApproverInfo | null) => !a ? [] : [
+  ...(a.is_director ? ['ผู้อำนวยการ'] : []),
+  ...a.missions.map(x => `${x.is_primary ? 'หัวหน้า' : 'รักษาการหัวหน้า'}กลุ่มภารกิจ${x.name}`),
+  ...a.majors.map(x => `${x.is_primary ? 'หัวหน้า' : 'รักษาการหัวหน้า'}${x.name}`),
+  ...a.submajors.map(x => `${x.is_primary ? 'หัวหน้า' : 'รักษาการหัวหน้า'}${x.name}`),
+]
+
+/**
+ * ใครเห็นหน้าไหน เพราะอะไร — ตรรกะเดียวกับการ์ดในหน้านี้ + MENU_ROLE_REQUIREMENTS (Navbar / proxy)
+ * via 'role' = ได้จาก role ในระบบ (ควรตรวจว่าตรงกับหน้าที่จริงไหม) · 'head' = ได้จากการแต่งตั้งในผัง · 'all' = ทุกคน
+ */
+const accessOf = (href: string, roles: string[], approver: ApproverInfo | null): { ok: boolean; via: 'all' | 'role' | 'head' | null; reason: string } => {
+  const hrRoles = roles.filter(r => HR_ROLES.includes(r))
+  const heads = headTitles(approver)
+  const isHead = heads.length > 0
+  if (href === '/hr/leave/status') {
+    if (hrRoles.length) return { ok: true, via: 'role', reason: `role ${hrRoles.join(', ')} — เห็นทั้งองค์กร` }
+    if (isHead) return { ok: true, via: 'head', reason: `${heads.join(' · ')} — เห็นหน่วยที่ดูแล` }
+    return { ok: false, via: null, reason: 'ไม่ใช่หัวหน้า และไม่มี role ADMIN / HR' }
+  }
+  if (href === '/hr/leave/approval') {
+    if (isHead) return { ok: true, via: 'head', reason: heads.join(' · ') }
+    if (roles.includes('ADMIN')) return { ok: true, via: 'role', reason: 'role ADMIN (ไม่ได้เป็นหัวหน้าในผัง)' }
+    return { ok: false, via: null, reason: 'ไม่ได้เป็นหัวหน้า/รักษาการ/ผอ.' }
+  }
+  const need = MENU_ROLE_REQUIREMENTS[href] ?? (href === '/hr/leave/staff-history' || href === '/hr/leave/dashboard' ? HR_ROLES : null)
+  if (!need) return { ok: true, via: 'all', reason: 'บุคลากรทุกคน' }
+  const got = roles.filter(r => need.includes(r))
+  return got.length
+    ? { ok: true, via: 'role', reason: `role ${got.join(', ')}` }
+    : { ok: false, via: null, reason: `ต้องมี role ${need.join(' / ')}` }
+}
+
 // หน้าอ่านอย่างเดียว — เพิ่ม/แก้ไขอยู่ที่ /hr/leave/posts (เฉพาะ ADMIN / HR)
 const HrLeaveHomeContent = () => {
   const [posts, setPosts] = useState<HrPost[]>([])
@@ -183,31 +264,122 @@ const HrLeaveHomeContent = () => {
     : l)
 
   // ADMIN / HR — เห็นการ์ดสถิติการลาทั้งองค์กรและประวัติการลาเจ้าหน้าที่ (backend ตรวจสิทธิ์ซ้ำ)
-  const [isHr, setIsHr] = useState(false)
+  const [myRoles, setMyRoles] = useState<string[]>([])
   useEffect(() => {
-    let hr = false
-    try {
-      hr = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).some(r => r === 'ADMIN' || r === 'HR')
-    } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
-    void Promise.resolve().then(() => setIsHr(hr))
+    let roles: string[] = []
+    try { roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles) } catch { /* cookie เสีย = ผู้ใช้ทั่วไป */ }
+    void Promise.resolve().then(() => setMyRoles(roles))
   }, [])
+  const isHr = myRoles.some(r => r === 'ADMIN' || r === 'HR')
+
+  // จำนวนยอดวันลาสะสมที่ต้องตรวจ (ปีงบปัจจุบัน) — แสดงบนการ์ดตรวจแก้วันลาสะสม
+  const [balanceFlagged, setBalanceFlagged] = useState<number | null>(null)
+  useEffect(() => {
+    if (!canSeeMenu('/hr/leave/balance-audit', myRoles, null)) return
+    let alive = true
+    fetch('/api/v1/hr/leave-balances/audit?summary=1')
+      .then(r => r.json())
+      .then(j => { if (alive && j?.success) setBalanceFlagged(Number(j.data.flagged) || 0) })
+      .catch(() => { /* ไม่มีตัวเลขก็แสดงการ์ดตามปกติ */ })
+    return () => { alive = false }
+  }, [myRoles])
+
+  // จำนวนบุคลากรที่ยังไม่ได้โอนยอดสะสม และมีสิทธิ์สะสม (ปีงบปัจจุบัน) — แสดงบนการ์ดตรวจสอบการโอนยอด
+  const [transferMissing, setTransferMissing] = useState<number | null>(null)
+  useEffect(() => {
+    if (!canSeeMenu('/hr/leave/balance-transfer', myRoles, null)) return
+    let alive = true
+    fetch('/api/v1/hr/leave-balances/transfer-status?summary=1')
+      .then(r => r.json())
+      .then(j => { if (alive && j?.success) setTransferMissing(Number(j.data.missing_with_right) || 0) })
+      .catch(() => { /* ไม่มีตัวเลขก็แสดงการ์ดตามปกติ */ })
+    return () => { alive = false }
+  }, [myRoles])
+
+  // ── ADMIN: ดูแบบเจ้าหน้าที่ — การ์ด/สรุปวันลา/หัวการ์ดข้อมูลการทำงาน เป็นของคนที่เลือก + ตารางตรวจสิทธิ์ ──
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [staffOptions, setStaffOptions] = useState<{ value: number; label: string }[]>([])
+  const [viewAs, setViewAs] = useState<number | null>(null)
+  const [preview, setPreview] = useState<AccessPreview | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+  useEffect(() => {
+    let admin = false
+    try { admin = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).includes('ADMIN') } catch { /* cookie เสีย */ }
+    if (!admin) return
+    void Promise.resolve().then(() => setIsAdmin(true))
+    fetch('/api/v1/users')
+      .then(r => r.json())
+      .then(j => {
+        if (!j?.success || !Array.isArray(j.data)) return
+        setStaffOptions(j.data
+          .filter((u: { is_active?: string }) => u.is_active !== 'N')
+          .map((u: { id: number; pname?: string; fname?: string; lname?: string; position_name?: string }) => ({
+            value: Number(u.id),
+            label: `${u.pname ?? ''}${u.fname ?? ''} ${u.lname ?? ''}`.trim() + (u.position_name ? ` · ${u.position_name}` : ''),
+          })))
+      })
+      .catch(() => { /* ไม่มีรายชื่อ = ใช้โหมดนี้ไม่ได้ */ })
+  }, [])
+  useEffect(() => {
+    if (!viewAs) return
+    let alive = true
+    fetch(`/api/v1/hr/leave-access-preview?user_id=${viewAs}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive) return
+        if (j?.success) { setPreview(j.data); setPreviewError(null) } else { setPreview(null); setPreviewError(j?.message ?? 'โหลดข้อมูลไม่สำเร็จ') }
+      })
+      .catch(() => { if (alive) { setPreview(null); setPreviewError('โหลดข้อมูลไม่สำเร็จ') } })
+    return () => { alive = false }
+  }, [viewAs])
+  const viewing = viewAs != null
+  const pv = viewing && preview?.user.id === viewAs ? preview : null
+
+  // ค่าที่ใช้ตัดสินการ์ด — โหมดดูแทนใช้ของคนที่เลือก
+  const effIsHr = viewing ? !!pv?.roles.some(r => HR_ROLES.includes(r)) : isHr
+  const effApprover = viewing ? (pv?.approver?.is_approver ? { pending: pv.pending_approvals } : null) : approver
+  const effBaseLinks: QuickLink[] = viewing
+    ? QUICK_LINKS.map(l => l.href === '/hr/leave/history' && pv
+      ? {
+          ...l, badge: pv.mine.total, badgeColor: l.color, highlight: pv.mine.pending > 0,
+          desc: pv.mine.total ? `ใบลาทั้งหมด ${pv.mine.total} ใบ${pv.mine.pending ? ` · รออนุมัติ ${pv.mine.pending} ใบ` : ''}` : 'ยังไม่มีใบลา',
+        }
+      : l)
+    : baseLinks
+  const accessRows = pv ? LEAVE_PAGES.map(p => ({ ...p, ...accessOf(p.href, pv.roles, pv.approver) })) : []
+
+  // การ์ดเครื่องมือ HR ตามสิทธิ์ — โหมดดูแทนใช้ role ของคนที่เลือก (ไม่มีตัวเลขค้างตรวจ เพราะเป็นข้อมูลทั้งองค์กรเหมือนกัน)
+  const effRoles = viewing ? (pv?.roles ?? []) : myRoles
+  const hrTools: QuickLink[] = HR_TOOL_LINKS
+    .filter(l => canSeeMenu(l.href, effRoles, null))
+    .map(l => l.href === '/hr/leave/balance-audit' && !viewing && balanceFlagged != null
+      ? {
+          ...l, badge: balanceFlagged, badgeColor: '#ef4444', highlight: balanceFlagged > 0,
+          desc: balanceFlagged ? `พบยอดที่ต้องตรวจ ${balanceFlagged} รายการ` : 'ยอดวันลาปีงบนี้ไม่พบปัญหา',
+        }
+      : l.href === '/hr/leave/balance-transfer' && !viewing && transferMissing != null
+        ? {
+            ...l, badge: transferMissing, badgeColor: '#ef4444', highlight: transferMissing > 0,
+            desc: transferMissing ? `ยังไม่ได้โอนยอด ${transferMissing.toLocaleString('th-TH')} คน` : 'โอนยอดครบทุกคนแล้ว',
+          }
+        : l)
 
   const quickLinks: QuickLink[] = [
-    ...baseLinks,
-    ...(approver || isHr ? [{
+    ...effBaseLinks,
+    ...(effApprover || effIsHr ? [{
       href: '/hr/leave/status', icon: <TeamOutlined />, label: 'สถิติการลา', color: '#8b5cf6',
-      desc: isHr ? 'สรุปการลาของบุคลากรทั้งองค์กร' : 'สรุปการลาของบุคลากรในหน่วยที่ดูแล',
+      desc: effIsHr ? 'สรุปการลาของบุคลากรทั้งองค์กร' : 'สรุปการลาของบุคลากรในหน่วยที่ดูแล',
     }] : []),
-    ...(isHr ? [{
+    ...(effIsHr ? [{
       href: '/hr/leave/staff-history', icon: <FileSearchOutlined />, label: 'ประวัติการลาเจ้าหน้าที่', color: '#0891b2',
       desc: 'รายละเอียดใบลาทุกคน พร้อมไฟล์แนบ',
     }, {
       href: '/hr/leave/dashboard', icon: <DashboardOutlined />, label: 'Dashboard วิเคราะห์การลา', color: '#6366f1',
       desc: 'การตรวจวันลา แนวโน้ม และรูปแบบการลา',
     }] : []),
-    ...(approver ? [{
-      href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: approver.pending, highlight: approver.pending > 0,
-      desc: approver.pending ? `รอการอนุมัติ ${approver.pending} รายการ` : 'ไม่มีใบลารออนุมัติ',
+    ...(effApprover ? [{
+      href: '/hr/leave/approval', icon: <AuditOutlined />, label: 'อนุมัติการลา', color: '#f59e0b', badge: effApprover.pending, highlight: effApprover.pending > 0,
+      desc: effApprover.pending ? `รอการอนุมัติ ${effApprover.pending} รายการ` : 'ไม่มีใบลารออนุมัติ',
     }] : []),
   ]
 
@@ -238,6 +410,39 @@ const HrLeaveHomeContent = () => {
     </Space>
   )
 
+  const renderLinks = (links: QuickLink[]) => (
+    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      {links.map(l => (
+        <Col key={l.href} xs={24} sm={12} lg={6}>
+          <Link href={l.href} className="block h-full" onClick={e => { if (viewing) e.preventDefault() }} style={viewing ? { cursor: 'default' } : undefined}>
+            <Card hoverable style={{ borderRadius: 12, border: 'none', height: '100%' }} styles={{ body: { padding: 16 } }}>
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex items-center justify-center rounded-xl"
+                  style={{ width: 44, height: 44, flexShrink: 0, fontSize: 20, color: l.color, backgroundColor: `${l.color}1f` }}
+                >
+                  {l.icon}
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <Text strong style={{ fontSize: 15 }}>{l.label}</Text>
+                  <div>
+                    {l.highlight
+                      ? <Text strong style={{ fontSize: 12, color: '#f59e0b' }}>{l.desc}</Text>
+                      : <Text type="secondary" style={{ fontSize: 12 }}>{l.desc}</Text>}
+                  </div>
+                </div>
+                <span className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
+                  {!!l.badge && <Badge count={l.badge} overflowCount={999} color={l.badgeColor} />}
+                  <RightOutlined style={{ color: 'var(--app-text-3)' }} />
+                </span>
+              </div>
+            </Card>
+          </Link>
+        </Col>
+      ))}
+    </Row>
+  )
+
   return (
     <div className="min-h-dvh bg-app-bg text-app-text">
       <Navbar />
@@ -251,40 +456,100 @@ const HrLeaveHomeContent = () => {
           className="mb-4"
         />
 
-        <LeaveHeader />
+        {isAdmin && (
+          <Card variant="borderless" className="mb-4 shadow-sm" style={{ borderRadius: 12 }} styles={{ body: { padding: 14 } }}>
+            <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+              <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ดูแบบเจ้าหน้าที่ (ADMIN)</Text>
+              <Select
+                showSearch allowClear
+                className="w-full md:max-w-120"
+                placeholder="ดูของตัวเอง — หรือค้นหาชื่อบุคลากรเพื่อดูว่าเห็นเมนูอะไรบ้าง"
+                options={staffOptions}
+                value={viewAs ?? undefined}
+                optionFilterProp="label"
+                onChange={(v?: number) => { setViewAs(v ?? null); setPreviewError(null) }}
+              />
+            </div>
+            {!viewing ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                ตรวจว่าเจ้าหน้าที่แต่ละคนเห็นเมนูการลาครบตามหน้าที่ไหม และใครได้สิทธิ์จาก role ที่ไม่ตรงกับตำแหน่ง · อ่านอย่างเดียว
+              </Text>
+            ) : previewError ? (
+              <Alert className="mt-3" type="error" showIcon title={previewError} />
+            ) : !pv ? (
+              <Skeleton active paragraph={{ rows: 2 }} className="mt-3" />
+            ) : (
+              <div className="mt-3 flex flex-col gap-3">
+                <Alert
+                  type="warning" showIcon
+                  title={`กำลังดูแบบ ${pv.user.name}${pv.user.is_active ? '' : ' (บัญชีปิดใช้งาน)'}`}
+                  description="การ์ดเมนู สรุปวันลา และข้อมูลการทำงานด้านล่างเป็นของบุคคลนี้ — การ์ดกดเข้าไม่ได้ในโหมดนี้"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <Text type="secondary" style={{ fontSize: 12 }}>Role ในระบบ:</Text>
+                  {pv.roles.length
+                    ? pv.roles.map(r => <Tag key={r} color={HR_ROLES.includes(r) ? 'orange' : 'default'} style={{ marginInlineEnd: 0 }}>{r}</Tag>)
+                    : <Text type="secondary" style={{ fontSize: 12 }}>ไม่มี</Text>}
+                  <Text type="secondary" style={{ fontSize: 12, marginInlineStart: 8 }}>ตำแหน่งในผัง:</Text>
+                  {headTitles(pv.approver).length
+                    ? headTitles(pv.approver).map(h => <Tag key={h} color="green" style={{ marginInlineEnd: 0 }}>{h}</Tag>)
+                    : <Text type="secondary" style={{ fontSize: 12 }}>ไม่ได้เป็นหัวหน้า</Text>}
+                </div>
+                <Table
+                  size="small" pagination={false} rowKey="href" dataSource={accessRows}
+                  columns={[
+                    {
+                      title: 'หน้า', key: 'page',
+                      render: (_: unknown, r: typeof accessRows[number]) => (
+                        <span><Text strong={r.ok}>{r.label}</Text> <Text type="secondary" style={{ fontSize: 11 }}>{r.href}</Text></span>
+                      ),
+                    },
+                    {
+                      title: 'แสดงที่', key: 'where', width: 110,
+                      render: (_: unknown, r: typeof accessRows[number]) => <Text type="secondary" style={{ fontSize: 12 }}>{r.where === 'card' ? 'การ์ดหน้านี้' : 'เมนู Navbar'}</Text>,
+                    },
+                    {
+                      title: 'เข้าถึง', key: 'ok', width: 90, align: 'center' as const,
+                      render: (_: unknown, r: typeof accessRows[number]) => r.ok
+                        ? <CheckCircleFilled style={{ color: '#10b981', fontSize: 16 }} aria-label="เข้าถึงได้" />
+                        : <MinusCircleOutlined style={{ color: 'var(--app-text-3)', fontSize: 16 }} aria-label="เข้าไม่ได้" />,
+                    },
+                    {
+                      title: 'ที่มาของสิทธิ์', key: 'reason',
+                      render: (_: unknown, r: typeof accessRows[number]) => (
+                        <Space size={6} wrap>
+                          {r.via === 'role' && (
+                            <Tooltip title="ได้จาก role ในระบบ ไม่ใช่จากตำแหน่งในผัง — ตรวจว่าตรงกับหน้าที่จริงไหม">
+                              <Tag icon={<WarningFilled />} color="orange" style={{ marginInlineEnd: 0 }}>จาก role</Tag>
+                            </Tooltip>
+                          )}
+                          {r.via === 'head' && <Tag color="green" style={{ marginInlineEnd: 0 }}>จากผัง</Tag>}
+                          <Text type={r.ok ? undefined : 'secondary'} style={{ fontSize: 12 }}>{r.reason}</Text>
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )}
+          </Card>
+        )}
 
-        <LeaveOverviewCards />
+        <LeaveHeader userId={viewing ? viewAs : null} />
 
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          {quickLinks.map(l => (
-            <Col key={l.href} xs={24} sm={12} lg={6}>
-              <Link href={l.href} className="block h-full">
-                <Card hoverable style={{ borderRadius: 12, border: 'none', height: '100%' }} styles={{ body: { padding: 16 } }}>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="flex items-center justify-center rounded-xl"
-                      style={{ width: 44, height: 44, flexShrink: 0, fontSize: 20, color: l.color, backgroundColor: `${l.color}1f` }}
-                    >
-                      {l.icon}
-                    </span>
-                    <div style={{ minWidth: 0 }}>
-                      <Text strong style={{ fontSize: 15 }}>{l.label}</Text>
-                      <div>
-                        {l.highlight
-                          ? <Text strong style={{ fontSize: 12, color: '#f59e0b' }}>{l.desc}</Text>
-                          : <Text type="secondary" style={{ fontSize: 12 }}>{l.desc}</Text>}
-                      </div>
-                    </div>
-                    <span className="flex items-center gap-2" style={{ marginLeft: 'auto' }}>
-                      {!!l.badge && <Badge count={l.badge} overflowCount={999} color={l.badgeColor} />}
-                      <RightOutlined style={{ color: 'var(--app-text-3)' }} />
-                    </span>
-                  </div>
-                </Card>
-              </Link>
-            </Col>
-          ))}
-        </Row>
+        <LeaveOverviewCards override={viewing ? (pv?.overview ?? null) : undefined} />
+
+        {renderLinks(quickLinks)}
+
+        {hrTools.length > 0 && (
+          <>
+            <div className="flex flex-wrap items-baseline gap-2 mb-3">
+              <Text strong style={{ fontSize: 15 }}><ToolOutlined style={{ color: '#047857' }} /> เครื่องมืองานทรัพยากรบุคคล</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>แสดงตามสิทธิ์ของ{viewing ? 'บุคลากรที่เลือก' : 'ท่าน'} ({effRoles.filter(r => HR_ROLES.includes(r)).join(' / ')})</Text>
+            </div>
+            {renderLinks(hrTools)}
+          </>
+        )}
 
         {loadError ? (
           <Card style={{ borderRadius: 12, border: 'none' }}>

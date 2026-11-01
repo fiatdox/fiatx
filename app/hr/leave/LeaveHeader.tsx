@@ -33,14 +33,15 @@ const tenureText = (hire: string) => {
 const fmtLongDate = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
 
-export default function LeaveHeader() {
+/** userId = ADMIN/HR ดูแบบเจ้าหน้าที่คนอื่น (backend ตรวจสิทธิ์) — ไม่ส่ง = ผู้ login */
+export default function LeaveHeader({ userId }: { userId?: number | null } = {}) {
   const [profile, setProfile] = useState<WorkProfile | null>(null)
   useEffect(() => {
-    fetch('/api/v1/users/me/work-profile')
+    fetch(`/api/v1/users/me/work-profile${userId ? `?user_id=${userId}` : ''}`)
       .then(r => r.json())
-      .then(j => { if (j?.success) setProfile(j.data) })
+      .then(j => { setProfile(j?.success ? j.data : null) })
       .catch(() => { /* ไม่มีข้อมูลก็ไม่แสดงการ์ด */ })
-  }, [])
+  }, [userId])
 
   return (
     <>
