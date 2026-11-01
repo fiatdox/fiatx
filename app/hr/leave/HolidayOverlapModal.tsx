@@ -23,9 +23,12 @@ const beDate = (d: dayjs.Dayjs) => `${d.date()} ${d.toDate().toLocaleDateString(
 
 /** วันหยุดในช่วง [start, end] เรียงตามวันที่ — วันหยุดนักขตฤกษ์ที่ตรงเสาร์-อาทิตย์แสดงครั้งเดียว */
 export const offDaysInRange = (start: string, end: string, holidays: { date: string; name: string }[]): OffDay[] => {
+  const s = dayjs(start), e = dayjs(end)
+  // วันที่ว่าง/ผิดรูปแบบ — dayjs ที่ invalid ทำให้ลูปไม่จบ (หน้าค้าง) · จำกัดช่วงไม่เกิน 1 ปีกันพลาด
+  if (!start || !end || !s.isValid() || !e.isValid() || e.diff(s, 'day') > 366) return []
   const byDate = new Map(holidays.map(h => [h.date.slice(0, 10), h.name]))
   const out: OffDay[] = []
-  for (let d = dayjs(start); !d.isAfter(dayjs(end), 'day'); d = d.add(1, 'day')) {
+  for (let d = s; !d.isAfter(e, 'day'); d = d.add(1, 'day')) {
     const key = d.format('YYYY-MM-DD')
     const weekend = d.day() === 0 || d.day() === 6
     const name = byDate.get(key)
@@ -45,7 +48,7 @@ export default function HolidayOverlapModal({ open, start, end, count, leaveType
   /** เลือกช่วงวันลาใหม่ (ล้างช่วงวันที่ในฟอร์ม) */
   onChangeDates: () => void
 }) {
-  const days = count ? offDaysInRange(start, end, count.holidays) : []
+  const days = open && count ? offDaysInRange(start, end, count.holidays) : []
   const holidayCount = days.filter(d => d.kind === 'holiday').length
   const weekendCount = days.length - holidayCount
   const s = dayjs(start), e = dayjs(end)
