@@ -5,14 +5,16 @@ import {
   Card, Table, Tag, Typography, Button, Modal, Form, Input,
   InputNumber, Select, Space, App, Tooltip, Row, Col, Empty
 } from 'antd'
+import Link from 'next/link'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, SwapOutlined, EditOutlined, PlusOutlined, SearchOutlined,
-  CloseCircleOutlined, HistoryOutlined
+  CloseCircleOutlined, HistoryOutlined, SafetyCertificateOutlined
 } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import BalanceEditModal, { type BalanceEditTarget } from '../BalanceEditModal'
 
 const { Title, Text } = Typography
 
@@ -136,50 +138,19 @@ const PageContent = () => {
 
   useEffect(loadRows, [loadRows])
 
-  // ── modal เพิ่ม/แก้ไขยอดสะสม ────────────────────────────────────────────────
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editingRow, setEditingRow] = useState<BalanceRow | null>(null)
-  const [form] = Form.useForm()
-  const [saving, setSaving] = useState(false)
+  // ── เพิ่ม/แก้ไขยอดสะสม (ยกมา / สิทธิ์ปีนี้ / ใช้ไปแล้ว + เหตุผล + ประวัติ) ──────────
+  const [editing, setEditing] = useState<BalanceEditTarget | null>(null)
 
   const openEdit = (row: BalanceRow) => {
-    setEditingRow(row)
-    form.setFieldsValue({
+    if (!leaveTypeId || !fiscalYear) return
+    setEditing({
+      balance_id: row.balance_id, user_id: row.user_id, leave_type_id: leaveTypeId, fiscal_year: fiscalYear,
+      name: `${row.pname ?? ''}${row.fname} ${row.lname}`, leave_type_name: 'ลาพักผ่อน',
       carried_in: row.balance_id ? Number(row.carried_in) : 0,
+      entitled: row.balance_id ? Number(row.entitled) : 0,
       used: row.balance_id ? Number(row.used) : 0,
-      note: row.note ?? '',
+      note: row.note,
     })
-    setEditModalOpen(true)
-  }
-
-  const saveBalance = async () => {
-    const values = await form.validateFields()
-    if (!editingRow || !leaveTypeId || !fiscalYear) return
-    setSaving(true)
-    try {
-      const isNew = editingRow.balance_id == null
-      const url = isNew ? '/api/v1/hr/leave-balances' : `/api/v1/hr/leave-balances/${editingRow.balance_id}`
-      const body = isNew
-        ? { user_id: editingRow.user_id, leave_type_id: leaveTypeId, fiscal_year: fiscalYear, carried_in: values.carried_in, used: values.used, note: values.note }
-        : { carried_in: values.carried_in, used: values.used, note: values.note }
-      const res = await fetch(url, {
-        method: isNew ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const json = await res.json().catch(() => ({}))
-      if (!res.ok || !json.success) {
-        message.error(json.message || 'บันทึกไม่สำเร็จ')
-        return
-      }
-      message.success('บันทึกยอดวันลาสะสมเรียบร้อย')
-      setEditModalOpen(false)
-      loadRows()
-    } catch {
-      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
-    } finally {
-      setSaving(false)
-    }
   }
 
   // ── ยกยอดปีงบประมาณใหม่ ────────────────────────────────────────────────────
@@ -323,7 +294,12 @@ const PageContent = () => {
               </div>
             </Col>
             <Col xs={24} md={8}>
-              <div className="flex gap-2 md:justify-end">
+              <div className="flex flex-wrap gap-2 md:justify-end">
+                <Link href="/hr/leave/balance-audit">
+                  <Button icon={<SafetyCertificateOutlined />} size="large" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#fff', borderColor: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
+                    ตรวจแก้ยอดที่ผิด
+                  </Button>
+                </Link>
                 <Button icon={<SwapOutlined />} size="large" onClick={openRollover}
                   style={{ backgroundColor: '#fff', color: '#10b981', border: 'none', fontWeight: 600 }}>
                   ยกยอดปีงบประมาณใหม่
@@ -418,40 +394,7 @@ const PageContent = () => {
           )}
         </Card>
 
-        {/* ── Modal เพิ่ม/แก้ไขยอดสะสม ── */}
-        <Modal
-          title={
-            <Space>
-              <EditOutlined style={{ color: '#10b981' }} />
-              <span>{editingRow?.balance_id ? 'แก้ไขยอดวันลาสะสม' : 'เพิ่มยอดวันลาสะสม'} — {editingRow?.pname}{editingRow?.fname} {editingRow?.lname}</span>
-            </Space>
-          }
-          open={editModalOpen}
-          onCancel={() => setEditModalOpen(false)}
-          onOk={saveBalance}
-          okText="บันทึก"
-          cancelText="ยกเลิก"
-          confirmLoading={saving}
-          forceRender
-        >
-          <Form form={form} layout="vertical">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="carried_in" label="ยอดยกมา (วัน)" rules={[{ required: true, message: 'กรุณาระบุยอดยกมา' }]}>
-                  <InputNumber min={0} className="w-full" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="used" label="ใช้ไปแล้วในปีนี้ (วัน)" rules={[{ required: true, message: 'กรุณาระบุจำนวนที่ใช้ไป' }]}>
-                  <InputNumber min={0} className="w-full" />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Form.Item name="note" label="หมายเหตุ">
-              <Input.TextArea rows={2} placeholder="เช่น ย้ายมาจาก รพ.xxx" />
-            </Form.Item>
-          </Form>
-        </Modal>
+        <BalanceEditModal target={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); loadRows() }} />
 
         {/* ── Modal ยกยอดปีงบประมาณใหม่ ── */}
         <Modal

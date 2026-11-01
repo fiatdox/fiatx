@@ -23,6 +23,10 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/posts': HR_POST_MANAGER_ROLES,
   // วันลาสะสม — แก้ยอดสะสม/ยกยอดปีงบประมาณของบุคลากรทั้งองค์กร (เฉพาะ ADMIN/HR)
   '/hr/leave/balance': ['ADMIN', 'HR'],
+  // ตรวจแก้วันลาสะสม — หายอดที่ผิดและแก้ยอดของทุกคน พร้อมเก็บประวัติ (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
+  '/hr/leave/balance-audit': ['ADMIN', 'HR'],
+  // ตรวจสอบการโอนยอดวันลาสะสม — รายชื่อบุคลากรทั้งองค์กรที่ยังไม่ได้ตั้งยอด แยกตามประเภท (proxy.ts กั้น URL ตรง)
+  '/hr/leave/balance-transfer': ['ADMIN', 'HR'],
   // ตรวจวันลาที่คร่อมวันหยุด + วันหยุดราชการ — แก้จำนวนวันลา/ยอดของทุกคน (proxy.ts กั้น URL ตรง)
   '/hr/leave/day-check': ['ADMIN', 'HR'],
   // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))

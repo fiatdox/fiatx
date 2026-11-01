@@ -138,6 +138,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: '/hr/users', icon: <FaUsers />, label: 'ทะเบียนบุคลากร', color: '#0891b2', roles: ['ADMIN', 'HR', 'IT_STAFF'] },
       { key: '/hr/leave/policy', icon: <FaClipboardList />, label: 'กำหนดสิทธิ์การลา', color: '#f59e0b' },
       { key: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', color: '#14b8a6' },
+      { key: '/hr/leave/balance-audit', icon: <FaClipboardList />, label: 'ตรวจแก้วันลาสะสม', color: '#047857' },
+      { key: '/hr/leave/balance-transfer', icon: <FaClipboardList />, label: 'ตรวจสอบการโอนยอดวันลาสะสม', color: '#0e7490' },
       { key: '/accounting/salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร', color: '#22c55e', roles: SALARY_ID_ROLES },
       { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'ภาพรวม HAIT', color: '#6366f1' },
       { key: '/account/user-credentials', icon: <FaLock />, label: 'จัดการบัญชีผู้ใช้บุคลากร', color: '#64748b', roles: ['ADMIN', 'IT_STAFF'] },

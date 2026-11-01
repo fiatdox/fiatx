@@ -14,7 +14,8 @@ import {
   BellOutlined,
   SunOutlined,
   MoonOutlined,
-  HistoryOutlined
+  HistoryOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons'
 import { useThemeMode } from './ThemeProvider'
 import {
@@ -96,6 +97,8 @@ const MENU_TREE: NavItem[] = [
           // ตั้งค่าที่มีผลทั้งองค์กร — เห็นเฉพาะ ADMIN/HR
           { key: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา' },
           { key: '/hr/leave/balance', icon: <HistoryOutlined />, label: 'วันลาสะสม' },
+          { key: '/hr/leave/balance-audit', icon: <SafetyCertificateOutlined />, label: 'ตรวจแก้วันลาสะสม' },
+          { key: '/hr/leave/balance-transfer', icon: <CloudDownloadOutlined />, label: 'ตรวจสอบการโอนยอดวันลาสะสม' },
           { key: '/hr/leave/day-check', icon: <FaCalendarAlt />, label: 'ตรวจวันลา / วันหยุด' },
           { key: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม' },
         ]
