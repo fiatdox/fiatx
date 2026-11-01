@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Form,
@@ -43,6 +43,7 @@ import {
 } from '@ant-design/icons'
 import { GiPrayerBeads, GiWalkingBoot } from 'react-icons/gi'
 import dayjs from 'dayjs'
+import HolidayOverlapModal, { offDaysInRange, type LeaveDayCount } from '../HolidayOverlapModal'
 import buddhistEra from 'dayjs/plugin/buddhistEra'
 import thTH from 'antd/locale/th_TH'
 import Cookies from 'js-cookie'
@@ -323,10 +324,10 @@ const LeavePageContent = () => {
   const quotaStart = watchedRange?.[0]
 
   // นับจำนวนวันลาของช่วงที่เลือก แล้วเติมให้อัตโนมัติ (ผู้ลาแก้เองได้ เช่น เจ้าหน้าที่เวรที่ทำงานวันเสาร์)
-  const [dayCount, setDayCount] = useState<{
-    calendar_days: number; weekend_days: number; holidays: { date: string; name: string }[]
-    working_days_only: boolean; computed_days: number
-  } | null>(null)
+  const [dayCount, setDayCount] = useState<LeaveDayCount | null>(null)
+  // popup แจ้งเมื่อช่วงที่ผู้ลาเลือกเองคาบเกี่ยวเสาร์-อาทิตย์/วันหยุดนักขตฤกษ์ — แสดงครั้งเดียวต่อช่วงวันที่
+  const [overlap, setOverlap] = useState<{ start: string; end: string } | null>(null)
+  const overlapShown = useRef('')
   const rangeKey = watchedRange?.[0] && watchedRange?.[1]
     ? `${watchedRange[0].format('YYYY-MM-DD')}|${watchedRange[1].format('YYYY-MM-DD')}` : ''
   useEffect(() => {
@@ -342,6 +343,12 @@ const LeavePageContent = () => {
         setDayCount(j.data)
         form.setFieldsValue({ totalLeaveDays: j.data.computed_days })
         setTotalLeaveDays(j.data.computed_days)
+        // เปิดใบเดิมมาแก้ไข (ยังไม่ได้แตะช่องวันที่) ไม่ต้องเด้ง
+        if (form.isFieldTouched('dateRange') && overlapShown.current !== rangeKey
+            && offDaysInRange(start, end, j.data.holidays ?? []).length > 0) {
+          overlapShown.current = rangeKey
+          setOverlap({ start, end })
+        }
       })
       .catch(() => { /* นับไม่ได้ก็ให้กรอกเอง */ })
     return () => { alive = false }
@@ -370,7 +377,8 @@ const LeavePageContent = () => {
       return
     }
 
-    // ยืนยันก่อนส่ง — สรุปประเภท ช่วงวันที่ (พ.ศ.) และจำนวนวันให้ตรวจอีกครั้ง
+    // ยืนยันก่อนส่ง — สรุปประเภท ช่วงวันที่ (พ.ศ.) จำนวนวัน และวันหยุดที่คาบเกี่ยว ให้ตรวจอีกครั้ง
+    const offDays = dayCount ? offDaysInRange(from.format('YYYY-MM-DD'), to.format('YYYY-MM-DD'), dayCount.holidays) : []
     const be = (d: dayjs.Dayjs) => `${d.format('DD/MM/')}${d.year() + 543}`
     const confirmed = await modal.confirm({
       title: editId ? 'ยืนยันบันทึกการแก้ไขใบลา' : 'ยืนยันส่งคำขออนุมัติลา',
@@ -379,6 +387,12 @@ const LeavePageContent = () => {
           <div>ประเภทการลา: <b>{currentLeaveTypeInfo?.name_th ?? '-'}</b></div>
           <div>วันที่ลา: <b>{be(from)}{to.isSame(from, 'day') ? '' : ` – ${be(to)}`}</b></div>
           <div>จำนวน: <b>{values.totalLeaveDays} วัน</b>{values.halfDay ? ` (ครึ่งวัน${values.halfDayType === 'afternoon' ? 'บ่าย' : 'เช้า'})` : ''}</div>
+          {offDays.length > 0 && dayCount && (
+            <div style={{ color: '#d97706' }}>
+              คาบเกี่ยววันหยุด {offDays.length} วัน ({offDays.map(d => d.label).join(', ')})
+              {dayCount.working_days_only ? ' — ไม่นับเป็นวันลา' : ' — นับรวมเป็นวันลา'}
+            </div>
+          )}
         </div>
       ),
       okText: editId ? 'บันทึกการแก้ไข' : 'ส่งคำขอ',
@@ -425,6 +439,15 @@ const LeavePageContent = () => {
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
+      <HolidayOverlapModal
+        open={!!overlap && !!dayCount}
+        start={overlap?.start ?? ''}
+        end={overlap?.end ?? ''}
+        count={dayCount}
+        leaveTypeName={currentLeaveTypeInfo?.name_th}
+        onClose={() => setOverlap(null)}
+        onChangeDates={() => { setOverlap(null); overlapShown.current = ''; form.setFieldsValue({ dateRange: undefined }) }}
+      />
       <div className="p-4 md:p-8 max-w-350 mx-auto">
         <div className="w-full">
           {/* Breadcrumb */}
