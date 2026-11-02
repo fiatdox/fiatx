@@ -198,6 +198,9 @@ const accessOf = (href: string, roles: string[], approver: ApproverInfo | null):
     if (roles.includes('ADMIN')) return { ok: true, via: 'role', reason: 'role ADMIN (ไม่ได้เป็นหัวหน้าในผัง)' }
     return { ok: false, via: null, reason: 'ไม่ได้เป็นหัวหน้า/รักษาการ/ผอ.' }
   }
+  if (href === '/hr/leave/staff-history' && !hrRoles.length && approver?.is_director) {
+    return { ok: true, via: 'head', reason: heads[0] ?? 'ผู้อำนวยการ' }
+  }
   const need = MENU_ROLE_REQUIREMENTS[href] ?? (href === '/hr/leave/staff-history' || href === '/hr/leave/dashboard' ? HR_ROLES : null)
   if (!need) return { ok: true, via: 'all', reason: 'บุคลากรทุกคน' }
   const got = roles.filter(r => need.includes(r))
@@ -227,7 +230,7 @@ const HrLeaveHomeContent = () => {
   }, [])
 
   // หัวหน้า / รักษาการในผังเจ้าหน้าที่ (กลุ่มภารกิจ กลุ่มงาน หน่วยงาน) หรือ ผอ. — เห็นปุ่มอนุมัติ + รายงานบุคลากรในสังกัด
-  const [approver, setApprover] = useState<{ pending: number } | null>(null)
+  const [approver, setApprover] = useState<{ pending: number; isDirector: boolean } | null>(null)
   useEffect(() => {
     let alive = true
     fetch('/api/v1/hr/leave-approver-check')
@@ -235,7 +238,7 @@ const HrLeaveHomeContent = () => {
       .then(async j => {
         if (!j?.success || !j.data?.is_approver) return
         const p = await fetch('/api/v1/hr/leave-requests/pending-approval?scope=pending').then(r => r.json()).catch(() => null)
-        if (alive) setApprover({ pending: p?.success && Array.isArray(p.data) ? p.data.length : 0 })
+        if (alive) setApprover({ pending: p?.success && Array.isArray(p.data) ? p.data.length : 0, isDirector: !!j.data.is_director })
       })
       .catch(() => { /* ไม่ใช่หัวหน้า = ไม่แสดงปุ่ม */ })
     return () => { alive = false }
@@ -337,7 +340,7 @@ const HrLeaveHomeContent = () => {
 
   // ค่าที่ใช้ตัดสินการ์ด — โหมดดูแทนใช้ของคนที่เลือก
   const effIsHr = viewing ? !!pv?.roles.some(r => HR_ROLES.includes(r)) : isHr
-  const effApprover = viewing ? (pv?.approver?.is_approver ? { pending: pv.pending_approvals } : null) : approver
+  const effApprover = viewing ? (pv?.approver?.is_approver ? { pending: pv.pending_approvals, isDirector: !!pv.approver.is_director } : null) : approver
   const effBaseLinks: QuickLink[] = viewing
     ? QUICK_LINKS.map(l => l.href === '/hr/leave/history' && pv
       ? {
@@ -370,10 +373,12 @@ const HrLeaveHomeContent = () => {
       href: '/hr/leave/status', icon: <TeamOutlined />, label: 'สถิติการลา', color: '#8b5cf6',
       desc: effIsHr ? 'สรุปการลาของบุคลากรทั้งองค์กร' : 'สรุปการลาของบุคลากรในหน่วยที่ดูแล',
     }] : []),
-    ...(effIsHr ? [{
+    // ผอ. / รักษาการ ผอ. ดูประวัติการลาเจ้าหน้าที่ได้ (อ่านอย่างเดียว)
+    ...(effIsHr || effApprover?.isDirector ? [{
       href: '/hr/leave/staff-history', icon: <FileSearchOutlined />, label: 'ประวัติการลาเจ้าหน้าที่', color: '#0891b2',
       desc: 'รายละเอียดใบลาทุกคน พร้อมไฟล์แนบ',
-    }, {
+    }] : []),
+    ...(effIsHr ? [{
       href: '/hr/leave/dashboard', icon: <DashboardOutlined />, label: 'Dashboard วิเคราะห์การลา', color: '#6366f1',
       desc: 'การตรวจวันลา แนวโน้ม และรูปแบบการลา',
     }] : []),

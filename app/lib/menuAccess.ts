@@ -31,7 +31,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/day-check': ['ADMIN', 'HR'],
   // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
   '/hr/leave/legacy-import': ['ADMIN', 'HR'],
-  // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR')
+  // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — ADMIN / HR และ ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
+  // backend ตรวจสิทธิ์ใน controller · ปุ่มตรวจวันลาเฉพาะ ADMIN / HR
   '/hr/leave/staff-history': ['ADMIN', 'HR'],
   // Dashboard วิเคราะห์การลา — ข้อมูลการลาทั้งองค์กรรายบุคคล (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
   '/hr/leave/dashboard': ['ADMIN', 'HR'],
@@ -69,6 +70,9 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
 // อนุมัติการลา — เฉพาะหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN)
 export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval']
 
+// เมนูที่ ผอ. / รักษาการ ผอ. (hr_settings — ไม่ใช่ role) เห็นได้ด้วย นอกเหนือจาก role ใน MENU_ROLE_REQUIREMENTS
+export const MENU_DIRECTOR_ALSO = ['/hr/leave/staff-history']
+
 /** normalize roles จาก cookie user_data ให้เป็นตัวพิมพ์ใหญ่ */
 export const normalizeRoles = (roles?: unknown): string[] =>
   Array.isArray(roles) ? roles.map(r => String(r).toUpperCase()) : []
@@ -94,9 +98,11 @@ export const canSeeMenu = (
   userRoles: string[],
   isLeaveApprover: boolean | null,
   disabledPrefixes: string[] = [],
+  isDirector = false,
 ): boolean => {
   if (!isRouteEnabled(key, disabledPrefixes)) return false
   if (MENU_SUPERVISOR_ONLY.includes(key)) return isLeaveApprover === true
+  if (isDirector && MENU_DIRECTOR_ALSO.includes(key)) return true
   const req = MENU_ROLE_REQUIREMENTS[key]
   return !req || req.some(r => userRoles.includes(r))
 }

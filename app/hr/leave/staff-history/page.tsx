@@ -1,5 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Cookies from 'js-cookie'
+import { normalizeRoles } from '@/app/lib/menuAccess'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox,
   Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm
@@ -67,7 +70,8 @@ const checkOf = (r: Row) => CHECK_META[r.day_check_status ?? 'UNCHECKED']
 const CHECKABLE = ['PENDING', 'APPROVED', 'CANCEL_PENDING']
 const spanOf = (r: Row) => dayjs(r.end_date).diff(dayjs(r.start_date), 'day') + 1
 
-const DayCheck = ({ r, onDone }: { r: Row; onDone: () => void }) => {
+// readOnly = ผอ. / รักษาการ ผอ. — เห็นผลการตรวจ แต่ตรวจ/แก้/ยกเลิกไม่ได้ (เฉพาะ ADMIN / HR)
+const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void; readOnly?: boolean }) => {
   const { message } = App.useApp()
   const [mode, setMode] = useState<'view' | 'verify' | 'adjust'>('view')
   const [days, setDays] = useState<number | null>(Number(r.total_days))
@@ -163,7 +167,7 @@ const DayCheck = ({ r, onDone }: { r: Row; onDone: () => void }) => {
         </Text>
       )}
 
-      {!canCheck ? (
+      {readOnly ? null : !canCheck ? (
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Text type="secondary" style={{ fontSize: 12 }}>ใบที่ไม่อนุมัติหรือยกเลิกแล้ว ไม่ต้องตรวจจำนวนวัน</Text>
           {cancelButton}
@@ -317,6 +321,14 @@ const ApprovalTimeline = ({ r }: { r: Row }) => {
 // ── หน้า ─────────────────────────────────────────────────────────────────────
 const StaffLeaveHistoryContent = () => {
   const { message } = App.useApp()
+  const router = useRouter()
+  // ADMIN / HR ตรวจวันลาได้ · ผอ. / รักษาการ ผอ. ดูอย่างเดียว (backend กั้นปุ่มตรวจด้วย requireRoles)
+  const [canEdit, setCanEdit] = useState(false)
+  useEffect(() => {
+    let roles: string[] = []
+    try { roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles) } catch { /* cookie เสีย = ไม่มีสิทธิ์แก้ */ }
+    void Promise.resolve().then(() => setCanEdit(roles.includes('ADMIN') || roles.includes('HR')))
+  }, [])
   const [fy, setFy] = useState<number | null>(currentFY())
   const [typeId, setTypeId] = useState<number | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -356,7 +368,10 @@ const StaffLeaveHistoryContent = () => {
         if (hasDoc) qs.set('has_document', '1')
         if (check) qs.set('check', check)
         if (q) qs.set('q', q)
-        const j = await (await fetch(`/api/v1/hr/leave-requests/staff-history?${qs}`)).json()
+        const res = await fetch(`/api/v1/hr/leave-requests/staff-history?${qs}`)
+        // ไม่ใช่ ADMIN / HR / ผอ. — proxy ไม่ได้กั้นหน้านี้ (สิทธิ์ ผอ. ไม่ได้มาจาก role) จึงพากลับหน้าหลักที่นี่
+        if (res.status === 403) { router.replace('/home'); return }
+        const j = await res.json()
         if (!alive) return
         if (!j?.success) message.error(j?.message ?? 'โหลดข้อมูลไม่สำเร็จ')
         const data: Row[] = j?.success && Array.isArray(j.data) ? j.data : []
@@ -373,7 +388,7 @@ const StaffLeaveHistoryContent = () => {
     }
     load()
     return () => { alive = false }
-  }, [fy, typeId, status, hasDoc, check, q, page, pageSize, reloadKey, message])
+  }, [fy, typeId, status, hasDoc, check, q, page, pageSize, reloadKey, message, router])
 
   // เปลี่ยนตัวกรองแล้วกลับไปหน้า 1 เสมอ
   const filter = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
@@ -612,7 +627,7 @@ const StaffLeaveHistoryContent = () => {
 
             <div>
               <Title level={5}>การตรวจสอบของงาน HR</Title>
-              <DayCheck key={`${detail.id}-${detail.day_checked_at ?? ''}-${detail.total_days}`} r={detail} onDone={() => setReloadKey(k => k + 1)} />
+              <DayCheck key={`${detail.id}-${detail.day_checked_at ?? ''}-${detail.total_days}`} r={detail} readOnly={!canEdit} onDone={() => setReloadKey(k => k + 1)} />
             </div>
 
             <div>

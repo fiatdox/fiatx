@@ -88,10 +88,11 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · โอนข้อมูลโปรแกรมเดิม · ประวัติการลาเจ้าหน้าที่ · Dashboard การลา
+  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · โอนข้อมูลโปรแกรมเดิม · Dashboard การลา
   // · ตรวจแก้วันลาสะสม · ตรวจสอบการโอนยอดวันลาสะสม — เฉพาะ ADMIN / HR (ตรงกับ backend)
+  // ประวัติการลาเจ้าหน้าที่ไม่อยู่ในนี้ — ผอ. เข้าได้ด้วย (สิทธิ์มาจาก hr_settings ไม่ใช่ role) backend ตอบ 403 แล้วหน้าเว็บพากลับหน้าหลัก
   if (underPrefix(pathname, '/hr/leave/posts') || underPrefix(pathname, '/hr/leave/day-check')
-      || underPrefix(pathname, '/hr/leave/legacy-import') || underPrefix(pathname, '/hr/leave/staff-history')
+      || underPrefix(pathname, '/hr/leave/legacy-import')
       || underPrefix(pathname, '/hr/leave/dashboard') || underPrefix(pathname, '/hr/leave/balance-audit')
       || underPrefix(pathname, '/hr/leave/balance-transfer')) {
     const roles = getRoles(req).map(r => r.toUpperCase())

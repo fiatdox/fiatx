@@ -427,7 +427,7 @@ const Navbar: React.FC = () => {
         const kids = filterMenuByRole(item.children)
         if (kids.length > 0) acc.push({ ...item, children: kids })
       } else if (item.key === '/home'
-        || (access && canSeeMenu(toRoute(item.key), userRoles, access.isLeaveApprover, access.disabledModules))) {
+        || (access && canSeeMenu(toRoute(item.key), userRoles, access.isLeaveApprover, access.disabledModules, access.isDirector))) {
         acc.push(item)
       }
       return acc

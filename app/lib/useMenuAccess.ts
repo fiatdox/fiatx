@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react'
 export interface ServerMenuAccess {
   /** สิทธิ์อนุมัติการลา — มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย ไม่ใช่ role */
   isLeaveApprover: boolean
+  /** ผอ. / รักษาการ ผอ. — มาจาก hr_settings ไม่ใช่ role */
+  isDirector: boolean
   /** route_prefix ของโมดูลที่ผู้ดูแลระบบปิดการมองเห็นไว้ (/account/modules) */
   disabledModules: string[]
 }
@@ -26,6 +28,7 @@ const fetchAccess = async (): Promise<ServerMenuAccess> => {
   ])
   return {
     isLeaveApprover: approver?.success ? !!approver.data?.is_approver : false,
+    isDirector: approver?.success ? !!approver.data?.is_director : false,
     // ถามไม่สำเร็จถือว่าไม่มีโมดูลไหนถูกปิด — สวิตช์นี้คุมการมองเห็น ไม่ได้กั้นสิทธิ์
     // ปิดทุกเมนูเพราะ API ล่มจะทำให้ใช้งานระบบไม่ได้เลย
     disabledModules: modules?.success ? (modules.data?.disabled ?? []) : [],
