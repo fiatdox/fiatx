@@ -121,6 +121,8 @@ const LeavePageContent = () => {
 
   // ?edit=<id> = แก้ไขใบลาเดิม (จากหน้าประวัติการลา — เฉพาะใบที่ยังไม่มีผู้อนุมัติคนใดกด)
   const [editId, setEditId] = useState<number | null>(null)
+  // ไฟล์แนบเดิมของใบที่กำลังแก้ไข — มีแล้วไม่บังคับแนบใหม่ (แนบใหม่ = แทนไฟล์เดิม)
+  const [existingDoc, setExistingDoc] = useState<string | null>(null)
   // ผู้ปฏิบัติงานแทนที่บันทึกไว้ในใบเดิม — อาจไม่อยู่ในรายชื่อกลุ่มงานแล้ว (ย้ายหน่วย) ต้องมีตัวเลือกให้แสดงชื่อ
   const [savedSubstitute, setSavedSubstitute] = useState<{ value: string; label: string } | null>(null)
   useEffect(() => {
@@ -156,6 +158,7 @@ const LeavePageContent = () => {
         setLeaveType(Number(r.leave_type_id))
         setIsHalfDay(!!r.is_half_day)
         setTotalLeaveDays(days)
+        setExistingDoc(r.document_url?.trim() || null)
       })
       .catch(() => alive && message.error('โหลดใบลาไม่สำเร็จ'))
     return () => { alive = false }
@@ -424,6 +427,16 @@ const LeavePageContent = () => {
         message.error(json?.message ?? 'ส่งใบลาไม่สำเร็จ')
         return
       }
+      // ไฟล์แนบส่งแยกหลังบันทึกใบลา (multipart) — ส่งไม่สำเร็จ ใบลายังอยู่ แจ้งให้แนบใหม่จากการแก้ไขใบลา
+      const file: File | undefined = values.documentAttachment?.[0]?.originFileObj
+      const requestId = editId ?? Number(json.data?.id)
+      if (file && requestId) {
+        const fd = new FormData()
+        fd.append('file', file)
+        const up = await fetch(`/api/v1/hr/leave-requests/${requestId}/document`, { method: 'POST', body: fd })
+          .then(r => r.json()).catch(() => null)
+        if (!up?.success) message.warning(`บันทึกใบลาแล้ว แต่แนบไฟล์ไม่สำเร็จ: ${up?.message ?? 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ'} — แนบใหม่ได้จากเมนูแก้ไขใบลา`, 6)
+      }
       message.success(json.message ?? 'ส่งใบลาเรียบร้อย')
       form.resetFields()
       setTotalLeaveDays(0)
@@ -616,22 +629,35 @@ const LeavePageContent = () => {
                     </div>
                   )}
 
-                  {requiresDoc != null && totalLeaveDays > requiresDoc && (
+                  {/* แนบได้ทุกใบ — บังคับเมื่อลาเกินจำนวนวันที่ประเภทการลากำหนด (ใบที่แก้ไขและมีไฟล์เดิมแล้วไม่บังคับ) */}
+                  {(() => {
+                    const mustAttach = requiresDoc != null && totalLeaveDays > requiresDoc && !existingDoc
+                    return (
                     <Form.Item
                       name="documentAttachment"
-                      label={`เอกสารแนบ (ลาเกิน ${requiresDoc} วัน ต้องแนบเอกสาร)`}
+                      label={requiresDoc != null && totalLeaveDays > requiresDoc
+                        ? `เอกสารแนบ (ลาเกิน ${requiresDoc} วัน ต้องแนบเอกสาร)`
+                        : 'เอกสารแนบ (ถ้ามี เช่น ใบรับรองแพทย์)'}
+                      extra={existingDoc ? `มีไฟล์แนบเดิมแล้ว — แนบไฟล์ใหม่จะแทนไฟล์เดิม` : 'PDF / รูปภาพ / Word ไม่เกิน 10MB'}
                       valuePropName="fileList"
                       getValueFromEvent={(e) => {
                         if (Array.isArray(e)) return e
                         return e?.fileList
                       }}
-                      rules={[{ required: true, message: 'กรุณาแนบเอกสาร' }]}
+                      rules={[{ required: mustAttach, message: 'กรุณาแนบเอกสาร' }]}
                     >
-                      <Upload maxCount={1} beforeUpload={() => false} listType="picture">
+                      <Upload
+                        maxCount={1} listType="picture" accept=".pdf,.jpg,.jpeg,.jfif,.png,.gif,.webp,.heic,.doc,.docx"
+                        beforeUpload={f => {
+                          if (f.size > 10 * 1024 * 1024) { message.error('ไฟล์แนบมีขนาดเกิน 10MB'); return Upload.LIST_IGNORE }
+                          return false
+                        }}
+                      >
                         <Button icon={<UploadOutlined />}>คลิกเพื่ออัพโหลดเอกสาร</Button>
                       </Upload>
                     </Form.Item>
-                  )}
+                    )
+                  })()}
 
                   <Row gutter={16}>
                     <Col span={16}>

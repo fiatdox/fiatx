@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authHeader, clientHeaders } from '../../../../../_proxy'
+import { authHeader, clientHeaders, proxyForm } from '../../../../../_proxy'
 
 type Ctx = { params: Promise<{ id: string }> }
+
+// แนบไฟล์ใบลา (multipart: file) — backend ตรวจสิทธิ์ / ชนิด / ขนาด
+export async function POST(req: NextRequest, { params }: Ctx) {
+  const { id } = await params
+  return proxyForm(req, `/api/v1/hr/leave-requests/${encodeURIComponent(id)}/document`)
+}
 
 // สตรีมไฟล์แนบของใบลา (ใบรับรองแพทย์ ฯลฯ) — สิทธิ์เดียวกับการพิมพ์ใบลา (backend ตรวจ)
 export async function GET(req: NextRequest, { params }: Ctx) {
