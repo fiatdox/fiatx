@@ -123,7 +123,27 @@ const PageContent = () => {
   const [statusFilter, setStatusFilter] = useState<Status | null>(null)
   const [rightOnly, setRightOnly] = useState(true)
   const [search, setSearch] = useState('')
+  // สังกัด — เลือกไล่จากกลุ่มภารกิจ → กลุ่มงาน → หน่วยงาน/ตึก (ตัวเลือกชั้นล่างแสดงเฉพาะที่อยู่ใต้ชั้นบนที่เลือก)
+  const [missionFilter, setMissionFilter] = useState<string | null>(null)
+  const [majorFilter, setMajorFilter] = useState<string | null>(null)
+  const [submajorFilter, setSubmajorFilter] = useState<string | null>(null)
   const typeKey = (id: number | null) => id != null ? String(id) : 'none'
+
+  const unitOptions = useMemo(() => {
+    const all = td?.rows ?? []
+    const count = (list: TransferRow[], pick: (r: TransferRow) => string | null) => {
+      const m = new Map<string, number>()
+      for (const r of list) { const k = pick(r); if (k) m.set(k, (m.get(k) ?? 0) + 1) }
+      return [...m.entries()].sort(([a], [b]) => a.localeCompare(b, 'th')).map(([k, n]) => ({ value: k, label: `${k} (${n})` }))
+    }
+    const inMission = missionFilter ? all.filter(r => r.mission_name === missionFilter) : all
+    const inMajor = majorFilter ? inMission.filter(r => r.major_name === majorFilter) : inMission
+    return {
+      mission: count(all, r => r.mission_name),
+      major: count(inMission, r => r.major_name),
+      submajor: count(inMajor, r => r.submajor_name),
+    }
+  }, [td, missionFilter, majorFilter])
 
   const rows = useMemo(() => {
     const q = search.trim()
@@ -131,9 +151,12 @@ const PageContent = () => {
       (view === 'all' || (view === 'missing' ? r.missing : !r.missing))
       && (!typeFilter || typeKey(r.user_type_id) === typeFilter)
       && (!statusFilter || r.status === statusFilter)
+      && (!missionFilter || r.mission_name === missionFilter)
+      && (!majorFilter || r.major_name === majorFilter)
+      && (!submajorFilter || r.submajor_name === submajorFilter)
       && (view !== 'missing' || !rightOnly || r.has_right)
       && (!q || r.name.includes(q) || (r.position_name ?? '').includes(q)))
-  }, [td, view, typeFilter, statusFilter, rightOnly, search])
+  }, [td, view, typeFilter, statusFilter, rightOnly, search, missionFilter, majorFilter, submajorFilter])
   const noOf = useMemo(() => new Map(rows.map((r, i) => [r.user_id, i + 1])), [rows])
 
   // ── เพิ่ม/ตั้งยอด ─────────────────────────────────────────────────────────────
@@ -282,6 +305,7 @@ const PageContent = () => {
   const filterLabel = [
     typeFilter && td?.by_type.find(t => typeKey(t.user_type_id) === typeFilter)?.user_type_name,
     statusFilter && STATUS_META[statusFilter].label,
+    submajorFilter ?? majorFilter ?? missionFilter,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -410,9 +434,27 @@ const PageContent = () => {
                 options={[{ value: 'right', label: 'เฉพาะที่มีสิทธิ์สะสม' }, { value: 'all', label: 'รวมที่ไม่มีสิทธิ์' }]}
               />
             )}
+            <Select
+              allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="ทุกกลุ่มภารกิจ" style={{ minWidth: 200 }} popupMatchSelectWidth={false}
+              value={missionFilter ?? undefined} options={unitOptions.mission}
+              onChange={(v?: string) => { setMissionFilter(v ?? null); setMajorFilter(null); setSubmajorFilter(null) }}
+            />
+            <Select
+              allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="ทุกกลุ่มงาน" style={{ minWidth: 200 }} popupMatchSelectWidth={false}
+              value={majorFilter ?? undefined} options={unitOptions.major}
+              onChange={(v?: string) => { setMajorFilter(v ?? null); setSubmajorFilter(null) }}
+            />
+            <Select
+              allowClear showSearch={{ optionFilterProp: 'label' }} placeholder="ทุกหน่วยงาน/ตึก" style={{ minWidth: 200 }} popupMatchSelectWidth={false}
+              value={submajorFilter ?? undefined} options={unitOptions.submajor}
+              onChange={(v?: string) => setSubmajorFilter(v ?? null)}
+            />
             <Input allowClear placeholder="ค้นหาชื่อ / ตำแหน่ง" prefix={<SearchOutlined />} style={{ maxWidth: 240 }} value={search} onChange={e => setSearch(e.target.value)} />
-            {(typeFilter || statusFilter || search) && (
-              <Button type="link" onClick={() => { setTypeFilter(null); setStatusFilter(null); setSearch('') }}>ล้างตัวกรอง</Button>
+            {(typeFilter || statusFilter || search || missionFilter || majorFilter || submajorFilter) && (
+              <Button type="link" onClick={() => {
+                setTypeFilter(null); setStatusFilter(null); setSearch('')
+                setMissionFilter(null); setMajorFilter(null); setSubmajorFilter(null)
+              }}>ล้างตัวกรอง</Button>
             )}
           </div>
           <Table
