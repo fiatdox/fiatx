@@ -14,7 +14,8 @@ import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBa
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import HrPopup from '@/app/components/HrPopup'
-import { normalizeRoles, MENU_ROLE_REQUIREMENTS, canSeeMenu } from '@/app/lib/menuAccess'
+import { normalizeRoles, MENU_ROLE_REQUIREMENTS, canSeeMenu, isRouteEnabled } from '@/app/lib/menuAccess'
+import { useServerMenuAccess } from '@/app/lib/useMenuAccess'
 import LeaveHeader from './LeaveHeader'
 import {
   type HrPost, KIND_LABEL, NO_CATEGORY, categoryRank, fileIcon, fileUrl, fmtDate, fmtSize, isImage,
@@ -388,6 +389,12 @@ const HrLeaveHomeContent = () => {
     }] : []),
   ]
 
+  // สวิตช์โมดูล (/account/modules) — เปิดเฉพาะหน้าแรกได้ (ข่าว/ระเบียบการลา) โดยซ่อนการ์ดของหน้าที่ยังปิดอยู่
+  // ยังไม่รู้ผล = ซ่อนไว้ก่อน กันการ์ดโผล่แวบให้เห็นตอนระบบการลายังปิด
+  const menuAccess = useServerMenuAccess()
+  const routeOn = (href: string) => !!menuAccess && isRouteEnabled(href, menuAccess.disabledModules)
+  const leaveOn = routeOn('/hr/leave/history')
+
   const news = useMemo(() => posts.filter(p => p.kind === 'news'), [posts])
   const docGroups = useMemo(() => {
     const groups = new Map<string, HrPost[]>()
@@ -542,17 +549,17 @@ const HrLeaveHomeContent = () => {
 
         <LeaveHeader userId={viewing ? viewAs : null} />
 
-        <LeaveOverviewCards override={viewing ? (pv?.overview ?? null) : undefined} />
+        {leaveOn && <LeaveOverviewCards override={viewing ? (pv?.overview ?? null) : undefined} />}
 
-        {renderLinks(quickLinks)}
+        {renderLinks(quickLinks.filter(l => routeOn(l.href)))}
 
-        {hrTools.length > 0 && (
+        {hrTools.some(l => routeOn(l.href)) && (
           <>
             <div className="flex flex-wrap items-baseline gap-2 mb-3">
               <Text strong style={{ fontSize: 15 }}><ToolOutlined style={{ color: '#047857' }} /> เครื่องมืองานทรัพยากรบุคคล</Text>
               <Text type="secondary" style={{ fontSize: 12 }}>แสดงตามสิทธิ์ของ{viewing ? 'บุคลากรที่เลือก' : 'ท่าน'} ({effRoles.filter(r => HR_ROLES.includes(r)).join(' / ')})</Text>
             </div>
-            {renderLinks(hrTools)}
+            {renderLinks(hrTools.filter(l => routeOn(l.href)))}
           </>
         )}
 

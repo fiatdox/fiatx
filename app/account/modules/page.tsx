@@ -259,7 +259,7 @@ const PageContent = () => {
                                 {dirty && <Tag color="orange" style={{ marginInlineStart: 4 }}>แก้ไข</Tag>}
                               </div>
                               <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                                {m.route_prefix}
+                                {m.route_prefix.startsWith('=') ? `${m.route_prefix.slice(1)} (หน้านี้หน้าเดียว)` : m.route_prefix}
                               </Text>
                               {m.note && (
                                 <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>

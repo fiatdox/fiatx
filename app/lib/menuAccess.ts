@@ -84,9 +84,23 @@ export const normalizeRoles = (roles?: unknown): string[] =>
 export const underPrefix = (route: string, prefix: string) =>
   route === prefix || route.startsWith(`${prefix}/`)
 
-/** โมดูลของเส้นทางนี้เปิดใช้งานอยู่ไหม (disabled ว่าง = เปิดหมด) */
-export const isRouteEnabled = (route: string, disabledPrefixes: string[]): boolean =>
-  !disabledPrefixes.some(p => underPrefix(route, p))
+/**
+ * โมดูลของเส้นทางนี้เปิดใช้งานอยู่ไหม (disabled ว่าง = เปิดหมด)
+ * รายการจาก backend: '/x' = ปิดทั้งสาขา · '=/x' = ปิดหน้านั้นหน้าเดียว
+ * · '+/x' / '+=/x' = ข้อยกเว้นที่เปิดอยู่ใต้สาขาที่ปิด — กฎที่เจาะจงกว่าชนะ (ตรงหน้าเดียว > prefix ยาวกว่า)
+ *   เช่น ['/hr/leave', '+=/hr/leave'] = เห็นเฉพาะหน้าแรกของระบบการลา
+ */
+export const isRouteEnabled = (route: string, disabledPrefixes: string[]): boolean => {
+  const score = (p: string) => p.startsWith('=')
+    ? (route === p.slice(1) ? Number.MAX_SAFE_INTEGER : -1)
+    : (underPrefix(route, p) ? p.length : -1)
+  let off = -1, on = -1
+  for (const p of disabledPrefixes) {
+    if (p.startsWith('+')) on = Math.max(on, score(p.slice(1)))
+    else off = Math.max(off, score(p))
+  }
+  return off < 0 || on > off
+}
 
 /**
  * เห็นเมนูนี้ได้ไหม — route ที่ไม่ได้กำหนดสิทธิ์ = เห็นได้ทุกคน
