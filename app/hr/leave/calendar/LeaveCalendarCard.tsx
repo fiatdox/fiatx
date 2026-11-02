@@ -1,6 +1,7 @@
 'use client'
 // ปฏิทินการลา (หน้า /hr/leave) — ขอบเขตที่เลือกดูได้มาจาก backend ตามตำแหน่งในผัง:
 // ผอ. / ADMIN / HR = ทั้งโรงพยาบาล · หัวหน้า/รักษาการ = หน่วยที่ดูแล · ทุกคน = เพื่อนร่วมกลุ่มงาน (ไม่เห็นประเภทการลา) + ของฉัน
+// หัวหน้า/รักษาการทุกระดับ ผอ. ADMIN HR เลือกดูหน่วยอื่นได้ (ค้นชื่อหน่วยในช่องเลือก) — ใบนอกสายอนุมัติเห็นแค่ว่า "ลา"
 import React, { useEffect, useMemo, useState } from 'react'
 import { Card, Select, Button, Tag, Typography, Empty, Spin, Grid } from 'antd'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
@@ -95,6 +96,7 @@ export default function LeaveCalendarCard() {
           value={currentScope ?? undefined}
           onChange={v => setScope(v)}
           options={selectOptions}
+          showSearch={{ optionFilterProp: 'label' }}
           style={{ width: narrow ? 180 : 280 }}
           popupMatchSelectWidth={false}
           aria-label="เลือกขอบเขตการมองเห็น"
@@ -106,7 +108,9 @@ export default function LeaveCalendarCard() {
           {header}
           {data?.masked && (
             <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
-              ปฏิทินเพื่อนร่วมกลุ่มงานแสดงเฉพาะว่าใครลาวันไหน ไม่แสดงประเภทการลาของผู้อื่น
+              {currentScope === 'team'
+                ? 'ปฏิทินเพื่อนร่วมกลุ่มงานแสดงเฉพาะว่าใครลาวันไหน ไม่แสดงประเภทการลาของผู้อื่น'
+                : 'แสดงประเภทการลาเฉพาะใบที่ท่านอยู่ในสายอนุมัติ ใบอื่นแสดงเฉพาะว่าใครลาวันไหน'}
             </Text>
           )}
           {month && (narrow ? (
