@@ -102,7 +102,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'บริการของฉัน',
     hint: 'ใช้ได้ทุกคน',
     items: [
-      { key: '/hr/leave/new', icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา', color: '#059669' },
+      // หน้าแรกระบบการลา (ข่าว / ระเบียบ / ลิงก์ยื่นคำขอลา) — เปิดได้แม้ปิดหน้าอื่นของระบบการลา (/account/modules)
+      { key: '/hr/leave', icon: <FaCalendarAlt />, label: 'ระบบลา', color: '#059669' },
       { key: '/information-technology/maintenance', icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์', color: '#7c3aed' },
       { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป', color: '#006a5a' },
       { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์', color: '#0891b2' },

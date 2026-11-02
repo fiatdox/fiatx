@@ -63,7 +63,7 @@ const MENU_TREE: NavItem[] = [
     children: [
       // นำหน้าด้วย FAV_PREFIX เพราะ route เดียวกันปรากฏในกลุ่มหน่วยงานด้านล่างด้วย
       // antd Menu ต้องการ key ไม่ซ้ำ ไม่งั้นไฮไลต์พร้อมกันสองที่
-      { key: `${FAV_PREFIX}/hr/leave/new`, icon: <FaCalendarAlt />, label: 'ยื่นคำขอลา' },
+      { key: `${FAV_PREFIX}/hr/leave`, icon: <FaCalendarAlt />, label: 'ระบบลา' },
       { key: `${FAV_PREFIX}/hr/leave/status`, icon: <FaClipboardList />, label: 'สรุปการลาตามปีงบประมาณ' },
       { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
       { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
