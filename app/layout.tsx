@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   description: "ระบบบริหารโรงพยาบาลอัจฉริยะเป็นแพลตฟอร์มที่ช่วยให้โรงพยาบาลสามารถจัดการและดำเนินงานได้อย่างมีประสิทธิภาพ โดยมีฟีเจอร์ต่าง ๆ เช่น การจัดการผู้ป่วย การจัดการบุคลากร การจัดการทรัพยากร และการวิเคราะห์ข้อมูล เพื่อช่วยให้โรงพยาบาลสามารถให้บริการที่ดีที่สุดแก่ผู้ป่วยได้อย่างมีประสิทธิภาพ",
 };
 
-// ตั้งค่า data-theme ก่อน paint เพื่อกันจอกระพริบ (FOUC) — default = dark
-const themeInitScript = `(function(){try{var m=localStorage.getItem('app-theme');if(m!=='light'&&m!=='dark'){m='dark';}document.documentElement.setAttribute('data-theme',m);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+// ตั้งค่า data-theme ก่อน paint เพื่อกันจอกระพริบ (FOUC) — default = light (ผู้ใช้ที่เคยเลือกโหมดเองใช้ค่าที่เลือกไว้)
+const themeInitScript = `(function(){try{var m=localStorage.getItem('app-theme');if(m!=='light'&&m!=='dark'){m='light';}document.documentElement.setAttribute('data-theme',m);}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
 
 export default function RootLayout({
   children,
@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
         {/*
           ต้องเป็น <script> ธรรมดาเท่านั้น ห้ามเปลี่ยนไปใช้ next/script

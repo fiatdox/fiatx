@@ -14,7 +14,7 @@ interface ThemeModeContextValue {
 }
 
 const ThemeModeContext = createContext<ThemeModeContextValue>({
-  mode: 'dark',
+  mode: 'light',
   setMode: () => {},
   toggle: () => {},
 })
@@ -23,14 +23,14 @@ export const useThemeMode = () => useContext(ThemeModeContext)
 
 /**
  * อ่านค่าธีมเริ่มต้นจาก attribute ที่ inline-script (ใน layout) ตั้งไว้ก่อน hydrate
- * เพื่อกันจอกระพริบ (FOUC) เริ่มต้นเป็น 'dark' หากยังไม่มีค่า
+ * เพื่อกันจอกระพริบ (FOUC) เริ่มต้นเป็น 'light' หากยังไม่มีค่า
  */
 function readInitialMode(): ThemeMode {
   if (typeof document !== 'undefined') {
     const attr = document.documentElement.getAttribute('data-theme')
     if (attr === 'light' || attr === 'dark') return attr
   }
-  return 'dark'
+  return 'light'
 }
 
 /**
@@ -38,7 +38,7 @@ function readInitialMode(): ThemeMode {
  * วางไว้ใน app/layout.tsx ครอบ children ทั้งหมด
  */
 export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setModeState] = useState<ThemeMode>('dark')
+  const [mode, setModeState] = useState<ThemeMode>('light')
 
   // sync จาก attribute ที่ script ตั้งไว้ ตอน mount ฝั่ง client
   useEffect(() => {
