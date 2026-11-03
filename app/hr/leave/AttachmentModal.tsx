@@ -3,7 +3,8 @@
 // ไฟล์ดึงผ่าน /leave-requests/:id/document (backend ตรวจสิทธิ์ดูใบลา: เจ้าของ / สายอนุมัติ / HR / ADMIN)
 import { useState } from 'react'
 import { Alert, Button, Empty, Image, Modal, Space, Typography } from 'antd'
-import { ExportOutlined, PaperClipOutlined } from '@ant-design/icons'
+import { DownloadOutlined, ExportOutlined, FilePdfOutlined, PaperClipOutlined } from '@ant-design/icons'
+import { canInlinePdf } from '@/app/lib/pdfSupport'
 
 const { Text } = Typography
 
@@ -37,6 +38,19 @@ const AttachmentPreview = ({ doc }: { doc: AttachmentDoc }) => {
     )
   }
   if (ext === 'pdf') {
+    // Android แสดง PDF ใน iframe ไม่ได้ (ว่างเปล่า) — ให้เปิด/บันทึกไฟล์ไปเปิดด้วยแอป PDF ในเครื่องแทน
+    if (!canInlinePdf()) {
+      return (
+        <div className="flex flex-col items-center gap-3 py-8 text-center">
+          <FilePdfOutlined style={{ fontSize: 48, color: '#dc2626' }} />
+          <Text>{doc.name}</Text>
+          <Text type="secondary" style={{ fontSize: 13 }}>เครื่องนี้แสดง PDF ในหน้าเว็บไม่ได้ — เปิดด้วยแอปในเครื่องเพื่อดูหรือสั่งพิมพ์</Text>
+          <Button type="primary" size="large" icon={<DownloadOutlined />} href={docUrl(doc.id)} download={doc.name}>
+            บันทึก / เปิดไฟล์ PDF
+          </Button>
+        </div>
+      )
+    }
     return <iframe src={docUrl(doc.id)} title={doc.name} style={{ width: '100%', height: '72vh', border: 0 }} />
   }
   return (
@@ -63,7 +77,7 @@ export default function AttachmentModal({ doc, onClose }: { doc: AttachmentDoc |
       style={{ top: 24 }}
       destroyOnHidden
       footer={doc && (
-        <Space>
+        <Space wrap style={{ justifyContent: 'flex-end' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>{doc.name}</Text>
           <Button icon={<ExportOutlined />} href={docUrl(doc.id)} target="_blank" rel="noopener">ดาวน์โหลด / เปิดแท็บใหม่</Button>
           <Button type="primary" onClick={onClose}>ปิด</Button>

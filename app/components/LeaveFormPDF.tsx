@@ -1,7 +1,10 @@
 'use client'
-import { Document, Page, Text, View, StyleSheet, Font, PDFViewer, Svg, Rect, Path } from '@react-pdf/renderer'
-import type { ComponentProps } from 'react'
+import { Document, Page, Text, View, StyleSheet, Font, PDFViewer, Svg, Rect, Path, pdf } from '@react-pdf/renderer'
+import { useState, type ComponentProps } from 'react'
+import { App, Button } from 'antd'
+import { DownloadOutlined, FilePdfOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { withBase } from '@/app/lib/basePath'
+import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSupport'
 
 // ─── Font ─────────────────────────────────────────────────────────────────────
 // ใช้ไฟล์ในเครื่อง (public/fonts) ไม่ดึงจากอินเทอร์เน็ต เพราะเครื่องในโรงพยาบาลบางจุดออกเน็ตไม่ได้
@@ -436,11 +439,83 @@ const SickPersonalMaternityForm = ({ d, spm }: { d: LeaveFormData; spm: SpmForm 
 export const LeaveFormDocument = ({ d }: { d: LeaveFormData }) =>
   d.spm ? <SickPersonalMaternityForm d={d} spm={d.spm} /> : <AnnualLeaveForm d={d} />
 
-/** ตัวแสดงผลในโมดัล — react-pdf ทำงานเฉพาะฝั่ง client เท่านั้น */
-const LeaveFormPDF = ({ data }: { data: LeaveFormData }) => (
-  <PDFViewer style={{ width: '100%', height: '100%', border: 'none' }} showToolbar>
-    <LeaveFormDocument d={data} />
-  </PDFViewer>
-)
+// ─── มือถือที่แสดง PDF ในหน้าไม่ได้ (Android) — สรุปใบลา + ปุ่มบันทึก/แชร์ไฟล์ไปเปิดพิมพ์ในแอป ──
+const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
+  const { message } = App.useApp()
+  const [busy, setBusy] = useState<'save' | 'share' | null>(null)
+  const fileName = `ใบลา-${data.refNo || 'LV'}.pdf`
+
+  const build = async () => new File([await pdf(<LeaveFormDocument d={data} />).toBlob()], fileName, { type: 'application/pdf' })
+
+  const save = async () => {
+    setBusy('save')
+    try {
+      saveBlob(await build(), fileName)
+      message.success('บันทึกไฟล์แล้ว — กด “เปิด” ที่แถบดาวน์โหลด แล้วสั่งพิมพ์จากแอป PDF', 5)
+    } catch {
+      message.error('สร้างไฟล์ PDF ไม่สำเร็จ')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const share = async () => {
+    setBusy('share')
+    try {
+      const file = await build()
+      // เบราว์เซอร์ที่แชร์ไฟล์ไม่ได้ — บันทึกลงเครื่องแทน
+      if (!canShareFile(file)) { saveBlob(file, fileName); return }
+      await shareFile(file, data.subject || 'ใบลา')
+    } catch {
+      message.error('สร้างไฟล์ PDF ไม่สำเร็จ')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const row = (label: string, value: string) => value ? (
+    <div style={{ display: 'flex', gap: 12, padding: '6px 0', borderBottom: '1px dashed var(--app-border)', fontSize: 14 }}>
+      <span style={{ color: 'var(--app-text-3)', minWidth: 96 }}>{label}</span>
+      <span style={{ flex: 1 }}>{value}</span>
+    </div>
+  ) : null
+
+  return (
+    <div style={{ height: '100%', overflowY: 'auto', padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <FilePdfOutlined style={{ fontSize: 28, color: '#dc2626' }} />
+        <div>
+          <div style={{ fontWeight: 700 }}>{data.subject || 'ใบลา'}</div>
+          <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{data.refNo}</div>
+        </div>
+      </div>
+      {row('ผู้ลา', data.fullName)}
+      {row('ตำแหน่ง', data.position)}
+      {row('วันที่ลา', data.startDate === data.endDate ? data.startDate : `${data.startDate} – ${data.endDate}`)}
+      {row('จำนวน', data.requestedDays ? `${data.requestedDays} วันทำการ${data.halfDayLabel ? ` (${data.halfDayLabel})` : ''}` : '')}
+      <div style={{ fontSize: 13, color: 'var(--app-text-3)', margin: '14px 0' }}>
+        เครื่องนี้แสดงแบบใบลาในหน้าเว็บไม่ได้ — บันทึกเป็นไฟล์ PDF แล้วเปิดด้วยแอปในเครื่องเพื่อดูหรือสั่งพิมพ์
+      </div>
+      <Button type="primary" block size="large" icon={<DownloadOutlined />} loading={busy === 'save'} disabled={busy === 'share'} onClick={save}>
+        บันทึกเป็น PDF
+      </Button>
+      {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+        <Button block size="large" icon={<ShareAltOutlined />} loading={busy === 'share'} disabled={busy === 'save'} onClick={share} style={{ marginTop: 8 }}>
+          แชร์ / ส่งไปพิมพ์
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/** ตัวแสดงผลในโมดัล — react-pdf ทำงานเฉพาะฝั่ง client เท่านั้น (โหลดผ่าน dynamic ssr:false) */
+const LeaveFormPDF = ({ data }: { data: LeaveFormData }) => {
+  if (!canInlinePdf()) return <LeaveFormMobile data={data} />
+  return (
+    <PDFViewer style={{ width: '100%', height: '100%', border: 'none' }} showToolbar>
+      <LeaveFormDocument d={data} />
+    </PDFViewer>
+  )
+}
 
 export default LeaveFormPDF

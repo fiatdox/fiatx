@@ -647,7 +647,7 @@ const LeavePageContent = () => {
                       rules={[{ required: mustAttach, message: 'กรุณาแนบเอกสาร' }]}
                     >
                       <Upload
-                        maxCount={1} listType="picture" accept=".pdf,.jpg,.jpeg,.jfif,.png,.gif,.webp,.heic,.doc,.docx"
+                        maxCount={1} listType="picture" accept="application/pdf,image/*,.pdf,.jpg,.jpeg,.jfif,.png,.gif,.webp,.heic,.heif,.doc,.docx"
                         beforeUpload={f => {
                           if (f.size > 10 * 1024 * 1024) { message.error('ไฟล์แนบมีขนาดเกิน 10MB'); return Upload.LIST_IGNORE }
                           return false
