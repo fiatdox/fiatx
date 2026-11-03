@@ -2,12 +2,12 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import Cookies from 'js-cookie'
 import {
-  Typography, Card, Row, Col, Badge, Avatar, Progress, Carousel, Tag,
+  Typography, Card, Row, Col, Avatar, Progress, Carousel, Tag,
   Button, Drawer, Form, Select, Input, Space, Descriptions, Alert, App,
 } from 'antd'
 import { AppThemeProvider } from '../components/ThemeProvider'
 import {
-  BellOutlined, CalendarOutlined,
+  CalendarOutlined,
   UserOutlined, ArrowRightOutlined,
   SendOutlined,
 } from '@ant-design/icons'
@@ -229,12 +229,6 @@ const leaveBalances: LeaveBalance[] = [
   { key: 'sick', label: 'ลาป่วย', icon: <FaBriefcaseMedical />, color: '#ef4444', used: 2, total: 60 },
 ]
 
-const notifications = [
-  { id: 1, message: 'งานซ่อมเครื่องปรับอากาศ OPD 2 อัปเดตสถานะ', read: false, time: '5 นาทีที่แล้ว' },
-  { id: 2, message: 'คำขอลาของคุณได้รับการอนุมัติแล้ว', read: false, time: '1 ชม. ที่แล้ว' },
-  { id: 3, message: 'มีใบสั่งงานซ่อมใหม่ 2 รายการ', read: true, time: '3 ชม. ที่แล้ว' },
-]
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 interface Profile {
@@ -389,8 +383,6 @@ const PageContent = () => {
     return 'สวัสดีตอนเย็น'
   })()
 
-  const unread = notifications.filter(n => !n.read).length
-
   return (
     <div style={{ minHeight: '100dvh', background: 'var(--app-bg)' }}>
       <Navbar />
@@ -413,7 +405,7 @@ const PageContent = () => {
           <div style={{ position: 'absolute', bottom: -60, right: 80, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.03)' }} />
 
           <Row gutter={[24, 16]} align="middle">
-            <Col xs={24} md={16}>
+            <Col xs={24}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
                 <Avatar
                   size={60}
@@ -432,21 +424,6 @@ const PageContent = () => {
                 <CalendarOutlined />
                 <span>{currentTime ? <>{currentTime.format('วันdddd ที่ D MMMM BBBB')} &nbsp;|&nbsp; {currentTime.format('HH:mm น.')}</> : '\u00a0'}</span>
               </div>
-            </Col>
-            <Col xs={24} md={8} style={{ textAlign: 'right' }}>
-              <Badge count={unread} size="default" offset={[-4, 4]}>
-                <Button
-                  shape="circle"
-                  size="large"
-                  icon={<BellOutlined style={{ color: '#fff', fontSize: 18 }} />}
-                  style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', width: 48, height: 48 }}
-                />
-              </Badge>
-              {unread > 0 && (
-                <div style={{ marginTop: 8, color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-                  การแจ้งเตือนใหม่ <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{unread}</span> รายการ
-                </div>
-              )}
             </Col>
           </Row>
         </div>
