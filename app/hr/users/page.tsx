@@ -103,6 +103,48 @@ const nameIn = (arr: SystemOption[], id?: number) => (id ? arr.find((o) => o.id 
 const isActive = (u: User) =>
   u.is_active === true || u.is_active === 'true' || u.is_active === '1' || u.is_active === 'Y'
 
+// ── สีตามประเภทบุคลากร / สถานะ ─────────────────────────────────────────────
+// จับจากชื่อ (id ต่างฐานอาจไม่ตรงกัน) — ประเภทที่ไม่รู้จักวนสีสำรองตาม id ให้สีคงที่ต่อประเภท
+interface Tone { tag: string; hex: string }
+const TYPE_TONES: [string, Tone][] = [
+  ['พนักงานราชการ', { tag: 'cyan', hex: '#0891b2' }],
+  ['ข้าราชการ', { tag: 'blue', hex: '#1d4ed8' }],
+  ['ลูกจ้างประจำ', { tag: 'purple', hex: '#7c3aed' }],
+  ['พนักงานกระทรวง', { tag: 'green', hex: '#15803d' }],
+  ['ลูกจ้างชั่วคราว', { tag: 'orange', hex: '#ea580c' }],
+  ['รายวัน', { tag: 'gold', hex: '#ca8a04' }],
+]
+const SPARE_TONES: Tone[] = [
+  { tag: 'magenta', hex: '#c026d3' }, { tag: 'geekblue', hex: '#4338ca' },
+  { tag: 'volcano', hex: '#dc2626' }, { tag: 'lime', hex: '#65a30d' },
+]
+const NO_TONE: Tone = { tag: 'default', hex: '#64748b' }
+const typeTone = (name?: string, id?: number): Tone => {
+  if (!name) return NO_TONE
+  return TYPE_TONES.find(([k]) => name.includes(k))?.[1] ?? SPARE_TONES[(id ?? 0) % SPARE_TONES.length]
+}
+const statusTag = (name: string) =>
+  name === WORKING_STATUS_NAME ? 'success'
+    : name.includes('เกษียณ') ? 'purple'
+    : name.includes('โอน') || name.includes('ย้าย') ? 'orange'
+    : name.includes('ลาออก') ? 'red'
+    : name.includes('เสียชีวิต') ? 'default'
+    : 'volcano'
+
+// ── อายุ / อายุงาน ─────────────────────────────────────────────────────────
+const ymText = (from: string) => {
+  const months = dayjs().diff(dayjs(from), 'month')
+  if (months < 0) return ''
+  const y = Math.floor(months / 12), m = months % 12
+  return y ? `${y} ปี${m ? ` ${m} เดือน` : ''}` : `${m} เดือน`
+}
+// ปีงบประมาณ (พ.ศ.) ที่เกษียณ — ครบ 60 ปีภายใน 30 ก.ย. ของปีงบนั้น (เกิด ต.ค.–ธ.ค. เลื่อนไปปีงบถัดไป)
+const retireFy = (birthday: string) => {
+  const b = dayjs(birthday)
+  return b.year() + 60 + (b.month() >= 9 ? 1 : 0) + 543
+}
+const currentFy = () => dayjs().year() + (dayjs().month() >= 9 ? 1 : 0) + 543
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 const PageContent = () => {
@@ -116,6 +158,7 @@ const PageContent = () => {
   const [filterSubmajor, setFilterSubmajor] = useState<number | null>(null)
   const [filterStatus, setFilterStatus] = useState<number | null>(null)
   const [filterActive, setFilterActive] = useState<string | null>(null)
+  const [filterType, setFilterType] = useState<number | null>(null)
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
@@ -324,10 +367,16 @@ const PageContent = () => {
     const matchSubmajor = !filterSubmajor || u.submajor_id === filterSubmajor
     const matchStatus = !filterStatus || u.user_status_id === filterStatus
     const matchActive = filterActive === null || (filterActive === 'active' ? isActive(u) : !isActive(u))
-    return matchSearch && matchMission && matchMajor && matchSubmajor && matchStatus && matchActive
+    const matchType = !filterType || u.user_type_id === filterType
+    return matchSearch && matchMission && matchMajor && matchSubmajor && matchStatus && matchActive && matchType
   })
 
-  const activeFilterCount = [filterMission, filterMajor, filterSubmajor, filterStatus, filterActive].filter(Boolean).length
+  const activeFilterCount = [filterMission, filterMajor, filterSubmajor, filterStatus, filterActive, filterType].filter(Boolean).length
+
+  // จำนวนคนต่อประเภท (ทั้งทะเบียน) — ชิปสรุปด้านบนตาราง กดเพื่อกรอง
+  const typeCount = new Map<number, number>()
+  users.forEach((u) => { if (u.user_type_id) typeCount.set(u.user_type_id, (typeCount.get(u.user_type_id) ?? 0) + 1) })
+  const fyNow = currentFy()
 
   // ── ตัวกรองกลุ่มงาน / หน่วยงาน ──────────────────────────────────────────
   // ตัวเลือกแคบลงตามระดับที่เลือกไว้ด้านบน (ด้าน → กลุ่มงาน → หน่วยงาน) และบอกจำนวนคนในวงเล็บ
@@ -387,7 +436,9 @@ const PageContent = () => {
       'ประเภท': nameIn(userTypes, u.user_type_id),
       'สถานะ': nameIn(userStatuses, u.user_status_id),
       'วันเกิด': u.birthday ? dayjs(u.birthday).format(BE_DATE) : '',
+      'อายุ': u.birthday ? ymText(u.birthday) : '',
       'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format(BE_DATE) : '',
+      'อายุงาน': u.hire_date && isActive(u) ? ymText(u.hire_date) : '',
       'สถานะการใช้งาน': isActive(u) ? 'ใช้งาน' : 'ระงับ',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
@@ -403,27 +454,26 @@ const PageContent = () => {
       title: 'บุคลากร',
       key: 'name',
       width: 280,
-      render: (_: unknown, u: User) => (
-        <div className="flex items-center gap-3 py-1">
-          <Avatar size={44} icon={<UserOutlined />} style={{ backgroundColor: '#006a5a', border: '2px solid rgba(0,106,90,0.3)', flexShrink: 0 }} />
-          <div>
-            <div className="font-semibold text-app-text text-[14px]">
-              {u.pname}{u.fname} {u.lname}
-            </div>
-            <div className="text-xs text-app-text-2 mt-0.5 flex items-center gap-1">
-              <IdcardOutlined /> {u.id_card || u.username}
+      fixed: 'left' as const,
+      render: (_: unknown, u: User) => {
+        // วงกลมรูปคนสีตามประเภทบุคลากร — ไล่ดูทั้งหน้าแล้วแยกกลุ่มได้ด้วยตา
+        const hex = typeTone(nameIn(userTypes, u.user_type_id), u.user_type_id).hex
+        return (
+          <div className="flex items-center gap-3 py-1">
+            <Avatar size={40} icon={<UserOutlined />} style={{ backgroundColor: hex, boxShadow: `0 0 0 3px ${hex}33`, flexShrink: 0 }} />
+            <div className="min-w-0">
+              <div className="font-semibold text-app-text text-[14px]">
+                {u.pname}{u.fname} {u.lname}
+              </div>
+              <div className="text-xs text-app-text-2 mt-0.5 flex items-center gap-1">
+                <IdcardOutlined /> {u.id_card || '-'}
+                {u.username && u.username !== u.id_card && <span className="text-app-text-3">· {u.username}</span>}
+              </div>
             </div>
           </div>
-        </div>
-      ),
+        )
+      },
       sorter: (a: User, b: User) => a.fname.localeCompare(b.fname),
-    },
-    {
-      title: 'ชื่อผู้ใช้งาน',
-      dataIndex: 'username',
-      key: 'username',
-      width: 150,
-      render: (v: string) => <Text style={{ fontSize: 13, color: 'var(--app-text-2)' }}>{v}</Text>,
     },
     {
       title: 'ด้าน / กลุ่มงาน / หน่วยงาน',
@@ -441,6 +491,10 @@ const PageContent = () => {
       title: 'ตำแหน่ง / ระดับ',
       key: 'position',
       width: 200,
+      // เรียงตามชื่อตำแหน่ง แล้วตามระดับ — ไม่มีตำแหน่งไว้ท้าย
+      sorter: (a: User, b: User) =>
+        (nameIn(positions, a.user_position_id) || '￿').localeCompare(nameIn(positions, b.user_position_id) || '￿', 'th')
+        || nameIn(levels, a.user_level_id).localeCompare(nameIn(levels, b.user_level_id), 'th'),
       render: (_: unknown, u: User) => {
         const levelName = byId(levels, u.user_level_id)
         return (
@@ -455,10 +509,52 @@ const PageContent = () => {
       title: 'ประเภท',
       key: 'type',
       width: 160,
+      sorter: (a: User, b: User) =>
+        (nameIn(userTypes, a.user_type_id) || '￿').localeCompare(nameIn(userTypes, b.user_type_id) || '￿', 'th'),
       render: (_: unknown, u: User) => {
         const name = byId(userTypes, u.user_type_id)
-        return name !== '-' ? <Tag style={{ borderRadius: 4, fontSize: 11 }}>{name}</Tag> : <span className="text-app-text-3">-</span>
+        return name !== '-'
+          ? <Tag color={typeTone(name, u.user_type_id).tag} style={{ borderRadius: 4, fontSize: 12, fontWeight: 500 }}>{name}</Tag>
+          : <span className="text-app-text-3">-</span>
       },
+    },
+    {
+      title: 'วันเกิด / อายุ',
+      key: 'birthday',
+      width: 150,
+      sorter: (a: User, b: User) => (a.birthday ?? '9999').localeCompare(b.birthday ?? '9999'),
+      render: (_: unknown, u: User) => {
+        if (!u.birthday) return <span className="text-app-text-3">-</span>
+        const fy = retireFy(u.birthday)
+        return (
+          <div>
+            <div className="text-[13px] text-app-text">{dayjs(u.birthday).format(BE_DATE)}</div>
+            <div className="text-[11px] text-app-text-2">อายุ {ymText(u.birthday) || '-'}</div>
+            {isActive(u) && fy <= fyNow + 1 && (
+              <Tooltip title={`ครบเกษียณ 30 ก.ย. ${fy}`}>
+                <Tag color={fy <= fyNow ? 'red' : 'gold'} style={{ marginTop: 2, fontSize: 11, borderRadius: 4 }}>
+                  {fy <= fyNow ? 'เกษียณปีงบนี้' : 'เกษียณปีงบหน้า'}
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      title: 'วันที่บรรจุ / อายุงาน',
+      key: 'hire_date',
+      width: 160,
+      sorter: (a: User, b: User) => (a.hire_date ?? '9999').localeCompare(b.hire_date ?? '9999'),
+      render: (_: unknown, u: User) => u.hire_date ? (
+        <div>
+          <div className="text-[13px] text-app-text">{dayjs(u.hire_date).format(BE_DATE)}</div>
+          <div className="text-[11px] text-app-text-2">
+            {/* คนที่พ้นสภาพแล้วนับถึงวันสิ้นสุดไม่ได้ (ไม่มีวันในหลายคน) จึงแสดงเฉพาะคนที่ยังปฏิบัติงาน */}
+            {isActive(u) ? `อายุงาน ${ymText(u.hire_date) || '-'}` : u.work_end_date ? `ถึง ${dayjs(u.work_end_date).format(BE_DATE)}` : ''}
+          </div>
+        </div>
+      ) : <span className="text-app-text-3">-</span>,
     },
     {
       title: 'สถานะ',
@@ -468,7 +564,7 @@ const PageContent = () => {
         const statusName = byId(userStatuses, u.user_status_id)
         return (
           <div className="flex flex-col gap-1">
-            {statusName !== '-' && <Tag color="blue" style={{ borderRadius: 4, fontSize: 11, width: 'fit-content' }}>{statusName}</Tag>}
+            {statusName !== '-' && <Tag color={statusTag(statusName)} style={{ borderRadius: 4, fontSize: 11, width: 'fit-content' }}>{statusName}</Tag>}
             <Badge
               status={isActive(u) ? 'success' : 'error'}
               text={<span style={{ fontSize: 11, color: isActive(u) ? '#22c55e' : '#ef4444' }}>{isActive(u) ? 'ใช้งาน' : 'ระงับ'}</span>}
@@ -480,7 +576,8 @@ const PageContent = () => {
     {
       title: '',
       key: 'actions',
-      width: 100,
+      width: 60,
+      fixed: 'right' as const,
       render: (_: unknown, u: User) => (
         <Space size={4}>
           <Tooltip title="แก้ไข">
@@ -496,7 +593,7 @@ const PageContent = () => {
   return (
     <div className="min-h-dvh bg-app-bg text-app-text" style={{ minHeight: '100dvh' }}>
       <Navbar />
-      <div className="p-4 md:p-8 max-w-350 mx-auto">
+      <div className="p-4 md:p-8 max-w-none">
 
         <Breadcrumb
           className="mb-4"
@@ -571,6 +668,34 @@ const PageContent = () => {
               </div>
             </div>
 
+            {/* สรุปจำนวนตามประเภทบุคลากร — กดเพื่อกรอง กดซ้ำเพื่อยกเลิก */}
+            {userTypes.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                {userTypes.filter((t) => typeCount.get(t.id)).map((t) => {
+                  const tone = typeTone(t.name, t.id)
+                  const on = filterType === t.id
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setFilterType(on ? null : t.id)}
+                      className="flex items-center gap-2 rounded-full px-3 py-1 text-[13px] transition-colors cursor-pointer"
+                      style={{
+                        border: `1px solid ${tone.hex}${on ? '' : '55'}`,
+                        backgroundColor: on ? tone.hex : `${tone.hex}14`,
+                        color: on ? '#fff' : tone.hex,
+                        fontWeight: 500,
+                      }}
+                    >
+                      <span className="inline-block rounded-full" style={{ width: 8, height: 8, backgroundColor: on ? '#fff' : tone.hex }} />
+                      {t.name}
+                      <span style={{ fontWeight: 700 }}>{typeCount.get(t.id)}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
             {/* Filter Bar */}
             <div className="p-4 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center justify-between mb-3">
@@ -582,7 +707,7 @@ const PageContent = () => {
                   <Button type="link" size="small" danger style={{ padding: 0, height: 'auto' }}
                     onClick={() => {
                       setFilterMission(null); setFilterMajor(null); setFilterSubmajor(null)
-                      setFilterStatus(null); setFilterActive(null)
+                      setFilterStatus(null); setFilterActive(null); setFilterType(null)
                     }}>
                     ล้างตัวกรอง
                   </Button>
@@ -616,6 +741,19 @@ const PageContent = () => {
                   <Select placeholder="ทั้งหมด" value={filterActive} onChange={setFilterActive} allowClear style={{ width: '100%' }}
                     options={[{ label: 'ใช้งาน', value: 'active' }, { label: 'ระงับ', value: 'inactive' }]} />
                 </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>ประเภทบุคลากร</Text>
+                  <Select placeholder="ทั้งหมด" value={filterType} onChange={(v) => setFilterType(v ?? null)} allowClear style={{ width: '100%' }}
+                    options={userTypes.map((t) => ({
+                      value: t.id,
+                      label: (
+                        <span className="flex items-center gap-2">
+                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, backgroundColor: typeTone(t.name, t.id).hex }} />
+                          {t.name} ({typeCount.get(t.id) ?? 0})
+                        </span>
+                      ),
+                    }))} />
+                </Col>
               </Row>
             </div>
           </div>
@@ -625,6 +763,7 @@ const PageContent = () => {
               columns={columns}
               dataSource={filtered}
               rowKey="id"
+              scroll={{ x: 1350 }}
               pagination={{ pageSize: 10, showTotal: (total, range) => `แสดง ${range[0]}-${range[1]} จาก ${total} รายการ`, style: { padding: '0 24px' } }}
               style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
             />
