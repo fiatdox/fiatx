@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Cookies from 'js-cookie'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import {
-  Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox,
+  Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox, DatePicker,
   Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
@@ -13,7 +13,7 @@ import {
   ClearOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, RollbackOutlined,
   SafetyCertificateOutlined, EditOutlined,
 } from '@ant-design/icons'
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
@@ -333,6 +333,8 @@ const StaffLeaveHistoryContent = () => {
   const [typeId, setTypeId] = useState<number | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [hasDoc, setHasDoc] = useState(false)
+  // ช่วงวันที่ — หาผู้ที่ลาคาบเกี่ยวช่วงนี้ (ใช้แทนปีงบ: เลือกช่วงแล้วปีงบเป็น "ทุกปี")
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
@@ -366,6 +368,8 @@ const StaffLeaveHistoryContent = () => {
         if (typeId) qs.set('leave_type_id', String(typeId))
         if (status) qs.set('status', status)
         if (hasDoc) qs.set('has_document', '1')
+        if (range?.[0]) qs.set('date_from', range[0].format('YYYY-MM-DD'))
+        if (range?.[1]) qs.set('date_to', range[1].format('YYYY-MM-DD'))
         if (check) qs.set('check', check)
         if (q) qs.set('q', q)
         const res = await fetch(`/api/v1/hr/leave-requests/staff-history?${qs}`)
@@ -388,13 +392,13 @@ const StaffLeaveHistoryContent = () => {
     }
     load()
     return () => { alive = false }
-  }, [fy, typeId, status, hasDoc, check, q, page, pageSize, reloadKey, message, router])
+  }, [fy, typeId, status, hasDoc, check, range, q, page, pageSize, reloadKey, message, router])
 
   // เปลี่ยนตัวกรองแล้วกลับไปหน้า 1 เสมอ
   const filter = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
-  const filtersOn = typeId != null || status != null || check != null || hasDoc || q !== ''
+  const filtersOn = typeId != null || status != null || check != null || hasDoc || q !== '' || range != null
   const clearFilters = () => {
-    setTypeId(null); setStatus(null); setCheck(null); setHasDoc(false); setSearch(''); setQ(''); setPage(1)
+    setTypeId(null); setStatus(null); setCheck(null); setHasDoc(false); setSearch(''); setQ(''); setRange(null); setPage(1)
   }
 
   const openPrint = async (id: number) => {
@@ -525,9 +529,25 @@ const StaffLeaveHistoryContent = () => {
           <div className="flex flex-wrap items-center gap-3">
             <Text type="secondary" style={{ fontSize: 12 }}><FilterOutlined /> กรองข้อมูล</Text>
             <Select
-              value={fy ?? 0} onChange={filter((v: number) => setFy(v || null))}
+              value={fy ?? 0} onChange={filter((v: number) => { setFy(v || null); if (v) setRange(null) })}
               options={fyOptions} style={{ width: 160 }}
             />
+            <Tooltip title="แสดงผู้ที่ลาคาบเกี่ยวช่วงนี้ — ใบที่เริ่มก่อนหรือสิ้นสุดหลังช่วงก็นับ">
+              <DatePicker.RangePicker
+                value={range} format="DD/MM/BBBB" allowEmpty={[true, true]}
+                placeholder={['ลาตั้งแต่วันที่', 'ถึงวันที่']} style={{ width: 260 }}
+                onChange={v => {
+                  const next = v && (v[0] || v[1]) ? [v[0], v[1]] as [Dayjs | null, Dayjs | null] : null
+                  setRange(next); if (next) setFy(null); setPage(1)
+                }}
+                presets={[
+                  { label: 'วันนี้', value: [dayjs(), dayjs()] },
+                  { label: 'สัปดาห์นี้', value: [dayjs().startOf('week'), dayjs().endOf('week')] },
+                  { label: 'เดือนนี้', value: [dayjs().startOf('month'), dayjs().endOf('month')] },
+                  { label: 'เดือนที่แล้ว', value: [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
+                ]}
+              />
+            </Tooltip>
             <Input.Search
               value={search} onChange={e => setSearch(e.target.value)} allowClear
               onSearch={v => { setQ(v.trim()); setPage(1) }}

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { proxy } from '../../../../_proxy'
 
 // ประวัติการลาเจ้าหน้าที่ทุกคน (ADMIN / HR — backend ตรวจสิทธิ์) ส่งต่อเฉพาะตัวกรองที่รู้จัก
-const KEYS = ['fiscal_year', 'leave_type_id', 'status', 'q', 'has_document', 'check', 'page', 'page_size']
+const KEYS = ['fiscal_year', 'leave_type_id', 'status', 'q', 'has_document', 'check', 'date_from', 'date_to', 'page', 'page_size']
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
