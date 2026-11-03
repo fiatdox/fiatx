@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
   basePath,
   env: { NEXT_PUBLIC_BASE_PATH: basePath },
   turbopack: {
-    root: __dirname,
+    // ใช้ process.cwd() แทน __dirname — ถ้าโหลด SWC native ไม่ได้ Next จะ compile config เป็น ES module
+    // ซึ่งไม่มี __dirname (build พังด้วย "ReferenceError: __dirname is not defined") · npm run build รันจากโฟลเดอร์โปรเจกต์เสมอ
+    root: process.cwd(),
   },
   allowedDevOrigins: ["192.168.1.53"],
 };
