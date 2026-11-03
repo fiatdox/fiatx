@@ -34,6 +34,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — ADMIN / HR และ ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
   // backend ตรวจสิทธิ์ใน controller · ปุ่มตรวจวันลาเฉพาะ ADMIN / HR
   '/hr/leave/staff-history': ['ADMIN', 'HR'],
+  // ตั้งค่าการแจ้งเตือนระบบลา (หมอพร้อม) — ส่งข้อความถึงบุคลากรทั้งองค์กร เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
+  '/hr/leave/notify-settings': ['ADMIN'],
   // Dashboard วิเคราะห์การลา — ข้อมูลการลาทั้งองค์กรรายบุคคล (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
   '/hr/leave/dashboard': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)

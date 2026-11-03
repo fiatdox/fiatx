@@ -8,7 +8,7 @@ import {
   HomeOutlined, LinkOutlined, PushpinFilled, NotificationOutlined,
   FolderOpenOutlined, FormOutlined, HistoryOutlined, AuditOutlined, RightOutlined, TeamOutlined, CalendarOutlined,
   FileSearchOutlined, DashboardOutlined, UserSwitchOutlined, CheckCircleFilled, MinusCircleOutlined, WarningFilled,
-  ScheduleOutlined, SafetyCertificateOutlined, SettingOutlined, CloudDownloadOutlined, ToolOutlined, CloudSyncOutlined,
+  ScheduleOutlined, SafetyCertificateOutlined, SettingOutlined, CloudDownloadOutlined, ToolOutlined, CloudSyncOutlined, BellOutlined,
 } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
@@ -40,6 +40,7 @@ const HR_TOOL_LINKS: QuickLink[] = [
   { href: '/hr/leave/policy', icon: <SettingOutlined />, label: 'กำหนดสิทธิ์การลา', desc: 'ประเภทการลา และสิทธิ์ตามประเภทบุคลากร', color: '#f59e0b' },
   { href: '/hr/leave/posts', icon: <NotificationOutlined />, label: 'ข่าว / เอกสารงาน HR', desc: 'ประกาศข่าว แบบฟอร์ม และป๊อปอัป', color: '#10b981' },
   { href: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม', desc: 'นำเข้าประวัติการลาและวันเริ่มงาน', color: '#64748b' },
+  { href: '/hr/leave/notify-settings', icon: <BellOutlined />, label: 'ตั้งค่าการแจ้งเตือน', desc: 'แจ้งหัวหน้า เพื่อนร่วมงาน และผู้ลา ผ่านหมอพร้อม', color: '#d97706' },
 ]
 
 // ── สรุปวันลาปีงบปัจจุบันของฉัน ─────────────────────────────────────────────
@@ -171,6 +172,7 @@ const LEAVE_PAGES: { href: string; label: string; where: 'card' | 'menu' }[] = [
   { href: '/hr/leave/policy', label: 'กำหนดสิทธิ์การลา', where: 'card' },
   { href: '/hr/leave/posts', label: 'ข่าว / เอกสารงาน HR', where: 'card' },
   { href: '/hr/leave/legacy-import', label: 'โอนข้อมูลโปรแกรมเดิม', where: 'card' },
+  { href: '/hr/leave/notify-settings', label: 'ตั้งค่าการแจ้งเตือน', where: 'card' },
 ]
 
 /** หัวหน้า/รักษาการ/ผอ. ที่บุคคลนี้ถืออยู่ — ข้อความสั้นสำหรับบอกที่มาของสิทธิ์ */

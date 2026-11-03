@@ -104,6 +104,16 @@ export function proxy(req: NextRequest) {
     }
   }
 
+  // ตั้งค่าการแจ้งเตือนระบบลา — เฉพาะ ADMIN (ส่งข้อความหมอพร้อมถึงบุคลากรทั้งองค์กร)
+  if (underPrefix(pathname, '/hr/leave/notify-settings')) {
+    if (!getRoles(req).map(r => r.toUpperCase()).includes('ADMIN')) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
+  }
+
   // จัดการเลขที่เงินเดือนบุคลากร — เฉพาะ IT_STAFF / ADMIN
   if (underPrefix(pathname, '/accounting/salary-ids') || underPrefix(pathname, '/accounting/salary-register')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
