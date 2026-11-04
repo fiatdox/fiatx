@@ -1,5 +1,5 @@
 'use client'
-// ไฟล์แนบของใบลาใน Modal — ใช้ร่วมกันระหว่างประวัติการลาของฉัน และประวัติการลาเจ้าหน้าที่ (HR)
+// ไฟล์แนบของใบลาใน Modal — ใช้ร่วมกันระหว่างประวัติการลาของฉัน ประวัติการลาเจ้าหน้าที่ (HR) และหน้าอนุมัติการลา
 // ไฟล์ดึงผ่าน /leave-requests/:id/document (backend ตรวจสิทธิ์ดูใบลา: เจ้าของ / สายอนุมัติ / HR / ADMIN)
 import { useState } from 'react'
 import { Alert, Button, Empty, Image, Modal, Space, Typography } from 'antd'
@@ -60,9 +60,15 @@ const AttachmentPreview = ({ doc }: { doc: AttachmentDoc }) => {
   )
 }
 
-export default function AttachmentModal({ doc, onClose }: { doc: AttachmentDoc | null; onClose: () => void }) {
+export default function AttachmentModal({ doc, onClose, zIndex }: {
+  doc: AttachmentDoc | null
+  onClose: () => void
+  /** ระบุเมื่อเปิดซ้อนบน Modal อื่น */
+  zIndex?: number
+}) {
   return (
     <Modal
+      zIndex={zIndex}
       title={doc && (
         <span>
           <PaperClipOutlined className="mr-2" />ไฟล์แนบ{doc.title ? ` — ${doc.title}` : ''}

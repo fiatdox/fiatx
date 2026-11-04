@@ -14,13 +14,14 @@ import {
   CloseCircleOutlined, ClockCircleOutlined, AuditOutlined,
   EyeOutlined, UserOutlined, CalendarOutlined, UnorderedListOutlined,
   RollbackOutlined, CheckSquareOutlined, SearchOutlined, ReloadOutlined,
-  SolutionOutlined, HourglassOutlined, UserSwitchOutlined, PrinterOutlined, LeftOutlined, RightOutlined,
+  SolutionOutlined, HourglassOutlined, UserSwitchOutlined, PrinterOutlined, LeftOutlined, RightOutlined, PaperClipOutlined,
 } from '@ant-design/icons'
 import { FaUmbrellaBeach, FaUserMd, FaBriefcase, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import Cookies from 'js-cookie'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
+import AttachmentModal, { type AttachmentDoc } from '../AttachmentModal'
 import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
 import LeaveMonthGrid, { LeaveLegend, ThisMonthButton, StatusIcon, STATUS_LABEL, colorOf, fmtDay, monthRange, th, useHolidays, waitingText, type LeaveEvent } from '../LeaveMonthGrid'
 import dynamic from 'next/dynamic'
@@ -80,6 +81,7 @@ interface LeaveApprovalRequest {
   /** ผลการตรวจจำนวนวันของงาน HR */
   dayCheck: DayCheckInfo
   reason: string
+  documentName: string | null
   color: string
   approvalChain: ApprovalStep[]
   myStep: MyStep | null
@@ -88,6 +90,8 @@ interface LeaveApprovalRequest {
   /** ใช้แสดงบนปฏิทิน (สีตามประเภท / ครึ่งวัน / สถานะจริงของใบ) */
   cal: CalInfo
 }
+
+type AttachmentRow = Pick<LeaveApprovalRequest, 'documentName' | 'employeeName' | 'leaveType' | 'startISO' | 'endISO'>
 
 interface CalInfo { typeCode: string | null; isHalfDay: boolean; halfDayPeriod: string | null; status: string; reason: string | null }
 const calInfoOf = (r: ApiLeaveRequest): CalInfo => ({
@@ -105,6 +109,7 @@ interface LeaveCancelRequest {
   endISO: string
   totalDays: number
   cancelReason: string
+  documentName: string | null
   approvalChain: ApprovalStep[]
   myStep: MyStep | null
   waitingOnMe: boolean
@@ -162,6 +167,7 @@ interface ApiLeaveRequest extends DayCheckInfo {
   total_days: string | number
   reason: string | null
   reject_reason: string | null
+  document_url?: string | null
   status: string
   current_step: number
   approval_chain: ApiChainStep[] | null
@@ -178,6 +184,9 @@ const thaiStamp = (v?: string | null) =>
   v ? dayjs(v).locale('th').format('DD/MM/') + String(dayjs(v).year() + 543) + dayjs(v).format(' HH:mm') : undefined
 
 const dateOnly = (v: string) => dayjs(v).format('YYYY-MM-DD')
+
+/** ชื่อไฟล์แนบ — ใบจากโปรแกรมเดิมอาจเก็บมาพร้อม path */
+const documentNameOf = (r: ApiLeaveRequest) => r.document_url?.trim().split(/[\\/]/).pop() || null
 
 /** คอลัมน์ jsonb อ่านกลับมาเป็นออบเจกต์หรือสตริงก็ได้ แล้วแต่บริบทของไดรเวอร์ */
 const parseStep = (raw: unknown): ApiChainStep | null => {
@@ -246,6 +255,7 @@ const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
       day_checked_at: r.day_checked_at, day_checked_by_name: r.day_checked_by_name,
     },
     reason: r.reason || '-',
+    documentName: documentNameOf(r),
     color: COLORS[i % COLORS.length],
     approvalChain,
     myStep,
@@ -281,6 +291,7 @@ const toCancelRequest = (r: ApiLeaveRequest): LeaveCancelRequest => {
     endISO: dateOnly(r.end_date),
     totalDays: Number(r.total_days),
     cancelReason: r.cancellation_reason || '-',
+    documentName: documentNameOf(r),
     approvalChain,
     myStep,
     waitingOnMe: myStep != null && myStep.step === Number(r.current_step),
@@ -471,6 +482,40 @@ const LeaveApprovalContent = () => {
       setPrinting(null)
     }
   }
+  // ─── ไฟล์แนบ — display = เลขใบลา (LV-xxxxxx) ──────────────────────────────
+  const [viewingDoc, setViewingDoc] = useState<AttachmentDoc | null>(null)
+  const openDoc = (display: string, r: AttachmentRow) => {
+    if (r.documentName) {
+      setViewingDoc({
+        id: apiIdOf(display), name: r.documentName, title: r.employeeName,
+        subtitle: `${r.leaveType.replace(/^การลา/, '')} · ${fmtThai(r.startISO)} – ${fmtThai(r.endISO)}`,
+      })
+    }
+  }
+  const docColumn = <T extends AttachmentRow>(displayOf: (r: T) => string) => ({
+    title: 'ไฟล์แนบ', key: 'doc', width: 70, align: 'center' as const,
+    render: (_: unknown, r: T) => r.documentName
+      ? (
+        <Tooltip title={`ดูไฟล์แนบ: ${r.documentName}`}>
+          <Button
+            type="text" size="small" aria-label="ดูไฟล์แนบ"
+            icon={<PaperClipOutlined style={{ fontSize: 16, color: 'var(--ant-color-primary)' }} />}
+            onClick={() => openDoc(displayOf(r), r)}
+          />
+        </Tooltip>
+      )
+      : <Text type="secondary">—</Text>,
+  })
+  const docDetail = (display: string, r: AttachmentRow) => r.documentName
+    ? (
+      <Space size={8} wrap>
+        <PaperClipOutlined />
+        <Text>{r.documentName}</Text>
+        <Button size="small" type="primary" ghost icon={<EyeOutlined />} onClick={() => openDoc(display, r)}>ดูไฟล์แนบ</Button>
+      </Space>
+    )
+    : <Text type="secondary">ไม่มีไฟล์แนบ</Text>
+
   const printButton = (display: string) => (
     <Tooltip title="ดูแบบใบลา">
       <Button size="small" icon={<PrinterOutlined />} loading={printing?.id === display && !printing.data} onClick={() => openPrint(display)} />
@@ -898,6 +943,7 @@ const LeaveApprovalContent = () => {
       ),
     },
     periodColumn('green'),
+    docColumn<LeaveApprovalRequest>(r => r.id),
     {
       title: 'ท่านพิจารณาในฐานะ', key: 'myStep', width: 170,
       render: (_: unknown, r: LeaveApprovalRequest) => myStepTag(r.myStep),
@@ -942,6 +988,7 @@ const LeaveApprovalContent = () => {
       ),
     },
     periodColumn('orange'),
+    docColumn<LeaveCancelRequest>(r => r.refLeaveId),
     { title: 'เหตุผลการยกเลิก', dataIndex: 'cancelReason', key: 'cancelReason', ellipsis: true },
     {
       title: 'ท่านพิจารณาในฐานะ', key: 'myStep', width: 170,
@@ -1359,6 +1406,9 @@ const LeaveApprovalContent = () => {
         {printing?.data ? <LeaveFormPDF data={printing.data} /> : <Spin />}
       </Modal>
 
+      {/* ─── ไฟล์แนบ — เปิดซ้อนบน Modal พิจารณาได้ ─── */}
+      <AttachmentModal doc={viewingDoc} onClose={() => setViewingDoc(null)} zIndex={1100} />
+
       {/* ─── Modal พิจารณา (อนุมัติลา) ─── */}
       <Modal
         title={
@@ -1435,6 +1485,7 @@ const LeaveApprovalContent = () => {
                   )}
                 </Descriptions.Item>
                 <Descriptions.Item label="เหตุผล" span="filled">{selected.reason}</Descriptions.Item>
+                <Descriptions.Item label="ไฟล์แนบ" span="filled">{docDetail(selected.id, selected)}</Descriptions.Item>
               </Descriptions>
 
               {/* ── ปฏิทินช่วงวันลา + เพื่อนร่วมงาน ── */}
@@ -1662,6 +1713,7 @@ const LeaveApprovalContent = () => {
                   <Text style={{ color: '#f59e0b', fontWeight: 700 }}>{selectedCancel.totalDays} วัน</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="เหตุผลการยกเลิก" span="filled">{selectedCancel.cancelReason}</Descriptions.Item>
+                <Descriptions.Item label="ไฟล์แนบ" span="filled">{docDetail(selectedCancel.refLeaveId, selectedCancel)}</Descriptions.Item>
               </Descriptions>
 
               <Divider style={{ borderColor: 'var(--app-border-strong)' }}>ประวัติการอนุมัติ</Divider>
