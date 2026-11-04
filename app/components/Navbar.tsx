@@ -102,6 +102,7 @@ const MENU_TREE: NavItem[] = [
           { key: '/hr/leave/day-check', icon: <FaCalendarAlt />, label: 'ตรวจวันลา / วันหยุด' },
           { key: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม' },
           { key: '/hr/leave/notify-settings', icon: <BellOutlined />, label: 'ตั้งค่าการแจ้งเตือน' },
+          { key: '/hr/leave/chain-resync', icon: <FaUserTie />, label: 'ปรับสายอนุมัติตามผัง' },
         ]
       },
       { key: '/hr/time-attendance', icon: <FaUserClock />, label: 'เวลาเข้าออกงาน' },

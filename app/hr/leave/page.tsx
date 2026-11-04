@@ -41,6 +41,7 @@ const HR_TOOL_LINKS: QuickLink[] = [
   { href: '/hr/leave/posts', icon: <NotificationOutlined />, label: 'ข่าว / เอกสารงาน HR', desc: 'ประกาศข่าว แบบฟอร์ม และป๊อปอัป', color: '#10b981' },
   { href: '/hr/leave/legacy-import', icon: <CloudDownloadOutlined />, label: 'โอนข้อมูลโปรแกรมเดิม', desc: 'นำเข้าประวัติการลาและวันเริ่มงาน', color: '#64748b' },
   { href: '/hr/leave/notify-settings', icon: <BellOutlined />, label: 'ตั้งค่าการแจ้งเตือน', desc: 'แจ้งหัวหน้า เพื่อนร่วมงาน และผู้ลา ผ่านหมอพร้อม', color: '#d97706' },
+  { href: '/hr/leave/chain-resync', icon: <CloudSyncOutlined />, label: 'ปรับสายอนุมัติตามผัง', desc: 'ใบลาที่ยื่นแล้วแต่สายอนุมัติไม่ตรงผังปัจจุบัน', color: '#0284c7' },
 ]
 
 // ── สรุปวันลาปีงบปัจจุบันของฉัน ─────────────────────────────────────────────
@@ -173,6 +174,7 @@ const LEAVE_PAGES: { href: string; label: string; where: 'card' | 'menu' }[] = [
   { href: '/hr/leave/posts', label: 'ข่าว / เอกสารงาน HR', where: 'card' },
   { href: '/hr/leave/legacy-import', label: 'โอนข้อมูลโปรแกรมเดิม', where: 'card' },
   { href: '/hr/leave/notify-settings', label: 'ตั้งค่าการแจ้งเตือน', where: 'card' },
+  { href: '/hr/leave/chain-resync', label: 'ปรับสายอนุมัติตามผัง', where: 'card' },
 ]
 
 /** หัวหน้า/รักษาการ/ผอ. ที่บุคคลนี้ถืออยู่ — ข้อความสั้นสำหรับบอกที่มาของสิทธิ์ */

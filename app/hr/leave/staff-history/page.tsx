@@ -11,7 +11,7 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, PaperClipOutlined, EyeOutlined, PrinterOutlined, FilterOutlined,
   ClearOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, RollbackOutlined,
-  SafetyCertificateOutlined, EditOutlined,
+  SafetyCertificateOutlined, EditOutlined, SyncOutlined,
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import dynamic from 'next/dynamic'
@@ -19,6 +19,7 @@ import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import AttachmentModal from '../AttachmentModal'
+import ChainResyncModal from '../ChainResyncModal'
 import { beShort, nf, parseChain, buildLeaveFormData, type ApiChainStep, type ApiAction } from '@/app/lib/leaveFormData'
 
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
@@ -324,10 +325,15 @@ const StaffLeaveHistoryContent = () => {
   const router = useRouter()
   // ADMIN / HR ตรวจวันลาได้ · ผอ. / รักษาการ ผอ. ดูอย่างเดียว (backend กั้นปุ่มตรวจด้วย requireRoles)
   const [canEdit, setCanEdit] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [resyncId, setResyncId] = useState<number | null>(null)
   useEffect(() => {
     let roles: string[] = []
     try { roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles) } catch { /* cookie เสีย = ไม่มีสิทธิ์แก้ */ }
-    void Promise.resolve().then(() => setCanEdit(roles.includes('ADMIN') || roles.includes('HR')))
+    void Promise.resolve().then(() => {
+      setCanEdit(roles.includes('ADMIN') || roles.includes('HR'))
+      setIsAdmin(roles.includes('ADMIN'))
+    })
   }, [])
   const [fy, setFy] = useState<number | null>(currentFY())
   const [typeId, setTypeId] = useState<number | null>(null)
@@ -658,10 +664,21 @@ const StaffLeaveHistoryContent = () => {
             <div>
               <Title level={5}>ประวัติการอนุมัติ</Title>
               <ApprovalTimeline r={detail} />
+              {isAdmin && (
+                <Button size="small" icon={<SyncOutlined />} className="mt-2" onClick={() => setResyncId(detail.id)}>
+                  ตรวจ / ปรับสายอนุมัติตามผัง
+                </Button>
+              )}
             </div>
           </Space>
         )}
       </Drawer>
+
+      <ChainResyncModal
+        requestId={resyncId}
+        onClose={() => setResyncId(null)}
+        onDone={() => { setResyncId(null); setDetail(null); setReloadKey(k => k + 1) }}
+      />
 
       {/* ── ไฟล์แนบ ── */}
       <AttachmentModal

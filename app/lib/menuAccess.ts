@@ -36,6 +36,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/staff-history': ['ADMIN', 'HR'],
   // ตั้งค่าการแจ้งเตือนระบบลา (หมอพร้อม) — ส่งข้อความถึงบุคลากรทั้งองค์กร เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
   '/hr/leave/notify-settings': ['ADMIN'],
+  // ปรับสายอนุมัติใบลาที่ยื่นแล้วให้ตรงผัง — แก้ประวัติการอนุมัติ เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
+  '/hr/leave/chain-resync': ['ADMIN'],
   // Dashboard วิเคราะห์การลา — ข้อมูลการลาทั้งองค์กรรายบุคคล (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
   '/hr/leave/dashboard': ['ADMIN', 'HR'],
   // ผังผู้บริหาร — แต่งตั้งหัวหน้า/ผอ. (อยู่หลัง requireRoles('ADMIN','HR') ใน hrRoutes)
