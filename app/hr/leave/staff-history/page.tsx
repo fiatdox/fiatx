@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox, DatePicker,
-  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm, Tabs, Badge
+  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm, Tabs, Segmented
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
@@ -250,6 +250,7 @@ interface Row {
   cancellation_id: number | null
   cancellation_status: string | null
   cancellation_reason: string | null
+  cancelled_by_name: string | null
   cancellation_created_at: string | null
   cancellation_updated_at: string | null
   cancellation_refunded_days: string | number | null
@@ -337,15 +338,17 @@ const ApprovalTimeline = ({ r }: { r: Row }) => {
 }
 
 // ── การขอยกเลิก ─────────────────────────────────────────────────────────────
-const hasCancellation = (r: Row) =>
-  r.cancellation_status != null || ['CANCEL_PENDING', 'CANCELLED'].includes(String(r.status).toUpperCase())
+const hasCancellation = (r: Row) => r.cancellation_status != null
 
 const cancelMetaOf = (r: Row) => {
   const s = String(r.status).toUpperCase()
   if (s === 'CANCEL_PENDING') return CANCEL_META.CANCEL_PENDING
   if (s === 'CANCELLED') return r.cancellation_status === 'APPROVED' ? CANCEL_META.CANCELLED : WITHDRAWN_META
-  return CANCEL_META.CANCEL_REJECTED
+  return r.cancellation_status === 'REJECTED' ? CANCEL_META.CANCEL_REJECTED : statusOf(s)
 }
+
+/** ผู้ขอยกเลิก — ใบที่ถอนก่อนอนุมัติไม่มีแถวคำขอยกเลิก และถอนได้เฉพาะเจ้าของใบ */
+const cancellerOf = (r: Row) => r.cancelled_by_name?.trim() || r.employee_name
 
 /** ขั้นที่คำขอยกเลิกรออยู่ — ไม่ใช่ CANCEL_PENDING = จบแล้ว */
 const cancelWaitingOf = (r: Row) => {
@@ -369,6 +372,8 @@ const CancelProgress = ({ r }: { r: Row }) => {
     )
   }
   if (s === 'CANCELLED' && r.cancellation_status !== 'APPROVED') return <Text type="secondary" style={small}>ถอนใบก่อนอนุมัติครบ</Text>
+  // โอนจากโปรแกรมเดิมที่ยกเลิกสำเร็จแล้ว — เวลาในระบบนี้คือเวลาโอน ไม่ใช่เวลาที่อนุมัติจริง
+  if (s === 'CANCELLED' && !r.cancellation_actions?.length) return <Text type="secondary" style={small}>ยกเลิกสำเร็จในโปรแกรมเดิม</Text>
   const at = r.cancellation_updated_at ? beShort(r.cancellation_updated_at) : '-'
   return s === 'CANCELLED'
     ? <Text type="secondary" style={small}>อนุมัติครบเมื่อ {at}</Text>
@@ -441,7 +446,9 @@ const StaffLeaveHistoryContent = () => {
     })
   }, [])
   const [view, setView] = useState<View>('leave')
-  const [counts, setCounts] = useState<{ leave_total: number; cancel_total: number; cancel_pending: number } | null>(null)
+  const [counts, setCounts] = useState<{
+    leave_total: number; cancel_total: number; cancel_pending: number; cancel_approved: number; cancel_rejected: number
+  } | null>(null)
   const [fy, setFy] = useState<number | null>(currentFY())
   const [typeId, setTypeId] = useState<number | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -592,7 +599,8 @@ const StaffLeaveHistoryContent = () => {
     {
       title: 'สถานะ', dataIndex: 'status', key: 'status', width: 140, align: 'center' as const,
       render: (s: string) => {
-        const m = statusOf(s)
+        // ในแท็บใบลา CANCELLED = ถอนก่อนอนุมัติ (ใบที่มีคำขอยกเลิกอยู่แท็บยกเลิก)
+        const m = String(s).toUpperCase() === 'CANCELLED' ? WITHDRAWN_META : statusOf(s)
         return <Tag color={m.color} icon={m.icon} style={{ marginInlineEnd: 0 }}>{m.label}</Tag>
       },
     },
@@ -623,9 +631,31 @@ const StaffLeaveHistoryContent = () => {
 
   const col = (key: string) => columns.find(c => c.key === key)!
   const cancelColumns = [
-    col('no'), col('employee'), col('unit'), col('type'),
+    col('no'),
     {
-      title: 'ขอยกเลิกเมื่อ', key: 'cancel_at', width: 130,
+      title: 'ผู้ขอยกเลิก', key: 'canceller', width: 260,
+      render: (_: unknown, r: Row) => {
+        const name = cancellerOf(r)
+        return (
+          <Space size={10}>
+            <Avatar size={30} style={{ background: 'var(--app-surface-2, #334155)', fontSize: 13, flexShrink: 0 }}>
+              {name.replace(/^(นาย|นางสาว|นาง|น\.ส\.|ดร\.|พญ\.|นพ\.|ทพ\.|ภก\.)\s*/, '').charAt(0)}
+            </Avatar>
+            <div style={{ lineHeight: 1.35 }}>
+              <Text strong>{name}</Text>
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {name === r.employee_name ? (r.position_name ?? '-') : `ใบลาของ ${r.employee_name}`}
+                </Text>
+              </div>
+            </div>
+          </Space>
+        )
+      },
+    },
+    col('unit'), col('type'),
+    {
+      title: 'บันทึกคำขอเมื่อ', key: 'cancel_at', width: 130,
       render: (_: unknown, r: Row) => {
         const at = r.cancellation_created_at ?? r.updated_at
         return (
@@ -687,19 +717,24 @@ const StaffLeaveHistoryContent = () => {
             { key: 'leave', label: `ใบลา${counts ? ` (${nf(counts.leave_total)})` : ''}` },
             {
               key: 'cancel',
-              label: (
-                <Space size={8}>
-                  <span>ยกเลิก{counts ? ` (${nf(counts.cancel_total)})` : ''}</span>
-                  {!!counts?.cancel_pending && (
-                    <Tooltip title={`รออนุมัติยกเลิก ${nf(counts.cancel_pending)} ใบ`}>
-                      <Badge count={counts.cancel_pending} overflowCount={999} />
-                    </Tooltip>
-                  )}
-                </Space>
-              ),
+              label: `ยกเลิก${counts ? ` (รอ ${nf(counts.cancel_pending)} / อนุมัติ ${nf(counts.cancel_approved)})` : ''}`,
             },
           ]}
         />
+
+        {view === 'cancel' && (
+          <Segmented
+            style={{ marginBottom: 16 }}
+            value={status ?? 'ALL'}
+            onChange={v => { setStatus(v === 'ALL' ? null : String(v)); setPage(1) }}
+            options={[
+              { value: 'ALL', label: `ทั้งหมด (${nf(counts?.cancel_total ?? 0)})` },
+              { value: 'CANCEL_PENDING', label: `รออนุมัติ (${nf(counts?.cancel_pending ?? 0)})` },
+              { value: 'CANCELLED', label: `อนุมัติแล้ว (${nf(counts?.cancel_approved ?? 0)})` },
+              ...(counts?.cancel_rejected ? [{ value: 'CANCEL_REJECTED', label: `ไม่อนุมัติ (${nf(counts.cancel_rejected)})` }] : []),
+            ]}
+          />
+        )}
 
         {/* ── ตัวกรอง ─────────────────────────────────────────────────────── */}
         <Card style={{ marginBottom: 16 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
@@ -735,19 +770,22 @@ const StaffLeaveHistoryContent = () => {
               placeholder="ประเภทการลา (ทั้งหมด)" style={{ minWidth: 220 }}
               options={types.map(t => ({ value: t.id, label: t.name_th.replace(/^การลา/, '') }))}
             />
-            <Select
-              value={status} onChange={filter(setStatus)} allowClear
-              placeholder={view === 'cancel' ? 'สถานะการยกเลิก (ทั้งหมด)' : 'สถานะ (ทั้งหมด)'} style={{ minWidth: 190 }}
-              options={view === 'cancel'
-                ? Object.entries(CANCEL_META).map(([value, m]) => ({ value, label: m.label }))
-                : LEAVE_STATUS.map(value => ({ value, label: STATUS_META[value].label }))}
-            />
             {view === 'leave' && (
-              <Select
-                value={check} onChange={filter(setCheck)} allowClear
-                placeholder="การตรวจสอบ (ทั้งหมด)" style={{ minWidth: 190 }}
-                options={Object.entries(CHECK_META).map(([value, m]) => ({ value, label: m.label }))}
-              />
+              <>
+                <Select
+                  value={status} onChange={filter(setStatus)} allowClear
+                  placeholder="สถานะ (ทั้งหมด)" style={{ minWidth: 190 }}
+                  options={[
+                    ...LEAVE_STATUS.map(value => ({ value, label: STATUS_META[value].label })),
+                    { value: 'CANCELLED', label: WITHDRAWN_META.label },
+                  ]}
+                />
+                <Select
+                  value={check} onChange={filter(setCheck)} allowClear
+                  placeholder="การตรวจสอบ (ทั้งหมด)" style={{ minWidth: 190 }}
+                  options={Object.entries(CHECK_META).map(([value, m]) => ({ value, label: m.label }))}
+                />
+              </>
             )}
             <Checkbox checked={hasDoc} onChange={e => { setHasDoc(e.target.checked); setPage(1) }}>
               เฉพาะที่มีไฟล์แนบ
@@ -816,6 +854,7 @@ const StaffLeaveHistoryContent = () => {
                 },
                 { key: 'reason', label: 'เหตุผล', children: detail.reason || '-' },
                 ...(detail.reject_reason ? [{ key: 'rej', label: 'เหตุผลที่ไม่อนุมัติ', children: detail.reject_reason }] : []),
+                ...(hasCancellation(detail) ? [{ key: 'canceller', label: 'ผู้ขอยกเลิก', children: cancellerOf(detail) }] : []),
                 ...(detail.cancellation_reason ? [{ key: 'cancel', label: 'เหตุผลที่ขอยกเลิก', children: detail.cancellation_reason }] : []),
                 { key: 'contact', label: 'ติดต่อระหว่างลา', children: detail.contact_info || '-' },
                 { key: 'sub', label: 'ผู้ปฏิบัติหน้าที่แทน', children: detail.substitute_name || '-' },
