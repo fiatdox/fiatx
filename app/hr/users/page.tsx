@@ -294,6 +294,10 @@ const PageContent = () => {
     // map Thai gender display back to API value
     if (values.gender === 'ชาย') values.gender = 'M'
     else if (values.gender === 'หญิง') values.gender = 'F'
+    // ไม่ได้เลือกหรือกดล้าง = undefined ซึ่ง JSON ตัดทิ้ง ค่าเดิมจะค้าง — ส่ง null เพื่อล้างจริง
+    values.mission_id = values.mission_id ?? null
+    values.major_id = values.major_id ?? null
+    values.submajor_id = values.submajor_id ?? null
 
     // ── สถานะการปฏิบัติงาน ──────────────────────────────────────────────
     // ถ้าสถานะไม่ใช่ "ปฏิบัติงาน" -> ต้องมีวันสิ้นสุด และตั้ง is_active = 'N'
