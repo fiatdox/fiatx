@@ -69,7 +69,6 @@ interface MyStep {
 interface LeaveApprovalRequest {
   id: string
   employeeName: string
-  shortName: string
   department: string
   position: string
   leaveType: string
@@ -232,11 +231,9 @@ const pendingLevelOf = (chain: ApprovalStep[]) =>
 const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
   const approvalChain = buildChain(r)
   const myStep = toMyStep(r.my_step)
-  const nameParts = String(r.employee_name ?? '').trim().split(' ')
   return {
     id: `LV-${String(r.id).padStart(6, '0')}`,
     employeeName: r.employee_name,
-    shortName: nameParts[nameParts.length - 1] || r.employee_name,
     department: r.submajor_name || r.major_name || r.mission_name || '-',
     position: r.position_name || '-',
     leaveType: r.leave_type_name,
@@ -1391,7 +1388,7 @@ const LeaveApprovalContent = () => {
                           <table style={{ borderCollapse: 'collapse', minWidth: days.length * 44 }}>
                             <thead>
                               <tr>
-                                <td style={{ width: 120, fontSize: 11, color: 'var(--app-text-2)', paddingRight: 8, whiteSpace: 'nowrap' }}>ชื่อเจ้าหน้าที่</td>
+                                <td style={{ minWidth: 220, fontSize: 11, color: 'var(--app-text-2)', paddingRight: 12, whiteSpace: 'nowrap' }}>ชื่อเจ้าหน้าที่ / ตำแหน่ง</td>
                                 {days.map(d => (
                                   <td key={d.format('YYYYMMDD')} style={{ width: 40, textAlign: 'center', fontSize: 10, color: 'var(--app-text-2)', padding: '2px 2px 6px' }}>
                                     <div style={{ fontWeight: d.isSame(dayjs(), 'day') ? 700 : 400 }}>{d.format('D')}</div>
@@ -1403,9 +1400,10 @@ const LeaveApprovalContent = () => {
                             <tbody>
                               {allPeople.map(p => (
                                 <tr key={p.id}>
-                                  <td style={{ fontSize: 11, color: p.id === selected.id ? 'var(--app-text)' : 'var(--app-text-2)', paddingRight: 8, fontWeight: p.id === selected.id ? 700 : 400, whiteSpace: 'nowrap' }}>
+                                  <td style={{ fontSize: 12, color: 'var(--app-text)', paddingRight: 12, fontWeight: p.id === selected.id ? 700 : 400, whiteSpace: 'nowrap' }}>
                                     <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 2, backgroundColor: p.color, marginRight: 5 }} />
-                                    {p.shortName}
+                                    {p.employeeName}
+                                    {p.position !== '-' && <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--app-text-2)', marginLeft: 13 }}>{p.position}</div>}
                                   </td>
                                   {days.map(d => {
                                     const onL = isOnLeave(d, p)
@@ -1441,7 +1439,7 @@ const LeaveApprovalContent = () => {
                         <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: r.color, flexShrink: 0 }} />
                         <div style={{ flex: 1 }}>
                           <Text strong style={{ fontSize: 13 }}>{r.employeeName}</Text>
-                          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>{r.department}</Text>
+                          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>{r.position !== '-' ? `${r.position} · ` : ''}{r.department}</Text>
                         </div>
                         <Tag color={leaveTypeColor[shortType(r.leaveType)] ?? 'default'} style={{ fontSize: 11 }}>{shortType(r.leaveType)}</Tag>
                         <Text type="secondary" style={{ fontSize: 11 }}>{fmtThai(r.startISO)}–{fmtThai(r.endISO)}</Text>
