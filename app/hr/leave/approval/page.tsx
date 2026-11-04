@@ -368,7 +368,10 @@ const myStepTag = (s: MyStep | null) => {
 const initial = (name: string) =>
   name.replace(/^(นาย|นาง|นางสาว|น\.ส\.|ดร\.|พญ\.|นพ\.|ทพ\.|ภก\.)\s*/, '').charAt(0)
 
-type FilterKey = 'mine' | 'inprogress' | 'approved' | 'rejected' | 'all'
+type FilterKey = 'mine' | 'inprogress' | 'approved' | 'rejected' | 'cancelled' | 'all'
+
+/** ใบที่ยกเลิก/ถอนแล้ว — การกดอนุมัติเดิมยังอยู่ จึงต้องแยกก่อนดูสถานะจากสายอนุมัติ */
+const isCancelled = (r: { cal: CalInfo }) => r.cal.status === 'CANCELLED'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 const LeaveApprovalContent = () => {
@@ -775,9 +778,10 @@ const LeaveApprovalContent = () => {
 
   const summary = useMemo(() => ({
     mine: scopedRequests.filter(r => r.waitingOnMe).length,
-    inprogress: scopedRequests.filter(r => !r.waitingOnMe && getOverall(r.approvalChain) === 'pending').length,
-    approved: scopedRequests.filter(r => getOverall(r.approvalChain) === 'approved').length,
-    rejected: scopedRequests.filter(r => getOverall(r.approvalChain) === 'rejected').length,
+    inprogress: scopedRequests.filter(r => !isCancelled(r) && !r.waitingOnMe && getOverall(r.approvalChain) === 'pending').length,
+    approved: scopedRequests.filter(r => !isCancelled(r) && getOverall(r.approvalChain) === 'approved').length,
+    rejected: scopedRequests.filter(r => !isCancelled(r) && getOverall(r.approvalChain) === 'rejected').length,
+    cancelled: scopedRequests.filter(isCancelled).length,
   }), [scopedRequests])
 
   // งานที่รอท่านทั้งหมด (ป้ายบนหัวหน้า / แท็บ) — ไม่ลดตามตัวกรองประเภท / ช่วงวันที่
@@ -798,11 +802,13 @@ const LeaveApprovalContent = () => {
   const displayed = useMemo(() => scopedRequests.filter(r => {
     if (!matchKeyword(r)) return false
     const overall = getOverall(r.approvalChain)
+    const cancelled = isCancelled(r)
     switch (filterStatus) {
       case 'mine': return r.waitingOnMe
-      case 'inprogress': return !r.waitingOnMe && overall === 'pending'
-      case 'approved': return overall === 'approved'
-      case 'rejected': return overall === 'rejected'
+      case 'inprogress': return !cancelled && !r.waitingOnMe && overall === 'pending'
+      case 'approved': return !cancelled && overall === 'approved'
+      case 'rejected': return !cancelled && overall === 'rejected'
+      case 'cancelled': return cancelled
       default: return true
     }
   }), [scopedRequests, filterStatus, matchKeyword])
@@ -893,7 +899,7 @@ const LeaveApprovalContent = () => {
 
   const chainColumn = {
     title: 'ความคืบหน้า', key: 'chain', width: 300,
-    render: (_: unknown, r: { approvalChain: ApprovalStep[]; waitingOnMe: boolean; pendingLevel: string | null }) => {
+    render: (_: unknown, r: { approvalChain: ApprovalStep[]; waitingOnMe: boolean; pendingLevel: string | null; cal: CalInfo }) => {
       const overall = getOverall(r.approvalChain)
       return (
         <div>
@@ -910,7 +916,9 @@ const LeaveApprovalContent = () => {
             }))}
           />
           <div style={{ marginTop: 4 }}>
-            {r.waitingOnMe
+            {isCancelled(r)
+              ? <Tag icon={<RollbackOutlined />} style={{ marginInlineEnd: 0 }}>ยกเลิกแล้ว</Tag>
+              : r.waitingOnMe
               ? <Tag color="warning" icon={<HourglassOutlined />} style={{ marginInlineEnd: 0 }}>รอท่านพิจารณา</Tag>
               : overall === 'pending'
                 ? <Text type="secondary" style={{ fontSize: 11 }}>รอ{r.pendingLevel ?? 'ขั้นถัดไป'}</Text>
@@ -1052,6 +1060,7 @@ const LeaveApprovalContent = () => {
     { key: 'inprogress', label: 'รอขั้นอื่น', sub: 'ท่านผ่านแล้ว หรือยังไม่ถึงคิว', value: summary.inprogress, color: '#0ea5e9', icon: <ClockCircleOutlined /> },
     { key: 'approved', label: 'อนุมัติครบแล้ว', sub: 'ครบทุกระดับ', value: summary.approved, color: '#10b981', icon: <CheckCircleOutlined /> },
     { key: 'rejected', label: 'ไม่อนุมัติ', sub: 'จบที่ขั้นใดขั้นหนึ่ง', value: summary.rejected, color: '#ef4444', icon: <CloseCircleOutlined /> },
+    { key: 'cancelled', label: 'ยกเลิกแล้ว', sub: 'ยกเลิกหรือถอนใบแล้ว', value: summary.cancelled, color: '#64748b', icon: <RollbackOutlined /> },
   ]
 
   const emptyText = filterStatus === 'mine'
@@ -1159,7 +1168,7 @@ const LeaveApprovalContent = () => {
               key: 'cancel',
               label: (
                 <span>
-                  <RollbackOutlined className="mr-1" />ยกเลิกลา
+                  <RollbackOutlined className="mr-1" />ยกเลิกลา ({cancelRequests.length})
                   {cancelWaitingOnMe > 0 && <Badge count={cancelWaitingOnMe} size="small" offset={[6, -8]} />}
                 </span>
               ),
@@ -1170,7 +1179,7 @@ const LeaveApprovalContent = () => {
         {/* ══ TAB: อนุมัติลา ══ */}
         {activeMainTab === 'approve' && <>
           {/* การ์ดสถิติ — กดเพื่อกรอง */}
-          <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-5">
             {statCards.map(s => {
               const on = filterStatus === s.key
               return (
@@ -1212,6 +1221,7 @@ const LeaveApprovalContent = () => {
                   { value: 'inprogress', label: `รอขั้นอื่น (${summary.inprogress})` },
                   { value: 'approved', label: `อนุมัติแล้ว (${summary.approved})` },
                   { value: 'rejected', label: `ไม่อนุมัติ (${summary.rejected})` },
+                  { value: 'cancelled', label: `ยกเลิกแล้ว (${summary.cancelled})` },
                   { value: 'all', label: `ทั้งหมด (${scopedRequests.length})` },
                 ]}
               />
@@ -1433,6 +1443,7 @@ const LeaveApprovalContent = () => {
           // กดได้เฉพาะเมื่อขั้นที่ค้างอยู่เป็นขั้นของเราเอง — ขั้นของคนอื่นดูได้อย่างเดียว
           const canAct = selected.waitingOnMe && pendingIdx !== -1 && !readOnly
           const overlapping = getOverlapping(selected)
+          const cancelled = isCancelled(selected)
 
           return (
             <div className="mt-4">
@@ -1448,7 +1459,7 @@ const LeaveApprovalContent = () => {
                     selected.myStep.unit_name ? `หน่วย: ${selected.myStep.unit_name}` : null,
                     canAct
                       ? 'ใบนี้รอการตัดสินใจของท่านอยู่'
-                      : overall === 'pending'
+                      : !cancelled && overall === 'pending'
                         ? `ขณะนี้รอ${selected.pendingLevel ?? 'ขั้นถัดไป'} — ท่านยังกดไม่ได้`
                         : 'ใบนี้จบกระบวนการแล้ว',
                   ].filter(Boolean).join(' · ')}
@@ -1635,15 +1646,16 @@ const LeaveApprovalContent = () => {
                 </Form>
               )}
 
-              {!canAct && overall === 'pending' && (
+              {cancelled && <Alert title="ใบลานี้ยกเลิกแล้ว" type="info" showIcon />}
+              {!cancelled && !canAct && overall === 'pending' && (
                 <Alert
                   title={`ขณะนี้รอ${selected.pendingLevel ?? 'ขั้นถัดไป'}พิจารณา`}
                   description={`ผู้รับผิดชอบขั้นนี้: ${pendingIdx !== -1 ? selected.approvalChain[pendingIdx].actor : '-'}`}
                   type="info" showIcon
                 />
               )}
-              {!canAct && overall === 'approved' && <Alert title="อนุมัติครบทุกระดับแล้ว" type="success" showIcon />}
-              {!canAct && overall === 'rejected' && (
+              {!cancelled && !canAct && overall === 'approved' && <Alert title="อนุมัติครบทุกระดับแล้ว" type="success" showIcon />}
+              {!cancelled && !canAct && overall === 'rejected' && (
                 <Alert
                   title="คำขอนี้ถูกปฏิเสธ"
                   description={selected.approvalChain.find(s => s.status === 'rejected')?.note}
