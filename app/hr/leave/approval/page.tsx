@@ -4,7 +4,7 @@ import {
   Table, Tag, Card, Typography, App,
   Button, Modal, Form, Input, Steps, Timeline, Descriptions,
   Divider, Space, Alert, Avatar, Segmented, Tabs, Grid,
-  Result, Skeleton, Empty, Badge, Tooltip, Select, Spin, ConfigProvider,
+  Result, Skeleton, Empty, Badge, Tooltip, Select, Spin, ConfigProvider, DatePicker,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { Dayjs } from 'dayjs'
@@ -393,6 +393,8 @@ const LeaveApprovalContent = () => {
   const [rejectMode, setRejectMode] = useState(false)
   const [filterStatus, setFilterStatus] = useState<FilterKey>('mine')
   const [keyword, setKeyword] = useState('')
+  const [filterType, setFilterType] = useState<string | null>(null)
+  const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null)
   const [view, setView] = useState<string>('list')
   const [calMonth, setCalMonth] = useState<Dayjs>(dayjs())
   // ฟอร์มเหตุผลแสดงเฉพาะตอนกด "ไม่อนุมัติ" — preserve={false} ล้างค่าเองเมื่อซ่อน (ไม่ resetFields ตอนยังไม่ mount → antd เตือน)
@@ -657,13 +659,84 @@ const LeaveApprovalContent = () => {
   }
 
   // ── สรุปยอด ────────────────────────────────────────────────────────────────
-  const summary = useMemo(() => ({
-    mine: requests.filter(r => r.waitingOnMe).length,
-    inprogress: requests.filter(r => !r.waitingOnMe && getOverall(r.approvalChain) === 'pending').length,
-    approved: requests.filter(r => getOverall(r.approvalChain) === 'approved').length,
-    rejected: requests.filter(r => getOverall(r.approvalChain) === 'rejected').length,
-  }), [requests])
+  // ช่วงวันที่ — ได้ใบที่ช่วงลา "คาบเกี่ยว" ช่วงนี้ (เริ่มก่อน/จบหลังช่วงก็นับ) เลือกข้างเดียวได้
+  const rangeFrom = range?.[0]?.format('YYYY-MM-DD') ?? null
+  const rangeTo = range?.[1]?.format('YYYY-MM-DD') ?? null
+  const inRange = useCallback((r: { startISO: string; endISO: string }) =>
+    (!rangeFrom || r.endISO >= rangeFrom) && (!rangeTo || r.startISO <= rangeTo), [rangeFrom, rangeTo])
 
+  // ตัวกรองประเภทการลา — ตัวเลือกมาจากใบที่โหลดมาจริง · ประเภทที่เลือกไม่มีในรายการแล้ว (เช่น ดูแทนคนอื่น) ถือว่าไม่ได้กรอง
+  // จำนวนในวงเล็บนับตามช่วงวันที่ที่เลือก
+  const typeOptions = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const r of [...requests, ...cancelRequests]) n.set(r.leaveType, (n.get(r.leaveType) ?? 0) + (inRange(r) ? 1 : 0))
+    return [...n.entries()]
+      .sort(([a], [b]) => shortType(a).localeCompare(shortType(b), 'th'))
+      .map(([value, count]) => ({ value, label: `${shortType(value)} (${count})` }))
+  }, [requests, cancelRequests, inRange])
+  const activeType = filterType && typeOptions.some(o => o.value === filterType) ? filterType : null
+  const scopedRequests = useMemo(
+    () => requests.filter(r => inRange(r) && (!activeType || r.leaveType === activeType)),
+    [requests, activeType, inRange],
+  )
+  const scopedCancels = useMemo(
+    () => cancelRequests.filter(r => inRange(r) && (!activeType || r.leaveType === activeType)),
+    [cancelRequests, activeType, inRange],
+  )
+  // ล้างใบที่เลือกไว้ — ไม่งั้นใบที่ถูกซ่อนจะยังถูกอนุมัติแบบกลุ่มไปด้วย
+  const clearPicked = () => {
+    setSelectedKeys([])
+    setSelectedCancelKeys([])
+  }
+  const changeType = (v?: string | null) => {
+    setFilterType(v ?? null)
+    clearPicked()
+  }
+  const changeRange = (v: [Dayjs | null, Dayjs | null] | null) => {
+    const next = v && (v[0] || v[1]) ? v : null
+    setRange(next)
+    clearPicked()
+    // มุมมองปฏิทินไปเดือนที่เริ่มช่วง จะได้เห็นผลทันที
+    if (next?.[0] ?? next?.[1]) setCalMonth((next[0] ?? next[1])!)
+  }
+  const typeFilter = (
+    <Select
+      value={activeType}
+      onChange={changeType}
+      allowClear
+      placeholder="ทุกประเภทการลา"
+      options={typeOptions}
+      style={{ width: 200 }}
+    />
+  )
+  const rangeFilter = (
+    <Tooltip title="แสดงผู้ที่ลาคาบเกี่ยวช่วงนี้ — ใบที่เริ่มก่อนหรือสิ้นสุดหลังช่วงก็นับ">
+      <DatePicker.RangePicker
+        value={range}
+        onChange={v => changeRange(v as [Dayjs | null, Dayjs | null] | null)}
+        format="DD/MM/BBBB"
+        allowEmpty={[true, true]}
+        placeholder={['ลาตั้งแต่วันที่', 'ถึงวันที่']}
+        style={{ width: 260 }}
+        presets={[
+          { label: 'วันนี้', value: [dayjs(), dayjs()] },
+          { label: 'สัปดาห์นี้', value: [dayjs().startOf('week'), dayjs().endOf('week')] },
+          { label: 'เดือนนี้', value: [dayjs().startOf('month'), dayjs().endOf('month')] },
+          { label: 'เดือนที่แล้ว', value: [dayjs().subtract(1, 'month').startOf('month'), dayjs().subtract(1, 'month').endOf('month')] },
+        ]}
+      />
+    </Tooltip>
+  )
+
+  const summary = useMemo(() => ({
+    mine: scopedRequests.filter(r => r.waitingOnMe).length,
+    inprogress: scopedRequests.filter(r => !r.waitingOnMe && getOverall(r.approvalChain) === 'pending').length,
+    approved: scopedRequests.filter(r => getOverall(r.approvalChain) === 'approved').length,
+    rejected: scopedRequests.filter(r => getOverall(r.approvalChain) === 'rejected').length,
+  }), [scopedRequests])
+
+  // งานที่รอท่านทั้งหมด (ป้ายบนหัวหน้า / แท็บ) — ไม่ลดตามตัวกรองประเภท / ช่วงวันที่
+  const mineWaitingOnMe = useMemo(() => requests.filter(r => r.waitingOnMe).length, [requests])
   const cancelWaitingOnMe = useMemo(
     () => cancelRequests.filter(r => r.waitingOnMe).length,
     [cancelRequests],
@@ -677,7 +750,7 @@ const LeaveApprovalContent = () => {
       || r.id.toLowerCase().includes(k)
   }, [keyword])
 
-  const displayed = useMemo(() => requests.filter(r => {
+  const displayed = useMemo(() => scopedRequests.filter(r => {
     if (!matchKeyword(r)) return false
     const overall = getOverall(r.approvalChain)
     switch (filterStatus) {
@@ -687,11 +760,11 @@ const LeaveApprovalContent = () => {
       case 'rejected': return overall === 'rejected'
       default: return true
     }
-  }), [requests, filterStatus, matchKeyword])
+  }), [scopedRequests, filterStatus, matchKeyword])
 
   const displayedCancels = useMemo(
-    () => cancelRequests.filter(matchKeyword),
-    [cancelRequests, matchKeyword],
+    () => scopedCancels.filter(matchKeyword),
+    [scopedCancels, matchKeyword],
   )
 
   // ─── Calendar: แบบเดียวกับหน้าปฏิทินการลา — ใบที่ยังมีผล (รออนุมัติ / อนุมัติแล้ว / รออนุมัติยกเลิก) ───
@@ -713,11 +786,11 @@ const LeaveApprovalContent = () => {
       marked: r.waitingOnMe,
     })
     return [
-      ...requests.filter(r => r.cal.status === 'PENDING' || r.cal.status === 'APPROVED')
+      ...scopedRequests.filter(r => r.cal.status === 'PENDING' || r.cal.status === 'APPROVED')
         .map(r => base(r, r.cal.status as 'PENDING' | 'APPROVED')),
-      ...cancelRequests.map(r => base(r, 'CANCEL_PENDING')),
+      ...scopedCancels.map(r => base(r, 'CANCEL_PENDING')),
     ]
-  }, [requests, cancelRequests])
+  }, [scopedRequests, scopedCancels])
   const monthEvents = useMemo(() => {
     const a = calMonth.startOf('month').format('YYYY-MM-DD')
     const b = calMonth.endOf('month').format('YYYY-MM-DD')
@@ -960,9 +1033,9 @@ const LeaveApprovalContent = () => {
             </Text>
           </div>
           <Space size={8}>
-            {summary.mine + cancelWaitingOnMe > 0 && (
+            {mineWaitingOnMe + cancelWaitingOnMe > 0 && (
               <Tag icon={<HourglassOutlined />} color="warning" style={{ fontSize: 13, padding: '4px 10px' }}>
-                รอท่านพิจารณา {summary.mine + cancelWaitingOnMe} ใบ
+                รอท่านพิจารณา {mineWaitingOnMe + cancelWaitingOnMe} ใบ
               </Tag>
             )}
             <Button icon={<ReloadOutlined />} loading={listLoading} onClick={reload}>รีเฟรช</Button>
@@ -1031,7 +1104,7 @@ const LeaveApprovalContent = () => {
               label: (
                 <span>
                   <CheckSquareOutlined className="mr-1" />อนุมัติลา
-                  {summary.mine > 0 && <Badge count={summary.mine} size="small" offset={[6, -8]} />}
+                  {mineWaitingOnMe > 0 && <Badge count={mineWaitingOnMe} size="small" offset={[6, -8]} />}
                 </span>
               ),
             },
@@ -1092,7 +1165,7 @@ const LeaveApprovalContent = () => {
                   { value: 'inprogress', label: `รอขั้นอื่น (${summary.inprogress})` },
                   { value: 'approved', label: `อนุมัติแล้ว (${summary.approved})` },
                   { value: 'rejected', label: `ไม่อนุมัติ (${summary.rejected})` },
-                  { value: 'all', label: `ทั้งหมด (${requests.length})` },
+                  { value: 'all', label: `ทั้งหมด (${scopedRequests.length})` },
                 ]}
               />
               <Input
@@ -1103,6 +1176,8 @@ const LeaveApprovalContent = () => {
                 placeholder="ค้นหาชื่อ · หน่วยงาน · เลขที่ใบลา"
                 style={{ width: 280 }}
               />
+              {typeFilter}
+              {rangeFilter}
               <div className="ml-auto">
                 <Segmented
                   value={view}
@@ -1214,14 +1289,18 @@ const LeaveApprovalContent = () => {
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   คำขอยกเลิกใบลาที่อนุมัติไปแล้ว — ต้องเดินสายอนุมัติชุดเดิมอีกรอบ
                 </Text>
-                <Input
-                  value={keyword}
-                  onChange={e => setKeyword(e.target.value)}
-                  allowClear
-                  prefix={<SearchOutlined />}
-                  placeholder="ค้นหาชื่อ · หน่วยงาน · เลขที่"
-                  style={{ width: 280, marginInlineStart: 'auto' }}
-                />
+                <div className="ml-auto flex flex-wrap items-center gap-3">
+                  {typeFilter}
+                  {rangeFilter}
+                  <Input
+                    value={keyword}
+                    onChange={e => setKeyword(e.target.value)}
+                    allowClear
+                    prefix={<SearchOutlined />}
+                    placeholder="ค้นหาชื่อ · หน่วยงาน · เลขที่"
+                    style={{ width: 280 }}
+                  />
+                </div>
               </div>
             </Card>
             <Card
