@@ -304,7 +304,7 @@ const LeavePageContent = () => {
       setIsAbroad(changedValues.isAbroad)
     }
 
-    // จำนวนวันคำนวณที่ backend (ไม่นับเสาร์-อาทิตย์ / วันหยุดราชการ ตามประเภทการลา) — ดู effect ของ dayCount
+    // จำนวนวันเติมตามช่วงที่เลือก (รวมเสาร์-อาทิตย์ / วันหยุด) แล้วผู้ลาปรับเอง — ดู effect ของ dayCount
 
     if ('totalLeaveDays' in changedValues) {
       setTotalLeaveDays(changedValues.totalLeaveDays ?? 0)
@@ -326,7 +326,7 @@ const LeavePageContent = () => {
   const watchedHalfDay = Form.useWatch('halfDay', form)
   const quotaStart = watchedRange?.[0]
 
-  // นับจำนวนวันลาของช่วงที่เลือก แล้วเติมให้อัตโนมัติ (ผู้ลาแก้เองได้ เช่น เจ้าหน้าที่เวรที่ทำงานวันเสาร์)
+  // เติมจำนวนวันตามช่วงที่เลือก ไม่หักเสาร์-อาทิตย์/วันหยุด — ผู้ลาปรับเองให้ตรงวันลาจริง · งาน HR ตรวจซ้ำที่หน้าตรวจวันลา
   const [dayCount, setDayCount] = useState<LeaveDayCount | null>(null)
   // popup แจ้งเมื่อช่วงที่ผู้ลาเลือกเองคาบเกี่ยวเสาร์-อาทิตย์/วันหยุดนักขตฤกษ์ — แสดงครั้งเดียวต่อช่วงวันที่
   const [overlap, setOverlap] = useState<{ start: string; end: string } | null>(null)
@@ -344,8 +344,12 @@ const LeavePageContent = () => {
       .then(j => {
         if (!alive || !j?.success) return
         setDayCount(j.data)
-        form.setFieldsValue({ totalLeaveDays: j.data.computed_days })
-        setTotalLeaveDays(j.data.computed_days)
+        // เปิดใบเดิมมาแก้ไข (ยังไม่ได้แตะวันที่/ครึ่งวัน) คงจำนวนวันที่บันทึกไว้
+        if (!editId || form.isFieldsTouched(['dateRange', 'halfDay'])) {
+          const selectedDays = j.data.calendar_days - (watchedHalfDay ? 0.5 : 0)
+          form.setFieldsValue({ totalLeaveDays: selectedDays })
+          setTotalLeaveDays(selectedDays)
+        }
         // เปิดใบเดิมมาแก้ไข (ยังไม่ได้แตะช่องวันที่) ไม่ต้องเด้ง
         if (form.isFieldTouched('dateRange') && overlapShown.current !== rangeKey
             && offDaysInRange(start, end, j.data.holidays ?? []).length > 0) {
@@ -355,7 +359,7 @@ const LeavePageContent = () => {
       })
       .catch(() => { /* นับไม่ได้ก็ให้กรอกเอง */ })
     return () => { alive = false }
-  }, [rangeKey, watchedHalfDay, leaveType, form])
+  }, [rangeKey, watchedHalfDay, leaveType, form, editId])
   useEffect(() => {
     if (!leaveType) { void Promise.resolve().then(() => setQuota(null)); return }
     const qs = new URLSearchParams({ leave_type_id: String(leaveType) })
@@ -393,7 +397,7 @@ const LeavePageContent = () => {
           {offDays.length > 0 && dayCount && (
             <div style={{ color: '#d97706' }}>
               คาบเกี่ยววันหยุด {offDays.length} วัน ({offDays.map(d => d.label).join(', ')})
-              {dayCount.working_days_only ? ' — ไม่นับเป็นวันลา' : ' — นับรวมเป็นวันลา'}
+              {' — ตรวจว่าจำนวนวันตรงกับวันลาจริง'}
             </div>
           )}
         </div>
@@ -757,14 +761,12 @@ const LeavePageContent = () => {
                   <Form.Item
                     name="totalLeaveDays"
                     label="จำนวนวันที่ใช้ลา (สามารถแก้ไขได้)"
-                    extra={dayCount && (dayCount.working_days_only
-                      ? (dayCount.weekend_days || dayCount.holidays.length
-                        ? `ไม่นับ${[
-                            dayCount.weekend_days ? `เสาร์-อาทิตย์ ${dayCount.weekend_days} วัน` : '',
-                            ...dayCount.holidays.map(h => h.name),
-                          ].filter(Boolean).join(', ')} · งานทรัพยากรบุคคลตรวจซ้ำอีกครั้ง`
-                        : 'นับเฉพาะวันทำการ')
-                      : `นับวันปฏิทินต่อเนื่อง ${dayCount.calendar_days} วัน (รวมวันหยุด)`)}
+                    extra={dayCount && (dayCount.weekend_days || dayCount.holidays.length
+                      ? `ช่วงที่เลือก ${dayCount.calendar_days} วัน รวม${[
+                          dayCount.weekend_days ? `เสาร์-อาทิตย์ ${dayCount.weekend_days} วัน` : '',
+                          ...dayCount.holidays.map(h => h.name),
+                        ].filter(Boolean).join(', ')} · หากไม่ได้ลาวันเหล่านี้ให้แก้จำนวนวันเอง`
+                      : `ช่วงที่เลือก ${dayCount.calendar_days} วัน`)}
                     rules={[
                       { required: true, message: 'กรุณาระบุจำนวนวันลา' },
                       {

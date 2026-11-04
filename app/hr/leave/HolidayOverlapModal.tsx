@@ -1,6 +1,6 @@
 'use client'
 // แจ้งเตือนเมื่อช่วงวันลาคาบเกี่ยววันเสาร์-อาทิตย์ หรือวันหยุดนักขตฤกษ์ (ตาราง hr_holidays)
-// ข้อมูลมาจาก /hr/leave-days/count — ประเภทที่นับเฉพาะวันทำการจะไม่หักวันเหล่านี้ ประเภทที่นับวันปฏิทินจะหักรวมด้วย
+// ข้อมูลมาจาก /hr/leave-days/count — ฟอร์มเติมจำนวนวันตามช่วงที่เลือก (รวมวันเหล่านี้) ให้ผู้ลาปรับเอง
 import { Alert, Button, Modal, Space, Table, Tag, Typography } from 'antd'
 import { CalendarOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -101,13 +101,9 @@ export default function HolidayOverlapModal({ open, start, end, count, leaveType
           <Alert
             className="mt-3"
             showIcon
-            type={count.working_days_only ? 'success' : 'warning'}
-            title={count.working_days_only
-              ? <>ประเภทการลานี้นับเฉพาะวันทำการ — <b>ไม่หักวันหยุด {days.length} วัน</b> คิดเป็น <b>{count.computed_days} วันทำการ</b></>
-              : <>ประเภทการลานี้นับวันปฏิทินต่อเนื่อง — <b>หักรวมวันหยุดด้วย</b> คิดเป็น <b>{count.computed_days} วัน</b></>}
-            description={count.working_days_only
-              ? 'หากท่านต้องปฏิบัติงานในวันหยุด (เช่น อยู่เวร) และลาในวันนั้น แก้จำนวนวันในช่อง "จำนวนวันที่ใช้ลา" ได้ · งานทรัพยากรบุคคลตรวจซ้ำอีกครั้ง'
-              : 'ตามระเบียบ การลาประเภทนี้นับวันหยุดที่อยู่ระหว่างวันลารวมด้วย · งานทรัพยากรบุคคลตรวจซ้ำอีกครั้ง'}
+            type="warning"
+            title={<>ระบบเติมจำนวนวันตามช่วงที่เลือก <b>รวมวันหยุดด้วย</b> — ตรวจและแก้ให้ตรงกับวันลาจริง</>}
+            description='หากไม่ได้ลาวันหยุดเหล่านี้ ให้แก้จำนวนวันในช่อง "จำนวนวันที่ใช้ลา" ก่อนส่ง · งานทรัพยากรบุคคลตรวจซ้ำอีกครั้ง'
           />
         </>
       )}
