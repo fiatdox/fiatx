@@ -1,7 +1,7 @@
 'use client'
 // แก้ยอดวันลาสะสมหนึ่งแถว (ยกมา / สิทธิ์ปีนี้ / ใช้ไปแล้ว) — ใช้ร่วมกันระหว่างหน้าวันลาสะสม และหน้าตรวจแก้วันลาสะสม
 // แก้ตัวเลขต้องระบุเหตุผล · backend เก็บค่าก่อน/หลังไว้ทุกครั้ง (แท็บประวัติการแก้ไข)
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Alert, App, Button, Col, Empty, Form, Input, InputNumber, Modal, Row, Skeleton, Space, Tabs, Tag, Timeline, Typography } from 'antd'
 import { BulbOutlined, EditOutlined, HistoryOutlined } from '@ant-design/icons'
 
@@ -36,6 +36,7 @@ type FieldKey = typeof FIELDS[number]['key']
 
 const fmt = (n: number) => Number(n).toLocaleString('th-TH', { maximumFractionDigits: 1 })
 const fmtTime = (s: string) => new Date(s).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+const noSubscribe = () => () => {}
 
 const LogHistory = ({ balanceId }: { balanceId: number }) => {
   const [data, setData] = useState<{ logs: BalanceLog[]; current: { updated_at: string; updated_by_name: string | null } } | null>(null)
@@ -103,6 +104,9 @@ export default function BalanceEditModal({ target, onClose, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('edit')
   const values = Form.useWatch([], form) as Partial<Record<FieldKey, number>> | undefined
+  // forceRender ทำให้ Form พร้อมก่อน setFieldsValue ตอนเปิดครั้งแรก แต่ Portal เรนเดอร์ฝั่ง server ไม่ได้
+  // จึงรอให้ hydrate เสร็จก่อนค่อยเรนเดอร์ Modal ไม่เช่นนั้น HTML ไม่ตรงกัน (Hydration failed)
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false)
 
   useEffect(() => {
     if (!target) return
@@ -147,6 +151,8 @@ export default function BalanceEditModal({ target, onClose, onSaved }: {
       setSaving(false)
     }
   }
+
+  if (!hydrated) return null
 
   return (
     <Modal
