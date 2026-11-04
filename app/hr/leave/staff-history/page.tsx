@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox, DatePicker,
-  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm
+  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm, Tabs, Badge
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
@@ -44,6 +44,16 @@ const STATUS_META: Record<string, { label: string; color: string; icon: React.Re
   CANCELLED: { label: 'ยกเลิกแล้ว', color: 'default', icon: <RollbackOutlined /> },
 }
 const statusOf = (s: string) => STATUS_META[String(s).toUpperCase()] ?? STATUS_META.PENDING
+
+// แท็บยกเลิก — ใบเดียวกันมีสถานะการยกเลิกแยกจากสถานะใบ (ไม่อนุมัติการยกเลิก = ใบกลับเป็นอนุมัติแล้ว)
+type View = 'leave' | 'cancel'
+const LEAVE_STATUS = ['PENDING', 'APPROVED', 'REJECTED']
+const CANCEL_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  CANCEL_PENDING: STATUS_META.CANCEL_PENDING,
+  CANCELLED: STATUS_META.CANCELLED,
+  CANCEL_REJECTED: { label: 'ไม่อนุมัติการยกเลิก', color: 'error', icon: <CloseCircleOutlined /> },
+}
+const WITHDRAWN_META = { label: 'ถอนใบแล้ว', color: 'default', icon: <RollbackOutlined /> }
 
 // สีประจำประเภทการลา — ชุดเดียวกับหน้าสรุปการลา (ลาพักผ่อน / ป่วย / กิจ / คลอด) ประเภทที่เหลือมีสีของตัวเอง
 const TYPE_COLOR: Record<string, string> = {
@@ -236,8 +246,15 @@ interface Row {
   current_step: number | null
   approval_chain: ApiChainStep[] | string | null
   created_at: string
+  updated_at: string
+  cancellation_id: number | null
   cancellation_status: string | null
   cancellation_reason: string | null
+  cancellation_created_at: string | null
+  cancellation_updated_at: string | null
+  cancellation_refunded_days: string | number | null
+  cancellation_reject_comment: string | null
+  cancellation_actions: ApiAction[]
   actions: ApiAction[]
   count_working_days_only: boolean
   rule_days: number
@@ -319,6 +336,94 @@ const ApprovalTimeline = ({ r }: { r: Row }) => {
   )
 }
 
+// ── การขอยกเลิก ─────────────────────────────────────────────────────────────
+const hasCancellation = (r: Row) =>
+  r.cancellation_status != null || ['CANCEL_PENDING', 'CANCELLED'].includes(String(r.status).toUpperCase())
+
+const cancelMetaOf = (r: Row) => {
+  const s = String(r.status).toUpperCase()
+  if (s === 'CANCEL_PENDING') return CANCEL_META.CANCEL_PENDING
+  if (s === 'CANCELLED') return r.cancellation_status === 'APPROVED' ? CANCEL_META.CANCELLED : WITHDRAWN_META
+  return CANCEL_META.CANCEL_REJECTED
+}
+
+/** ขั้นที่คำขอยกเลิกรออยู่ — ไม่ใช่ CANCEL_PENDING = จบแล้ว */
+const cancelWaitingOf = (r: Row) => {
+  if (String(r.status).toUpperCase() !== 'CANCEL_PENDING') return null
+  const chain = parseChain(r.approval_chain)
+  const step = chain.find(c => Number(c.step) === Number(r.current_step))
+  return step ? { step, total: chain.length } : null
+}
+
+const CancelProgress = ({ r }: { r: Row }) => {
+  const small = { fontSize: 12 }
+  const s = String(r.status).toUpperCase()
+  if (s === 'CANCEL_PENDING') {
+    const w = cancelWaitingOf(r)
+    if (!w) return <Text type="secondary" style={small}>-</Text>
+    return (
+      <div style={{ lineHeight: 1.35 }}>
+        <Text style={small}>รอขั้นที่ {w.step.step}/{w.total} · {w.step.level_name}{w.step.is_acting ? ' (รักษาการ)' : ''}</Text>
+        <div><Text type="secondary" style={small}>{w.step.approver_name}</Text></div>
+      </div>
+    )
+  }
+  if (s === 'CANCELLED' && r.cancellation_status !== 'APPROVED') return <Text type="secondary" style={small}>ถอนใบก่อนอนุมัติครบ</Text>
+  const at = r.cancellation_updated_at ? beShort(r.cancellation_updated_at) : '-'
+  return s === 'CANCELLED'
+    ? <Text type="secondary" style={small}>อนุมัติครบเมื่อ {at}</Text>
+    : (
+      <div style={{ lineHeight: 1.35 }}>
+        <Text type="secondary" style={small}>ไม่อนุมัติเมื่อ {at} — ใบยังมีผล</Text>
+        {r.cancellation_reject_comment && <div><Text type="secondary" style={small}>“{r.cancellation_reject_comment}”</Text></div>}
+      </div>
+    )
+}
+
+/** ประวัติการกดในรอบขอยกเลิก + ขั้นที่ยังรอ */
+const CancelTimeline = ({ r }: { r: Row }) => {
+  const chain = parseChain(r.approval_chain)
+  const acts = r.cancellation_actions ?? []
+  const levelOf = (step: number) => chain.find(c => Number(c.step) === Number(step))?.level_name
+  const pending = cancelWaitingOf(r) ? chain.filter(c => Number(c.step) >= Number(r.current_step)) : []
+  if (acts.length === 0 && pending.length === 0) return <Text type="secondary">ไม่มีการกดในรอบขอยกเลิก</Text>
+  return (
+    <Timeline
+      items={[
+        ...acts.map(a => {
+          const rejected = a.action === 'REJECTED'
+          return {
+            color: rejected ? 'red' : 'green',
+            content: (
+              <div style={{ lineHeight: 1.5 }}>
+                <Space size={8} wrap>
+                  <Text strong>ขั้นที่ {a.step}{levelOf(a.step) ? ` · ${levelOf(a.step)}` : ''}</Text>
+                  <Tag color={rejected ? 'error' : 'success'} style={{ marginInlineEnd: 0 }}>{rejected ? 'ไม่อนุมัติการยกเลิก' : 'อนุมัติการยกเลิก'}</Tag>
+                </Space>
+                <div><Text>{a.approver_name ?? '-'}</Text></div>
+                <Text type="secondary" style={{ fontSize: 12 }}>{beShort(a.actioned_at)} {dayjs(a.actioned_at).format('HH:mm')} น.</Text>
+                {a.comment && <div><Text type="secondary" style={{ fontSize: 12 }}>“{a.comment}”</Text></div>}
+              </div>
+            ),
+          }
+        }),
+        ...pending.map((c, i) => ({
+          color: i === 0 ? 'blue' : 'gray',
+          content: (
+            <div style={{ lineHeight: 1.5 }}>
+              <Space size={8} wrap>
+                <Text strong>ขั้นที่ {c.step} · {c.level_name}{c.is_acting && ' (รักษาการ)'}</Text>
+                <Tag style={{ marginInlineEnd: 0 }}>{i === 0 ? 'กำลังรอ' : 'ยังไม่ถึงคิว'}</Tag>
+              </Space>
+              <div><Text type="secondary">{c.approver_name}</Text></div>
+            </div>
+          ),
+        })),
+      ]}
+    />
+  )
+}
+
 // ── หน้า ─────────────────────────────────────────────────────────────────────
 const StaffLeaveHistoryContent = () => {
   const { message } = App.useApp()
@@ -335,6 +440,8 @@ const StaffLeaveHistoryContent = () => {
       setIsAdmin(roles.includes('ADMIN'))
     })
   }, [])
+  const [view, setView] = useState<View>('leave')
+  const [counts, setCounts] = useState<{ leave_total: number; cancel_total: number; cancel_pending: number } | null>(null)
   const [fy, setFy] = useState<number | null>(currentFY())
   const [typeId, setTypeId] = useState<number | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -369,7 +476,7 @@ const StaffLeaveHistoryContent = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const qs = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+        const qs = new URLSearchParams({ view, page: String(page), page_size: String(pageSize) })
         if (fy) qs.set('fiscal_year', String(fy))
         if (typeId) qs.set('leave_type_id', String(typeId))
         if (status) qs.set('status', status)
@@ -389,6 +496,7 @@ const StaffLeaveHistoryContent = () => {
         // แผงรายละเอียดที่เปิดอยู่ใช้ข้อมูลล่าสุดหลังบันทึกการตรวจ
         setDetail(d => d ? (data.find(x => x.id === d.id) ?? d) : d)
         setTotal(Number(j?.pagination?.total) || 0)
+        setCounts(j?.counts ?? null)
         if (Array.isArray(j?.fiscal_years)) setYears(j.fiscal_years.map(Number))
       } catch {
         if (alive) { setRows([]); setTotal(0) }
@@ -398,10 +506,12 @@ const StaffLeaveHistoryContent = () => {
     }
     load()
     return () => { alive = false }
-  }, [fy, typeId, status, hasDoc, check, range, q, page, pageSize, reloadKey, message, router])
+  }, [view, fy, typeId, status, hasDoc, check, range, q, page, pageSize, reloadKey, message, router])
 
   // เปลี่ยนตัวกรองแล้วกลับไปหน้า 1 เสมอ
   const filter = <T,>(setter: (v: T) => void) => (v: T) => { setter(v); setPage(1) }
+  // สถานะและการตรวจสอบใช้คนละชุดในแต่ละแท็บ — ตัวกรองอื่นคงไว้เพื่อเทียบข้ามแท็บได้
+  const changeView = (v: View) => { setView(v); setStatus(null); setCheck(null); setPage(1) }
   const filtersOn = typeId != null || status != null || check != null || hasDoc || q !== '' || range != null
   const clearFilters = () => {
     setTypeId(null); setStatus(null); setCheck(null); setHasDoc(false); setSearch(''); setQ(''); setRange(null); setPage(1)
@@ -511,6 +621,46 @@ const StaffLeaveHistoryContent = () => {
     },
   ]
 
+  const col = (key: string) => columns.find(c => c.key === key)!
+  const cancelColumns = [
+    col('no'), col('employee'), col('unit'), col('type'),
+    {
+      title: 'ขอยกเลิกเมื่อ', key: 'cancel_at', width: 130,
+      render: (_: unknown, r: Row) => {
+        const at = r.cancellation_created_at ?? r.updated_at
+        return (
+          <div style={{ lineHeight: 1.3 }}>
+            <Text>{beShort(at)}</Text>
+            <div><Text type="secondary" style={{ fontSize: 12 }}>{dayjs(at).format('HH:mm')} น.</Text></div>
+          </div>
+        )
+      },
+    },
+    col('date'), col('days'),
+    {
+      title: 'เหตุผลที่ขอยกเลิก', dataIndex: 'cancellation_reason', key: 'cancel_reason', width: 220,
+      render: (t: string | null) => t
+        ? <Text style={{ fontSize: 13, maxWidth: 220 }} ellipsis={{ tooltip: t }}>{t}</Text>
+        : <Text type="secondary">-</Text>,
+    },
+    {
+      title: 'สถานะการยกเลิก', key: 'cancel_status', width: 170, align: 'center' as const,
+      render: (_: unknown, r: Row) => {
+        const m = cancelMetaOf(r)
+        return <Tag color={m.color} icon={m.icon} style={{ marginInlineEnd: 0 }}>{m.label}</Tag>
+      },
+    },
+    {
+      title: 'ความคืบหน้า', key: 'cancel_progress', width: 260,
+      render: (_: unknown, r: Row) => <CancelProgress r={r} />,
+    },
+    {
+      title: 'คืนวันลา', dataIndex: 'cancellation_refunded_days', key: 'cancel_refund', width: 80, align: 'center' as const,
+      render: (v: string | number | null) => v != null && Number(v) > 0 ? <Text strong>{nf(Number(v))}</Text> : <Text type="secondary">-</Text>,
+    },
+    col('doc'), col('act'),
+  ]
+
   return (
     <div className="min-h-screen bg-app-bg text-app-text">
       <Navbar />
@@ -529,6 +679,27 @@ const StaffLeaveHistoryContent = () => {
             ใบลาของบุคลากรทุกคน พร้อมรายละเอียด ประวัติการอนุมัติ และไฟล์แนบ (เฉพาะงานทรัพยากรบุคคล / ผู้ดูแลระบบ)
           </Text>
         </div>
+
+        <Tabs
+          activeKey={view}
+          onChange={k => changeView(k as View)}
+          items={[
+            { key: 'leave', label: `ใบลา${counts ? ` (${nf(counts.leave_total)})` : ''}` },
+            {
+              key: 'cancel',
+              label: (
+                <Space size={8}>
+                  <span>ยกเลิก{counts ? ` (${nf(counts.cancel_total)})` : ''}</span>
+                  {!!counts?.cancel_pending && (
+                    <Tooltip title={`รออนุมัติยกเลิก ${nf(counts.cancel_pending)} ใบ`}>
+                      <Badge count={counts.cancel_pending} overflowCount={999} />
+                    </Tooltip>
+                  )}
+                </Space>
+              ),
+            },
+          ]}
+        />
 
         {/* ── ตัวกรอง ─────────────────────────────────────────────────────── */}
         <Card style={{ marginBottom: 16 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
@@ -566,14 +737,18 @@ const StaffLeaveHistoryContent = () => {
             />
             <Select
               value={status} onChange={filter(setStatus)} allowClear
-              placeholder="สถานะ (ทั้งหมด)" style={{ minWidth: 170 }}
-              options={Object.entries(STATUS_META).map(([value, m]) => ({ value, label: m.label }))}
+              placeholder={view === 'cancel' ? 'สถานะการยกเลิก (ทั้งหมด)' : 'สถานะ (ทั้งหมด)'} style={{ minWidth: 190 }}
+              options={view === 'cancel'
+                ? Object.entries(CANCEL_META).map(([value, m]) => ({ value, label: m.label }))
+                : LEAVE_STATUS.map(value => ({ value, label: STATUS_META[value].label }))}
             />
-            <Select
-              value={check} onChange={filter(setCheck)} allowClear
-              placeholder="การตรวจสอบ (ทั้งหมด)" style={{ minWidth: 190 }}
-              options={Object.entries(CHECK_META).map(([value, m]) => ({ value, label: m.label }))}
-            />
+            {view === 'leave' && (
+              <Select
+                value={check} onChange={filter(setCheck)} allowClear
+                placeholder="การตรวจสอบ (ทั้งหมด)" style={{ minWidth: 190 }}
+                options={Object.entries(CHECK_META).map(([value, m]) => ({ value, label: m.label }))}
+              />
+            )}
             <Checkbox checked={hasDoc} onChange={e => { setHasDoc(e.target.checked); setPage(1) }}>
               เฉพาะที่มีไฟล์แนบ
             </Checkbox>
@@ -585,7 +760,7 @@ const StaffLeaveHistoryContent = () => {
 
         <Card variant="borderless" className="shadow-sm" styles={{ body: { padding: 0 } }}>
           <Table<Row>
-            columns={columns}
+            columns={view === 'cancel' ? cancelColumns : columns}
             dataSource={rows}
             rowKey="id"
             loading={loading}
@@ -670,6 +845,22 @@ const StaffLeaveHistoryContent = () => {
                 </Button>
               )}
             </div>
+
+            {hasCancellation(detail) && (
+              <div>
+                <Space size={8} wrap className="mb-2">
+                  <Title level={5} style={{ margin: 0 }}>การขอยกเลิก</Title>
+                  {(() => {
+                    const m = cancelMetaOf(detail)
+                    return <Tag color={m.color} icon={m.icon} style={{ marginInlineEnd: 0 }}>{m.label}</Tag>
+                  })()}
+                  {Number(detail.cancellation_refunded_days) > 0 && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>คืนวันลา {nf(Number(detail.cancellation_refunded_days))} วัน</Text>
+                  )}
+                </Space>
+                <CancelTimeline r={detail} />
+              </div>
+            )}
           </Space>
         )}
       </Drawer>
