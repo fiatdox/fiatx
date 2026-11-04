@@ -27,6 +27,7 @@ interface NotifyConfig {
   mission_overrides: Record<string, Mode>
   digest_times: string[]
   digest_skip_holidays: boolean
+  applicant_submitted: boolean
   applicant_result: boolean
   app_url: string | null
 }
@@ -83,7 +84,7 @@ const MODE_TAG: Record<Mode, { color: string; label: string }> = {
   instant: { color: 'green', label: 'ทันที' }, digest: { color: 'gold', label: 'สรุปตามรอบ' }, off: { color: 'default', label: 'ปิด' },
 }
 const KIND_LABEL: Record<string, string> = {
-  COLLEAGUE: 'เพื่อนร่วมงาน', APPROVER: 'ผู้อนุมัติ (ทันที)', DIGEST: 'สรุปรออนุมัติ', RESULT: 'ผลถึงผู้ลา', TEST: 'ทดสอบ',
+  SUBMITTED: 'ยื่นใบถึงผู้ลา', COLLEAGUE: 'เพื่อนร่วมงาน', APPROVER: 'ผู้อนุมัติ (ทันที)', DIGEST: 'สรุปรออนุมัติ', RESULT: 'ผลถึงผู้ลา', TEST: 'ทดสอบ',
 }
 const STATUS_COLOR: Record<string, string> = { SENT: 'success', SKIPPED: 'default', FAILED: 'error' }
 const TIME_OPTIONS = Array.from({ length: 24 * 2 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
@@ -382,6 +383,13 @@ const PageContent = () => {
               </Col>
               <Col xs={24} lg={12}>
                 <Card title="ผู้ลา" style={{ borderRadius: 12, border: 'none', height: '100%' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <Text>แจ้งผู้ลาเมื่อยื่นใบลา</Text>
+                      <div><Text type="secondary" style={{ fontSize: 12 }}>ยืนยันประเภท วันที่ และจำนวนวัน รวมกรณีงาน HR ยื่นแทน</Text></div>
+                    </div>
+                    <Switch checked={draft.applicant_submitted} onChange={v => patch({ applicant_submitted: v })} />
+                  </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Text>แจ้งผลถึงผู้ลา</Text>
