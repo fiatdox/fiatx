@@ -3,14 +3,15 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Table, Input, Button, Space, Card, Row, Col, Tag,
   Avatar, Drawer, Form, Select, Tooltip,
-  App, Typography, Badge, Spin, DatePicker, ConfigProvider,
+  App, Typography, Badge, Spin, DatePicker, ConfigProvider, Popconfirm,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   EditOutlined, SearchOutlined, UserOutlined, PlusOutlined,
   HomeOutlined, IdcardOutlined,
-  ReloadOutlined,
+  ReloadOutlined, CheckCircleOutlined, CheckCircleFilled,
 } from '@ant-design/icons'
+import Cookies from 'js-cookie'
 import { FaUsersCog, FaUsers, FaFilter, FaFileExcel } from 'react-icons/fa'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
@@ -19,6 +20,7 @@ import thTH from 'antd/locale/th_TH'
 import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import { normalizeRoles } from '@/app/lib/menuAccess'
 
 dayjs.extend(buddhistEra)
 // วันที่แสดงเป็นปี พ.ศ. (BBBB) — ค่าที่ส่ง backend ยังเป็น ค.ศ. เพราะ format('YYYY-MM-DD') ตอนบันทึก
@@ -59,6 +61,8 @@ interface User {
   is_active?: string | boolean
   work_end_date?: string
   hospital_lc_pid?: number
+  verified_at?: string | null
+  verified_by_name?: string | null
 }
 
 // ชื่อสถานะที่ถือว่า "ยังปฏิบัติงานอยู่" — สถานะอื่น (ลาออก/เกษียณ/โอนย้าย ฯลฯ) ต้องระบุวันสิ้นสุด
@@ -159,6 +163,16 @@ const PageContent = () => {
   const [filterStatus, setFilterStatus] = useState<number | null>(null)
   const [filterActive, setFilterActive] = useState<string | null>(null)
   const [filterType, setFilterType] = useState<number | null>(null)
+  const [filterVerified, setFilterVerified] = useState<string | null>(null)
+
+  // บันทึกการตรวจสอบได้เฉพาะ ADMIN / HR (backend ตรวจซ้ำ) — IT_STAFF เห็นป้ายอย่างเดียว
+  const [canVerify, setCanVerify] = useState(false)
+  useEffect(() => {
+    let roles: string[] = []
+    try { roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles) } catch { /* cookie เสีย = ไม่มีสิทธิ์ */ }
+    void Promise.resolve().then(() => setCanVerify(roles.includes('ADMIN') || roles.includes('HR')))
+  }, [])
+  const [verifyingId, setVerifyingId] = useState<number | null>(null)
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
@@ -231,7 +245,7 @@ const PageContent = () => {
   useEffect(() => {
     // ?edit=<id> (ลิงก์จาก HR Dashboard) → เปิดฟอร์มแก้ไขของคนนั้นทันทีที่โหลดรายชื่อเสร็จ
     const editId = Number(new URLSearchParams(window.location.search).get('edit'))
-    loadUsers().then((list) => {
+    void Promise.resolve().then(loadUsers).then((list) => {
       const target = editId ? list.find((u) => u.id === editId) : undefined
       if (target) handleEdit(target)
       // เอา ?edit ออก — รีเฟรชหน้าแล้วจะได้ไม่เด้งฟอร์มเดิมขึ้นมาอีก
@@ -359,6 +373,23 @@ const PageContent = () => {
     }
   }
 
+  // อัปเดตแถวเดียว ไม่โหลดทะเบียนทั้งชุดใหม่ — ตำแหน่งในตารางและตัวกรองคงเดิมระหว่างไล่ตรวจ
+  const setVerified = async (u: User, verified: boolean) => {
+    setVerifyingId(u.id)
+    try {
+      const json = await apiFetch(`/api/users/${u.id}/verify`, { method: verified ? 'PATCH' : 'DELETE' })
+      if (!json?.success) { message.error(json?.message || 'บันทึกการตรวจสอบไม่สำเร็จ'); return }
+      setUsers((list) => list.map((x) => x.id === u.id
+        ? { ...x, verified_at: verified ? json.data.verified_at : null, verified_by_name: verified ? json.data.verified_by_name : null }
+        : x))
+    } catch {
+      message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+    } finally {
+      setVerifyingId(null)
+    }
+  }
+  const verifiedCount = users.filter((u) => u.verified_at).length
+
   const filtered = users.filter((u) => {
     const q = search.toLowerCase()
     // ค้นด้วยชื่อด้าน / กลุ่มงาน / หน่วยงานได้ด้วย นอกจากเลือกจากตัวกรอง
@@ -372,14 +403,35 @@ const PageContent = () => {
     const matchStatus = !filterStatus || u.user_status_id === filterStatus
     const matchActive = filterActive === null || (filterActive === 'active' ? isActive(u) : !isActive(u))
     const matchType = !filterType || u.user_type_id === filterType
-    return matchSearch && matchMission && matchMajor && matchSubmajor && matchStatus && matchActive && matchType
+    const matchVerified = filterVerified === null || (filterVerified === 'verified') === !!u.verified_at
+    return matchSearch && matchMission && matchMajor && matchSubmajor && matchStatus && matchActive && matchType && matchVerified
   })
 
-  const activeFilterCount = [filterMission, filterMajor, filterSubmajor, filterStatus, filterActive, filterType].filter(Boolean).length
+  const activeFilterCount = [filterMission, filterMajor, filterSubmajor, filterStatus, filterActive, filterType, filterVerified].filter(Boolean).length
 
-  // จำนวนคนต่อประเภท (ทั้งทะเบียน) — ชิปสรุปด้านบนตาราง กดเพื่อกรอง
+  // จำนวนคนต่อประเภท ตามสถานะที่เลือกไว้ (ไม่เลือก = ทั้งทะเบียน) — ตัวเลือกในตัวกรองประเภท
   const typeCount = new Map<number, number>()
-  users.forEach((u) => { if (u.user_type_id) typeCount.set(u.user_type_id, (typeCount.get(u.user_type_id) ?? 0) + 1) })
+  users.forEach((u) => {
+    if (u.user_type_id && (!filterStatus || u.user_status_id === filterStatus)) typeCount.set(u.user_type_id, (typeCount.get(u.user_type_id) ?? 0) + 1)
+  })
+  // ชิปสรุปด้านบนตาราง กดเพื่อกรอง — นับเฉพาะผู้ที่สถานะ "ปฏิบัติงาน" และไม่เปลี่ยนตามตัวกรอง
+  const workingStatusId = userStatuses.find((s) => s.name === WORKING_STATUS_NAME)?.id
+  const workingTypeCount = new Map<number, number>()
+  users.forEach((u) => {
+    if (u.user_type_id && u.user_status_id === workingStatusId) workingTypeCount.set(u.user_type_id, (workingTypeCount.get(u.user_type_id) ?? 0) + 1)
+  })
+  // กดชิป = ดูคนกลุ่มที่ชิปนับ: ตั้งประเภท + สถานะปฏิบัติงาน แล้วล้างเงื่อนไขอื่น เพื่อให้จำนวนในตารางตรงกับเลขบนชิป
+  const clearFilters = () => {
+    setFilterMission(null); setFilterMajor(null); setFilterSubmajor(null)
+    setFilterStatus(null); setFilterActive(null); setFilterType(null); setFilterVerified(null)
+  }
+  const toggleTypeChip = (typeId: number, on: boolean) => {
+    clearFilters()
+    setSearch('')
+    if (on) return
+    setFilterType(typeId)
+    setFilterStatus(workingStatusId ?? null)
+  }
   const fyNow = currentFy()
 
   // ── ตัวกรองกลุ่มงาน / หน่วยงาน ──────────────────────────────────────────
@@ -444,6 +496,8 @@ const PageContent = () => {
       'วันที่บรรจุ': u.hire_date ? dayjs(u.hire_date).format(BE_DATE) : '',
       'อายุงาน': u.hire_date && isActive(u) ? ymText(u.hire_date) : '',
       'สถานะการใช้งาน': isActive(u) ? 'ใช้งาน' : 'ระงับ',
+      'ตรวจสอบเมื่อ': u.verified_at ? dayjs(u.verified_at).format(BE_DATE) : '',
+      'ผู้ตรวจสอบ': u.verified_by_name ?? '',
     }))
     const ws = XLSX.utils.json_to_sheet(rows)
     const wb = XLSX.utils.book_new()
@@ -473,6 +527,11 @@ const PageContent = () => {
                 <IdcardOutlined /> {u.id_card || '-'}
                 {u.username && u.username !== u.id_card && <span className="text-app-text-3">· {u.username}</span>}
               </div>
+              {u.verified_at && (
+                <Tooltip title={`โดย ${u.verified_by_name || '-'} เมื่อ ${dayjs(u.verified_at).format(`${BE_DATE} HH:mm`)} น.`}>
+                  <Tag color="success" icon={<CheckCircleFilled />} style={{ marginTop: 4, marginInlineEnd: 0, fontSize: 11, borderRadius: 4 }}>ตรวจสอบแล้ว</Tag>
+                </Tooltip>
+              )}
             </div>
           </div>
         )
@@ -580,13 +639,24 @@ const PageContent = () => {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 90,
       fixed: 'right' as const,
       render: (_: unknown, u: User) => (
         <Space size={4}>
           <Tooltip title="แก้ไข">
-            <Button type="text" shape="circle" size="small" icon={<EditOutlined style={{ color: '#60a5fa' }} />} onClick={() => handleEdit(u)} />
+            <Button type="text" shape="circle" size="small" aria-label="แก้ไข" icon={<EditOutlined style={{ color: '#60a5fa' }} />} onClick={() => handleEdit(u)} />
           </Tooltip>
+          {canVerify && (u.verified_at ? (
+            <Popconfirm title="ยกเลิกการตรวจสอบ?" description={`${u.fname} ${u.lname} จะกลับเป็นยังไม่ตรวจ`} okText="ยกเลิกการตรวจสอบ" cancelText="ไม่" onConfirm={() => setVerified(u, false)}>
+              <Tooltip title="ยกเลิกการตรวจสอบ">
+                <Button type="text" shape="circle" size="small" aria-label="ยกเลิกการตรวจสอบ" loading={verifyingId === u.id} icon={<CheckCircleFilled style={{ color: '#16a34a' }} />} />
+              </Tooltip>
+            </Popconfirm>
+          ) : (
+            <Tooltip title="บันทึกว่าตรวจสอบแล้ว">
+              <Button type="text" shape="circle" size="small" aria-label="บันทึกว่าตรวจสอบแล้ว" loading={verifyingId === u.id} icon={<CheckCircleOutlined style={{ color: 'var(--app-text-2)' }} />} onClick={() => setVerified(u, true)} />
+            </Tooltip>
+          ))}
         </Space>
       ),
     },
@@ -648,6 +718,9 @@ const PageContent = () => {
                 <Tag color="#006a5a" style={{ borderRadius: 12, fontSize: 12, padding: '0 10px' }}>
                   {filtered.length} / {users.length} รายการ
                 </Tag>
+                <Tag color="success" icon={<CheckCircleFilled />} style={{ borderRadius: 12, fontSize: 12, padding: '0 10px' }}>
+                  ตรวจสอบแล้ว {verifiedCount} / {users.length}
+                </Tag>
                 {activeFilterCount > 0 && (
                   <Tag color="orange" style={{ borderRadius: 12, fontSize: 11 }}>
                     <FaFilter className="inline mr-1" />ใช้ตัวกรอง {activeFilterCount} ตัว
@@ -672,17 +745,19 @@ const PageContent = () => {
               </div>
             </div>
 
-            {/* สรุปจำนวนตามประเภทบุคลากร — กดเพื่อกรอง กดซ้ำเพื่อยกเลิก */}
+            {/* สรุปจำนวนผู้ปฏิบัติงานตามประเภทบุคลากร — กดเพื่อกรอง กดซ้ำเพื่อยกเลิก */}
             {userTypes.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
-                {userTypes.filter((t) => typeCount.get(t.id)).map((t) => {
+                {userTypes.filter((t) => workingTypeCount.get(t.id)).map((t) => {
                   const tone = typeTone(t.name, t.id)
-                  const on = filterType === t.id
+                  // เลือกประเภทจากช่องกรองแต่สถานะอื่น ไม่นับว่าชิปถูกเลือก เพราะตารางไม่ตรงกับเลขบนชิป
+                  const on = filterType === t.id && filterStatus === workingStatusId
                   return (
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => setFilterType(on ? null : t.id)}
+                      onClick={() => toggleTypeChip(t.id, on)}
+                      aria-pressed={on}
                       className="flex items-center gap-2 rounded-full px-3 py-1 text-[13px] transition-colors cursor-pointer"
                       style={{
                         border: `1px solid ${tone.hex}${on ? '' : '55'}`,
@@ -693,7 +768,7 @@ const PageContent = () => {
                     >
                       <span className="inline-block rounded-full" style={{ width: 8, height: 8, backgroundColor: on ? '#fff' : tone.hex }} />
                       {t.name}
-                      <span style={{ fontWeight: 700 }}>{typeCount.get(t.id)}</span>
+                      <span style={{ fontWeight: 700 }}>{workingTypeCount.get(t.id)}</span>
                     </button>
                   )
                 })}
@@ -709,10 +784,7 @@ const PageContent = () => {
                 </div>
                 {activeFilterCount > 0 && (
                   <Button type="link" size="small" danger style={{ padding: 0, height: 'auto' }}
-                    onClick={() => {
-                      setFilterMission(null); setFilterMajor(null); setFilterSubmajor(null)
-                      setFilterStatus(null); setFilterActive(null); setFilterType(null)
-                    }}>
+                    onClick={clearFilters}>
                     ล้างตัวกรอง
                   </Button>
                 )}
@@ -757,6 +829,14 @@ const PageContent = () => {
                         </span>
                       ),
                     }))} />
+                </Col>
+                <Col xs={24} sm={12} md={8}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>การตรวจสอบ</Text>
+                  <Select placeholder="ทั้งหมด" value={filterVerified} onChange={(v) => setFilterVerified(v ?? null)} allowClear style={{ width: '100%' }}
+                    options={[
+                      { label: `ตรวจสอบแล้ว (${verifiedCount})`, value: 'verified' },
+                      { label: `ยังไม่ตรวจ (${users.length - verifiedCount})`, value: 'unverified' },
+                    ]} />
                 </Col>
               </Row>
             </div>
