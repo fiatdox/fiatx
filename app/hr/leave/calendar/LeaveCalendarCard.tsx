@@ -1,9 +1,9 @@
 'use client'
 // ปฏิทินการลา (หน้า /hr/leave) — ขอบเขตที่เลือกดูได้มาจาก backend ตามตำแหน่งในผัง:
 // ผอ. / ADMIN / HR = ทั้งโรงพยาบาล · หัวหน้า/รักษาการ = หน่วยที่ดูแล · ทุกคน = เพื่อนร่วมกลุ่มงาน (ไม่เห็นประเภทการลา) + ของฉัน
-// หัวหน้า/รักษาการทุกระดับ ผอ. ADMIN HR เลือกดูหน่วยอื่นได้ (ค้นชื่อหน่วยในช่องเลือก) — ใบนอกสายอนุมัติเห็นแค่ว่า "ลา"
+// หัวหน้า/รักษาการทุกระดับ ผอ. ADMIN HR เลือกดูหน่วยอื่นได้ตามลำดับ กลุ่มภารกิจ → กลุ่มงาน → หน่วยงาน — ใบนอกสายอนุมัติเห็นแค่ว่า "ลา" (ADMIN / HR เห็นครบ)
 import React, { useEffect, useMemo, useState } from 'react'
-import { Card, Select, Button, Tag, Typography, Empty, Spin, Grid } from 'antd'
+import { Card, Select, Button, Tag, Typography, Empty, Spin, Grid, Row, Col } from 'antd'
 import { CalendarOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import LeaveMonthGrid, {
@@ -20,7 +20,8 @@ interface LeaveEvent extends GridEvent {
   position_name: string | null
   unit_name: string | null
 }
-interface CalendarData { scope: string; options: ScopeOption[]; masked: boolean; events: LeaveEvent[] }
+interface UnitOption { kind: 'mission' | 'major' | 'submajor'; id: number; name: string; parent_id: number | null }
+interface CalendarData { scope: string; options: ScopeOption[]; units?: UnitOption[]; masked: boolean; events: LeaveEvent[] }
 
 export default function LeaveCalendarCard() {
   const screens = Grid.useBreakpoint()
@@ -75,6 +76,48 @@ export default function LeaveCalendarCard() {
     return [...groups.entries()].map(([label, options]) => ({ label, options }))
   }, [data])
 
+  // ── เลือกหน่วยตามลำดับ — ค่าทั้ง 3 ช่องคำนวณจาก scope เดียว เลือกหน่วยล่างแล้วหน่วยบนตามให้เอง ──
+  const units = useMemo(() => data?.units ?? [], [data])
+  const unitsOf = (kind: UnitOption['kind']) => units.filter(u => u.kind === kind)
+  const findUnit = (kind: UnitOption['kind'], id: number | null | undefined) => units.find(u => u.kind === kind && u.id === id)
+  const [scopeKind, scopeIdText] = (currentScope ?? '').split(':')
+  const scopeId = Number(scopeIdText) || null
+  const selSubmajor = scopeKind === 'submajor' ? scopeId : null
+  // หน่วยงานบางหน่วยมีกลุ่มงานแม่ที่ไม่ได้ใช้งานแล้ว — ไม่มีในตัวเลือก จึงถือว่าไม่ได้เลือก ไม่งั้นช่องจะแสดงเป็นตัวเลข
+  const selMajor = scopeKind === 'major' ? scopeId : findUnit('major', findUnit('submajor', selSubmajor)?.parent_id)?.id ?? null
+  const selMission = scopeKind === 'mission' ? scopeId : findUnit('major', selMajor)?.parent_id ?? null
+  const majorOptions = unitsOf('major')
+    .filter(u => !selMission || u.parent_id === selMission)
+    .map(u => ({ value: u.id, label: u.name }))
+  const submajorOptions = unitsOf('submajor')
+    .filter(u => selMajor ? u.parent_id === selMajor : !selMission || findUnit('major', u.parent_id)?.parent_id === selMission)
+    // ชื่อหน่วยงานซ้ำกันได้ในต่างกลุ่มงาน — ยังไม่ได้เลือกกลุ่มงานให้บอกกลุ่มงานกำกับไว้
+    .map(u => ({ value: u.id, label: selMajor ? u.name : `${u.name} (${findUnit('major', u.parent_id)?.name ?? '-'})` }))
+  const unitPicker = units.length > 0 && (
+    <Row gutter={[12, 8]} style={{ marginBottom: 12 }}>
+      {([
+        ['กลุ่มภารกิจ', selMission, unitsOf('mission').map(u => ({ value: u.id, label: u.name })), (v?: number) => setScope(v ? `mission:${v}` : null)],
+        ['กลุ่มงาน', selMajor, majorOptions, (v?: number) => setScope(v ? `major:${v}` : selMission ? `mission:${selMission}` : null)],
+        ['หน่วยงาน', selSubmajor, submajorOptions, (v?: number) => setScope(v ? `submajor:${v}` : selMajor ? `major:${selMajor}` : null)],
+      ] as const).map(([label, value, options, onChange]) => (
+        <Col key={label} xs={24} md={8}>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>{label}</Text>
+          <Select
+            allowClear
+            placeholder="ทั้งหมด"
+            className="w-full"
+            value={value ?? undefined}
+            onChange={onChange}
+            options={options}
+            showSearch={{ optionFilterProp: 'label' }}
+            notFoundContent="ไม่มีหน่วยในระดับที่เลือก"
+            aria-label={`เลือก${label}`}
+          />
+        </Col>
+      ))}
+    </Row>
+  )
+
   const header = month && (
     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
       <div className="flex items-center gap-1">
@@ -93,7 +136,8 @@ export default function LeaveCalendarCard() {
       title={<span className="flex items-center gap-2"><CalendarOutlined style={{ color: '#10b981' }} /> ปฏิทินการลา</span>}
       extra={selectOptions.length > 0 && (
         <Select
-          value={currentScope ?? undefined}
+          value={data?.options.some(o => o.key === currentScope) ? currentScope ?? undefined : undefined}
+          placeholder="เลือกตามหน่วยด้านล่าง"
           onChange={v => setScope(v)}
           options={selectOptions}
           showSearch={{ optionFilterProp: 'label' }}
@@ -105,6 +149,7 @@ export default function LeaveCalendarCard() {
     >
       {error ? <Empty description={error} /> : (
         <Spin spinning={loading || !month}>
+          {unitPicker}
           {header}
           {data?.masked && (
             <Text type="secondary" style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
