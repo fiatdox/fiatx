@@ -21,7 +21,7 @@ import AttachmentModal from '../AttachmentModal'
 import DayCheckBadge, { dayCheckDetail, type DayCheckInfo } from '../DayCheckBadge'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import {
-  beShort, nf, parseChain, buildLeaveFormData,
+  beShort, nf, parseChain, buildLeaveFormData, hasCancelForm,
   type ApiChainStep, type ApiAction, type LeaveProfile, type Approvers,
 } from '@/app/lib/leaveFormData'
 
@@ -318,7 +318,9 @@ const LeaveHistoryContent = () => {
       render: (_: unknown, r: ApiRow) => (
         <Space size={4}>
           <Button size="small" icon={<EyeOutlined />} onClick={() => setDetail(r)}>รายละเอียด</Button>
-          <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={() => setPrinting(r)}>พิมพ์</Button>
+          <Button size="small" type="primary" icon={<PrinterOutlined />} onClick={() => setPrinting(r)}>
+            {hasCancelForm(r) ? 'พิมพ์ใบยกเลิก' : 'พิมพ์'}
+          </Button>
           {/* ยังไม่มีผู้อนุมัติคนใดกด = ลบทิ้งได้ · กดไปแล้ว = ถอนใบ เก็บประวัติไว้ */}
           {!readOnly && String(r.status).toUpperCase() === 'PENDING' && (
             (r.actions?.length ?? 0) === 0 ? (
@@ -498,7 +500,7 @@ const LeaveHistoryContent = () => {
           <Space>
             <Button onClick={() => setDetail(null)}>ปิด</Button>
             <Button type="primary" icon={<PrinterOutlined />} onClick={() => { setPrinting(detail); setDetail(null) }}>
-              พิมพ์แบบใบลา
+              {detail && hasCancelForm(detail) ? 'พิมพ์ใบยกเลิก' : 'พิมพ์แบบใบลา'}
             </Button>
           </Space>
         }
@@ -653,7 +655,7 @@ const LeaveHistoryContent = () => {
 
       {/* ── พิมพ์แบบใบลา ── */}
       <Modal
-        title={<span><PrinterOutlined className="mr-2" />แบบใบลา — LV-{String(printing?.id ?? 0).padStart(6, '0')}</span>}
+        title={<span><PrinterOutlined className="mr-2" />{printing && hasCancelForm(printing) ? 'ใบขอยกเลิกวันลา / ใบลาเดิม' : 'แบบใบลา'} — LV-{String(printing?.id ?? 0).padStart(6, '0')}</span>}
         open={!!printing}
         onCancel={() => setPrinting(null)}
         width="92vw"

@@ -113,6 +113,13 @@ export const parseChain = (raw: LeaveFormRow['approval_chain']): ApiChainStep[] 
   return []
 }
 
+/** ใบนี้มีแบบใบขอยกเลิกวันลาไหม — อนุมัติยกเลิกครบ หรือกำลังรออนุมัติ (ถอนใบ/ถูกปฏิเสธการยกเลิกไม่มี) */
+export const hasCancelForm = (r: Pick<LeaveFormRow, 'status' | 'cancellation_status'>) => {
+  const status = String(r.status).toUpperCase()
+  return (status === 'CANCELLED' && r.cancellation_status === 'APPROVED')
+    || (status === 'CANCEL_PENDING' && r.cancellation_status === 'PENDING')
+}
+
 export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[]; profile: LeaveProfile | null; approvers: Approvers }): LeaveFormData => {
   const { rows, profile, approvers } = ctx
   // ลายมือชื่อผู้มอบงาน — ผู้ลายื่นในระบบเอง ถือว่ายืนยันแล้ว ใส่ชื่อ สกุล (ไม่มีคำนำหน้า)
@@ -248,7 +255,7 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
     ...approvalsFrom(r.actions),
     stamp: status === 'CANCELLED' ? { label: 'ยกเลิกแล้ว', date: cancelDate }
       : cancelPending ? { label: 'รออนุมัติยกเลิก', date: '' } : null,
-    cancel: cancelApproved || cancelPending ? {
+    cancel: hasCancelForm(r) ? {
       pending: cancelPending,
       // วันที่คำขอของใบโอนคือวันที่โอน ไม่ใช่วันที่ยื่นจริง
       writtenDate: !r.legacy_leave_id && r.cancellation_created_at ? beLong(r.cancellation_created_at) : '',
