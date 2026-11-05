@@ -64,7 +64,7 @@ interface TransferData {
 const STATUS_META: Record<Status, { label: string; color: string; desc: string }> = {
   imported: { label: 'โอนจากโปรแกรมเดิม', color: 'green', desc: 'มียอดสะสมจากโปรแกรมการลาเดิมแล้ว' },
   hr: { label: 'HR ตั้งยอดเอง', color: 'blue', desc: 'HR เพิ่มหรือแก้ยอดในระบบนี้แล้ว' },
-  rolled: { label: 'ยกยอดอัตโนมัติ', color: 'cyan', desc: 'ระบบยกยอดคงเหลือจากปีงบก่อนให้' },
+  rolled: { label: 'ยกยอดจากปีก่อน', color: 'cyan', desc: 'ระบบยกยอดคงเหลือจากปีงบก่อนให้' },
   auto: { label: 'มีเฉพาะจากใบลา', color: 'orange', desc: 'ระบบสร้างแถวตอนยื่นใบลา แต่ยังไม่ได้ตั้งยอดยกมา' },
   none: { label: 'ยังไม่มีข้อมูล', color: 'red', desc: 'ยังไม่มียอดลาพักผ่อนของปีงบนี้เลย' },
 }
@@ -351,7 +351,7 @@ const PageContent = () => {
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
           {[
             { label: 'บุคลากรที่ปฏิบัติงาน', value: td?.total, color: '#0f766e', hint: 'นับเฉพาะบัญชีที่เปิดใช้งาน' },
-            { label: 'โอน / ตั้งยอดแล้ว', value: td ? td.total - td.missing : undefined, color: '#10b981', hint: 'โอนจากโปรแกรมเดิม · HR ตั้งเอง · ยกยอดอัตโนมัติ' },
+            { label: 'โอน / ตั้งยอดแล้ว', value: td ? td.total - td.missing : undefined, color: '#10b981', hint: 'โอนจากโปรแกรมเดิม · HR ตั้งเอง · ยกยอดจากปีก่อน' },
             { label: 'ยังไม่ได้โอน', value: td?.missing, color: '#f59e0b', hint: 'มีเฉพาะจากใบลา + ยังไม่มีข้อมูล' },
             { label: 'ต้องดำเนินการ', value: td?.missing_with_right, color: '#ef4444', hint: 'ยังไม่ได้โอน และมีสิทธิ์สะสมลาพักผ่อน' },
           ].map(c => (
