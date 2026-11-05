@@ -6,8 +6,9 @@ import { ThemeModeProvider } from "./components/ThemeProvider";
 import BasePathShim from "./components/BasePathShim";
 
 const sarabun = Sarabun({
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800"],
-  style: ["normal", "italic"],
+  // เฉพาะน้ำหนักที่หน้าเว็บใช้จริง (PDF ใช้ไฟล์ใน public/fonts แยกต่างหาก) — ลดไฟล์ฟอนต์ที่ต้องโหลด
+  weight: ["400", "500", "600", "700", "800"],
+  style: ["normal"],
   subsets: ["thai", "latin"],
   variable: "--font-sarabun",
   display: "swap",
@@ -27,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="th" data-theme="light" suppressHydrationWarning>
       <head>
         {/*
           ต้องเป็น <script> ธรรมดาเท่านั้น ห้ามเปลี่ยนไปใช้ next/script

@@ -88,6 +88,11 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children, co
           borderRadius: 8,
           colorBgContainer: isDark ? '#1e293b' : '#ffffff',
           colorBgElevated: isDark ? '#1e293b' : '#ffffff',
+          // ข้อความรองค่าเริ่มต้นของ antd ไม่ถึงเกณฑ์ 4.5:1 — ใช้ค่าเดียวกับ --app-text-3
+          colorTextDescription: isDark ? '#8494a8' : '#5b6b80',
+          colorTextTertiary: isDark ? '#8494a8' : '#5b6b80',
+          colorTextPlaceholder: isDark ? '#8494a8' : '#5b6b80',
+          motionEaseOut: 'cubic-bezier(0.22, 1, 0.36, 1)',
         },
       }}
     >

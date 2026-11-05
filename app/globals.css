@@ -16,7 +16,9 @@
   /* ข้อความรอง */
   --app-text-2: #94a3b8;
   /* ข้อความจาง / muted */
-  --app-text-3: #64748b;
+  --app-text-3: #8494a8;
+  /* วงแหวนโฟกัสเมื่อใช้แป้นพิมพ์ — สีหลัก #006a5a มืดเกินบนพื้นโหมดมืด */
+  --focus-ring: #34d399;
   /* เส้นขอบ */
   --app-border: rgba(255, 255, 255, 0.06);
   /* เส้นขอบเข้มขึ้นเล็กน้อย */
@@ -41,8 +43,9 @@
   --app-surface: #ffffff;
   --app-elevated: #ffffff;
   --app-text: #1e293b;
-  --app-text-2: #64748b;
-  --app-text-3: #94a3b8;
+  --app-text-2: #475569;
+  --app-text-3: #5b6b80;
+  --focus-ring: #006a5a;
   --app-border: rgba(15, 23, 42, 0.08);
   --app-border-strong: rgba(15, 23, 42, 0.14);
   --sk-base: rgba(15, 23, 42, 0.06);
@@ -84,7 +87,30 @@ body {
   min-height: 100vh;
   color: var(--app-text);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 300ms var(--ease-base), color 300ms var(--ease-base);
+}
+
+:root {
+  /* เส้นโค้งการเคลื่อนไหวหลักของระบบ — ชะลอเข้าที่ */
+  --ease-base: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* วงแหวนโฟกัสสำหรับผู้ใช้แป้นพิมพ์ — อยู่ใน layer base คอมโพเนนต์ antd ที่มีสถานะโฟกัสของตัวเองจึงยังใช้ของเดิม */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+/* ผู้ใช้ที่ปิดภาพเคลื่อนไหวในระบบปฏิบัติการ — เหลือระยะเวลาสั้นมาก ไม่ใช้ 0 เพราะ antd รอ event จบแอนิเมชัน */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* โหมดสว่าง: การ์ดสีขาวบนพื้นอ่อนมักจะกลืนกัน (ดูซีด/แบน)
@@ -115,7 +141,7 @@ body {
   cursor: pointer;
   background: rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(4px);
-  transition: background 0.2s;
+  transition: background 300ms var(--ease-base);
 }
 .home-arrow:hover {
   background: rgba(0, 0, 0, 0.45);
