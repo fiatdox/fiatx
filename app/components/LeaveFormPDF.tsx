@@ -1,7 +1,7 @@
 'use client'
 import { Document, Page, Text, View, StyleSheet, Font, PDFViewer, Svg, Rect, Path, pdf } from '@react-pdf/renderer'
 import { useState, type ComponentProps } from 'react'
-import { App, Button } from 'antd'
+import { App, Button, Segmented } from 'antd'
 import { DownloadOutlined, FilePdfOutlined, ShareAltOutlined } from '@ant-design/icons'
 import { withBase } from '@/app/lib/basePath'
 import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSupport'
@@ -75,6 +75,21 @@ export interface LeaveFormData {
   statTotal: string          // รวมเป็น
   /** ลาป่วย / ลากิจส่วนตัว / ลาคลอดบุตร — พิมพ์ด้วยแบบใบลาป่วย กิจส่วนตัว ลาคลอดบุตร (ประเภทอื่น null) */
   spm: SpmForm | null
+  /** ตราบนใบลาที่ยกเลิกแล้ว/รออนุมัติยกเลิก — date ว่างเมื่อไม่รู้วันยกเลิกจริง (ถอนใบ / ยกเลิกในโปรแกรมเดิม) */
+  stamp: { label: string; date: string } | null
+  /** แบบใบขอยกเลิกวันลา — ใบที่อนุมัติยกเลิกครบแล้วหรือกำลังรออนุมัติ */
+  cancel: CancelForm | null
+}
+
+export interface CancelForm {
+  pending: boolean           // ยังรออนุมัติยกเลิก — ขั้นที่ยังไม่กดเว้นว่าง ไม่ติ๊กคำสั่ง
+  writtenDate: string        // วันที่ยื่นขอยกเลิก
+  reason: string
+  refundedDays: string       // วันลาที่คืน
+  fiscalYear: string         // ปีงบที่รับคืน
+  unitHead: Opinion | null
+  majorHead: Opinion | null
+  order: LeaveFormData['order']
 }
 
 export type SpmCode = 'SICK' | 'PERS' | 'MAT'
@@ -97,6 +112,7 @@ export interface Opinion {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const INK = '#000'           // ข้อความทั้งแบบฟอร์มใช้สีดำ (รวมข้อมูลที่ระบบกรอก)
 const RULE = '#6b7280'       // เส้นประช่องกรอก
+const STAMP = '#b91c1c'      // ตรายกเลิก
 const LINE_H = 17            // ความสูงบรรทัดของเนื้อความ — ทั้งแบบฟอร์มต้องจบใน A4 หน้าเดียว
 
 const s = StyleSheet.create({
@@ -217,8 +233,18 @@ const SPM_ORDER = Object.keys(SPM_LABEL) as SpmCode[]
 
 // ─── ส่วนที่ใช้ร่วมกันทั้ง 2 แบบฟอร์ม ─────────────────────────────────────────
 
+/** ตราสถานะการยกเลิก — วางในช่องว่างซ้ายบน ไม่ทับข้อมูลในแบบฟอร์ม */
+const CancelStamp = ({ label, date }: { label: string; date: string }) => (
+  <View style={{ position: 'absolute', top: '2.05cm', left: '1.9cm' }} fixed>
+    <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: STAMP, borderRadius: 4, paddingHorizontal: 8, paddingTop: 1, paddingBottom: 4 }}>
+      <T style={{ fontSize: 15, fontWeight: 'bold', color: STAMP }}>{label}</T>
+      {date ? <T style={{ fontSize: 10.5, color: STAMP, marginLeft: 4 }}>{`เมื่อ ${date}`}</T> : null}
+    </View>
+  </View>
+)
+
 /** หน้ากระดาษ + ชื่อแบบฟอร์ม + เขียนที่/วันที่ + เรื่อง/เรียน + ท้ายกระดาษ */
-const FormPage = ({ d, title, children }: { d: LeaveFormData; title: string; children: React.ReactNode }) => (
+const FormPage = ({ d, title, stamp, children }: { d: LeaveFormData; title: string; stamp?: LeaveFormData['stamp']; children: React.ReactNode }) => (
   <Document title={`${title} — ${d.fullName}`} author={d.orgName}>
     <Page size="A4" style={s.page}>
       <T style={s.title}>{title}</T>
@@ -239,6 +265,7 @@ const FormPage = ({ d, title, children }: { d: LeaveFormData; title: string; chi
       <View style={[s.footer, { justifyContent: 'flex-end' }]} fixed>
         <T>{`พิมพ์เมื่อ ${d.printedAt}`}</T>
       </View>
+      {stamp ? <CancelStamp label={stamp.label} date={stamp.date} /> : null}
     </Page>
   </Document>
 )
@@ -306,7 +333,7 @@ const Closing = ({ d }: { d: LeaveFormData }) => (
 )
 
 /** ความเห็นผู้บังคับบัญชา 2 ช่อง แล้วสถิติ (ส่งเข้ามาตามแบบฟอร์ม) คู่กับคำสั่ง */
-const Approvals = ({ d, stats }: { d: LeaveFormData; stats: React.ReactNode }) => (
+const Approvals = ({ d, stats, statsTitle = 'สถิติการลาในปีงบประมาณนี้' }: { d: LeaveFormData; stats: React.ReactNode; statsTitle?: string }) => (
   <>
     <View style={[s.grid, { marginTop: 8 }]}>
       <OpinionBox title="ความเห็นหัวหน้าหน่วยงาน/หัวหน้าตึก" o={d.unitHead} />
@@ -315,7 +342,7 @@ const Approvals = ({ d, stats }: { d: LeaveFormData; stats: React.ReactNode }) =
 
     <View style={s.grid} wrap={false}>
       <View style={s.box}>
-        <T style={[s.boxHead, s.center]}>สถิติการลาในปีงบประมาณนี้</T>
+        <T style={[s.boxHead, s.center]}>{statsTitle}</T>
         <View style={s.boxBody}>
           {stats}
           <SignLines role="ผู้ตรวจสอบ" signName={d.checker?.signName} name={d.checker?.name} position={d.checker?.position} date={d.checker?.date} />
@@ -343,7 +370,7 @@ const Approvals = ({ d, stats }: { d: LeaveFormData; stats: React.ReactNode }) =
 // เนื้อความจัดแบบแบบฟอร์มราชการ ข้อความต่อเนื่องเต็มบรรทัด ใช้บรรทัดน้อยที่สุด
 // คำนำ + ช่องกรอก จับเป็นกลุ่ม (G) — บรรทัดไม่พอ ขึ้นบรรทัดใหม่ทั้งกลุ่ม ไม่แยกคำนำไว้ท้ายบรรทัด
 const AnnualLeaveForm = ({ d }: { d: LeaveFormData }) => (
-  <FormPage d={d} title={`แบบใบ${d.subject}`}>
+  <FormPage d={d} title={`แบบใบ${d.subject}`} stamp={d.stamp}>
     <View style={s.body}>
       <Applicant d={d} />
       <Line>
@@ -383,7 +410,7 @@ const AnnualLeaveForm = ({ d }: { d: LeaveFormData }) => (
 // ขอลา ติ๊กประเภทเรียงลงมา (เหตุผลต่อท้ายประเภทที่ลา) · ครั้งสุดท้ายที่ลา · สถิติแยกประเภท
 // ไม่มีส่วนมอบหมายงานในแบบฟอร์ม — ระบุผู้ปฏิบัติแทนไว้ก็แสดงเฉพาะบรรทัด "มอบหมายให้" (ไม่มีช่องลงชื่อผู้มอบ/รับมอบงาน ให้จบหน้าเดียว)
 const SickPersonalMaternityForm = ({ d, spm }: { d: LeaveFormData; spm: SpmForm }) => (
-  <FormPage d={d} title="แบบใบลาป่วย กิจส่วนตัว ลาคลอดบุตร">
+  <FormPage d={d} title="แบบใบลาป่วย กิจส่วนตัว ลาคลอดบุตร" stamp={d.stamp}>
     <View style={s.body}>
       <Applicant d={d} />
       <Line><Workplace d={d} /></Line>
@@ -435,17 +462,53 @@ const SickPersonalMaternityForm = ({ d, spm }: { d: LeaveFormData; spm: SpmForm 
   </FormPage>
 )
 
+// ─── แบบใบขอยกเลิกวันลา ────────────────────────────────────────────────────────
+// ยังไม่มีแบบฟอร์มทางการ — จัดตามโครงใบลา ใช้ผลอนุมัติของรอบยกเลิก · ช่องที่ไม่มีข้อมูลเว้นให้กรอกด้วยมือ
+export const CancelFormDocument = ({ d, c }: { d: LeaveFormData; c: CancelForm }) => {
+  const f: LeaveFormData = { ...d, writtenDate: c.writtenDate, unitHead: c.unitHead, majorHead: c.majorHead, order: c.order, checker: null }
+  const cells = [['วันลาที่ขอยกเลิก', d.requestedDays], ['คืนวันลา', c.refundedDays], ['ปีงบประมาณ', c.fiscalYear]]
+  return (
+    <FormPage d={{ ...f, subject: `ขอยกเลิกวัน${d.subject}` }} title="แบบใบขอยกเลิกวันลา" stamp={c.pending ? d.stamp : null}>
+      <View style={s.body}>
+        <Applicant d={f} />
+        <Line>
+          <Workplace d={f} />
+          <G grow={1}><T>{`ตามที่ข้าพเจ้าได้รับอนุญาตให้${d.subject} ตั้งแต่วันที่`}</T><Fill value={d.startDate} /></G>
+          <G grow={1}><T>ถึงวันที่</T><Fill value={d.endDate} /></G>
+          <DaysGroup d={f} unit={d.spm?.kind === 'MAT' ? 'วัน' : 'วันทำการ'} />
+          <T>{`ตามใบลาเลขที่ ${d.refNo}`}</T>
+        </Line>
+        <Line><T>มีความประสงค์ขอยกเลิกวันลาดังกล่าว เนื่องจาก</T></Line>
+        <Line><Fill value={c.reason} left maxChars={72} /></Line>
+        <Line><View style={{ width: '1cm' }} /><T>จึงเรียนมาเพื่อโปรดพิจารณา</T></Line>
+      </View>
+
+      <Closing d={f} />
+      <Approvals d={f} statsTitle="การคืนวันลา" stats={
+        <View style={s.statTable}>
+          {cells.map(([label, v], i) => (
+            <View key={label} style={[s.statCell, i === 2 ? { borderRightWidth: 0 } : {}]}>
+              <Text style={s.statHead}>{pad(label)}</Text>
+              <Text style={s.statValue}>{v ? pad(v) : NB}</Text>
+            </View>
+          ))}
+        </View>
+      } />
+    </FormPage>
+  )
+}
+
 // ─── เลือกแบบฟอร์มตามประเภทการลา ──────────────────────────────────────────────
 export const LeaveFormDocument = ({ d }: { d: LeaveFormData }) =>
   d.spm ? <SickPersonalMaternityForm d={d} spm={d.spm} /> : <AnnualLeaveForm d={d} />
 
 // ─── มือถือที่แสดง PDF ในหน้าไม่ได้ (Android) — สรุปใบลา + ปุ่มบันทึก/แชร์ไฟล์ไปเปิดพิมพ์ในแอป ──
-const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
+const LeaveFormMobile = ({ data, doc, kind }: { data: LeaveFormData; doc: React.ReactElement<ComponentProps<typeof Document>>; kind: 'ใบลา' | 'ใบขอยกเลิก' }) => {
   const { message } = App.useApp()
   const [busy, setBusy] = useState<'save' | 'share' | null>(null)
-  const fileName = `ใบลา-${data.refNo || 'LV'}.pdf`
+  const fileName = `${kind}-${data.refNo || 'LV'}.pdf`
 
-  const build = async () => new File([await pdf(<LeaveFormDocument d={data} />).toBlob()], fileName, { type: 'application/pdf' })
+  const build = async () => new File([await pdf(doc).toBlob()], fileName, { type: 'application/pdf' })
 
   const save = async () => {
     setBusy('save')
@@ -465,7 +528,7 @@ const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
       const file = await build()
       // เบราว์เซอร์ที่แชร์ไฟล์ไม่ได้ — บันทึกลงเครื่องแทน
       if (!canShareFile(file)) { saveBlob(file, fileName); return }
-      await shareFile(file, data.subject || 'ใบลา')
+      await shareFile(file, kind === 'ใบลา' ? data.subject || 'ใบลา' : `${kind} ${data.refNo}`)
     } catch {
       message.error('สร้างไฟล์ PDF ไม่สำเร็จ')
     } finally {
@@ -485,7 +548,7 @@ const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
         <FilePdfOutlined style={{ fontSize: 28, color: '#dc2626' }} />
         <div>
-          <div style={{ fontWeight: 700 }}>{data.subject || 'ใบลา'}</div>
+          <div style={{ fontWeight: 700 }}>{kind === 'ใบลา' ? data.subject || 'ใบลา' : `${kind}${data.subject}`}</div>
           <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{data.refNo}</div>
         </div>
       </div>
@@ -494,7 +557,7 @@ const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
       {row('วันที่ลา', data.startDate === data.endDate ? data.startDate : `${data.startDate} – ${data.endDate}`)}
       {row('จำนวน', data.requestedDays ? `${data.requestedDays} วันทำการ${data.halfDayLabel ? ` (${data.halfDayLabel})` : ''}` : '')}
       <div style={{ fontSize: 13, color: 'var(--app-text-3)', margin: '14px 0' }}>
-        เครื่องนี้แสดงแบบใบลาในหน้าเว็บไม่ได้ — บันทึกเป็นไฟล์ PDF แล้วเปิดด้วยแอปในเครื่องเพื่อดูหรือสั่งพิมพ์
+        เครื่องนี้แสดง{kind}ในหน้าเว็บไม่ได้ — บันทึกเป็นไฟล์ PDF แล้วเปิดด้วยแอปในเครื่องเพื่อดูหรือสั่งพิมพ์
       </div>
       <Button type="primary" block size="large" icon={<DownloadOutlined />} loading={busy === 'save'} disabled={busy === 'share'} onClick={save}>
         บันทึกเป็น PDF
@@ -510,11 +573,25 @@ const LeaveFormMobile = ({ data }: { data: LeaveFormData }) => {
 
 /** ตัวแสดงผลในโมดัล — react-pdf ทำงานเฉพาะฝั่ง client เท่านั้น (โหลดผ่าน dynamic ssr:false) */
 const LeaveFormPDF = ({ data }: { data: LeaveFormData }) => {
-  if (!canInlinePdf()) return <LeaveFormMobile data={data} />
+  // ใบที่ยกเลิกแล้ว/รออนุมัติยกเลิกเปิดที่ใบขอยกเลิกก่อน สลับดูใบลาเดิมได้ — จำตามเลขใบ เปิดใบอื่นแล้วกลับค่าเริ่มต้น
+  const [leaveOf, setLeaveOf] = useState<string | null>(null)
+  const cancel = data.cancel && leaveOf !== data.refNo ? data.cancel : null
+  const doc = cancel ? <CancelFormDocument d={data} c={cancel} /> : <LeaveFormDocument d={data} />
+  const body = canInlinePdf()
+    ? <PDFViewer key={cancel ? 'cancel' : 'leave'} style={{ width: '100%', height: '100%', border: 'none' }} showToolbar>{doc}</PDFViewer>
+    : <LeaveFormMobile data={data} doc={doc} kind={cancel ? 'ใบขอยกเลิก' : 'ใบลา'} />
+  if (!data.cancel) return body
   return (
-    <PDFViewer style={{ width: '100%', height: '100%', border: 'none' }} showToolbar>
-      <LeaveFormDocument d={data} />
-    </PDFViewer>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: 8, flexShrink: 0 }}>
+        <Segmented
+          value={cancel ? 'cancel' : 'leave'}
+          onChange={v => setLeaveOf(v === 'leave' ? data.refNo : null)}
+          options={[{ value: 'cancel', label: 'ใบขอยกเลิกวันลา' }, { value: 'leave', label: `ใบลาเดิม (${data.stamp?.label ?? ''})` }]}
+        />
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>{body}</div>
+    </div>
   )
 }
 

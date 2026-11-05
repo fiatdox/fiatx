@@ -71,6 +71,15 @@ export interface LeaveFormRow {
   day_check_status?: string | null
   day_checked_at?: string | null
   day_checker?: { pname: string | null; fname: string | null; lname: string | null; position_name: string | null } | null
+  /** คำขอยกเลิกล่าสุดของใบนี้ */
+  cancellation_status?: string | null
+  cancellation_reason?: string | null
+  cancellation_refunded_days?: string | number | null
+  cancellation_created_at?: string | null
+  cancellation_updated_at?: string | null
+  cancellation_actions?: ApiAction[]
+  /** โอนจากโปรแกรมเดิม — วันที่ของคำขอยกเลิกเป็นวันที่โอน และไม่มีผลอนุมัติรายขั้น */
+  legacy_leave_id?: number | null
 }
 
 export interface LeaveProfile {
@@ -110,11 +119,10 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
   const signName = profile ? `${profile.fname ?? ''} ${profile.lname ?? ''}`.replace(/\s+/g, ' ').trim() : ''
   const fullName = profile ? `${profile.pname ?? ''}${profile.fname ?? ''} ${profile.lname ?? ''}`.replace(/\s+/g, ' ').trim() : ''
   const chain = parseChain(r.approval_chain)
-  const actionOf = (step: number) => r.actions?.find(a => Number(a.step) === Number(step))
   // ความเห็นที่ผู้อนุมัติพิมพ์เอง — ข้อความตั้งต้นของระบบ (อนุมัติ / อนุมัติ (แบบกลุ่ม)) แทนด้วยถ้อยคำในแบบฟอร์ม
   const opinionText = (act: ApiAction) => {
     const c = (act.comment ?? '').trim()
-    const own = c && !/^อนุมัติ(\s*\(แบบกลุ่ม\))?$/.test(c) ? c : ''
+    const own = c && !/^อนุมัติ(การยกเลิก)?(\s*\(แบบกลุ่ม\))?$/.test(c) ? c : ''
     if (act.action === 'REJECTED') return own ? `ไม่อนุญาต — ${own}` : 'ไม่อนุญาต'
     return own || 'เห็นควรอนุญาต'
   }
@@ -131,33 +139,50 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
     const full = a ? `${a.pname ?? ''}${a.fname ?? ''} ${a.lname ?? ''}`.trim() : fallback
     return { sign, full }
   }
-  const opinionOf = (level: string) => {
-    const c = chain.find(x => x.level === level)
-    // ขั้นสุดท้ายอยู่ในช่องคำสั่งแล้ว ไม่ซ้ำในช่องความเห็น (รวมสายขั้นเดียว เช่น หัวหน้ากลุ่มงานลา → หัวหน้ากลุ่มภารกิจ)
-    if (!c || c === lastStep) return null
-    const act = actionOf(c.step)
-    const p = person(c, act)
+  // ช่องความเห็นและคำสั่งจากผลอนุมัติชุดหนึ่ง — รอบใบลา หรือรอบยกเลิก (สายเดียวกัน)
+  const approvalsFrom = (actions: ApiAction[] | undefined) => {
+    const actionOf = (step: number) => actions?.find(a => Number(a.step) === Number(step))
+    const opinionOf = (level: string) => {
+      const c = chain.find(x => x.level === level)
+      // ขั้นสุดท้ายอยู่ในช่องคำสั่งแล้ว ไม่ซ้ำในช่องความเห็น (รวมสายขั้นเดียว เช่น หัวหน้ากลุ่มงานลา → หัวหน้ากลุ่มภารกิจ)
+      if (!c || c === lastStep) return null
+      const act = actionOf(c.step)
+      const p = person(c, act)
+      return {
+        // ยังไม่อนุมัติ: ความเห็น/ลงชื่อ/วันที่ ปล่อยว่างให้เซ็นด้วยมือ
+        comment: act ? opinionText(act) : '',
+        signName: act ? p.sign : '',
+        name: p.full,
+        position: chainTitle(c),
+        date: act ? beShort(act.actioned_at) : '',
+      }
+    }
+    const lastAct = lastStep ? actionOf(lastStep.step) : undefined
+    const lastOwn = lastAct ? opinionText(lastAct) : ''
     return {
-      // ยังไม่อนุมัติ: ความเห็น/ลงชื่อ/วันที่ ปล่อยว่างให้เซ็นด้วยมือ
-      comment: act ? opinionText(act) : '',
-      signName: act ? p.sign : '',
-      name: p.full,
-      position: chainTitle(c),
-      date: act ? beShort(act.actioned_at) : '',
+      unitHead: opinionOf('SUBMAJOR'),
+      majorHead: opinionOf('MAJOR') ?? opinionOf('MISSION'),
+      order: {
+        approved: lastAct ? lastAct.action !== 'REJECTED' : null,
+        // ช่องคำสั่งติ๊กอนุญาต/ไม่อนุญาตแล้ว — ใส่เฉพาะความเห็นที่ผู้สั่งพิมพ์เอง
+        comment: ['เห็นควรอนุญาต', 'ไม่อนุญาต'].includes(lastOwn) ? '' : lastOwn.replace(/^ไม่อนุญาต — /, ''),
+        signName: lastAct && lastStep ? person(lastStep, lastAct).sign : '',
+        name: lastStep ? person(lastStep, lastAct).full : '',
+        position: lastStep ? chainTitle(lastStep) : '',
+        date: lastAct ? beShort(lastAct.actioned_at) : '',
+      },
     }
   }
 
-  const lastAct = lastStep ? actionOf(lastStep.step) : undefined
-  const lastOwn = lastAct ? opinionText(lastAct) : ''
-  const order = {
-    approved: lastAct ? lastAct.action !== 'REJECTED' : null,
-    // ช่องคำสั่งติ๊กอนุญาต/ไม่อนุญาตแล้ว — ใส่เฉพาะความเห็นที่ผู้สั่งพิมพ์เอง
-    comment: ['เห็นควรอนุญาต', 'ไม่อนุญาต'].includes(lastOwn) ? '' : lastOwn.replace(/^ไม่อนุญาต — /, ''),
-    signName: lastAct && lastStep ? person(lastStep, lastAct).sign : '',
-    name: lastStep ? person(lastStep, lastAct).full : '',
-    position: lastStep ? chainTitle(lastStep) : '',
-    date: lastAct ? beShort(lastAct.actioned_at) : '',
-  }
+  // รอบยกเลิก: อนุมัติครบ หรือกำลังรออนุมัติ (คำขอที่ถูกปฏิเสธ ใบกลับเป็นสถานะเดิม พิมพ์ใบลาปกติ)
+  const status = String(r.status).toUpperCase()
+  const cancelApproved = status === 'CANCELLED' && r.cancellation_status === 'APPROVED'
+  const cancelPending = status === 'CANCEL_PENDING' && r.cancellation_status === 'PENDING'
+  const hasCancelActions = (r.cancellation_actions?.length ?? 0) > 0
+  // ยกเลิกครบในโปรแกรมเดิม = ไม่มีผลรายขั้น จึงไม่รู้วันที่จริง · ใบโอนที่อนุมัติต่อในระบบนี้ใช้ผลจริงได้
+  const cancelDate = cancelApproved && hasCancelActions && r.cancellation_updated_at ? beShort(r.cancellation_updated_at) : ''
+  // ยกเลิกครบในโปรแกรมเดิมไม่มีผลรายขั้น — แสดงชื่อและตำแหน่งตามสายอนุมัติของใบ (งาน HR กำหนด) ส่วนลงชื่อ/วันที่เว้นว่าง
+  const cancelApprovals = approvalsFrom(r.cancellation_actions)
 
   // ใบที่อนุมัติแล้วและเริ่มลาก่อนใบนี้ (วันเดียวกันดูลำดับการยื่น)
   const before = rows.filter(x =>
@@ -220,9 +245,20 @@ export const buildLeaveFormData = (r: LeaveFormRow, ctx: { rows: LeaveFormRow[];
     contact: r.contact_info ?? '',
     substitute: r.substitute_name ?? '',
     note: r.reason ?? '',
-    unitHead: opinionOf('SUBMAJOR'),
-    majorHead: opinionOf('MAJOR') ?? opinionOf('MISSION'),
-    order,
+    ...approvalsFrom(r.actions),
+    stamp: status === 'CANCELLED' ? { label: 'ยกเลิกแล้ว', date: cancelDate }
+      : cancelPending ? { label: 'รออนุมัติยกเลิก', date: '' } : null,
+    cancel: cancelApproved || cancelPending ? {
+      pending: cancelPending,
+      // วันที่คำขอของใบโอนคือวันที่โอน ไม่ใช่วันที่ยื่นจริง
+      writtenDate: !r.legacy_leave_id && r.cancellation_created_at ? beLong(r.cancellation_created_at) : '',
+      reason: r.cancellation_reason ?? '',
+      refundedDays: cancelApproved && r.cancellation_refunded_days != null ? nf(Number(r.cancellation_refunded_days)) : '',
+      fiscalYear: String(r.fiscal_year),
+      ...cancelApprovals,
+      // อนุมัติครบ = อนุญาต (ยกเลิกครบในโปรแกรมเดิมไม่มีผลรายขั้น แต่ต้องติ๊กช่องนี้) · รออนุมัติ = ยังไม่ติ๊ก
+      order: { ...cancelApprovals.order, approved: cancelApproved ? true : null },
+    } : null,
     // ผู้ตรวจสอบ (ช่องใต้สถิติการลา) — ใส่เมื่องาน HR ตรวจวันลาแล้ว ยังไม่ตรวจปล่อยว่างให้เซ็นด้วยมือ
     checker: r.day_check_status && r.day_checker ? {
       signName: `${r.day_checker.fname ?? ''} ${r.day_checker.lname ?? ''}`.replace(/\s+/g, ' ').trim(),
