@@ -84,10 +84,15 @@ const PageContent = () => {
   const { message } = App.useApp()
 
   const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  // แก้หลายรายการพร้อมกันเฉพาะ ADMIN — งาน HR แก้ทีละแถว (backend ตรวจซ้ำ)
+  const [isAdmin, setIsAdmin] = useState(false)
   useEffect(() => {
-    let ok = false
-    try { ok = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).some(r => ALLOWED_ROLES.includes(r)) } catch { /* cookie เสีย */ }
-    void Promise.resolve().then(() => setHasAccess(ok))
+    let roles: string[] = []
+    try { roles = normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles) } catch { /* cookie เสีย */ }
+    void Promise.resolve().then(() => {
+      setHasAccess(roles.some(r => ALLOWED_ROLES.includes(r)))
+      setIsAdmin(roles.includes('ADMIN'))
+    })
   }, [])
 
   // ── ตัวเลือกตั้งต้น ──────────────────────────────────────────────────────────
@@ -275,7 +280,7 @@ const PageContent = () => {
               <div style={{ minWidth: 0 }}>
                 <Title level={3} style={{ color: '#fff', margin: 0 }}>ตรวจแก้วันลาสะสม</Title>
                 <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14 }}>
-                  หายอดวันลาที่น่าจะผิด พร้อมค่าที่ควรเป็น — แก้ได้ทีละรายการหรือหลายรายการพร้อมกัน ทุกการแก้ไขต้องระบุเหตุผลและเก็บประวัติไว้
+                  หายอดวันลาที่น่าจะผิด พร้อมค่าที่ควรเป็น — {isAdmin ? 'แก้ได้ทีละรายการหรือหลายรายการพร้อมกัน' : 'แก้ทีละรายการ'} ทุกการแก้ไขต้องระบุเหตุผลและเก็บประวัติไว้
                 </Text>
               </div>
             </div>
@@ -357,7 +362,7 @@ const PageContent = () => {
               {issueFilter && <Button type="link" size="small" onClick={() => setIssueFilter(null)}>ล้างตัวกรอง</Button>}
             </span>
           }
-          extra={
+          extra={isAdmin ? (
             <Space wrap>
               {flaggedSelectable.length > 0 && (
                 <Button size="small" onClick={() => setSelected(flaggedSelectable)}>เลือกทั้งหมดที่มีค่าแนะนำ ({flaggedSelectable.length})</Button>
@@ -366,7 +371,7 @@ const PageContent = () => {
                 แก้ตามที่แนะนำ{selectedRows.length ? ` (${selectedRows.length})` : ''}
               </Button>
             </Space>
-          }
+          ) : undefined}
         >
           <Table
             rowKey="balance_id"
@@ -376,11 +381,11 @@ const PageContent = () => {
             size="middle"
             scroll={{ x: 1180 }}
             pagination={{ pageSize: 20, showSizeChanger: true, showTotal: t => `ทั้งหมด ${t} รายการ` }}
-            rowSelection={{
+            rowSelection={isAdmin ? {
               selectedRowKeys: selected,
               onChange: keys => setSelected(keys as number[]),
               getCheckboxProps: (r: AuditRow) => ({ disabled: !r.suggest }),
-            }}
+            } : undefined}
             locale={{
               emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={view === 'flagged' ? 'ไม่พบยอดวันลาที่ต้องตรวจ' : 'ไม่มีข้อมูลวันลาสะสมในปีงบนี้'} />,
             }}
