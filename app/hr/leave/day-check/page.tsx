@@ -125,7 +125,7 @@ const DayCheckTab = () => {
     {
       title: 'ประเภท / สถานะ', key: 'type', width: 170,
       render: (_, r) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Text>{r.leave_type_name}</Text>
           <Tag color={STATUS_TAG[r.status]?.color} style={{ margin: 0 }}>{STATUS_TAG[r.status]?.label ?? r.status}</Tag>
         </Space>
@@ -163,7 +163,7 @@ const DayCheckTab = () => {
     {
       title: 'ในใบลา', key: 'total', width: 90, align: 'center',
       render: (_, r) => (
-        <Space direction="vertical" size={2} align="center">
+        <Space orientation="vertical" size={2} align="center">
           <Text strong type={r.mismatch ? 'danger' : undefined}>{nf(r.total_days)}</Text>
           {r.understated && <Tag color="red" style={{ margin: 0, fontSize: 11 }}>น้อยกว่าที่ควร</Tag>}
           {r.quota_short && (
