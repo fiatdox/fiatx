@@ -5,7 +5,7 @@ import Cookies from 'js-cookie'
 import { normalizeRoles } from '@/app/lib/menuAccess'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty, Input, Checkbox, DatePicker,
-  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm, Tabs, Segmented
+  Drawer, Descriptions, Timeline, Modal, Spin, App, Avatar, Tooltip, InputNumber, Popconfirm, Tabs, Segmented, ConfigProvider
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
@@ -16,7 +16,7 @@ import {
 import dayjs, { type Dayjs } from 'dayjs'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
-import { AppThemeProvider } from '@/app/components/ThemeProvider'
+import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import AttachmentModal from '../AttachmentModal'
 import ChainResyncModal from '../ChainResyncModal'
@@ -29,6 +29,18 @@ const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
 })
 
 const { Title, Text } = Typography
+
+// สีแท็บตามธีม — สีหลัก #10b981 บนพื้นสว่างคอนทราสต์ต่ำ จึงใช้เขียวเข้มในธีมสว่าง และเขียวสว่างในธีมมืด
+const TAB_THEME = {
+  light: {
+    Tabs: { titleFontSize: 15, itemColor: '#1e293b', itemHoverColor: '#047857', itemActiveColor: '#065f46', itemSelectedColor: '#047857', inkBarColor: '#047857' },
+    Segmented: { trackBg: '#e2e8f0', itemColor: '#1e293b', itemHoverColor: '#0f172a', itemHoverBg: 'rgba(15, 23, 42, 0.08)', itemActiveBg: 'rgba(15, 23, 42, 0.12)', itemSelectedBg: '#047857', itemSelectedColor: '#ffffff' },
+  },
+  dark: {
+    Tabs: { titleFontSize: 15, itemColor: '#e2e8f0', itemHoverColor: '#34d399', itemActiveColor: '#6ee7b7', itemSelectedColor: '#34d399', inkBarColor: '#34d399' },
+    Segmented: { trackBg: '#334155', itemColor: '#e2e8f0', itemHoverColor: '#ffffff', itemHoverBg: 'rgba(255, 255, 255, 0.1)', itemActiveBg: 'rgba(255, 255, 255, 0.16)', itemSelectedBg: '#34d399', itemSelectedColor: '#052e22' },
+  },
+}
 
 // ── ปีงบประมาณ ───────────────────────────────────────────────────────────────
 const currentFY = () => {
@@ -445,6 +457,7 @@ const StaffLeaveHistoryContent = () => {
       setIsAdmin(roles.includes('ADMIN'))
     })
   }, [])
+  const { mode } = useThemeMode()
   const [view, setView] = useState<View>('leave')
   const [counts, setCounts] = useState<{
     leave_total: number; cancel_total: number; cancel_pending: number; cancel_approved: number; cancel_rejected: number
@@ -710,31 +723,33 @@ const StaffLeaveHistoryContent = () => {
           </Text>
         </div>
 
-        <Tabs
-          activeKey={view}
-          onChange={k => changeView(k as View)}
-          items={[
-            { key: 'leave', label: `ใบลา${counts ? ` (${nf(counts.leave_total)})` : ''}` },
-            {
-              key: 'cancel',
-              label: `ยกเลิก${counts ? ` (รอ ${nf(counts.cancel_pending)} / อนุมัติ ${nf(counts.cancel_approved)})` : ''}`,
-            },
-          ]}
-        />
-
-        {view === 'cancel' && (
-          <Segmented
-            style={{ marginBottom: 16 }}
-            value={status ?? 'ALL'}
-            onChange={v => { setStatus(v === 'ALL' ? null : String(v)); setPage(1) }}
-            options={[
-              { value: 'ALL', label: `ทั้งหมด (${nf(counts?.cancel_total ?? 0)})` },
-              { value: 'CANCEL_PENDING', label: `รออนุมัติ (${nf(counts?.cancel_pending ?? 0)})` },
-              { value: 'CANCELLED', label: `อนุมัติแล้ว (${nf(counts?.cancel_approved ?? 0)})` },
-              ...(counts?.cancel_rejected ? [{ value: 'CANCEL_REJECTED', label: `ไม่อนุมัติ (${nf(counts.cancel_rejected)})` }] : []),
+        <ConfigProvider theme={{ components: TAB_THEME[mode] }}>
+          <Tabs
+            activeKey={view}
+            onChange={k => changeView(k as View)}
+            items={[
+              { key: 'leave', label: `ใบลา${counts ? ` (${nf(counts.leave_total)})` : ''}` },
+              {
+                key: 'cancel',
+                label: `ยกเลิก${counts ? ` (รอ ${nf(counts.cancel_pending)} / อนุมัติ ${nf(counts.cancel_approved)})` : ''}`,
+              },
             ]}
           />
-        )}
+
+          {view === 'cancel' && (
+            <Segmented
+              style={{ marginBottom: 16 }}
+              value={status ?? 'ALL'}
+              onChange={v => { setStatus(v === 'ALL' ? null : String(v)); setPage(1) }}
+              options={[
+                { value: 'ALL', label: `ทั้งหมด (${nf(counts?.cancel_total ?? 0)})` },
+                { value: 'CANCEL_PENDING', label: `รออนุมัติ (${nf(counts?.cancel_pending ?? 0)})` },
+                { value: 'CANCELLED', label: `อนุมัติแล้ว (${nf(counts?.cancel_approved ?? 0)})` },
+                ...(counts?.cancel_rejected ? [{ value: 'CANCEL_REJECTED', label: `ไม่อนุมัติ (${nf(counts.cancel_rejected)})` }] : []),
+              ]}
+            />
+          )}
+        </ConfigProvider>
 
         {/* ── ตัวกรอง ─────────────────────────────────────────────────────── */}
         <Card style={{ marginBottom: 16 }} variant="borderless" className="shadow-sm" styles={{ body: { padding: 14 } }}>
