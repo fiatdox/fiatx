@@ -10,7 +10,7 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
 import {
-  HomeOutlined, FileTextOutlined, CheckCircleOutlined,
+  HomeOutlined, FileTextOutlined, CheckCircleOutlined, CheckCircleFilled,
   CloseCircleOutlined, ClockCircleOutlined, AuditOutlined,
   EyeOutlined, UserOutlined, CalendarOutlined, UnorderedListOutlined,
   RollbackOutlined, CheckSquareOutlined, SearchOutlined, ReloadOutlined,
@@ -82,6 +82,8 @@ interface LeaveApprovalRequest {
   dayCheck: DayCheckInfo
   reason: string
   documentName: string | null
+  /** ผู้ปฏิบัติงานแทนระหว่างลา — null = ไม่ได้ระบุ */
+  substituteName: string | null
   color: string
   approvalChain: ApprovalStep[]
   myStep: MyStep | null
@@ -168,6 +170,7 @@ interface ApiLeaveRequest extends DayCheckInfo {
   reason: string | null
   reject_reason: string | null
   document_url?: string | null
+  substitute_name?: string | null
   status: string
   current_step: number
   approval_chain: ApiChainStep[] | null
@@ -256,6 +259,7 @@ const toRequest = (r: ApiLeaveRequest, i: number): LeaveApprovalRequest => {
     },
     reason: r.reason || '-',
     documentName: documentNameOf(r),
+    substituteName: r.substitute_name?.trim() || null,
     color: COLORS[i % COLORS.length],
     approvalChain,
     myStep,
@@ -952,6 +956,16 @@ const LeaveApprovalContent = () => {
     },
     periodColumn('green'),
     docColumn<LeaveApprovalRequest>(r => r.id),
+    {
+      title: 'ผู้ปฏิบัติงานแทน', key: 'substitute', width: 110, align: 'center' as const,
+      render: (_: unknown, r: LeaveApprovalRequest) => (
+        <Tooltip title={r.substituteName ?? 'ไม่ได้ระบุผู้ปฏิบัติงานแทน'}>
+          {r.substituteName
+            ? <CheckCircleFilled role="img" aria-label={`มีผู้ปฏิบัติงานแทน: ${r.substituteName}`} style={{ fontSize: 16, color: 'var(--ant-color-success)' }} />
+            : <CloseCircleOutlined role="img" aria-label="ไม่มีผู้ปฏิบัติงานแทน" style={{ fontSize: 16, color: 'var(--app-text-3)' }} />}
+        </Tooltip>
+      ),
+    },
     {
       title: 'ท่านพิจารณาในฐานะ', key: 'myStep', width: 170,
       render: (_: unknown, r: LeaveApprovalRequest) => myStepTag(r.myStep),
