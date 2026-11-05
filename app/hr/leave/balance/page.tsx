@@ -39,10 +39,16 @@ interface BalanceRow {
   remaining: string | null
   note: string | null
   updated_at: string | null
+  auto_created: boolean | null
+  carried_from_fy: number | null
+  prev_remaining: string | null
 }
 
+// แถวที่ยกยอดได้ — ตรงกับเงื่อนไข rolloverAnnualLeave ฝั่ง backend
+const canRollover = (r: BalanceRow) => !r.balance_id || (!!r.auto_created && r.carried_from_fy == null)
+
 const PageContent = () => {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
   const hasAccess = useMemo(() => {
     try {
@@ -50,6 +56,16 @@ const PageContent = () => {
       if (!raw) return false
       const roles: string[] = JSON.parse(raw).roles ?? []
       return roles.map(r => String(r).toUpperCase()).some(r => ALLOWED_ROLES.includes(r))
+    } catch {
+      return false
+    }
+  }, [])
+
+  // ยกยอดทั้งองค์กรเฉพาะ ADMIN — งาน HR ยกยอดรายคนจากตาราง (backend ตรวจซ้ำ)
+  const isAdmin = useMemo(() => {
+    try {
+      const roles: string[] = JSON.parse(Cookies.get('user_data') ?? '{}').roles ?? []
+      return roles.some(r => String(r).toUpperCase() === 'ADMIN')
     } catch {
       return false
     }
@@ -153,7 +169,49 @@ const PageContent = () => {
     })
   }
 
-  // ── ยกยอดปีงบประมาณใหม่ ────────────────────────────────────────────────────
+  // ── ยกยอดรายคน (ADMIN / HR) ────────────────────────────────────────────────
+  const confirmRolloverOne = (row: BalanceRow) => {
+    if (!fiscalYear) return
+    const fromFy = fiscalYear - 1
+    const name = `${row.pname ?? ''}${row.fname} ${row.lname}`
+    modal.confirm({
+      title: `ยกยอดวันลาพักผ่อนเข้าปีงบ ${fiscalYear}`,
+      content: (
+        <div>
+          <div><Text strong>{name}</Text></div>
+          {row.prev_remaining != null ? (
+            <div>คงเหลือปีงบ {fromFy}: <Text strong>{Number(row.prev_remaining)}</Text> วัน (ยกมาได้ไม่เกินเพดานสะสมของบุคคลนี้)</div>
+          ) : (
+            <div style={{ color: '#d97706' }}>
+              ไม่มียอดของปีงบ {fromFy} ในระบบ ระบบจะถือว่าเหลือเต็มสิทธิ์ กรุณาตรวจยอดจริงก่อนยืนยัน
+            </div>
+          )}
+        </div>
+      ),
+      okText: 'ยืนยันยกยอด',
+      cancelText: 'ยกเลิก',
+      onOk: async () => {
+        try {
+          const res = await fetch('/api/v1/hr/leave-balances/rollover-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: row.user_id, fiscal_year: fiscalYear }),
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok || !json.success) {
+            message.error(json.message || 'ยกยอดไม่สำเร็จ')
+            return
+          }
+          message.success(`ยกยอดให้ ${name} แล้ว: ยกมา ${json.data.carried_in} วัน คงเหลือ ${json.data.remaining} วัน`)
+          loadRows()
+        } catch {
+          message.error('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ')
+        }
+      },
+    })
+  }
+
+  // ── ยกยอดทั้งองค์กร (เฉพาะ ADMIN) ───────────────────────────────────────────
   const [rolloverOpen, setRolloverOpen] = useState(false)
   const [rolloverForm] = Form.useForm()
   const [rollingOver, setRollingOver] = useState(false)
@@ -233,11 +291,18 @@ const PageContent = () => {
     },
     { title: 'หมายเหตุ', key: 'note', render: (_: any, r: BalanceRow) => r.note || <Text type="secondary">—</Text> },
     {
-      title: '', key: 'action', width: 70, align: 'center' as const,
+      title: '', key: 'action', width: 90, align: 'center' as const,
       render: (_: any, r: BalanceRow) => (
-        <Tooltip title={r.balance_id ? 'แก้ไข' : 'เพิ่มยอดสะสม'}>
-          <Button size="small" type="text" icon={r.balance_id ? <EditOutlined /> : <PlusOutlined />} onClick={() => openEdit(r)} />
-        </Tooltip>
+        <Space size={2}>
+          <Tooltip title={r.balance_id ? 'แก้ไข' : 'เพิ่มยอดสะสม'}>
+            <Button size="small" type="text" aria-label={r.balance_id ? 'แก้ไข' : 'เพิ่มยอดสะสม'} icon={r.balance_id ? <EditOutlined /> : <PlusOutlined />} onClick={() => openEdit(r)} />
+          </Tooltip>
+          {canRollover(r) && fiscalYear && (
+            <Tooltip title={`ยกยอดจากปีงบ ${fiscalYear - 1}`}>
+              <Button size="small" type="text" aria-label={`ยกยอดจากปีงบ ${fiscalYear - 1}`} icon={<SwapOutlined />} onClick={() => confirmRolloverOne(r)} />
+            </Tooltip>
+          )}
+        </Space>
       ),
     },
   ]
@@ -300,17 +365,19 @@ const PageContent = () => {
                     ตรวจแก้ยอดที่ผิด
                   </Button>
                 </Link>
-                <Button icon={<SwapOutlined />} size="large" onClick={openRollover}
-                  style={{ backgroundColor: '#fff', color: '#10b981', border: 'none', fontWeight: 600 }}>
-                  ยกยอดปีงบประมาณใหม่
-                </Button>
+                {mounted && isAdmin && (
+                  <Button icon={<SwapOutlined />} size="large" onClick={openRollover}
+                    style={{ backgroundColor: '#fff', color: '#10b981', border: 'none', fontWeight: 600 }}>
+                    ยกยอดทั้งองค์กร
+                  </Button>
+                )}
               </div>
               {autoRollover && (
                 <div className="md:text-right" style={{ marginTop: 6 }}>
                   <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>
                     {autoRollover.enabled
                       ? `ยกยอดอัตโนมัติเมื่อข้ามปีงบ (1 ต.ค.)${autoRollover.last_fiscal_year ? ` · ล่าสุดถึงปีงบ ${autoRollover.last_fiscal_year}` : ''}`
-                      : 'ปิดการยกยอดอัตโนมัติอยู่ — กดยกยอดเองเมื่อข้ามปีงบ'}
+                      : 'ปิดการยกยอดอัตโนมัติอยู่ — ต้องยกยอดเองเมื่อข้ามปีงบ'}
                   </Text>
                 </div>
               )}
@@ -398,7 +465,7 @@ const PageContent = () => {
 
         {/* ── Modal ยกยอดปีงบประมาณใหม่ ── */}
         <Modal
-          title={<Space><SwapOutlined style={{ color: '#10b981' }} /><span>ยกยอดวันลาสะสมขึ้นปีงบประมาณใหม่</span></Space>}
+          title={<Space><SwapOutlined style={{ color: '#10b981' }} /><span>ยกยอดวันลาสะสมทั้งองค์กร</span></Space>}
           open={rolloverOpen}
           onCancel={() => setRolloverOpen(false)}
           onOk={runRollover}
