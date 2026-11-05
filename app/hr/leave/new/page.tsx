@@ -673,7 +673,7 @@ const LeavePageContent = () => {
                           { required: true, message: 'กรุณาเลือกช่วงวันที่ลา' },
                           {
                             validator: (_, value) => {
-                              if (isAnnualLeave && value?.[0] && value[0].isBefore(dayjs(), 'day')) {
+                              if (blockBackdate && value?.[0] && value[0].isBefore(dayjs(), 'day')) {
                                 return Promise.reject('ลาพักผ่อนไม่สามารถเลือกวันที่ย้อนหลังได้')
                               }
                               return Promise.resolve()
