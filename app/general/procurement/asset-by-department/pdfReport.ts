@@ -125,7 +125,7 @@ const charW = (cp: number, bold: boolean): number => {
   return 1000 // อักขระนอกตาราง คิดกว้างไว้ก่อน กันล้น
 }
 
-const textW = (t: string, size: number, bold: boolean) => {
+export const textW = (t: string, size: number, bold: boolean) => {
   let w = 0
   for (const ch of t) w += charW(ch.codePointAt(0)!, bold)
   return (w / 1000) * size
@@ -143,7 +143,7 @@ const MEASURE_SLACK = 0.98
 const availW = (widthPct: number) => (colW(widthPct) - 2 * CELL_PAD_X) * MEASURE_SLACK
 
 /** ตัดข้อความเป็นบรรทัดให้พอดีความกว้าง (pt) — คำที่ยาวเกินบรรทัดเดียวถูกหั่นทีละตัวอักษร */
-const wrap = (raw: string, avail: number, size: number, bold: boolean): string[] => {
+export const wrap = (raw: string, avail: number, size: number, bold: boolean): string[] => {
   // ห้ามมี \r \n หลุดไปถึง pdfkit — มันจะวาดบรรทัดเพิ่มทับแถวถัดไป ทั้งที่ความสูงแถวคิดไว้แล้ว
   const text = raw.replace(/\s+/g, ' ').trim()
   if (!text) return ['']

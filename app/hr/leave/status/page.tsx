@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty,
   Segmented, DatePicker, Checkbox, Alert, Avatar, Divider, Modal, App, Spin,
@@ -7,11 +7,15 @@ import {
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, CalendarOutlined, FilterOutlined,
-  ClearOutlined, TeamOutlined, ScissorOutlined, PrinterOutlined,
+  ClearOutlined, TeamOutlined, ScissorOutlined, PrinterOutlined, DownloadOutlined, FilePdfOutlined,
 } from '@ant-design/icons'
 import { FaFileExcel, FaRegCalendarCheck, FaRegClipboard } from 'react-icons/fa'
 import dayjs, { Dayjs } from 'dayjs'
 import * as XLSX from 'xlsx'
+import Cookies from 'js-cookie'
+import { withBase } from '@/app/lib/basePath'
+import { canInlinePdf } from '@/app/lib/pdfSupport'
+import type { LeaveReportMode } from './leaveReportPdf'
 import Navbar from '@/app/components/Navbar'
 import EChart from '@/app/components/EChart'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
@@ -27,6 +31,31 @@ const LeaveFormPDF = dynamic(() => import('@/app/components/LeaveFormPDF'), {
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
+
+const ORG_NAME = 'โรงพยาบาลพะเยา'
+
+// ฟอนต์ Sarabun สำหรับรายงาน PDF — โหลดครั้งแรกที่เปิดรายงาน แล้วใช้ซ้ำตลอดการเปิดหน้า
+let reportFonts: Promise<{ regular: ArrayBuffer; bold: ArrayBuffer }> | null = null
+const loadReportFonts = () => {
+  if (!reportFonts) {
+    reportFonts = Promise.all(
+      ['/fonts/Sarabun/Sarabun-Regular.ttf', '/fonts/Sarabun/Sarabun-Bold.ttf'].map(async url => {
+        const res = await fetch(withBase(url))
+        if (!res.ok) throw new Error('โหลดฟอนต์ไม่สำเร็จ')
+        return res.arrayBuffer()
+      }),
+    ).then(([regular, bold]) => ({ regular, bold }))
+    // โหลดพลาดให้ลองใหม่ได้ในการกดครั้งถัดไป
+    reportFonts.catch(() => { reportFonts = null })
+  }
+  return reportFonts
+}
+
+type ReportState =
+  | { status: 'idle' }
+  | { status: 'building'; mode: LeaveReportMode }
+  | { status: 'ready'; mode: LeaveReportMode; url: string; fileName: string }
+  | { status: 'error'; mode: LeaveReportMode; message: string }
 
 // ─── ปีงบประมาณ ───────────────────────────────────────────────────────────────
 // ปีงบ พ.ศ. 2569 = 1 ต.ค. 2568 (ค.ศ. 2025) ถึง 30 ก.ย. 2569 (ค.ศ. 2026)
@@ -135,6 +164,8 @@ interface Rec {
   position: string
   userType: string
   unit: string
+  major: string
+  submajor: string
   leaveType: string
   bucket: BucketKey
   start: Dayjs
@@ -150,6 +181,8 @@ const toRec = (r: ApiRow): Rec => ({
   position: r.position_name?.trim() || 'ไม่ระบุ',
   userType: r.user_type_name?.trim() || 'ไม่ระบุ',
   unit: r.submajor_name?.trim() || r.major_name?.trim() || r.mission_name?.trim() || 'ไม่ระบุ',
+  major: r.major_name?.trim() || r.mission_name?.trim() || 'ไม่ระบุกลุ่มงาน',
+  submajor: r.submajor_name?.trim() || '',
   leaveType: shortLeaveType(r.leave_type_name),
   bucket: bucketOf(String(r.leave_type_code ?? '')),
   start: dayjs(r.start_date),
@@ -325,6 +358,8 @@ const LeaveSummaryContent = () => {
     position: string
     userType: string
     unit: string
+    major: string
+    submajor: string
     recs: Rec[]
     totalCount: number
     totalDays: number
@@ -344,6 +379,8 @@ const LeaveSummaryContent = () => {
         position: recs[0].position,
         userType: recs[0].userType,
         unit: recs[0].unit,
+        major: recs[0].major,
+        submajor: recs[0].submajor,
         recs: [...recs].sort((a, b) => a.start.valueOf() - b.start.valueOf()),
         totalCount: recs.length,
         totalDays: round2(recs.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0)),
@@ -532,6 +569,81 @@ const LeaveSummaryContent = () => {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, `ปีงบ ${fy}`)
     XLSX.writeFile(wb, `สรุปการลา_ปีงบ${fy}_${dayjs().format('YYYYMMDD_HHmm')}.xlsx`)
+  }
+
+  // ── รายงาน PDF ─────────────────────────────────────────────────────────────
+  // ใช้ personRows ชุดเดียวกับตาราง จึงตรงกับรอบ ตัวกรอง และเงื่อนไขการนับที่เลือกอยู่บนหน้าจอ
+  const [report, setReport] = useState<ReportState>({ status: 'idle' })
+  const reportRun = useRef(0)
+  const reportUrl = useRef<string | null>(null)
+  const releaseReportUrl = () => {
+    if (reportUrl.current) { URL.revokeObjectURL(reportUrl.current); reportUrl.current = null }
+  }
+  useEffect(() => () => { if (reportUrl.current) URL.revokeObjectURL(reportUrl.current) }, [])
+
+  const closeReport = () => {
+    reportRun.current++
+    releaseReportUrl()
+    setReport({ status: 'idle' })
+  }
+
+  const openReport = async (mode: LeaveReportMode) => {
+    const run = ++reportRun.current
+    const stale = () => run !== reportRun.current
+    releaseReportUrl()
+    setReport({ status: 'building', mode })
+    try {
+      // โหลดตัวสร้าง PDF เฉพาะตอนเปิดรายงาน — โมดูลใหญ่ ไม่ต้องติดมากับหน้าเว็บตั้งแต่แรก
+      const [{ renderLeaveReportPdf }, fonts] = await Promise.all([import('./leaveReportPdf'), loadReportFonts()])
+      if (stale()) return
+      let preparedBy = ''
+      try { preparedBy = String(JSON.parse(Cookies.get('user_data') || '{}')?.name ?? '') } catch { /* ไม่มีคุกกี้ก็พิมพ์ได้ */ }
+      const range = `${beDate(from)} – ${beDate(to)}`
+      const chunks = await renderLeaveReportPdf({
+        mode,
+        orgName: ORG_NAME,
+        periodText: period === 'CUSTOM'
+          ? `ช่วงวันที่ ${range}`
+          : `ประจำปีงบประมาณ พ.ศ. ${fy} · ${PERIOD_LABEL[period]} · ${range}`,
+        noteText: [
+          'หน่วยเป็นวัน แสดงเฉพาะผู้ที่มีการลาในรอบนี้',
+          withPending
+            ? (pendingInView > 0 ? `รวมใบที่รออนุมัติ ${nf(pendingInView)} รายการ` : 'ไม่มีใบที่รออนุมัติในรอบนี้')
+            : 'นับเฉพาะใบที่อนุมัติแล้ว',
+          ...(straddling.length > 0
+            ? [fullBill ? 'ใบลาคร่อมรอบนับทั้งใบ' : 'ใบลาคร่อมรอบนับเฉพาะวันที่อยู่ในรอบ']
+            : []),
+          ...(canSeeAll ? [] : ['เฉพาะขอบเขตที่ผู้พิมพ์มีสิทธิ์ดู']),
+          ...(unit ? [`สังกัด: ${unit}`] : []),
+          ...(userType ? [`ประเภทเจ้าหน้าที่: ${userType}`] : []),
+          ...(leaveTypes.length ? [`ประเภทการลา: ${leaveTypes.join(', ')}`] : []),
+        ].join(' · '),
+        bucketLabels: BUCKETS.map(b => b.label),
+        people: personRows.map(p => ({
+          name: p.name,
+          position: p.position,
+          major: p.major,
+          submajor: p.submajor,
+          days: BUCKETS.map(b => Number(p[`d_${b.key}`]) || 0),
+          count: p.totalCount,
+          totalDays: p.totalDays,
+        })),
+        preparedBy,
+      }, fonts, stale)
+      if (!chunks || stale()) return
+      const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: 'application/pdf' }))
+      reportUrl.current = url
+      setReport({
+        status: 'ready',
+        mode,
+        url,
+        fileName: `สรุปการลา_${mode === 'person' ? 'รายคน' : 'รายหน่วยงาน'}_ปีงบ${fy}_${dayjs().format('YYYYMMDD_HHmm')}.pdf`,
+      })
+    } catch (err) {
+      if (stale()) return
+      console.error('[leave-status] PDF', err)
+      setReport({ status: 'error', mode, message: err instanceof Error ? err.message : 'สร้างรายงานไม่สำเร็จ' })
+    }
   }
 
   const clearFilters = () => { setUnit(null); setUserType(null); setLeaveTypes([]) }
@@ -747,6 +859,13 @@ const LeaveSummaryContent = () => {
             <Space>
               <Tag>{nf(personRows.length)} คน</Tag>
               <Button
+                type="primary" ghost icon={<FilePdfOutlined />}
+                disabled={personRows.length === 0}
+                onClick={() => openReport('person')}
+              >
+                รายงาน PDF
+              </Button>
+              <Button
                 type="primary" ghost icon={<FaFileExcel />}
                 disabled={personRows.length === 0}
                 onClick={exportExcel}
@@ -815,6 +934,60 @@ const LeaveSummaryContent = () => {
           />
         </Card>
       </div>
+
+      {/* ── รายงานสรุปการลา PDF ── */}
+      <Modal
+        title={<span><FilePdfOutlined className="mr-2" />รายงานสรุปการลา — {nf(personRows.length)} คน</span>}
+        open={report.status !== 'idle'}
+        onCancel={closeReport}
+        width="95vw"
+        style={{ top: 16 }}
+        styles={{ body: { height: 'calc(100vh - 170px)', display: 'flex', flexDirection: 'column', gap: 12 } }}
+        destroyOnHidden
+        footer={(
+          <Space>
+            {report.status === 'ready' && (
+              <Button icon={<DownloadOutlined />} href={report.url} download={report.fileName}>
+                ดาวน์โหลด PDF
+              </Button>
+            )}
+            <Button onClick={closeReport}>ปิด</Button>
+          </Space>
+        )}
+      >
+        {report.status !== 'idle' && (
+          <>
+            <div>
+              <Segmented
+                value={report.mode}
+                onChange={v => openReport(v as LeaveReportMode)}
+                options={[
+                  { value: 'person', label: 'รายคน' },
+                  { value: 'unit', label: 'รายกลุ่มงาน/หน่วยงาน' },
+                ]}
+              />
+            </div>
+            {report.status === 'building' && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Spin description="กำลังสร้างรายงาน..." />
+              </div>
+            )}
+            {report.status === 'error' && (
+              <Alert type="error" showIcon title="สร้างรายงานไม่สำเร็จ" description={report.message} />
+            )}
+            {report.status === 'ready' && (canInlinePdf() ? (
+              // ใช้ตัวอ่าน PDF ของเบราว์เซอร์เอง — มีปุ่มพิมพ์ ค้นหา และเลื่อนหน้าครบ
+              <iframe title="รายงานสรุปการลา" src={report.url} style={{ flex: 1, width: '100%', border: 'none' }} />
+            ) : (
+              <Alert
+                type="info" showIcon
+                title="เบราว์เซอร์นี้แสดง PDF ในหน้าไม่ได้"
+                description="กดดาวน์โหลด PDF ด้านล่าง แล้วเปิดด้วยแอปในเครื่อง"
+              />
+            ))}
+          </>
+        )}
+      </Modal>
 
       {/* ── พิมพ์แบบใบลา ── */}
       <Modal
