@@ -104,8 +104,8 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // ตั้งค่าการแจ้งเตือนระบบลา (ส่งข้อความหมอพร้อมถึงบุคลากรทั้งองค์กร) · ปรับสายอนุมัติใบลา (แก้ประวัติการอนุมัติ) — เฉพาะ ADMIN
-  if (underPrefix(pathname, '/hr/leave/notify-settings') || underPrefix(pathname, '/hr/leave/chain-resync')) {
+  // ตั้งค่าการแจ้งเตือนระบบลา (ส่งข้อความหมอพร้อมถึงบุคลากรทั้งองค์กร) · ยกเว้นการแจ้งเตือนรายคน · ปรับสายอนุมัติใบลา (แก้ประวัติการอนุมัติ) — เฉพาะ ADMIN
+  if (underPrefix(pathname, '/hr/leave/notify-settings') || underPrefix(pathname, '/hr/leave/notify-exempt') || underPrefix(pathname, '/hr/leave/chain-resync')) {
     if (!getRoles(req).map(r => r.toUpperCase()).includes('ADMIN')) {
       const homeUrl = req.nextUrl.clone()
       homeUrl.pathname = '/home'

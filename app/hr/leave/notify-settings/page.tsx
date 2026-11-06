@@ -220,6 +220,7 @@ const PageContent = () => {
             <Text type="secondary">ส่งผ่านหมอพร้อม (MOPH Alert) ถึงแต่ละคนตามเลขบัตรประชาชน · เฉพาะผู้ดูแลระบบแก้ไขได้</Text>
           </div>
           <Space wrap>
+            <Button icon={<StopOutlined />} href="/hr/leave/notify-exempt">ยกเว้นรายคน</Button>
             <Popconfirm title="ส่งข้อความทดสอบถึงหมอพร้อมของท่าน?" okText="ส่ง" cancelText="ไม่" onConfirm={() => test('basic')}>
               <Button icon={<SendOutlined />} loading={testing === 'basic'}>ทดสอบส่งถึงตัวเอง</Button>
             </Popconfirm>
