@@ -1,5 +1,5 @@
 'use client'
-// งาน HR โอนข้อมูลจากโปรแกรมการลาเดิม — ประวัติการลา + วันเริ่มงาน (เฉพาะ ADMIN / HR)
+// โอนข้อมูลจากโปรแกรมการลาเดิม — ประวัติการลา + วันเริ่มงาน (เฉพาะ ADMIN: proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
 // สั่งแล้วรันเบื้องหลังที่ backend หน้านี้ดึงความคืบหน้าและรายงานจากประวัติการโอน
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {

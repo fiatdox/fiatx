@@ -29,8 +29,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hr/leave/balance-transfer': ['ADMIN', 'HR'],
   // ตรวจวันลาที่คร่อมวันหยุด + วันหยุดราชการ — แก้จำนวนวันลา/ยอดของทุกคน (proxy.ts กั้น URL ตรง)
   '/hr/leave/day-check': ['ADMIN', 'HR'],
-  // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม (proxy.ts กั้น URL ตรง, backend requireRoles('ADMIN','HR'))
-  '/hr/leave/legacy-import': ['ADMIN', 'HR'],
+  // โอนประวัติการลา / วันเริ่มงานจากโปรแกรมเดิม — เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
+  '/hr/leave/legacy-import': ['ADMIN'],
   // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — ADMIN / HR และ ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
   // backend ตรวจสิทธิ์ใน controller · ปุ่มตรวจวันลาเฉพาะ ADMIN / HR
   '/hr/leave/staff-history': ['ADMIN', 'HR'],

@@ -88,11 +88,10 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · โอนข้อมูลโปรแกรมเดิม · Dashboard การลา
+  // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · Dashboard การลา
   // · ตรวจแก้วันลาสะสม · ตรวจสอบการโอนยอดวันลาสะสม — เฉพาะ ADMIN / HR (ตรงกับ backend)
   // ประวัติการลาเจ้าหน้าที่ไม่อยู่ในนี้ — ผอ. เข้าได้ด้วย (สิทธิ์มาจาก hr_settings ไม่ใช่ role) backend ตอบ 403 แล้วหน้าเว็บพากลับหน้าหลัก
   if (underPrefix(pathname, '/hr/leave/posts') || underPrefix(pathname, '/hr/leave/day-check')
-      || underPrefix(pathname, '/hr/leave/legacy-import')
       || underPrefix(pathname, '/hr/leave/dashboard') || underPrefix(pathname, '/hr/leave/balance-audit')
       || underPrefix(pathname, '/hr/leave/balance-transfer')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
@@ -104,8 +103,10 @@ export function proxy(req: NextRequest) {
     }
   }
 
-  // ตั้งค่าการแจ้งเตือนระบบลา (ส่งข้อความหมอพร้อมถึงบุคลากรทั้งองค์กร) · ยกเว้นการแจ้งเตือนรายคน · ปรับสายอนุมัติใบลา (แก้ประวัติการอนุมัติ) — เฉพาะ ADMIN
-  if (underPrefix(pathname, '/hr/leave/notify-settings') || underPrefix(pathname, '/hr/leave/notify-exempt') || underPrefix(pathname, '/hr/leave/chain-resync')) {
+  // ตั้งค่าการแจ้งเตือนระบบลา (ส่งข้อความหมอพร้อมถึงบุคลากรทั้งองค์กร) · ยกเว้นการแจ้งเตือนรายคน · ปรับสายอนุมัติใบลา (แก้ประวัติการอนุมัติ)
+  // · โอนข้อมูลโปรแกรมเดิม (เขียน/ถอนประวัติการลาทั้งองค์กร) — เฉพาะ ADMIN
+  if (underPrefix(pathname, '/hr/leave/notify-settings') || underPrefix(pathname, '/hr/leave/notify-exempt') || underPrefix(pathname, '/hr/leave/chain-resync')
+      || underPrefix(pathname, '/hr/leave/legacy-import')) {
     if (!getRoles(req).map(r => r.toUpperCase()).includes('ADMIN')) {
       const homeUrl = req.nextUrl.clone()
       homeUrl.pathname = '/home'
