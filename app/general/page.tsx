@@ -11,7 +11,7 @@ import {
 import {
   FaCar, FaWrench, FaWarehouse, FaTruck, FaBed, FaShoppingCart,
   FaTachometerAlt, FaClipboardList, FaTasks, FaChartBar, FaFileAlt,
-  FaBriefcaseMedical, FaExchangeAlt, FaBoxOpen,
+  FaBriefcaseMedical, FaExchangeAlt, FaBoxOpen, FaFileContract,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '@/app/components/Navbar'
@@ -81,6 +81,7 @@ const groups: ServiceGroup[] = [
       { title: 'Dashboard พัสดุ', desc: 'ภาพรวมงานพัสดุและเจ้าหนี้', href: '/general/procurement/dashboard', icon: <FaTachometerAlt /> },
       { title: 'รับสินค้า / สร้างเจ้าหนี้', desc: 'บันทึกรับสินค้าและตั้งเจ้าหนี้', href: '/general/procurement/receipt', icon: <FaTruck /> },
       { title: 'ตรวจรับสินค้า', desc: 'ตรวจรับและยืนยันคุณภาพสินค้า', href: '/general/procurement/inspection', icon: <FaTasks /> },
+      { title: 'สัญญาและหลักประกัน', desc: 'ติดตามการคืนหลักประกันสัญญา แยกหน้าจอตามหน่วยงาน', href: '/general/contracts', icon: <FaFileContract /> },
     ],
   },
   {

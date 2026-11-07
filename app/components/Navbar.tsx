@@ -24,7 +24,7 @@ import {
   FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator, FaChartPie,
   FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
   FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
-  FaWarehouse, FaExchangeAlt, FaQrcode,
+  FaWarehouse, FaExchangeAlt, FaQrcode, FaFileContract,
   FaCoins, FaGift, FaShieldAlt, FaIdCard, FaUserLock, FaToggleOn, FaBullhorn
 } from 'react-icons/fa'
 import { canSeeMenu, normalizeRoles, underPrefix, SALARY_ID_ROLES, HR_POST_MANAGER_ROLES, IT_STAFF_ROLES } from '../lib/menuAccess'
@@ -162,6 +162,7 @@ const MENU_TREE: NavItem[] = [
           { key: '/general/assets/donation-admin',        icon: <FaUsersCog />,      label: 'ตั้งค่าระบบรับบริจาค' },
         ]
       },
+      { key: '/general/contracts', icon: <FaFileContract />, label: 'สัญญาและหลักประกัน' },
       {
         key: 'general-procurement',
         icon: <FaWarehouse />,
