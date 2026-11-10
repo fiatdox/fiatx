@@ -18,7 +18,7 @@ import {
   FaUmbrellaBeach, FaUserClock, FaChevronLeft, FaChevronRight,
   FaCalendarAlt, FaWrench, FaCar, FaUserTie, FaUsers, FaTachometerAlt,
   FaIdCard, FaShieldAlt, FaGift, FaWarehouse, FaClipboardList, FaMicrochip,
-  FaUsersCog, FaLock, FaHistory,
+  FaUsersCog, FaLock, FaHistory, FaPlaneDeparture,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
 import Navbar from '../components/Navbar'
@@ -108,6 +108,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: '/general/maintenance-request', icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป', color: '#006a5a' },
       { key: '/general/medical-equipment-repair', icon: <FaBriefcaseMedical />, label: 'แจ้งซ่อมเครื่องมือแพทย์', color: '#0891b2' },
       { key: '/general/vehicle/request', icon: <FaCar />, label: 'ขอใช้รถราชการ', color: '#dc2626' },
+      { key: '/hss/hrd/official-travel/request', icon: <FaPlaneDeparture />, label: 'ขออนุมัติไปราชการ', color: '#6366f1' },
       { key: '/general/room-booking', icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่', color: '#d97706' },
       { key: '/accounting/salary', icon: <FaMoneyCheckAlt />, label: 'สลิปเงินเดือน', color: '#22c55e' },
       { key: USER_REQUEST_KEY, icon: <FaKey />, label: 'ขอรหัสผู้ใช้งาน HOSxP ฯลฯ', color: '#2563eb' },

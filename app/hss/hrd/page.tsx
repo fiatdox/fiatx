@@ -9,7 +9,7 @@ import {
   HomeOutlined, FundOutlined, AimOutlined, ReadOutlined,
   CompassOutlined, TrophyOutlined, RiseOutlined, TeamOutlined
 } from '@ant-design/icons'
-import { FaGraduationCap } from 'react-icons/fa'
+import { FaGraduationCap, FaPlaneDeparture } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
@@ -94,6 +94,17 @@ const HRDHub = () => {
         { label: 'ที่นั่งจริง/แผน', value: `${seatsFillPct}%` }
       ]
     },
+    {
+      title: 'เดินทางไปราชการ',
+      subtitle: 'Official Travel',
+      icon: <FaPlaneDeparture className="text-4xl text-indigo-400" />,
+      description: 'บุคลากรขอไปราชการ งานพัฒนาทรัพยากรบุคคลดูแลผู้เดินทางและจัดสรรงบประมาณตามหมวดหมู่',
+      href: '/hss/hrd/official-travel',
+      color: 'from-indigo-500/20 to-indigo-600/5',
+      stats: [
+        { label: 'สถานะระบบ', value: 'กำลังจัดทำ' }
+      ]
+    },
   ]
 
   const upcomingCols = [
@@ -161,8 +172,8 @@ const HRDHub = () => {
         <Breadcrumb
           items={[
             { href: '/home', title: <span className="text-app-text-3 hover:text-purple-400 transition-colors"><HomeOutlined /> หน้าหลัก</span> },
-            { title: <span className="text-app-text font-medium"><FundOutlined /> งานพัฒนาระบบบริการ</span> },
-            { title: <span className="text-app-text font-medium"><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาบุคลากรและการศึกษา</span> },
+            { title: <span className="text-app-text font-medium"><FundOutlined /> พัฒนาระบบบริการและสนับสนุนบริการสุขภาพ</span> },
+            { title: <span className="text-app-text font-medium"><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาทรัพยากรบุคคล</span> },
           ]}
           className="mb-10 text-xs uppercase tracking-widest"
         />
@@ -175,7 +186,7 @@ const HRDHub = () => {
                 Human Resource Development
               </Title>
               <Text className="text-app-text-2 text-sm mt-1 block font-medium opacity-80 uppercase tracking-widest">
-                ระบบพัฒนาบุคลากรและการศึกษา · Center for People Excellence
+                ระบบพัฒนาทรัพยากรบุคคล · Center for People Excellence
               </Text>
             </div>
           </div>
@@ -250,10 +261,10 @@ const HRDHub = () => {
           </Col>
         </Row>
 
-        {/* 3 Module Cards */}
+        {/* Module Cards */}
         <Row gutter={[24, 24]} className="mb-10">
           {menuItems.map((item, idx) => (
-            <Col xs={24} md={8} key={idx}>
+            <Col xs={24} md={12} xl={6} key={idx}>
               <Link href={item.href}>
                 <Card
                   hoverable

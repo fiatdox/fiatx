@@ -215,8 +215,8 @@ const StrategyPageContent = () => {
       <div className="relative z-10 p-6 md:p-8">
         <Breadcrumb className="mb-6" items={[
           { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
-          { title: <><FundOutlined /> งานพัฒนาระบบบริการ</> },
-          { href: '/hss/hrd', title: <><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาบุคลากร</> },
+          { title: <><FundOutlined /> พัฒนาระบบบริการและสนับสนุนบริการสุขภาพ</> },
+          { href: '/hss/hrd', title: <><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาทรัพยากรบุคคล</> },
           { title: 'ยุทธศาสตร์การพัฒนาบุคลากร' },
         ]} />
 

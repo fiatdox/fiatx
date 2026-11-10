@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { IT_STAFF_ROLES, SALARY_ID_ROLES, HR_POST_MANAGER_ROLES, underPrefix } from '@/app/lib/menuAccess'
+import { IT_STAFF_ROLES, SALARY_ID_ROLES, HR_POST_MANAGER_ROLES, HRD_ALLOWANCE_ROLES, underPrefix } from '@/app/lib/menuAccess'
 
 // Smart Hospital และแผนโครงการ IT — เมนูซ่อนไว้ใน menuAccess.ts แล้ว ที่นี่กั้นทั้งสาขา
 // สถิติการเข้าใช้งานระบบ — เมนูอยู่ในลิ้นชักโปรไฟล์ (Navbar) แสดงเฉพาะ IT_STAFF_ROLES
@@ -119,6 +119,17 @@ export function proxy(req: NextRequest) {
   if (underPrefix(pathname, '/accounting/salary-ids') || underPrefix(pathname, '/accounting/salary-register')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => SALARY_ID_ROLES.includes(r))) {
+      const homeUrl = req.nextUrl.clone()
+      homeUrl.pathname = '/home'
+      homeUrl.search = ''
+      return NextResponse.redirect(homeUrl)
+    }
+  }
+
+  // ตั้งค่าเบี้ยเลี้ยงบุคลากร · ตั้งค่าการเดินทาง (เดินทางไปราชการ) — เฉพาะ ADMIN / HRD
+  if (['allowance', 'transport', 'lodging', 'signing', 'budget'].some(p => underPrefix(pathname, `/hss/hrd/official-travel/${p}`))) {
+    const roles = getRoles(req).map(r => r.toUpperCase())
+    if (!roles.some(r => HRD_ALLOWANCE_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()
       homeUrl.pathname = '/home'
       homeUrl.search = ''

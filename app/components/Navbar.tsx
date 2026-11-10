@@ -20,7 +20,7 @@ import {
 import { useThemeMode } from './ThemeProvider'
 import {
   FaCalendarAlt, FaUserClock, FaBed, FaCar, FaTruck, FaWrench, FaBriefcaseMedical,
-  FaChartBar, FaGraduationCap, FaDesktop, FaUserShield, FaFileInvoiceDollar,
+  FaChartBar, FaGraduationCap, FaPlaneDeparture, FaDesktop, FaUserShield, FaFileInvoiceDollar,
   FaUsers, FaUserTie, FaLock, FaUsersCog, FaBuilding, FaHospitalSymbol, FaMicrochip, FaCalculator, FaChartPie,
   FaClipboardList, FaExclamationTriangle, FaTasks, FaNetworkWired,
   FaShoppingCart, FaFileAlt, FaTachometerAlt, FaHistory,
@@ -68,6 +68,7 @@ const MENU_TREE: NavItem[] = [
       { key: `${FAV_PREFIX}/information-technology/maintenance`, icon: <FaDesktop />, label: 'แจ้งซ่อมคอมพิวเตอร์' },
       { key: `${FAV_PREFIX}/general/maintenance-request`, icon: <FaWrench />, label: 'แจ้งซ่อมบำรุงทั่วไป' },
       { key: `${FAV_PREFIX}/general/vehicle/request`, icon: <FaCar />, label: 'ขอใช้รถราชการ' },
+      { key: `${FAV_PREFIX}/hss/hrd/official-travel/request`, icon: <FaPlaneDeparture />, label: 'ขออนุมัติไปราชการ' },
       { key: `${FAV_PREFIX}/general/room-booking`, icon: <FaBed />, label: 'ขอห้องพักเจ้าหน้าที่' },
       { key: `${FAV_PREFIX}/accounting/salary`, icon: <FaFileInvoiceDollar />, label: 'สลิปเงินเดือน' },
       { key: `${FAV_PREFIX}/information-technology/user-request`, icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
@@ -212,7 +213,18 @@ const MENU_TREE: NavItem[] = [
           { key: '/hss/strategy/kpis', label: 'KPI Dashboard' },
         ]
       },
-      { key: '/hss/hrd', icon: <FaGraduationCap />, label: 'งานพัฒนาบุคลากรและการศึกษา' },
+      {
+        // เดินทางไปราชการเปิดแยกจากโมดูล HRD ได้ (app_modules: hss.hrd_travel) — ปิดภาพรวม HRD แล้วเมนูไปราชการยังอยู่
+        key: 'hss-hrd-group',
+        icon: <FaGraduationCap />,
+        label: 'งานพัฒนาทรัพยากรบุคคล',
+        children: [
+          { key: '/hss/hrd', label: 'ภาพรวมงานพัฒนาทรัพยากรบุคคล' },
+          { key: '/hss/hrd/official-travel/request', label: 'ขออนุมัติเดินทางไปราชการ' },
+          { key: '/hss/hrd/official-travel/requests', label: 'รายการขออนุมัติเดินทางไปราชการ' },
+          { key: '/hss/hrd/official-travel/budget', label: 'งบประมาณไปราชการ (HRD)' },
+        ]
+      },
     ]
   },
 

@@ -11,6 +11,9 @@ export const SALARY_ID_ROLES = ['ADMIN', 'IT_STAFF', 'ACCOUNT', 'FINANCE']
 // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR — ตรงกับ HR_POST_MANAGER_ROLES ฝั่ง backend
 export const HR_POST_MANAGER_ROLES = ['ADMIN', 'HR']
 
+// ตั้งค่าเบี้ยเลี้ยงเดินทางไปราชการ — ผู้ดูแลระบบ และเจ้าหน้าที่งานพัฒนาทรัพยากรบุคคล (HRD) (ตรงกับ ALLOWANCE_ROLES ฝั่ง backend)
+export const HRD_ALLOWANCE_ROLES = ['ADMIN', 'HRD']
+
 // map: route ของเมนู → role ที่เห็นได้ (route ที่ไม่อยู่ใน map = ทุกคนเห็น)
 // เพิ่มเมนูที่ต้องคุมสิทธิ์ได้ที่นี่จุดเดียว
 export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
@@ -72,6 +75,16 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/general/assets/donation-admin':        ['ADMIN'],
 }
 
+  // ตั้งค่าเบี้ยเลี้ยงบุคลากร (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
+  '/hss/hrd/official-travel/allowance': HRD_ALLOWANCE_ROLES,
+  // ตั้งค่าการเดินทาง (ค่าน้ำมัน/กม. · เพดานราคารถโดยสาร/เครื่องบิน) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์การแก้ไข
+  '/hss/hrd/official-travel/transport': HRD_ALLOWANCE_ROLES,
+  // ตั้งค่าค่าเช่าที่พัก (เพดานตามระดับตำแหน่ง · จับคู่ระดับ · กำหนดรายบุคคล) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
+  '/hss/hrd/official-travel/lodging': HRD_ALLOWANCE_ROLES,
+  // ตั้งค่าการลงนาม (ลงนามในระบบ / เดินเอกสาร รายกลุ่ม) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
+  '/hss/hrd/official-travel/signing': HRD_ALLOWANCE_ROLES,
+  // งบประมาณและ Dashboard (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
+  '/hss/hrd/official-travel/budget': HRD_ALLOWANCE_ROLES,
 // เมนูที่สิทธิ์ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย (เช็คกับ backend)
 // อนุมัติการลา — เฉพาะหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN)
 export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval']

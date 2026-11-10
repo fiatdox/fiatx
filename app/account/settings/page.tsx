@@ -13,8 +13,9 @@ import {
   SafetyCertificateOutlined, BellOutlined, EnvironmentOutlined,
   EditOutlined, SaveOutlined, ReloadOutlined, CameraOutlined, InfoCircleOutlined,
   CheckCircleFilled, NumberOutlined, SolutionOutlined,
-  CalendarOutlined, GlobalOutlined, ApartmentOutlined, ClockCircleOutlined
+  CalendarOutlined, GlobalOutlined, ApartmentOutlined, ClockCircleOutlined, SignatureOutlined
 } from '@ant-design/icons'
+import SignatureSettings from './SignatureSettings'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Swal from 'sweetalert2'
@@ -57,6 +58,12 @@ const SettingsContent = () => {
   const [codesForm] = Form.useForm()
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('profile')
+  // ?tab=signature — ลิงก์จากหน้าที่ต้องใช้ลายเซ็น (เช่น ขออนุมัติเดินทางไปราชการ) · อ่านหลัง mount กัน hydration ไม่ตรง
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- เปิดแท็บตามลิงก์ (อ่าน URL ได้หลัง mount เท่านั้น)
+    if (t === 'signature') setTab(t)
+  }, [])
 
   // ── ดึงข้อมูลบุคลากรของผู้ที่ล็อกอิน จาก /api/v1/users/{id}/info ──
   const [info, setInfo] = useState<UserInfo | null>(null)
@@ -508,6 +515,11 @@ const SettingsContent = () => {
                     </div>
                   </Form>
                 ),
+              },
+              {
+                key: 'signature',
+                label: <Space><SignatureOutlined />ลายเซ็น</Space>,
+                children: <SignatureSettings />,
               },
               {
                 key: 'notify',
