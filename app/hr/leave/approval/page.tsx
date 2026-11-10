@@ -1118,6 +1118,8 @@ const LeaveApprovalContent = () => {
               <Text strong style={{ whiteSpace: 'nowrap' }}><UserSwitchOutlined /> ดูแบบหัวหน้า (ADMIN)</Text>
               <Select
                 showSearch allowClear
+                // รายชื่อหัวหน้ามีหลักร้อย ป้ายยาวสูงไม่เท่ากัน — virtual list คำนวณตำแหน่ง scroll ไม่ลงตัว (เตือน scrollTo max limitation)
+                virtual={false}
                 className="w-full md:max-w-120"
                 placeholder="ดูของตัวเอง — หรือค้นหาชื่อหัวหน้า/หน่วยงาน เพื่อดูรายการแบบที่หัวหน้าคนนั้นเห็น"
                 options={staffOptions}
