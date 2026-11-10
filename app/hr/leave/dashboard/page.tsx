@@ -398,6 +398,62 @@ const LeaveAnalyticsContent = () => {
     })),
   }), [counted, typesInData, months, fullBill])
 
+  // ── กราฟ: จำนวนคนที่ลารายเดือน แยกประเภท ──
+  // คนหนึ่งนับในเดือนที่มีวันลาของใบนั้นตกอยู่ (เกณฑ์เดียวกับกราฟวันลา — โหมดนับทั้งใบ = เดือนที่เริ่มลา)
+  // คนเดียวลาหลายประเภทในเดือนเดียวกัน นับในทุกประเภทที่ลา → ยอดซ้อนของแท่งอาจมากกว่าจำนวนคนจริง
+  // จึงมีเส้น "รวมไม่ซ้ำคน" ให้เห็นจำนวนคนจริงของเดือน
+  const peopleByMonth = useMemo(() => months.map(mo => {
+    const byType = new Map<string, Set<number>>(), all = new Set<number>()
+    counted.forEach(r => {
+      if (allocate(r, mo.from, mo.to, fullBill) <= 0) return
+      const s = byType.get(r.leave_type_code) ?? new Set<number>()
+      s.add(r.user_id); byType.set(r.leave_type_code, s); all.add(r.user_id)
+    })
+    return { byType, unique: all.size }
+  }), [counted, months, fullBill])
+  const peopleOption = useMemo(() => {
+    const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        formatter: (ps: { dataIndex: number; axisValue: string }[]) => {
+          const i = ps[0]?.dataIndex ?? 0, p = peopleByMonth[i]
+          const rows = typesInData
+            .map(([code, t]) => ({ t, code, n: p?.byType.get(code)?.size ?? 0 }))
+            .filter(x => x.n > 0)
+            .map(x => `<div style="display:flex;justify-content:space-between;gap:16px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:4px;margin-right:6px;background:${TYPE_COLOR[x.code] ?? '#94a3b8'}"></span>${esc(x.t.name)}</span><b>${nf(x.n)} คน</b></div>`)
+          return `<div style="font-weight:600;margin-bottom:4px">${esc(ps[0]?.axisValue ?? '')}</div>${rows.join('') || '<div>ไม่มีผู้ลา</div>'}`
+            + `<div style="border-top:1px solid rgba(148,163,184,.4);margin-top:4px;padding-top:4px;display:flex;justify-content:space-between;gap:16px"><span>รวมไม่ซ้ำคน</span><b>${nf(p?.unique ?? 0)} คน</b></div>`
+        },
+      },
+      legend: { top: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+      grid: { left: 44, right: 12, top: 36, bottom: 28 },
+      xAxis: { type: 'category', data: months.map(m => m.label), axisLabel: AXIS },
+      yAxis: { type: 'value', minInterval: 1, axisLabel: AXIS, splitLine: SPLIT },
+      series: [
+        ...typesInData.map(([code, t]) => ({
+          name: t.name, type: 'bar', stack: 'people', barMaxWidth: 28,
+          itemStyle: { color: TYPE_COLOR[code] ?? '#94a3b8', borderColor: 'transparent', borderWidth: 1 },
+          emphasis: { focus: 'series' },
+          data: peopleByMonth.map(p => p.byType.get(code)?.size ?? 0),
+        })),
+        {
+          // เดือนที่ยังไม่ถึงไม่ลากเส้นลง 0 (ยังไม่มีข้อมูล ไม่ใช่ไม่มีคนลา)
+          name: 'รวมไม่ซ้ำคน', type: 'line', data: peopleByMonth.map((p, i) => months[i].from.isAfter(today, 'day') && !p.unique ? null : p.unique),
+          symbol: 'circle', symbolSize: 8, z: 5,
+          lineStyle: { color: '#64748b', width: 2 }, itemStyle: { color: '#64748b', borderColor: '#fff', borderWidth: 2 },
+          // ป้ายตัวเลขมีพื้นทึบ — อ่านออกแม้ซ้อนบนแท่งสี (ทั้งธีมสว่าง/มืด)
+          label: {
+            show: true, position: 'top', distance: 6, color: '#fff', fontSize: 11, fontWeight: 600,
+            backgroundColor: '#475569', padding: [2, 5], borderRadius: 4,
+            formatter: (x: { value: number | null }) => (x.value ? nf(x.value) : ''),
+          },
+        },
+      ],
+    }
+  }, [peopleByMonth, typesInData, months, today])
+
   // ── กราฟ: วันเริ่มลาป่วยตามวันในสัปดาห์ ──
   const sickByWeekday = useMemo(() => {
     const c = Array(7).fill(0)
@@ -976,7 +1032,18 @@ const LeaveAnalyticsContent = () => {
           <Row gutter={[16, 16]} className="mb-4">
             <Col xs={24} xl={16}>
               <Section title={`วันลารายเดือน แยกประเภท${fullBill ? '' : ' (แบ่งใบที่คร่อมเดือนตามสัดส่วน)'}`}>
-                {counted.length ? <EChart option={monthOption} height={320} /> : <Empty description="ไม่มีข้อมูล" />}
+                {counted.length ? (
+                  <>
+                    <EChart option={monthOption} height={320} />
+                    <div style={{ borderTop: '1px solid var(--app-border)', margin: '12px 0 8px', paddingTop: 12 }} data-testid="people-month">
+                      <Text strong style={{ fontSize: 13 }}>จำนวนคนที่ลารายเดือน แยกประเภท</Text>
+                      <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                        คนที่ลาหลายประเภทในเดือนเดียวกันนับในทุกประเภท · เส้นสีเทา = จำนวนคนจริง (ไม่ซ้ำคน)
+                      </Text>
+                    </div>
+                    <EChart option={peopleOption} height={300} />
+                  </>
+                ) : <Empty description="ไม่มีข้อมูล" />}
               </Section>
             </Col>
             <Col xs={24} xl={8}>
