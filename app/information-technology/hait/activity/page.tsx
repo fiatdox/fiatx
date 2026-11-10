@@ -10,14 +10,17 @@ import {
   EditOutlined, DeleteOutlined, SearchOutlined, PlusOutlined, HomeOutlined,
   DesktopOutlined, UserOutlined, BarChartOutlined, CalendarOutlined,
   WarningOutlined, BulbOutlined, RiseOutlined, FallOutlined, FireOutlined,
-  TableOutlined, DashboardOutlined,
+  TableOutlined, DashboardOutlined, ToolOutlined, LinkOutlined,
 } from '@ant-design/icons'
 import Navbar from '../../../components/Navbar'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import { gBtn } from '@/app/components/StatCard'
 import Swal from 'sweetalert2'
 import dayjs from 'dayjs'
+import Cookies from 'js-cookie'
+import { normalizeRoles } from '@/app/lib/menuAccess'
 import DashboardTab from './dashboard/DashboardTab'
+import StaffLinkModal from './StaffLinkModal'
 import type { TaskStatus, Priority, RequestSource, ActivityLog, MasterData } from './types'
 
 const { Title, Text } = Typography
@@ -54,6 +57,10 @@ const PRIORITY_TAG: Record<Priority, string> = {
 // ใช้เป็นขอบล่างของตัวเลือกปีงบ เพื่อให้ย้อนดูปีก่อน ๆ ได้แม้ logs ที่โหลดอยู่
 // จะมีแค่ปีงบเดียว
 const ACTIVITY_FIRST_FY = 2569
+
+// ลำดับเดียวกับ backend (GET /logs): วันที่ล่าสุดก่อน · ในวันเดียวกันเรียงเวลาเริ่ม
+const byDateThenStart = (a: ActivityLog, b: ActivityLog) =>
+  new Date(b.log_date).getTime() - new Date(a.log_date).getTime() || a.start_time.localeCompare(b.start_time)
 
 const getFiscalYearBE = (d: dayjs.Dayjs): number => {
   const calYear = d.year()
@@ -103,6 +110,12 @@ function ActivityPageContent() {
   // ฝั่ง server ได้ false ฝั่ง client ได้ true (ไม่ต้อง setState ใน effect)
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false)
   const [form] = Form.useForm()
+  // ADMIN ผูกเจ้าหน้าที่กับบัญชีผู้ใช้ (ใช้ลงกิจกรรมอัตโนมัติจากระบบแจ้งซ่อม) — backend ตรวจสิทธิ์ซ้ำ
+  const isAdmin = useMemo(() => {
+    if (!mounted) return false
+    try { return normalizeRoles(JSON.parse(Cookies.get('user_data') ?? '{}')?.roles).includes('ADMIN') } catch { return false }
+  }, [mounted])
+  const [linkOpen, setLinkOpen] = useState(false)
 
   // ----- API helpers -----
   // ดึงทั้งปีงบเพื่อใช้สรุป Dashboard/กราฟรายเดือน (ไม่ใช่แค่หน้าแรก) — backend cap อยู่ที่ 20000
@@ -117,10 +130,32 @@ function ActivityPageContent() {
       })
       .catch(() => { messageApi.error('โหลดรายการกิจกรรมไม่สำเร็จ'); return null }), [messageApi])
 
-  // โหลดใหม่หลังบันทึก/ลบ (เรียกจาก event handler)
+  // โหลดใหม่ทั้งปีงบ — ใช้เป็นทางสำรองเมื่อดึงแถวเดียวไม่สำเร็จ
   const loadLogs = async (fyBE: number) => {
     const list = await fetchLogs(fyBE)
     if (list) setLogs(list)
+  }
+
+  // หลังบันทึก/แก้/ลบ อัปเดตเฉพาะแถวที่เปลี่ยนในรายการที่โหลดไว้ — เดิมดึงทั้งปีงบใหม่ทุกครั้ง
+  // (ปีงบหนึ่งหลายพันแถว ~1 KB/แถว) ทำให้ยิ่งข้อมูลเยอะยิ่งบันทึกช้า
+  const fetchLog = async (id: number): Promise<ActivityLog | null> => {
+    try {
+      const json = await (await fetch(`/api/v1/it/activity/logs/${id}`)).json()
+      if (!json?.success) return null
+      return { ...json.data, affected_users: json.data.affected_users != null ? Number(json.data.affected_users) : 0 } as ActivityLog
+    } catch { return null }
+  }
+  /** แทน/ลบแถว id ในรายการทุกปีงบที่โหลดไว้ · row = null = ลบ · ใส่แถวใหม่เฉพาะรายการของปีงบที่ตรงกับวันที่ของแถว */
+  const applyLogChange = (id: number, row: ActivityLog | null) => {
+    const fy = row ? getFiscalYearBE(dayjs(row.log_date)) : null
+    // แก้แถวเดิม = แทนที่ตำแหน่งเดิม (sort แบบ stable ไม่สลับกับแถววันเวลาเดียวกัน) · แถวใหม่ต่อท้ายแล้วเรียง
+    const upsert = (list: ActivityLog[], listFy: number) => {
+      if (!row || listFy !== fy) return list.filter(l => l.log_id !== id)
+      const next = list.some(l => l.log_id === id) ? list.map(l => l.log_id === id ? row : l) : [...list, row]
+      return next.sort(byDateThenStart)
+    }
+    setLogs(prev => upsert(prev, dashboardYear))
+    setLogsByFy(prev => Object.fromEntries(Object.entries(prev).map(([k, list]) => [k, upsert(list, Number(k))])))
   }
 
   useEffect(() => {
@@ -404,8 +439,7 @@ function ActivityPageContent() {
         const json = await res.json()
         if (json?.success) {
           messageApi.success('ลบรายการเรียบร้อยแล้ว')
-          setLogsByFy({})
-          await loadLogs(dashboardYear)
+          applyLogChange(log.log_id, null)
         } else {
           messageApi.error(json?.error?.message || 'ลบไม่สำเร็จ')
         }
@@ -488,11 +522,14 @@ function ActivityPageContent() {
       })
       const json = await res.json()
       if (json?.success) {
+        const savedId = editingLog ? editingLog.log_id : Number(json.data?.log_id)
         messageApi.success(editingLog ? 'แก้ไขเรียบร้อยแล้ว' : 'บันทึกกิจกรรมเรียบร้อยแล้ว')
         setIsDrawerOpen(false)
         form.resetFields()
-        setLogsByFy({})
-        await loadLogs(dashboardYear)
+        // ดึงเฉพาะแถวที่บันทึก (ชื่อ/สี/ช่วงเวลาที่ view คำนวณ) · ไม่สำเร็จค่อยโหลดทั้งปีงบแบบเดิม
+        const row = savedId ? await fetchLog(savedId) : null
+        if (row) applyLogChange(savedId, row)
+        else { setLogsByFy({}); await loadLogs(dashboardYear) }
       } else {
         messageApi.error(json?.error?.message || 'บันทึกไม่สำเร็จ')
       }
@@ -541,6 +578,7 @@ function ActivityPageContent() {
       key: 'detail',
       render: (d: string, r: ActivityLog) => (
         <div>
+          {r.auto_ref && <Tag color="purple" icon={<ToolOutlined />} className="mb-1 text-xs">จากระบบแจ้งซ่อม{r.ticket_id ? ` · ${r.ticket_id}` : ''}</Tag>}
           <div className="text-sm">{d}</div>
           <div className="text-xs text-gray-500">ระบบ: {r.system_name}</div>
         </div>
@@ -622,6 +660,7 @@ function ActivityPageContent() {
             {t.priority_name || priorityLabel[t.priority_code]}
           </Tag>
           {t.is_overtime && <Tag color="volcano" className="m-0 text-[10px]">OT</Tag>}
+          {t.auto_ref && <Tag color="purple" className="m-0 text-[10px]">จากระบบแจ้งซ่อม</Tag>}
         </div>
         <div className="font-semibold leading-snug">{t.detail}</div>
         <div className="opacity-80">ระบบ: {t.system_name}</div>
@@ -668,10 +707,16 @@ function ActivityPageContent() {
               <Title level={2} style={{ color: '#6B21A8', margin: 0 }}>บันทึกกิจกรรมการทำงาน IT</Title>
               <Text type="secondary">ข้อมูลกิจกรรมและการทำงานของเจ้าหน้าที่ฝ่าย IT ทุกคน</Text>
             </div>
-            <Button type="primary" icon={<PlusOutlined />} size="large" style={master ? gBtn('#7c3aed', '#a855f7') : undefined} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAddDrawer} disabled={!master}>
-              บันทึกกิจกรรมใหม่
-            </Button>
+            <Space wrap>
+              {isAdmin && (
+                <Button icon={<LinkOutlined />} size="large" onClick={() => setLinkOpen(true)}>ผูกบัญชีผู้ใช้</Button>
+              )}
+              <Button type="primary" icon={<PlusOutlined />} size="large" style={master ? gBtn('#7c3aed', '#a855f7') : undefined} className="transition-all duration-200 hover:-translate-y-px hover:brightness-110" onClick={openAddDrawer} disabled={!master}>
+                บันทึกกิจกรรมใหม่
+              </Button>
+            </Space>
           </div>
+          {isAdmin && <StaffLinkModal open={linkOpen} onClose={() => setLinkOpen(false)} />}
 
           <Spin spinning={loading || !master}>
           <Tabs
@@ -1121,6 +1166,16 @@ function ActivityPageContent() {
           </Space>
         }
       >
+        {editingLog?.auto_ref && (
+          <Alert
+            type="info"
+            showIcon
+            icon={<ToolOutlined />}
+            className="mb-4"
+            title={`ระบบลงให้อัตโนมัติจากระบบแจ้งซ่อม${editingLog.ticket_id ? ` (${editingLog.ticket_id})` : ''}`}
+            description="เวลาที่ใช้เป็นค่าตั้งต้นของขั้นนั้น แก้ให้ตรงกับที่ใช้จริงได้ — ไม่ต้องบันทึกงานซ่อมนี้ซ้ำเอง"
+          />
+        )}
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Row gutter={16}>
             <Col span={12}>

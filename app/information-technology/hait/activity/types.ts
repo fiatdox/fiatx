@@ -1,7 +1,7 @@
 // ชนิดข้อมูลของบันทึกกิจกรรม IT — ใช้ร่วมกันระหว่างหน้า (page.tsx) และ Dashboard (dashboard/*)
 export type TaskStatus = 'done' | 'in_progress' | 'waiting' | 'pending'
 export type Priority = 'urgent' | 'normal' | 'low'
-export type RequestSource = 'call' | 'walk_in' | 'email' | 'alert' | 'scheduled' | 'inspection' | 'other'
+export type RequestSource = 'call' | 'walk_in' | 'email' | 'alert' | 'scheduled' | 'inspection' | 'repair_system' | 'other'
 export type Nature = 'reactive' | 'proactive' | 'neutral'
 
 export interface ActivityLog {
@@ -39,6 +39,7 @@ export interface ActivityLog {
   affected_users: number
   is_overtime: boolean
   ticket_id: string | null
+  auto_ref?: string | null // ระบบสร้างให้ เช่น repair_track:123 (จากระบบแจ้งซ่อม) · null = เจ้าหน้าที่บันทึกเอง
 }
 
 export interface MasterStaff   { staff_id: number; staff_code: string; full_name_th: string; role_th?: string | null }
