@@ -89,11 +89,11 @@ export function proxy(req: NextRequest) {
   }
 
   // จัดการข่าว / เอกสาร / ป๊อปอัปงาน HR · ตรวจวันลา / วันหยุด · Dashboard การลา
-  // · ตรวจแก้วันลาสะสม · ตรวจสอบการโอนยอดวันลาสะสม — เฉพาะ ADMIN / HR (ตรงกับ backend)
+  // · ตรวจแก้วันลาสะสม · ตรวจสอบการโอนยอดวันลาสะสม · สรุปวันลารายบุคคล — เฉพาะ ADMIN / HR (ตรงกับ backend)
   // ประวัติการลาเจ้าหน้าที่ไม่อยู่ในนี้ — ผอ. เข้าได้ด้วย (สิทธิ์มาจาก hr_settings ไม่ใช่ role) backend ตอบ 403 แล้วหน้าเว็บพากลับหน้าหลัก
   if (underPrefix(pathname, '/hr/leave/posts') || underPrefix(pathname, '/hr/leave/day-check')
       || underPrefix(pathname, '/hr/leave/dashboard') || underPrefix(pathname, '/hr/leave/balance-audit')
-      || underPrefix(pathname, '/hr/leave/balance-transfer')) {
+      || underPrefix(pathname, '/hr/leave/balance-transfer') || underPrefix(pathname, '/hr/leave/person-summary')) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => HR_POST_MANAGER_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()

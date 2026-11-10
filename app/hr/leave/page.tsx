@@ -8,7 +8,7 @@ import {
   HomeOutlined, LinkOutlined, PushpinFilled, NotificationOutlined,
   FolderOpenOutlined, FormOutlined, HistoryOutlined, AuditOutlined, RightOutlined, TeamOutlined, CalendarOutlined,
   FileSearchOutlined, DashboardOutlined, UserSwitchOutlined, CheckCircleFilled, MinusCircleOutlined, WarningFilled,
-  ScheduleOutlined, SafetyCertificateOutlined, SettingOutlined, CloudDownloadOutlined, ToolOutlined, CloudSyncOutlined, BellOutlined,
+  ScheduleOutlined, SafetyCertificateOutlined, SettingOutlined, CloudDownloadOutlined, ToolOutlined, CloudSyncOutlined, BellOutlined, SolutionOutlined,
 } from '@ant-design/icons'
 import { FaUsersCog, FaCalendarAlt, FaUmbrellaBeach, FaBriefcase, FaUserMd, FaBaby } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
@@ -33,6 +33,7 @@ const QUICK_LINKS: QuickLink[] = [
 
 // เครื่องมือของงานทรัพยากรบุคคล — การ์ดแสดงตามสิทธิ์ใน MENU_ROLE_REQUIREMENTS (กติกาเดียวกับ Navbar และ proxy.ts)
 const HR_TOOL_LINKS: QuickLink[] = [
+  { href: '/hr/leave/person-summary', icon: <SolutionOutlined />, label: 'สรุปวันลารายบุคคล', desc: 'ประวัติการลาแต่ละคนในปีงบ วันลาพักผ่อนสะสมและคงเหลือ', color: '#7c3aed' },
   { href: '/hr/leave/day-check', icon: <ScheduleOutlined />, label: 'ตรวจวันลา / วันหยุด', desc: 'ตรวจจำนวนวันลาหลังอนุมัติ และวันหยุดราชการ', color: '#0ea5e9' },
   { href: '/hr/leave/balance', icon: <FaUmbrellaBeach />, label: 'วันลาสะสม', desc: 'ยอดยกมาลาพักผ่อน และยกยอดปีงบประมาณ', color: '#14b8a6' },
   { href: '/hr/leave/balance-audit', icon: <SafetyCertificateOutlined />, label: 'ตรวจแก้วันลาสะสม', desc: 'หายอดวันลาที่ผิด แก้ไขพร้อมเก็บประวัติ', color: '#047857' },
@@ -166,6 +167,7 @@ const LEAVE_PAGES: { href: string; label: string; where: 'card' | 'menu' }[] = [
   { href: '/hr/leave/status', label: 'สถิติการลา', where: 'card' },
   { href: '/hr/leave/approval', label: 'อนุมัติการลา', where: 'card' },
   { href: '/hr/leave/staff-history', label: 'ประวัติการลาเจ้าหน้าที่', where: 'card' },
+  { href: '/hr/leave/person-summary', label: 'สรุปวันลารายบุคคล', where: 'card' },
   { href: '/hr/leave/dashboard', label: 'Dashboard วิเคราะห์การลา', where: 'card' },
   { href: '/hr/leave/day-check', label: 'ตรวจวันลา / วันหยุด', where: 'card' },
   { href: '/hr/leave/balance', label: 'วันลาสะสม', where: 'card' },

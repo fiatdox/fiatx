@@ -37,6 +37,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   // ประวัติการลาเจ้าหน้าที่ทุกคน + ไฟล์แนบ (ใบรับรองแพทย์) — ADMIN / HR และ ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
   // backend ตรวจสิทธิ์ใน controller · ปุ่มตรวจวันลาเฉพาะ ADMIN / HR
   '/hr/leave/staff-history': ['ADMIN', 'HR'],
+  // สรุปประวัติวันลารายบุคคล (ใบลา + ไฟล์แนบ + วันลาพักผ่อนสะสม/คงเหลือ) — เฉพาะ ADMIN / HR (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
+  '/hr/leave/person-summary': ['ADMIN', 'HR'],
   // ตั้งค่าการแจ้งเตือนระบบลา (หมอพร้อม) — ส่งข้อความถึงบุคลากรทั้งองค์กร เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
   '/hr/leave/notify-settings': ['ADMIN'],
   // ยกเว้นการแจ้งเตือนรายคน — เฉพาะ ADMIN (proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์)
@@ -73,8 +75,6 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/general/assets/donation-review':       ['ADMIN', 'DONATION_COMMITTEE'],
   '/general/assets/donation-registration': ['ADMIN', 'DONATION_PROCUREMENT'],
   '/general/assets/donation-admin':        ['ADMIN'],
-}
-
   // ตั้งค่าเบี้ยเลี้ยงบุคลากร (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
   '/hss/hrd/official-travel/allowance': HRD_ALLOWANCE_ROLES,
   // ตั้งค่าการเดินทาง (ค่าน้ำมัน/กม. · เพดานราคารถโดยสาร/เครื่องบิน) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์การแก้ไข
@@ -85,6 +85,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hss/hrd/official-travel/signing': HRD_ALLOWANCE_ROLES,
   // งบประมาณและ Dashboard (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
   '/hss/hrd/official-travel/budget': HRD_ALLOWANCE_ROLES,
+}
+
 // เมนูที่สิทธิ์ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย (เช็คกับ backend)
 // อนุมัติการลา — เฉพาะหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN)
 export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval']

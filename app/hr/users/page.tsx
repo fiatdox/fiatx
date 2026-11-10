@@ -21,6 +21,7 @@ import * as XLSX from 'xlsx'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import { normalizeRoles } from '@/app/lib/menuAccess'
+import { typeTone } from '@/app/lib/staffTypeTone'
 
 dayjs.extend(buddhistEra)
 // วันที่แสดงเป็นปี พ.ศ. (BBBB) — ค่าที่ส่ง backend ยังเป็น ค.ศ. เพราะ format('YYYY-MM-DD') ตอนบันทึก
@@ -107,26 +108,7 @@ const nameIn = (arr: SystemOption[], id?: number) => (id ? arr.find((o) => o.id 
 const isActive = (u: User) =>
   u.is_active === true || u.is_active === 'true' || u.is_active === '1' || u.is_active === 'Y'
 
-// ── สีตามประเภทบุคลากร / สถานะ ─────────────────────────────────────────────
-// จับจากชื่อ (id ต่างฐานอาจไม่ตรงกัน) — ประเภทที่ไม่รู้จักวนสีสำรองตาม id ให้สีคงที่ต่อประเภท
-interface Tone { tag: string; hex: string }
-const TYPE_TONES: [string, Tone][] = [
-  ['พนักงานราชการ', { tag: 'cyan', hex: '#0891b2' }],
-  ['ข้าราชการ', { tag: 'blue', hex: '#1d4ed8' }],
-  ['ลูกจ้างประจำ', { tag: 'purple', hex: '#7c3aed' }],
-  ['พนักงานกระทรวง', { tag: 'green', hex: '#15803d' }],
-  ['ลูกจ้างชั่วคราว', { tag: 'orange', hex: '#ea580c' }],
-  ['รายวัน', { tag: 'gold', hex: '#ca8a04' }],
-]
-const SPARE_TONES: Tone[] = [
-  { tag: 'magenta', hex: '#c026d3' }, { tag: 'geekblue', hex: '#4338ca' },
-  { tag: 'volcano', hex: '#dc2626' }, { tag: 'lime', hex: '#65a30d' },
-]
-const NO_TONE: Tone = { tag: 'default', hex: '#64748b' }
-const typeTone = (name?: string, id?: number): Tone => {
-  if (!name) return NO_TONE
-  return TYPE_TONES.find(([k]) => name.includes(k))?.[1] ?? SPARE_TONES[(id ?? 0) % SPARE_TONES.length]
-}
+// ── สีตามประเภทบุคลากร (ใช้ร่วมกับหน้าอื่น — app/lib/staffTypeTone) / สถานะ ──────
 const statusTag = (name: string) =>
   name === WORKING_STATUS_NAME ? 'success'
     : name.includes('เกษียณ') ? 'purple'
