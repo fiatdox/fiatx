@@ -1,6 +1,6 @@
 {
   "name": "fiatx",
-  "version": "0.1.122",
+  "version": "0.1.123",
   "private": true,
   "scripts": {
     "dev": "next dev --port=5555",
