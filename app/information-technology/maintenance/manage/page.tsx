@@ -20,6 +20,7 @@ import Navbar from '@/app/components/Navbar'
 import { ContentSkeleton } from '@/app/components/Skeleton'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import type { RepairSlipData } from '@/app/components/RepairSlipPDF'
+import RepairEditModal, { type RepairEditSaved } from './RepairEditModal'
 
 // ตัวแสดง PDF ใบส่งซ่อม — โหลดฝั่ง client เท่านั้น (react-pdf ใช้ใน browser)
 const RepairSlipPDFViewer = dynamic(() => import('@/app/components/RepairSlipPDF'), {
@@ -69,10 +70,11 @@ interface RepairExtension {
 interface ManageRepairRequest {
   id: string; apiId?: number; requestDate: string; createdAtIso?: string; requesterName: string; department: string; phone: string
   deviceType: string; deviceBrand: string; deviceSerial?: string; assetNo?: string
+  equipmentName?: string   // ชื่อครุภัณฑ์ที่ผู้แจ้งกรอก (ช่างแก้ไขได้)
   deviceLocation?: string; problemCategory: string; symptom: string
+  ward?: string   // หอผู้ป่วย/หน่วยงานย่อยของผู้แจ้ง (submajor)
   urgency: 'low' | 'medium' | 'high' | 'critical'; status: RepairStatus
   assignedTo?: string; assignedTechId?: string; assignedBy?: string; assignedDate?: string; assignedDateIso?: string
-  ward?: string   // หอผู้ป่วย/หน่วยงานย่อยของผู้แจ้ง (submajor)
   estimatedDays?: number; dueDateIso?: string
   technicianPriorityId?: number; technicianPriorityName?: string
   extensions?: RepairExtension[]
@@ -298,10 +300,11 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     createdAtIso:   r.created_at,
     requesterName:  r.created_by_name,
     department:     r.major_name,
+    ward:           r.submajor_name?.trim() || undefined,
     phone:          '-',
     deviceType:     r.equipment_type_name,
-    ward:           r.submajor_name?.trim() || undefined,
     deviceBrand:    r.brand ?? r.equipment_type_name,
+    equipmentName:  r.equipment_name || undefined,
     assetNo:        r.equipment_number || undefined,
     deviceLocation: r.location || undefined,
     problemCategory: r.problem_category_name,
@@ -827,6 +830,21 @@ const PageContent = () => {
   const [approvalModal, setApprovalModal] = useState<{ req: ManageRepairRequest; level: 'it_head' | 'mission_head' } | null>(null)
   const [detailModal, setDetailModal] = useState<ManageRepairRequest | null>(null)
   const [printSlip, setPrintSlip] = useState<ManageRepairRequest | null>(null)
+  // แก้ไขข้อมูลใบส่งซ่อม (ชื่อครุภัณฑ์ ยี่ห้อ ฯลฯ) — เปิดจากหน้าต่างรายละเอียด
+  const [editReq, setEditReq] = useState<ManageRepairRequest | null>(null)
+  const applyEdit = (apiId: number, e: RepairEditSaved) => {
+    const patch = (r: ManageRepairRequest): ManageRepairRequest => ({
+      ...r,
+      equipmentName: e.equipment_name || undefined,
+      deviceType: e.equipment_type_name ?? r.deviceType,
+      deviceBrand: e.brand ?? e.equipment_type_name ?? r.deviceType,
+      assetNo: e.equipment_number || undefined,
+      deviceLocation: e.location || undefined,
+      problemCategory: e.problem_category_name ?? r.problemCategory,
+    })
+    setRequests(prev => prev.map(r => r.apiId === apiId ? patch(r) : r))
+    setDetailModal(prev => prev && prev.apiId === apiId ? patch(prev) : prev)
+  }
   const [takeModal, setTakeModal]     = useState<ManageRepairRequest | null>(null)
   const [rejectModal, setRejectModal] = useState<ManageRepairRequest | null>(null)
   const [extendModal, setExtendModal] = useState<ManageRepairRequest | null>(null)
@@ -1723,6 +1741,15 @@ const PageContent = () => {
                                       <BarcodeOutlined style={{ fontSize: 10 }} />{r.assetNo}
                                     </div>
                                   )}
+                                  {/* หอผู้ป่วย/หน่วยงานของผู้แจ้ง — เด่นกว่าแถวอื่น ช่างรู้ทันทีว่าต้องไปที่ไหน */}
+                                  {r.ward && (
+                                    <div data-testid="kanban-ward" title="หอผู้ป่วย / หน่วยงานผู้แจ้ง" style={{
+                                      color: '#0ea5e9', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 4,
+                                      marginBottom: 3, lineHeight: 1.35,
+                                    }}>
+                                      <MedicineBoxOutlined style={{ fontSize: 11, marginTop: 2 }} />{r.ward}
+                                    </div>
+                                  )}
                                   {/* Row 4: location */}
                                   {r.deviceLocation && (
                                     <div style={{ color: 'var(--app-text-2)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
@@ -1739,15 +1766,6 @@ const PageContent = () => {
                                     <div style={{ color: 'var(--app-text-3)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
                                       <ClockCircleOutlined style={{ fontSize: 10 }} />
                                       <span>ส่งคำขอ {fmtDateTime(r.createdAtIso ?? r.requestDate)}</span>
-                                    </div>
-                                  )}
-                                  {/* หอผู้ป่วย/หน่วยงานของผู้แจ้ง — เด่นกว่าแถวอื่น ช่างรู้ทันทีว่าต้องไปที่ไหน */}
-                                  {r.ward && (
-                                    <div data-testid="kanban-ward" title="หอผู้ป่วย / หน่วยงานผู้แจ้ง" style={{
-                                      color: '#0ea5e9', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 4,
-                                      marginBottom: 3, lineHeight: 1.35,
-                                    }}>
-                                      <MedicineBoxOutlined style={{ fontSize: 11, marginTop: 2 }} />{r.ward}
                                     </div>
                                   )}
                                   {/* Row 6: category */}
@@ -3071,6 +3089,9 @@ const PageContent = () => {
         </Form>
       </Modal>
 
+      <RepairEditModal apiId={editReq?.apiId ?? null} code={editReq?.id} onClose={() => setEditReq(null)}
+        onSaved={e => { if (editReq?.apiId) applyEdit(editReq.apiId, e) }} />
+
       {/* ══ Detail Modal ══════════════════════════════════════════════════════ */}
       <Modal
         title={<span><InfoCircleOutlined style={{ color: '#a78bfa', marginRight: 8 }} />รายละเอียด {detailModal?.id}</span>}
@@ -3079,6 +3100,9 @@ const PageContent = () => {
         footer={
           <Space>
             <Button onClick={() => setDetailModal(null)}>ปิด</Button>
+            {detailModal?.apiId && (
+              <Button icon={<EditOutlined />} data-testid="repair-edit-btn" onClick={() => setEditReq(detailModal)}>แก้ไขข้อมูล</Button>
+            )}
             <Button type="primary" icon={<PrinterOutlined />} style={{ background: '#6d28d9', borderColor: '#6d28d9' }}
               onClick={() => detailModal && setPrintSlip(detailModal)}>
               พิมพ์ใบส่งซ่อม
@@ -3100,7 +3124,9 @@ const PageContent = () => {
             </Descriptions.Item>
             <Descriptions.Item label="ผู้แจ้ง">{detailModal.requesterName}</Descriptions.Item>
             <Descriptions.Item label="หน่วยงาน">{detailModal.department}</Descriptions.Item>
-            <Descriptions.Item label="อุปกรณ์" span={2}>{detailModal.deviceBrand}</Descriptions.Item>
+            {detailModal.equipmentName && <Descriptions.Item label="ชื่อครุภัณฑ์" span={2}>{detailModal.equipmentName}</Descriptions.Item>}
+            <Descriptions.Item label="ยี่ห้อ / รุ่น" span={1}>{detailModal.deviceBrand}</Descriptions.Item>
+            <Descriptions.Item label="ประเภท" span={1}>{detailModal.deviceType}</Descriptions.Item>
             {detailModal.assetNo && <Descriptions.Item label="เลขครุภัณฑ์" span={detailModal.deviceLocation ? 1 : 2}><code style={{ color: '#a78bfa' }}>{detailModal.assetNo}</code></Descriptions.Item>}
             {detailModal.deviceLocation && <Descriptions.Item label="สถานที่" span={detailModal.assetNo ? 1 : 2}>{detailModal.deviceLocation}</Descriptions.Item>}
             <Descriptions.Item label="อาการ" span={2}
