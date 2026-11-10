@@ -14,7 +14,7 @@ import {
   ToolOutlined, CheckCircleOutlined, CloseCircleOutlined, HomeOutlined,
   ShoppingCartOutlined, SwapOutlined, InfoCircleOutlined, FileTextOutlined,
   AuditOutlined, SafetyCertificateOutlined, CheckSquareOutlined,
-  ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined, PrinterOutlined,
+  ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined, PrinterOutlined, MedicineBoxOutlined, EditOutlined,
 } from '@ant-design/icons'
 import Navbar from '@/app/components/Navbar'
 import { ContentSkeleton } from '@/app/components/Skeleton'
@@ -72,6 +72,7 @@ interface ManageRepairRequest {
   deviceLocation?: string; problemCategory: string; symptom: string
   urgency: 'low' | 'medium' | 'high' | 'critical'; status: RepairStatus
   assignedTo?: string; assignedTechId?: string; assignedBy?: string; assignedDate?: string; assignedDateIso?: string
+  ward?: string   // หอผู้ป่วย/หน่วยงานย่อยของผู้แจ้ง (submajor)
   estimatedDays?: number; dueDateIso?: string
   technicianPriorityId?: number; technicianPriorityName?: string
   extensions?: RepairExtension[]
@@ -299,6 +300,7 @@ const apiToManageRequest = (r: ApiRepairRequest): ManageRepairRequest => {
     department:     r.major_name,
     phone:          '-',
     deviceType:     r.equipment_type_name,
+    ward:           r.submajor_name?.trim() || undefined,
     deviceBrand:    r.brand ?? r.equipment_type_name,
     assetNo:        r.equipment_number || undefined,
     deviceLocation: r.location || undefined,
@@ -1737,6 +1739,15 @@ const PageContent = () => {
                                     <div style={{ color: 'var(--app-text-3)', fontSize: 10, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
                                       <ClockCircleOutlined style={{ fontSize: 10 }} />
                                       <span>ส่งคำขอ {fmtDateTime(r.createdAtIso ?? r.requestDate)}</span>
+                                    </div>
+                                  )}
+                                  {/* หอผู้ป่วย/หน่วยงานของผู้แจ้ง — เด่นกว่าแถวอื่น ช่างรู้ทันทีว่าต้องไปที่ไหน */}
+                                  {r.ward && (
+                                    <div data-testid="kanban-ward" title="หอผู้ป่วย / หน่วยงานผู้แจ้ง" style={{
+                                      color: '#0ea5e9', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 4,
+                                      marginBottom: 3, lineHeight: 1.35,
+                                    }}>
+                                      <MedicineBoxOutlined style={{ fontSize: 11, marginTop: 2 }} />{r.ward}
                                     </div>
                                   )}
                                   {/* Row 6: category */}

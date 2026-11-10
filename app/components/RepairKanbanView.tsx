@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button, Tag, Typography } from 'antd'
 import {
   ClockCircleOutlined, UserOutlined, EnvironmentOutlined, BarcodeOutlined,
-  ToolOutlined, InfoCircleOutlined, CheckSquareOutlined, CloseCircleOutlined,
+  ToolOutlined, InfoCircleOutlined, CheckSquareOutlined, CloseCircleOutlined, MedicineBoxOutlined,
 } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -24,6 +24,7 @@ export interface RepairKanbanRow {
   process_status_id: number
   created_by_name?: string
   major_name?: string
+  submajor_name?: string | null   // หอผู้ป่วย/หน่วยงานย่อยของผู้แจ้ง
   assigned_to_name?: string | null
   estimated_days?: number | null
   estimated_completion_date?: string | null
@@ -425,6 +426,15 @@ export default function RepairKanbanView({
                       {r.equipment_number && (
                         <div style={{ color: '#fb923c', fontSize: 10, fontFamily: 'monospace', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
                           <BarcodeOutlined style={{ fontSize: 10 }} />{r.equipment_number}
+                        </div>
+                      )}
+                      {/* หอผู้ป่วย/หน่วยงานของผู้แจ้ง — เด่นกว่าแถวอื่น ช่างรู้ทันทีว่าต้องไปที่ไหน */}
+                      {r.submajor_name?.trim() && (
+                        <div data-testid="kanban-ward" title="หอผู้ป่วย / หน่วยงานผู้แจ้ง" style={{
+                          color: '#0ea5e9', fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: 4,
+                          marginBottom: 3, lineHeight: 1.35,
+                        }}>
+                          <MedicineBoxOutlined style={{ fontSize: 11, marginTop: 2 }} />{r.submajor_name.trim()}
                         </div>
                       )}
                       {/* Row 4: location */}
