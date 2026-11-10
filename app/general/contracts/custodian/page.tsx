@@ -71,7 +71,7 @@ const CustodianContent = ({ me }: { me: ContractMe }) => {
       </Card>
       <ContractDrawer id={openId} refreshKey={refresh} onClose={() => setOpenId(null)}
         renderActions={d => d.can.report_defect && <Button size="small" type="primary" onClick={() => openForm(d)}>แจ้งชำรุด</Button>} />
-      <Modal title={`แจ้งความชำรุด ${target?.contract_no ?? ''}`} open={!!target} onCancel={() => setTarget(null)} onOk={save} okText="แจ้งชำรุด" cancelText="ยกเลิก" confirmLoading={saving} forceRender>
+      <Modal title={`แจ้งความชำรุด ${target?.contract_no ?? ''}`} open={!!target} onCancel={() => setTarget(null)} onOk={save} okText="แจ้งชำรุด" cancelText="ยกเลิก" confirmLoading={saving} forceRender zIndex={1100 /* เปิดจากลิ้นชักสัญญาได้ ต้องอยู่เหนือลิ้นชัก */}>
         <Form form={form} layout="vertical">
           <Form.Item name="found_date" label="วันที่พบ" rules={[{ required: true, message: 'กรุณาระบุวันที่' }]}>
             <ThaiDatePicker format={DATE_FORMAT} style={{ width: '100%' }} disabledDate={d => d.isAfter(dayjs(), 'day')} />

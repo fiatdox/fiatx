@@ -68,7 +68,7 @@ const InspectionContent = ({ me }: { me: ContractMe }) => {
       </Card>
       <ContractDrawer id={openId} refreshKey={refresh} onClose={() => setOpenId(null)}
         renderActions={d => d.can.inspect && <Button size="small" type="primary" onClick={() => openForm(d)}>บันทึกผลตรวจ</Button>} />
-      <Modal title={`บันทึกผลตรวจ ${target?.contract_no ?? ''}`} open={!!target} onCancel={() => setTarget(null)} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving} forceRender>
+      <Modal title={`บันทึกผลตรวจ ${target?.contract_no ?? ''}`} open={!!target} onCancel={() => setTarget(null)} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving} forceRender zIndex={1100 /* เปิดจากลิ้นชักสัญญาได้ ต้องอยู่เหนือลิ้นชัก */}>
         <Form form={form} layout="vertical">
           <Form.Item name="kind" label="รอบการตรวจ" rules={[{ required: true, message: 'กรุณาเลือก' }]}>
             <Radio.Group options={[{ value: 'final', label: 'ตรวจรอบสุดท้าย' }, { value: 'periodic', label: 'ตามรอบสัญญา' }]} />

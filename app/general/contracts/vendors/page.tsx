@@ -9,7 +9,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import { FaBuilding } from 'react-icons/fa'
 import {
-  api, ApiError, cardStyle, ContractDrawer, ContractPage, CONTRACT_STATUS, DueTag, fmtDate, fmtMoney, PAY_STATUS, WORK_TYPES, type ContractMe,
+  api, ApiError, cardStyle, ContractDrawer, ContractPage, CONTRACT_STATUS, DueTag, fmtDate, fmtMoney, PAY_STATUS, StatCard, WORK_TYPES, type ContractMe,
 } from '../contractShared'
 import { usePayableActions } from '../payableActions'
 
@@ -123,10 +123,10 @@ const VendorsContent = ({ me }: { me: ContractMe }) => {
   return (
     <>
       <Row gutter={[12, 12]} className="mb-4">
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="ยอดเจ้าหนี้รวม" value={fmtMoney(totals.payable)} suffix="บาท" /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="จ่ายแล้ว" value={fmtMoney(totals.paid)} suffix="บาท" /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="ค้างจ่าย" value={fmtMoney(totals.outstanding)} suffix="บาท" /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="เกินกำหนด" value={fmtMoney(totals.overdue)} suffix="บาท" /></Card></Col>
+        <Col xs={12} md={6}><StatCard title="ยอดเจ้าหนี้รวม (บาท)" value={fmtMoney(totals.payable)} note={`ผู้รับจ้าง ${vendors.length} ราย`} /></Col>
+        <Col xs={12} md={6}><StatCard title="จ่ายแล้ว (บาท)" value={fmtMoney(totals.paid)} note="ไม่นับรายการที่ยกเลิก" /></Col>
+        <Col xs={12} md={6}><StatCard title="ค้างจ่าย (บาท)" value={fmtMoney(totals.outstanding)} note="ทุกผู้รับจ้าง" /></Col>
+        <Col xs={12} md={6}><StatCard title="เกินกำหนด (บาท)" value={fmtMoney(totals.overdue)} note="เลยวันครบกำหนดจ่าย" danger={totals.overdue > 0} /></Col>
       </Row>
       <Card style={cardStyle} styles={{ body: { padding: 12 } }}>
         <Tabs items={[

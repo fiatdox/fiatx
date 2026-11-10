@@ -1,7 +1,7 @@
 'use client'
 // หน้าจอกลุ่มงานการเงิน: ทะเบียนหลักประกัน วันหมดอายุ จ่ายคืน วางทรัพย์ ส่งคลัง
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Row, Segmented, Select, Table, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Row, Segmented, Select, Table, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
 import { FaCoins } from 'react-icons/fa'
@@ -28,9 +28,11 @@ const FinanceContent = ({ me }: { me: ContractMe }) => {
   const [refresh, setRefresh] = useState(0)
   const [editing, setEditing] = useState<any | null>(null)
   const [paying, setPaying] = useState<any | null>(null)
+  const [deleting, setDeleting] = useState<any | null>(null)
   const [saving, setSaving] = useState(false)
   const [form] = Form.useForm()
   const [payForm] = Form.useForm()
+  const [deleteForm] = Form.useForm()
   const type = Form.useWatch('guarantee_type', form)
   const method = Form.useWatch('method', payForm)
 
@@ -90,6 +92,20 @@ const FinanceContent = ({ me }: { me: ContractMe }) => {
     } catch (e) { fail(e, payForm) } finally { setSaving(false) }
   }
 
+  // ADMIN: ลบหลักประกันที่บันทึกผิด
+  const remove = async () => {
+    const v = await deleteForm.validateFields().catch(() => null)
+    if (!v) return
+    setSaving(true)
+    try {
+      await api(`guarantees/${deleting.id}/delete`, 'POST', v)
+      message.success('ลบหลักประกันแล้ว')
+      setDeleting(null)
+      setRefresh(n => n + 1)
+      load()
+    } catch (e) { fail(e, deleteForm) } finally { setSaving(false) }
+  }
+
   const counts = useMemo(() => ({
     all: rows.length,
     pay: rows.filter(r => r.can_pay).length,
@@ -111,7 +127,12 @@ const FinanceContent = ({ me }: { me: ContractMe }) => {
       : r.return_status ? <><Tag color={RETURN_STATUS[r.return_status]?.color}>{RETURN_STATUS[r.return_status]?.label}</Tag><DueTag state={r.due_state} date={r.return_due_date} /></> : <Tag color="blue">ถือไว้</Tag> },
     { title: '', width: 170, align: 'right', fixed: 'right', render: (_: unknown, r: any) => r.status !== 'held' ? null : (
       <>
-        {me.finance && <Button size="small" type="link" onClick={() => openForm(r)}>แก้ไข</Button>}
+        {r.can_edit && <Button size="small" type="link" onClick={() => openForm(r)}>แก้ไข</Button>}
+        {me.isAdmin && (
+          r.can_delete
+            ? <Button size="small" type="link" danger onClick={() => { deleteForm.resetFields(); setDeleting(r) }}>ลบ</Button>
+            : <Tooltip title="มีเรื่องเสนอคืนค้างอยู่ ต้องให้ผู้อนุมัติส่งกลับก่อน"><Button size="small" type="link" danger disabled>ลบ</Button></Tooltip>
+        )}
         {r.can_pay && <Button size="small" type="primary" onClick={() => openPay(r)}>บันทึกการคืน</Button>}
       </>
     ) },
@@ -122,7 +143,7 @@ const FinanceContent = ({ me }: { me: ContractMe }) => {
       <Card style={cardStyle} styles={{ body: { padding: 12 } }}>
         <div className="flex flex-wrap gap-2 justify-between mb-3">
           <Input.Search allowClear placeholder="ค้นหาเลขที่สัญญา โครงการ ผู้รับจ้าง เลขหนังสือ" style={{ maxWidth: 360 }} onSearch={setSearch} aria-label="ค้นหาหลักประกัน" />
-          {me.finance && <Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>บันทึกหลักประกัน</Button>}
+          {me.editGuarantees && <Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>บันทึกหลักประกัน</Button>}
         </div>
         <div className="mb-3" style={{ overflowX: 'auto' }}>
           <Segmented value={view} onChange={v => setView(v as View)} options={[
@@ -178,6 +199,14 @@ const FinanceContent = ({ me }: { me: ContractMe }) => {
             </>
           )}
           <Form.Item name="note" label="หมายเหตุ"><TextArea rows={2} /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title={`ลบหลักประกัน ${deleting?.contract_no ?? ''} · ${fmtMoney(deleting?.amount)} บาท`} open={!!deleting} onCancel={() => setDeleting(null)} onOk={remove} okText="ลบถาวร" okButtonProps={{ danger: true }} cancelText="ไม่ลบ" confirmLoading={saving} forceRender>
+        <Alert className="mb-3" type="error" showIcon title="ลบแล้วกู้คืนไม่ได้"
+          description="ใช้กับหลักประกันที่บันทึกผิดเท่านั้น ถ้าเป็นหลักประกันตัวสุดท้ายของสัญญา งาน “บันทึกหลักประกัน” จะกลับมาเปิดให้การเงินลงใหม่ ระบบเก็บสำเนาไว้ในประวัติการแก้ไข" />
+        <Form form={deleteForm} layout="vertical">
+          <Form.Item name="reason" label="เหตุผลที่ลบ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}><TextArea rows={2} placeholder="เช่น ลงจำนวนเงินผิดสัญญา" /></Form.Item>
         </Form>
       </Modal>
     </>

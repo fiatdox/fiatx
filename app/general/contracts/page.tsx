@@ -1,12 +1,15 @@
 'use client'
 // หน้ารวมระบบคืนหลักประกันสัญญา: ทางเข้าหน้าจอของแต่ละหน่วยงาน + งานของฉัน + ภาพรวม + กฎ
 import React, { useCallback, useEffect, useState } from 'react'
-import { Alert, App, Button, Card, Col, Empty, Row, Statistic, Table, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Row, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { FaBoxOpen, FaBuilding, FaCalendarCheck, FaClipboardCheck, FaCogs, FaCoins, FaFileContract, FaSignature, FaTools } from 'react-icons/fa'
 import Link from 'next/link'
+import dayjs from 'dayjs'
+import EChart from '@/app/components/EChart'
+import { useThemeMode } from '@/app/components/ThemeProvider'
 import {
-  api, cardStyle, ContractDrawer, ContractPage, DueTag, fmtMoney, TASK_DUTIES, type ContractMe, type ScreenKey,
+  api, cardStyle, ContractDrawer, ContractPage, DueTag, fmtMoney, GUARANTEE_TYPES, StatCard, TASK_DUTIES, type ContractMe, type ScreenKey,
 } from './contractShared'
 
 const { Text } = Typography
@@ -27,6 +30,87 @@ const TASK_LINK: Record<string, string> = {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// ขั้นของสัญญาเรียงตามลำดับงานจริง ตั้งแต่พัสดุยังไม่ตั้งวันหมดประกันจนคืนหลักประกันแล้ว
+const STAGES: { key: string; label: string }[] = [
+  { key: 'no_t', label: 'ยังไม่ตั้งวันหมดประกัน' },
+  { key: 'warranty', label: 'อยู่ในระยะประกัน' },
+  { key: 'expired', label: 'หมดประกัน รอเสนอคืน' },
+  { key: 'pending', label: 'เสนอคืน รออนุมัติ' },
+  { key: 'approved', label: 'อนุมัติแล้ว รอจ่ายคืน' },
+  { key: 'returned', label: 'คืนหลักประกันแล้ว' },
+]
+const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const short = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(Math.round(n))
+// สีสถานะ ใช้เฉพาะกราฟที่บอกสถานะ และมีคำกำกับใน legend เสมอ
+const STATUS_COLOR = { normal: '#0d9488', near: '#f59e0b', overdue: '#dc2626' }
+
+const HubCharts = ({ s }: { s: any }) => {
+  const { mode } = useThemeMode()
+  const theme = mode === 'dark' ? 'dark' : 'light'
+  const charts = s.charts ?? { stages: [], expiry: [], by_type: [] }
+
+  const stageData = STAGES.map(x => ({ ...x, n: charts.stages.find((r: any) => r.stage === x.key)?.n ?? 0 }))
+  // 12 เดือนนับจากเดือนนี้ + กองแรก = เลยวันหมดประกันแล้วแต่ยังไม่คืน
+  const now = dayjs()
+  const months = [{ key: 'past', label: 'เลยกำหนดแล้ว' }, ...Array.from({ length: 12 }, (_, i) => {
+    const d = now.add(i, 'month')
+    return { key: d.format('YYYY-MM'), label: `${TH_MONTHS[d.month()]} ${String(d.year() + 543).slice(2)}` }
+  })].map(m => {
+    const r = charts.expiry.find((x: any) => x.month === m.key)
+    return { ...m, amount: r?.amount ?? 0, contracts: r?.contracts ?? 0 }
+  })
+  const duties = (s.by_duty ?? []).map((d: any) => ({ label: TASK_DUTIES[d.duty] ?? d.duty, normal: d.open - d.near - d.overdue, near: d.near, overdue: d.overdue }))
+  const types = (charts.by_type as any[]).map(t => ({ label: GUARANTEE_TYPES[t.guarantee_type] ?? t.guarantee_type, amount: t.amount, n: t.n })).sort((a, b) => b.amount - a.amount)
+
+  const axisCommon = { axisLabel: { fontSize: 11 }, splitLine: { lineStyle: { opacity: 0.3 } } }
+  const hbar = (cats: string[], data: any[], fmt: (v: number) => string, tip: (i: number) => string) => ({
+    backgroundColor: 'transparent',
+    grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: any[]) => tip(p[0].dataIndex) },
+    xAxis: { type: 'value', ...axisCommon, splitNumber: 3, minInterval: 1, axisLabel: { fontSize: 11, formatter: fmt } },
+    yAxis: { type: 'category', data: cats, inverse: true, axisLabel: { fontSize: 11 } },
+    series: [{ type: 'bar', barMaxWidth: 18, itemStyle: { color: '#0891b2', borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', fontSize: 11, formatter: (p: any) => p.value > 0 ? fmt(p.value) : '' }, data }],
+  })
+  const card = (title: string, sub: string, option: any, empty: boolean, height = 260) => (
+    <Card size="small" title={title} style={{ ...cardStyle, height: '100%' }}>
+      <Text type="secondary" style={{ fontSize: 12 }}>{sub}</Text>
+      {empty ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ยังไม่มีข้อมูล" style={{ padding: '48px 0' }} /> : <EChart theme={theme} height={height} option={option} />}
+    </Card>
+  )
+
+  return (
+    <Row gutter={[12, 12]} className="mb-4">
+      <Col xs={24} lg={12}>{card('สัญญาแยกตามขั้นตอน', 'ไม่นับสัญญาที่ยกเลิก', hbar(stageData.map(x => x.label), stageData.map(x => x.n), v => String(v), i => `${stageData[i].label}<br/><b>${stageData[i].n}</b> ฉบับ`), stageData.every(x => x.n === 0))}</Col>
+      <Col xs={24} lg={12}>{card('หลักประกันที่ต้องคืน ตามเดือนหมดประกัน', '12 เดือนข้างหน้า และที่เลยวันหมดประกันแล้วแต่ยังไม่คืน', {
+        backgroundColor: 'transparent',
+        grid: { left: 8, right: 8, top: 20, bottom: 8, containLabel: true },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: any[]) => { const m = months[p[0].dataIndex]; return `${m.label}<br/><b>${fmtMoney(m.amount)}</b> บาท · ${m.contracts} สัญญา` } },
+        xAxis: { type: 'category', data: months.map(m => m.label), axisLabel: { fontSize: 10, interval: 0, rotate: 45 } },
+        yAxis: { type: 'value', ...axisCommon, axisLabel: { fontSize: 11, formatter: short } },
+        series: [{
+          type: 'bar', barMaxWidth: 22,
+          label: { show: true, position: 'top', fontSize: 10, formatter: (p: any) => months[p.dataIndex].contracts ? `${months[p.dataIndex].contracts}` : '' },
+          data: months.map(m => ({ value: m.amount, itemStyle: { color: m.key === 'past' ? STATUS_COLOR.overdue : '#0891b2', borderRadius: [4, 4, 0, 0] } })),
+        }],
+      }, months.every(m => m.contracts === 0))}</Col>
+      <Col xs={24} lg={12}>{card('งานค้างแยกตามผู้รับผิดชอบ', 'จำนวนงานที่ยังเปิดอยู่ของสัญญาที่ดำเนินการ', {
+        backgroundColor: 'transparent',
+        legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11 } },
+        grid: { left: 8, right: 16, top: 8, bottom: 32, containLabel: true },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'value', minInterval: 1, ...axisCommon },
+        yAxis: { type: 'category', data: duties.map((d: any) => d.label), inverse: true, axisLabel: { fontSize: 11 } },
+        series: ([['normal', 'ปกติ'], ['near', 'ใกล้กำหนด'], ['overdue', 'เกินกำหนด']] as const).map(([k, name]) => ({
+          name, type: 'bar', stack: 'tasks', barMaxWidth: 18, itemStyle: { color: STATUS_COLOR[k], borderColor: 'transparent', borderWidth: 1 },
+          label: { show: true, fontSize: 10, color: '#fff', formatter: (p: any) => p.value > 0 ? p.value : '' },
+          data: duties.map((d: any) => d[k]),
+        })),
+      }, duties.length === 0)}</Col>
+      <Col xs={24} lg={12}>{card('หลักประกันที่ถือไว้ แยกตามประเภท', 'ยอดเงินและจำนวนฉบับที่ยังไม่คืน', hbar(types.map(t => t.label), types.map(t => t.amount), short, i => `${types[i].label}<br/><b>${fmtMoney(types[i].amount)}</b> บาท · ${types[i].n} ฉบับ`), types.length === 0)}</Col>
+    </Row>
+  )
+}
+
 const Overview = ({ me }: { me: ContractMe }) => {
   const { message } = App.useApp()
   const [data, setData] = useState<any>(null)
@@ -81,14 +165,15 @@ const Overview = ({ me }: { me: ContractMe }) => {
 
       {s && (
         <Row gutter={[12, 12]} className="mb-4">
-          <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="สัญญาที่ยังดำเนินการ" value={s.contracts.active} suffix="ฉบับ" /></Card></Col>
-          <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="หลักประกันที่ถือไว้" value={fmtMoney(s.money.held)} suffix="บาท" /></Card></Col>
-          <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="หลักประกันเกินกำหนดคืน" value={fmtMoney(s.money.overdue_amount)} suffix="บาท" /></Card></Col>
-          <Col xs={12} md={6}><Card style={cardStyle}><Statistic title="คืนทันกำหนด" value={s.kpi.total ? `${s.kpi.on_time}/${s.kpi.total}` : '—'} suffix={s.kpi.total ? 'ฉบับ' : ''} /></Card></Col>
+          <Col xs={12} md={6}><StatCard title="สัญญาที่ยังดำเนินการ" value={s.contracts.active} unit="ฉบับ" note={`คืนหลักประกันแล้ว ${s.contracts.returned} ฉบับ`} /></Col>
+          <Col xs={12} md={6}><StatCard title="หลักประกัน (บาท)" value={fmtMoney(s.money.held)} note="ถือไว้ ยังไม่คืนผู้รับจ้าง" /></Col>
+          <Col xs={12} md={6}><StatCard title="เกินกำหนดคืน (บาท)" value={fmtMoney(s.money.overdue_amount)} note="เลยกำหนดคืนแล้ว" danger={s.money.overdue_amount > 0} /></Col>
+          <Col xs={12} md={6}><StatCard title="คืนทันกำหนด" value={s.kpi.total ? `${s.kpi.on_time}/${s.kpi.total}` : '—'} unit={s.kpi.total ? 'ฉบับ' : undefined} note="จากที่คืนแล้วทั้งหมด" /></Col>
         </Row>
       )}
       {s && s.money.expiring > 0 && <Alert className="mb-4" type="warning" showIcon title={`หนังสือค้ำประกัน ${s.money.expiring} ฉบับหมดอายุก่อนวันหมดประกัน + ${data.rules.guarantee_margin_days} วัน — ควรเรียกต่ออายุ`} />}
       {s && s.contracts.no_t > 0 && <Alert className="mb-4" type="info" showIcon title={`มี ${s.contracts.no_t} สัญญาที่พัสดุยังไม่ได้ตั้งวันหมดประกัน — ระบบจึงยังไม่สร้างงานให้`} />}
+      {s && <HubCharts s={s} />}
 
       {visible.length > 0 && (
         <Card className="mb-4" title={`งานของฉัน (${data?.tasks?.length ?? 0})`} style={cardStyle} styles={{ body: { padding: 12 } }}>

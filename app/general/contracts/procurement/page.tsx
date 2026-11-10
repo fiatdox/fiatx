@@ -2,7 +2,7 @@
 // หน้าจอกลุ่มงานพัสดุ: ทะเบียนสัญญา ผู้รับจ้าง ผู้รับผิดชอบ แฟ้มเอกสาร ติดตามชำรุด เสนอคืน
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, App, Button, Card, Col, Divider, Drawer, Empty, Form, Input, InputNumber, Modal, Radio, Row, Select, Table, Tag, Typography,
+  Alert, App, Button, Card, Col, Divider, Drawer, Empty, Form, Input, InputNumber, Modal, Radio, Row, Select, Table, Tag, Tooltip, Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
@@ -19,6 +19,9 @@ const { TextArea } = Input
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const DateInput = (p: any) => <ThaiDatePicker {...p} format={DATE_FORMAT} style={{ width: '100%' }} />
+// ฟอร์มทุกตัวสร้างไว้ล่วงหน้า (forceRender) ก่อนลิ้นชักสัญญา ถ้าไม่ยกชั้นจะเปิดขึ้นไปอยู่หลังลิ้นชัก
+// ลิ้นชัก/หน้าต่าง antd ค่าเริ่มต้น 1000 · ผู้รับจ้างเปิดจากฟอร์มสัญญาอีกชั้นจึง +100
+const OVER_DRAWER = 1100
 
 // ชี้ช่องที่ผิดตามที่ backend บอก ถ้าไม่มีช่องให้ขึ้นเป็นข้อความรวม
 const useSubmit = (form?: any) => {
@@ -54,6 +57,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
   const [defectEdit, setDefectEdit] = useState<any | null>(null)
   const [returnFor, setReturnFor] = useState<any | null>(null)
   const [cancelFor, setCancelFor] = useState<any | null>(null)
+  const [deleteFor, setDeleteFor] = useState<any | null>(null)
 
   const [contractForm] = Form.useForm()
   const [vendorForm] = Form.useForm()
@@ -63,6 +67,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
   const [defectForm] = Form.useForm()
   const [returnForm] = Form.useForm()
   const [cancelForm] = Form.useForm()
+  const [deleteForm] = Form.useForm()
 
   const load = useCallback(async () => {
     try {
@@ -229,6 +234,19 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       changed()
     })
   }
+  // ADMIN: ลบถาวร — ลิ้นชักของสัญญานั้นต้องปิดด้วย เพราะไม่มีข้อมูลให้แสดงแล้ว
+  const deleteSubmit = useSubmit(deleteForm)
+  const saveDelete = async () => {
+    const v = await deleteForm.validateFields().catch(() => null)
+    if (!v) return
+    await deleteSubmit.run(async () => {
+      await api(`list/${deleteFor.id}/delete`, 'POST', v)
+      message.success(`ลบสัญญา ${deleteFor.contract_no} แล้ว`)
+      setDeleteFor(null)
+      setOpenId(null)
+      changed()
+    })
+  }
 
   const doneTask = async (id: number) => {
     try { await api(`tasks/${id}/done`, 'POST', {}); message.success('ปิดงานแล้ว'); changed() } catch (e) { message.error((e as Error).message) }
@@ -252,7 +270,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
           <Input.Search allowClear placeholder="ค้นหาเลขที่สัญญา โครงการ ผู้รับจ้าง" style={{ maxWidth: 360 }} onSearch={setSearch} aria-label="ค้นหาสัญญา" />
           <div className="flex gap-2">
             <Link href="/general/contracts/vendors"><Button>ทะเบียนผู้รับจ้าง</Button></Link>
-            {me.procurement && <Button type="primary" icon={<PlusOutlined />} onClick={() => openContractForm()}>เพิ่มสัญญา</Button>}
+            {me.editContracts && <Button type="primary" icon={<PlusOutlined />} onClick={() => openContractForm()}>เพิ่มสัญญา</Button>}
           </div>
         </div>
         <Table size="small" rowKey="id" loading={loading} columns={columns} dataSource={rows} pagination={{ pageSize: 20, hideOnSinglePage: true }} scroll={{ x: 'max-content' }}
@@ -260,25 +278,38 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Card>
 
       <ContractDrawer id={openId} refreshKey={refresh} onClose={() => setOpenId(null)}
-        renderActions={d => d.can.edit && (
+        renderActions={d => (
           <>
-            <Button size="small" onClick={() => openContractForm(d)}>แก้ไขข้อมูลสัญญา</Button>
-            <Button size="small" onClick={() => { amendForm.resetFields(); setAmendFor(d) }}>บันทึกแก้ไข/ขยายสัญญา</Button>
-            <Button size="small" onClick={() => openStaff(d)}>มอบหมายผู้รับผิดชอบ</Button>
-            <Button size="small" onClick={() => openDoc(d, null)}>ลงทะเบียนเอกสาร</Button>
-            <Button size="small" type="primary" onClick={() => { returnForm.resetFields(); setReturnFor(d) }}>เสนอคืนหลักประกัน</Button>
-            <Button size="small" danger onClick={() => { cancelForm.resetFields(); setCancelFor(d) }}>ยกเลิกรายการ</Button>
+            {d.can.edit && (
+              <>
+                <Button size="small" onClick={() => openContractForm(d)}>แก้ไขข้อมูลสัญญา</Button>
+                <Button size="small" onClick={() => { amendForm.resetFields(); setAmendFor(d) }}>บันทึกแก้ไข/ขยายสัญญา</Button>
+                <Button size="small" onClick={() => openStaff(d)}>มอบหมายผู้รับผิดชอบ</Button>
+                <Button size="small" onClick={() => openDoc(d, null)}>ลงทะเบียนเอกสาร</Button>
+              </>
+            )}
+            {d.can.procure && <Button size="small" type="primary" onClick={() => { returnForm.resetFields(); setReturnFor(d) }}>เสนอคืนหลักประกัน</Button>}
+            {d.can.edit && <Button size="small" danger onClick={() => { cancelForm.resetFields(); setCancelFor(d) }}>ยกเลิกรายการ</Button>}
+            {me.isAdmin && (
+              d.can.delete
+                ? <Button size="small" danger type="primary" icon={<DeleteOutlined />} onClick={() => { deleteForm.resetFields(); setDeleteFor(d) }}>ลบสัญญา</Button>
+                : <Tooltip title={d.can.delete_block}><Button size="small" danger icon={<DeleteOutlined />} disabled>ลบสัญญา</Button></Tooltip>
+            )}
           </>
         )}
-        renderExtraColumns={d => !d.can.edit ? {} : ({
-          tasks: [{ title: '', render: (_: unknown, t: any) => t.status === 'open' && ['NOTIFY_WARRANTY', 'SCHEDULE_FINAL'].includes(t.code) ? <Button size="small" onClick={() => doneTask(t.id)}>ทำแล้ว</Button> : null }],
-          documents: [{ title: '', render: (_: unknown, x: any) => <Button size="small" onClick={() => openDoc(d, x)}>ตรวจนับ/แก้ไข</Button> }],
-          defects: [{ title: '', render: (_: unknown, x: any) => <Button size="small" onClick={() => { defectForm.setFieldsValue({ notified_vendor_date: toFormDate(x.notified_vendor_date), fixed_date: toFormDate(x.fixed_date), fixed_note: x.fixed_note }); setDefectEdit(x) }}>ติดตาม</Button> }],
+        renderExtraColumns={d => ({
+          ...(d.can.procure ? {
+            tasks: [{ title: '', render: (_: unknown, t: any) => t.status === 'open' && ['NOTIFY_WARRANTY', 'SCHEDULE_FINAL'].includes(t.code) ? <Button size="small" onClick={() => doneTask(t.id)}>ทำแล้ว</Button> : null }],
+            defects: [{ title: '', render: (_: unknown, x: any) => <Button size="small" onClick={() => { defectForm.setFieldsValue({ notified_vendor_date: toFormDate(x.notified_vendor_date), fixed_date: toFormDate(x.fixed_date), fixed_note: x.fixed_note }); setDefectEdit(x) }}>ติดตาม</Button> }],
+          } : {}),
+          ...(d.can.edit ? {
+            documents: [{ title: '', render: (_: unknown, x: any) => <Button size="small" onClick={() => openDoc(d, x)}>ตรวจนับ/แก้ไข</Button> }],
+          } : {}),
         })}
       />
 
       {/* ฟอร์มสัญญา */}
-      <Drawer title={editing?.id ? `แก้ไขสัญญา ${editing.contract_no}` : 'เพิ่มสัญญา'} open={!!editing} onClose={() => setEditing(null)} size={720} forceRender
+      <Drawer title={editing?.id ? `แก้ไขสัญญา ${editing.contract_no}` : 'เพิ่มสัญญา'} open={!!editing} onClose={() => setEditing(null)} size={720} forceRender zIndex={OVER_DRAWER}
         extra={<Button type="primary" onClick={saveContract} loading={contractSubmit.saving}>บันทึก</Button>}>
         <Form form={contractForm} layout="vertical" onValuesChange={suggestWarrantyEnd}>
           <Row gutter={12}>
@@ -309,7 +340,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Drawer>
 
       {/* ผู้รับจ้าง */}
-      <Modal title="เพิ่มผู้รับจ้าง" open={!!vendorEdit} onCancel={() => setVendorEdit(null)} onOk={saveVendor} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={vendorSubmit.saving} forceRender>
+      <Modal title="เพิ่มผู้รับจ้าง" open={!!vendorEdit} onCancel={() => setVendorEdit(null)} onOk={saveVendor} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={vendorSubmit.saving} forceRender zIndex={OVER_DRAWER + 100}>
         <Form form={vendorForm} layout="vertical">
           <Form.Item name="name" label="ชื่อผู้รับจ้าง" rules={[{ required: true, message: 'กรุณาระบุชื่อ' }]}><Input maxLength={255} /></Form.Item>
           <Form.Item name="tax_id" label="เลขทะเบียนนิติบุคคล/ผู้เสียภาษี" extra="13 หลัก ใช้ผูกประวัติงานของบริษัทเดียวกัน"><Input maxLength={17} /></Form.Item>
@@ -323,7 +354,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* แก้ไขสัญญา */}
-      <Modal title={`บันทึกแก้ไข/ขยายสัญญา ${amendFor?.contract_no ?? ''}`} open={!!amendFor} onCancel={() => setAmendFor(null)} onOk={saveAmend} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={amendSubmit.saving} forceRender>
+      <Modal title={`บันทึกแก้ไข/ขยายสัญญา ${amendFor?.contract_no ?? ''}`} open={!!amendFor} onCancel={() => setAmendFor(null)} onOk={saveAmend} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={amendSubmit.saving} forceRender zIndex={OVER_DRAWER}>
         <Form form={amendForm} layout="vertical">
           <Row gutter={12}>
             <Col xs={24} md={12}><Form.Item name="amendment_no" label="เลขที่บันทึกแก้ไข" rules={[{ required: true, message: 'กรุณาระบุเลขที่' }]}><Input maxLength={60} /></Form.Item></Col>
@@ -339,7 +370,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* ผู้รับผิดชอบ */}
-      <Modal title={`ผู้รับผิดชอบ ${staffFor?.contract_no ?? ''}`} open={!!staffFor} onCancel={() => setStaffFor(null)} onOk={saveStaff} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={staffSubmit.saving} width={820} forceRender>
+      <Modal title={`ผู้รับผิดชอบ ${staffFor?.contract_no ?? ''}`} open={!!staffFor} onCancel={() => setStaffFor(null)} onOk={saveStaff} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={staffSubmit.saving} width={820} forceRender zIndex={OVER_DRAWER}>
         <Alert className="mb-3" type="info" showIcon title="ผู้รับผิดชอบและผู้สำรองจะเห็นสัญญานี้ในหน้าจอของหน้าที่นั้น" description="ผู้อนุมัติต้องไม่เป็นผู้ตรวจในสัญญาเดียวกัน ถ้าไม่ระบุผู้อนุมัติ ผอ. จะเป็นผู้พิจารณา" />
         <Form form={staffForm} layout="vertical">
           <Form.List name="staff">
@@ -361,7 +392,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* เอกสาร */}
-      <Modal title={docFor?.doc ? 'ตรวจนับ/แก้ไขเอกสาร' : 'ลงทะเบียนเอกสาร'} open={!!docFor} onCancel={() => setDocFor(null)} onOk={saveDoc} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={docSubmit.saving} forceRender>
+      <Modal title={docFor?.doc ? 'ตรวจนับ/แก้ไขเอกสาร' : 'ลงทะเบียนเอกสาร'} open={!!docFor} onCancel={() => setDocFor(null)} onOk={saveDoc} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={docSubmit.saving} forceRender zIndex={OVER_DRAWER}>
         <Form form={docForm} layout="vertical">
           <Form.Item name="doc_type" label="ประเภทเอกสาร" rules={[{ required: true, message: 'กรุณาเลือก' }]}><Select options={toOptions(DOC_TYPES)} /></Form.Item>
           <Form.Item name="title" label="ชื่อเอกสาร" rules={[{ required: true, message: 'กรุณาระบุชื่อเอกสาร' }]}><Input maxLength={300} /></Form.Item>
@@ -378,7 +409,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* ติดตามชำรุด */}
-      <Modal title="ติดตามความชำรุด" open={!!defectEdit} onCancel={() => setDefectEdit(null)} onOk={saveDefect} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={defectSubmit.saving} forceRender>
+      <Modal title="ติดตามความชำรุด" open={!!defectEdit} onCancel={() => setDefectEdit(null)} onOk={saveDefect} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={defectSubmit.saving} forceRender zIndex={OVER_DRAWER}>
         <Text type="secondary">{defectEdit?.detail}</Text>
         <Divider />
         <Form form={defectForm} layout="vertical">
@@ -389,7 +420,7 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* เสนอคืน */}
-      <Modal title={`เสนอคืนหลักประกัน ${returnFor?.contract_no ?? ''}`} open={!!returnFor} onCancel={() => setReturnFor(null)} onOk={saveReturn} okText="ส่งเสนออนุมัติ" cancelText="ยกเลิก" confirmLoading={returnSubmit.saving} forceRender>
+      <Modal title={`เสนอคืนหลักประกัน ${returnFor?.contract_no ?? ''}`} open={!!returnFor} onCancel={() => setReturnFor(null)} onOk={saveReturn} okText="ส่งเสนออนุมัติ" cancelText="ยกเลิก" confirmLoading={returnSubmit.saving} forceRender zIndex={OVER_DRAWER}>
         <Alert className="mb-3" type="info" showIcon title={`วันหมดประกัน ${fmtDate(returnFor?.warranty_end_date)}`} description="ระบบจะตรวจว่าผ่านตรวจรอบสุดท้าย ไม่มีชำรุดค้าง และการเงินบันทึกหลักประกันแล้ว กำหนดคืนนับจากวันพ้นภาระตามค่าที่ตั้งไว้" />
         <Form form={returnForm} layout="vertical">
           <Form.Item name="released_date" label="วันที่ผู้รับจ้างพ้นภาระตามสัญญา" rules={[{ required: true, message: 'กรุณาระบุวันที่' }]}><DateInput disabledDate={(d: dayjs.Dayjs) => d.isAfter(dayjs(), 'day')} /></Form.Item>
@@ -398,10 +429,19 @@ const ProcurementContent = ({ me }: { me: ContractMe }) => {
       </Modal>
 
       {/* ยกเลิก */}
-      <Modal title={`ยกเลิกรายการ ${cancelFor?.contract_no ?? ''}`} open={!!cancelFor} onCancel={() => setCancelFor(null)} onOk={saveCancel} okText="ยืนยันยกเลิก" okButtonProps={{ danger: true }} cancelText="ไม่ยกเลิก" confirmLoading={cancelSubmit.saving} forceRender>
+      <Modal title={`ยกเลิกรายการ ${cancelFor?.contract_no ?? ''}`} open={!!cancelFor} onCancel={() => setCancelFor(null)} onOk={saveCancel} okText="ยืนยันยกเลิก" okButtonProps={{ danger: true }} cancelText="ไม่ยกเลิก" confirmLoading={cancelSubmit.saving} forceRender zIndex={OVER_DRAWER}>
         <Alert className="mb-3" type="warning" showIcon title="ใช้เมื่อบันทึกผิดหรือสัญญาถูกยกเลิก" description="สัญญาที่ยังถือหลักประกันอยู่ยกเลิกไม่ได้ เพราะพัสดุหรือฝ่ายกฎหมายต้องตัดสินเรื่องหลักประกันก่อน" />
         <Form form={cancelForm} layout="vertical">
           <Form.Item name="reason" label="เหตุผล" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}><TextArea rows={2} /></Form.Item>
+        </Form>
+      </Modal>
+
+      {/* ลบถาวร (ADMIN) */}
+      <Modal title={`ลบสัญญา ${deleteFor?.contract_no ?? ''}`} open={!!deleteFor} onCancel={() => setDeleteFor(null)} onOk={saveDelete} okText="ลบถาวร" okButtonProps={{ danger: true }} cancelText="ไม่ลบ" confirmLoading={deleteSubmit.saving} forceRender zIndex={OVER_DRAWER}>
+        <Alert className="mb-3" type="error" showIcon title="ลบแล้วกู้คืนไม่ได้"
+          description="ผู้รับผิดชอบ เอกสาร ผลตรวจ รายการชำรุด เรื่องเสนอคืน และงานตามกำหนดของสัญญานี้จะถูกลบด้วย ระบบเก็บสำเนาไว้ในประวัติการแก้ไข ถ้าสัญญาเกิดขึ้นจริงแต่ถูกยกเลิก ให้ใช้ “ยกเลิกรายการ” แทน" />
+        <Form form={deleteForm} layout="vertical">
+          <Form.Item name="reason" label="เหตุผลที่ลบ" rules={[{ required: true, message: 'กรุณาระบุเหตุผล' }]}><TextArea rows={2} placeholder="เช่น บันทึกซ้ำกับสัญญาเลขที่ ..." /></Form.Item>
         </Form>
       </Modal>
     </>

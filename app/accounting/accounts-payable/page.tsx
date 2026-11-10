@@ -1,14 +1,14 @@
 'use client'
 // เจ้าหนี้การค้า — กำหนดจ่าย อ่านจากทะเบียนเจ้าหนี้กลาง (fin_payables) ชุดเดียวกับหน้าผู้รับจ้าง
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Col, Empty, Input, Row, Select, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Input, Row, Select, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { FieldTimeOutlined, FundOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { FundOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
 import { FaMoneyCheckAlt } from 'react-icons/fa'
 import Link from 'next/link'
 import dayjs, { type Dayjs } from 'dayjs'
 import {
-  api, cardStyle, ContractPage, DATE_FORMAT, DueTag, fmtDate, fmtMoney, PAY_STATUS, ThaiDatePicker, type ContractMe,
+  api, cardStyle, ContractPage, DATE_FORMAT, DueTag, fmtDate, fmtMoney, PAY_STATUS, StatCard, ThaiDatePicker, type ContractMe,
 } from '@/app/general/contracts/contractShared'
 import { usePayableActions } from '@/app/general/contracts/payableActions'
 
@@ -132,10 +132,10 @@ const PayableContent = ({ me }: { me: ContractMe }) => {
       </div>
 
       <Row gutter={[12, 12]} className="mb-4">
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title={`ค้างจ่าย (${summary.open.length} รายการ)`} value={fmtMoney(summary.outstanding)} suffix="บาท" /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title={`เกินกำหนด (${summary.overdue.length} รายการ)`} value={fmtMoney(summary.overdueAmount)} suffix="บาท" styles={summary.overdue.length ? { content: { color: 'var(--ant-color-error)' } } : undefined} /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title={`ใกล้ครบกำหนด (${summary.near.length} รายการ)`} value={fmtMoney(summary.nearAmount)} suffix="บาท" prefix={<FieldTimeOutlined />} /></Card></Col>
-        <Col xs={12} md={6}><Card style={cardStyle}><Statistic title={`KPI จ่ายตรงเวลา (${summary.judged} รายการ)`} value={summary.onTimePct ?? '—'} suffix={summary.onTimePct == null ? undefined : '%'} /></Card></Col>
+        <Col xs={12} md={6}><StatCard title="ค้างจ่าย (บาท)" value={fmtMoney(summary.outstanding)} note={`${summary.open.length} รายการ`} /></Col>
+        <Col xs={12} md={6}><StatCard title="เกินกำหนด (บาท)" value={fmtMoney(summary.overdueAmount)} note={`${summary.overdue.length} รายการ`} danger={summary.overdue.length > 0} /></Col>
+        <Col xs={12} md={6}><StatCard title="ใกล้ครบกำหนด (บาท)" value={fmtMoney(summary.nearAmount)} note={`${summary.near.length} รายการ`} /></Col>
+        <Col xs={12} md={6}><StatCard title="KPI จ่ายตรงเวลา" value={summary.onTimePct ?? '—'} unit={summary.onTimePct == null ? undefined : '%'} note={`จากที่จ่ายครบ ${summary.judged} รายการ`} /></Col>
       </Row>
 
       {summary.overdue.length > 0 && (

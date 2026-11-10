@@ -2,7 +2,7 @@
 // ของใช้ร่วมของหน้าจอระบบคืนหลักประกันสัญญา: เรียก API, ป้ายกำกับ, โครงหน้า, ลิ้นชักรายละเอียดสัญญา
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, App, Button, ConfigProvider, Descriptions, Divider, Drawer, Empty, Result, Select, Space, Spin, Table, Tag, theme, Typography,
+  Alert, App, Button, Card, ConfigProvider, Descriptions, Divider, Drawer, Empty, Result, Select, Space, Spin, Table, Tag, theme, Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, HomeOutlined } from '@ant-design/icons'
@@ -107,6 +107,8 @@ export const DueTag = ({ state, date }: { state?: string | null; date?: string |
 export type ScreenKey = 'procurement' | 'finance' | 'inspection' | 'custodian' | 'approval' | 'executive' | 'settings' | 'vendors'
 export interface ContractMe {
   uid: number; isAdmin: boolean; isDirector: boolean; isExecutive: boolean; procurement: boolean; finance: boolean; canEditRules: boolean; seeAll: boolean; duties: string[]
+  editContracts: boolean   // เพิ่ม/แก้ไขสัญญา = พัสดุ หรือ ADMIN
+  editGuarantees: boolean  // เพิ่ม/แก้ไขหลักประกัน = การเงิน หรือ ADMIN
   screens: Record<ScreenKey, boolean>
 }
 
@@ -151,7 +153,10 @@ export function ContractPage({ title, icon, screen, subtitle, crumbs, children }
                 <Result status="403" title="หน้าจอนี้ไม่ใช่งานของคุณ" subTitle="หน้านี้เปิดตามหน่วยงานหรือหน้าที่ที่ได้รับมอบหมายในสัญญา"
                   extra={<Link href="/general/contracts"><Button type="primary">กลับหน้ารวม</Button></Link>} />
               )}
-              {me?.isAdmin && screen !== 'settings' && <Alert className="mb-4" type="info" showIcon title="ผู้ดูแลระบบดูได้ทุกหน้า แต่แก้ไขได้เฉพาะหน้าตั้งค่าเริ่มต้น" />}
+              {me?.isAdmin && screen !== 'settings' && (
+                <Alert className="mb-4" type="info" showIcon title="ผู้ดูแลระบบเพิ่ม แก้ไข และลบสัญญาและหลักประกันได้"
+                  description="ขั้นตอนตามหน้าที่ เช่น ตรวจรับ เสนอคืน อนุมัติคืน และบันทึกการคืนเงิน ยังต้องทำโดยผู้มีหน้าที่" />
+              )}
               {me && !denied && children(me)}
             </div>
           </div>
@@ -162,6 +167,22 @@ export function ContractPage({ title, icon, screen, subtitle, crumbs, children }
 }
 
 export const cardStyle: React.CSSProperties = { background: 'var(--app-surface)', border: '1px solid var(--app-border-strong)' }
+
+// กล่องสรุปตัวเลข: สูงเท่ากันทั้งแถว (Col ยืดตามกล่องที่สูงสุด) หัวข้อบรรทัดเดียว ตัวเลขย่อตามความกว้างจอ
+// หน่วยเงินให้อยู่ในหัวข้อ เช่น "ค้างจ่าย (บาท)" เพื่อไม่ให้ตัวเลขบนมือถือถูกดันขึ้นบรรทัดใหม่
+export function StatCard({ title, value, unit, note, danger, loading }: {
+  title: string; value: React.ReactNode; unit?: string; note?: React.ReactNode; danger?: boolean; loading?: boolean
+}) {
+  return (
+    <Card style={{ ...cardStyle, height: '100%' }} styles={{ body: { padding: '14px 16px' } }} loading={loading}>
+      <div style={{ fontSize: 13, color: 'var(--app-text-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={title}>{title}</div>
+      <div style={{ fontSize: 'clamp(17px, 4.4vw, 24px)', fontWeight: 600, lineHeight: 1.3, marginTop: 4, fontVariantNumeric: 'tabular-nums', color: danger ? 'var(--ant-color-error)' : 'var(--app-text)' }}>
+        {value}{unit && <span style={{ fontSize: 13, fontWeight: 400, marginLeft: 4, color: 'var(--app-text-2)' }}>{unit}</span>}
+      </div>
+      {note && <div style={{ fontSize: 12, color: 'var(--app-text-2)', marginTop: 2 }}>{note}</div>}
+    </Card>
+  )
+}
 
 // ─── เลือกบุคลากร (ค้นหาจาก backend) ─────────────────────────────────────────
 export function UserSelect({ value, onChange, initial, placeholder, allowClear, ariaLabel }: {

@@ -1,14 +1,14 @@
 'use client'
 // Dashboard เจ้าหนี้การค้า อ่านจากทะเบียนเจ้าหนี้กลาง: ยอดจ่ายรายเดือน อายุหนี้ กระแสเงินที่ต้องจ่าย ผู้รับจ้างค้างสูงสุด
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Col, Empty, Row, Select, Statistic, Table, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Row, Select, Table, Typography } from 'antd'
 import { ArrowRightOutlined } from '@ant-design/icons'
 import { FaTachometerAlt } from 'react-icons/fa'
 import Link from 'next/link'
 import dayjs from 'dayjs'
 import EChart from '@/app/components/EChart'
 import { useThemeMode } from '@/app/components/ThemeProvider'
-import { api, cardStyle, ContractPage, DueTag, fmtMoney } from '@/app/general/contracts/contractShared'
+import { api, cardStyle, ContractPage, DueTag, fmtMoney, StatCard } from '@/app/general/contracts/contractShared'
 
 const { Text } = Typography
 
@@ -130,10 +130,10 @@ const DashboardContent = () => {
       </div>
 
       <Row gutter={[12, 12]} className="mb-4">
-        <Col xs={12} lg={6}><Card style={cardStyle} loading={loading}><Statistic title={`จ่ายแล้วในปีงบ ${fy}`} value={fmtMoney(s.paidFy)} suffix="บาท" /></Card></Col>
-        <Col xs={12} lg={6}><Card style={cardStyle} loading={loading}><Statistic title="ค้างจ่ายขณะนี้" value={fmtMoney(s.outstanding)} suffix="บาท" /></Card></Col>
-        <Col xs={12} lg={6}><Card style={cardStyle} loading={loading}><Statistic title={`KPI จ่ายตรงเวลา (${s.judged} รายการ)`} value={s.onTimePct ?? '—'} suffix={s.onTimePct == null ? undefined : '%'} /></Card></Col>
-        <Col xs={12} lg={6}><Card style={cardStyle} loading={loading}><Statistic title="ใบแจ้งหนี้ถึงจ่ายครบ เฉลี่ย" value={s.avgDays ?? '—'} suffix={s.avgDays == null ? undefined : 'วัน'} /></Card></Col>
+        <Col xs={12} lg={6}><StatCard loading={loading} title="จ่ายแล้ว (บาท)" value={fmtMoney(s.paidFy)} note={`ปีงบ ${fy}`} /></Col>
+        <Col xs={12} lg={6}><StatCard loading={loading} title="ค้างจ่าย (บาท)" value={fmtMoney(s.outstanding)} note="ณ วันนี้" /></Col>
+        <Col xs={12} lg={6}><StatCard loading={loading} title="KPI จ่ายตรงเวลา" value={s.onTimePct ?? '—'} unit={s.onTimePct == null ? undefined : '%'} note={`จากที่จ่ายครบ ${s.judged} รายการ`} /></Col>
+        <Col xs={12} lg={6}><StatCard loading={loading} title="ระยะเวลาจ่ายเฉลี่ย" value={s.avgDays ?? '—'} unit={s.avgDays == null ? undefined : 'วัน'} note="ใบแจ้งหนี้ถึงจ่ายครบ" /></Col>
       </Row>
 
       {s.overdue.length > 0 && (
