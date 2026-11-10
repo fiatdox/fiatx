@@ -11,15 +11,17 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
   HomeOutlined, FileTextOutlined, PaperClipOutlined, EyeOutlined, PrinterOutlined, FilterOutlined,
   ClearOutlined, CheckCircleOutlined, CloseCircleOutlined, ClockCircleOutlined, RollbackOutlined,
-  SafetyCertificateOutlined, EditOutlined, SyncOutlined,
+  SafetyCertificateOutlined, EditOutlined, SyncOutlined, CalendarOutlined, HistoryOutlined,
 } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
+import buddhistEra from 'dayjs/plugin/buddhistEra'
 import dynamic from 'next/dynamic'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider, useThemeMode } from '@/app/components/ThemeProvider'
 import type { LeaveFormData } from '@/app/components/LeaveFormPDF'
 import AttachmentModal from '../AttachmentModal'
 import ChainResyncModal from '../ChainResyncModal'
+import LeaveDatesEdit from './LeaveDatesEdit'
 import { beShort, nf, parseChain, buildLeaveFormData, type ApiChainStep, type ApiAction } from '@/app/lib/leaveFormData'
 
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้ ต้องโหลดตอน client เท่านั้น
@@ -88,15 +90,21 @@ const CHECK_META: Record<string, { label: string; color: string }> = {
   VERIFIED: { label: 'ตรวจแล้ว ถูกต้อง', color: 'success' },
   ADJUSTED: { label: 'แก้จำนวนวันแล้ว', color: 'processing' },
 }
-const checkOf = (r: Row) => CHECK_META[r.day_check_status ?? 'UNCHECKED']
+const checkOf = (r: Row) => {
+  // การตรวจล่าสุดคือการแก้วันที่ลา (บันทึกพร้อมกัน) → ป้ายบอกว่าแก้วันที่ ไม่ใช่แก้จำนวนวัน
+  const e = r.date_edits?.[0]
+  if (r.day_check_status === 'ADJUSTED' && e && r.day_checked_at && Math.abs(Date.parse(e.created_at) - Date.parse(r.day_checked_at)) < 60_000)
+    return { label: 'แก้วันที่ลาแล้ว', color: 'processing' }
+  return CHECK_META[r.day_check_status ?? 'UNCHECKED']
+}
 // ตรวจ/แก้ได้เฉพาะใบที่ยังมีผล (ไม่อนุมัติ / ยกเลิกแล้ว ไม่ได้หักวันลา)
 const CHECKABLE = ['PENDING', 'APPROVED', 'CANCEL_PENDING']
 const spanOf = (r: Row) => dayjs(r.end_date).diff(dayjs(r.start_date), 'day') + 1
 
 // readOnly = ผอ. / รักษาการ ผอ. — เห็นผลการตรวจ แต่ตรวจ/แก้/ยกเลิกไม่ได้ (เฉพาะ ADMIN / HR)
-const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void; readOnly?: boolean }) => {
+const DayCheck = ({ r, onDone, readOnly = false, leaveTypeId = null }: { r: Row; onDone: () => void; readOnly?: boolean; leaveTypeId?: number | null }) => {
   const { message } = App.useApp()
-  const [mode, setMode] = useState<'view' | 'verify' | 'adjust'>('view')
+  const [mode, setMode] = useState<'view' | 'verify' | 'adjust' | 'dates'>('view')
   const [days, setDays] = useState<number | null>(Number(r.total_days))
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
@@ -105,6 +113,8 @@ const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void;
   const differs = Number(r.rule_days) > 0 && Number(r.rule_days) !== inForm
   const max = r.is_half_day ? spanOf(r) - 0.5 : spanOf(r)
   const canCheck = CHECKABLE.includes(String(r.status).toUpperCase())
+  // แก้วันที่ลาได้เฉพาะใบรออนุมัติ/อนุมัติแล้ว — ใบระหว่างขอยกเลิกต้องรอผลก่อน
+  const canEditDates = ['PENDING', 'APPROVED'].includes(String(r.status).toUpperCase())
 
   // ยกเลิกผลการตรวจ — ใบกลับเป็นยังไม่ตรวจ ผู้ลาแก้จำนวนวันได้อีก และแบบใบลาไม่พิมพ์ชื่อผู้ตรวจ
   const cancelCheck = async () => {
@@ -184,6 +194,23 @@ const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void;
           ...(r.day_check_note ? [{ key: 'note', label: 'หมายเหตุการตรวจ', children: r.day_check_note }] : []),
         ]}
       />
+      {(r.date_edits?.length ?? 0) > 0 && (
+        <div className="mt-2" data-testid="date-edits">
+          <Text type="secondary" style={{ fontSize: 12 }}><HistoryOutlined /> ประวัติการแก้วันที่ลา {r.date_edits!.length} ครั้ง</Text>
+          <div className="mt-1 flex flex-col gap-1">
+            {r.date_edits!.map(e => (
+              <div key={e.id} style={{ fontSize: 12, padding: '6px 10px', borderRadius: 8, background: 'var(--app-bg)' }}>
+                <div>
+                  <del style={{ color: 'var(--app-text-3)' }}>{editRange(e.before)} ({nf(e.before.total_days)} วัน)</del>
+                  {' → '}<Text strong style={{ fontSize: 12 }}>{editRange(e.after)} ({nf(e.after.total_days)} วัน)</Text>
+                  {e.refunded_days > 0 && <Tag color="green" style={{ marginInlineStart: 6, fontSize: 11 }}>คืน {nf(e.refunded_days)} วัน</Tag>}
+                </div>
+                <div style={{ color: 'var(--app-text-3)' }}>{e.reason} · {e.actor_name ?? '-'} · {beShort(e.created_at)} {dayjs(e.created_at).format('HH:mm')} น.</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {differs && r.count_working_days_only && (
         <Text type="secondary" style={{ fontSize: 12 }}>
           จำนวนวันในใบมากกว่าวันทำการ อาจเป็นการลาในวันที่มีเวร (เสาร์-อาทิตย์/วันหยุด) — ตรวจกับตารางเวรก่อนยืนยัน
@@ -201,8 +228,14 @@ const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void;
             {r.day_check_status ? 'ยืนยันใหม่ว่าถูกต้อง' : 'ยืนยันว่าถูกต้อง'}
           </Button>
           <Button icon={<EditOutlined />} onClick={() => { setDays(inForm); setMode('adjust') }}>แก้จำนวนวัน</Button>
+          {canEditDates && (
+            <Button icon={<CalendarOutlined />} data-testid="edit-dates-btn" onClick={() => setMode('dates')}>แก้วันที่ลา</Button>
+          )}
           {cancelButton}
+          {!canEditDates && <Text type="secondary" style={{ fontSize: 12 }}>ใบระหว่างขอยกเลิก แก้วันที่ได้หลังทราบผลการยกเลิก</Text>}
         </Space>
+      ) : mode === 'dates' ? (
+        <LeaveDatesEdit r={r} leaveTypeId={leaveTypeId} onCancel={() => setMode('view')} onSaved={() => { setMode('view'); onDone() }} />
       ) : (
         <div className="mt-3 flex flex-col gap-2">
           {mode === 'adjust' && (
@@ -231,6 +264,13 @@ const DayCheck = ({ r, onDone, readOnly = false }: { r: Row; onDone: () => void;
     </Card>
   )
 }
+
+interface DateEditSnap { start_date: string; end_date: string; is_half_day: boolean; half_day_period: string | null; total_days: number }
+const editRange = (x: DateEditSnap) =>
+  `${dayjs(x.start_date).isSame(x.end_date, 'day') ? beShort(x.start_date) : `${beShort(x.start_date)} – ${beShort(x.end_date)}`}${x.is_half_day ? (x.half_day_period === 'PM' ? ' ครึ่งวันบ่าย' : ' ครึ่งวันเช้า') : ''}`
+
+// ช่องวันที่แสดงปี พ.ศ. (format BBBB) — ต้องเปิด plugin ไม่งั้นขึ้นตัวอักษร BBBB ตรง ๆ
+dayjs.extend(buddhistEra)
 
 const lvNo = (id: number) => `LV-${String(id).padStart(6, '0')}`
 
@@ -275,6 +315,8 @@ interface Row {
   day_check_note: string | null
   day_checked_at: string | null
   day_checked_by_name: string | null
+  /** ประวัติการแก้วันที่ลาโดย HR (ใหม่สุดก่อน) */
+  date_edits?: { id: number; before: DateEditSnap; after: DateEditSnap; refunded_days: number; reason: string; created_at: string; actor_name: string | null }[]
 }
 interface LeaveType { id: number; code: string; name_th: string }
 
@@ -284,7 +326,7 @@ const dateRange = (r: Row) =>
     : `${beShort(r.start_date)} – ${beShort(r.end_date)}`
 
 const halfDayLabel = (r: Row) =>
-  !r.is_half_day ? '' : r.half_day_period === 'AFTERNOON' ? ' (ครึ่งวันบ่าย)' : ' (ครึ่งวันเช้า)'
+  !r.is_half_day ? '' : r.half_day_period === 'PM' || r.half_day_period === 'AFTERNOON' ? ' (ครึ่งวันบ่าย)' : ' (ครึ่งวันเช้า)'
 
 // ── ไฟล์แนบ: รูปแสดงในหน้า PDF ฝังเป็น iframe ชนิดอื่นเปิดแท็บใหม่ ───────────────
 const Attachment = ({ r, onOpen }: { r: Row; onOpen: () => void }) => {
@@ -882,7 +924,8 @@ const StaffLeaveHistoryContent = () => {
 
             <div>
               <Title level={5}>การตรวจสอบของงาน HR</Title>
-              <DayCheck key={`${detail.id}-${detail.day_checked_at ?? ''}-${detail.total_days}`} r={detail} readOnly={!canEdit} onDone={() => setReloadKey(k => k + 1)} />
+              <DayCheck key={`${detail.id}-${detail.day_checked_at ?? ''}-${detail.total_days}-${detail.start_date}-${detail.end_date}`} r={detail} readOnly={!canEdit}
+                leaveTypeId={types.find(t => t.code === detail.leave_type_code)?.id ?? null} onDone={() => setReloadKey(k => k + 1)} />
             </div>
 
             <div>
