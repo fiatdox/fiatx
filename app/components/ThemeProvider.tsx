@@ -1,5 +1,5 @@
 'use client'
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useSyncExternalStore } from 'react'
 import { ConfigProvider, theme, App } from 'antd'
 import { StyleProvider } from '@ant-design/cssinjs'
 
@@ -19,7 +19,18 @@ const ThemeModeContext = createContext<ThemeModeContextValue>({
   toggle: () => {},
 })
 
-export const useThemeMode = () => useContext(ThemeModeContext)
+const noopSubscribe = () => () => {}
+
+/**
+ * ระหว่าง hydrate ตอบ 'light' เสมอให้ตรงกับ HTML จาก server — ส่วนที่ hydrate ช้า (Suspense/โหลดช้าผ่าน LAN)
+ * อาจ hydrate หลัง ThemeModeProvider อ่านโหมดมืดไปแล้ว ทำให้ปุ่มธีม/ไอคอนไม่ตรงกับ server (hydration mismatch)
+ * useSyncExternalStore ใช้ค่า server ตอน hydrate แล้ว render ใหม่ด้วยค่าจริงทันที
+ */
+export const useThemeMode = (): ThemeModeContextValue => {
+  const ctx = useContext(ThemeModeContext)
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false)
+  return hydrated || ctx.mode === 'light' ? ctx : { ...ctx, mode: 'light' }
+}
 
 /**
  * อ่านค่าธีมเริ่มต้นจาก attribute ที่ inline-script (ใน layout) ตั้งไว้ก่อน hydrate
