@@ -103,12 +103,15 @@ body {
   }
 }
 
-/* ผู้ใช้ที่ปิดภาพเคลื่อนไหวในระบบปฏิบัติการ — เหลือระยะเวลาสั้นมาก ไม่ใช้ 0 เพราะ antd รอ event จบแอนิเมชัน */
+/* ผู้ใช้ที่ปิดภาพเคลื่อนไหวในระบบปฏิบัติการ (Windows: การช่วยการเข้าถึง → เอฟเฟกต์ภาพเคลื่อนไหว) — ตัดแอนิเมชันเหลือ 0
+   (แอนิเมชันยาว 0s ยังยิง animationend ให้ antd ตามปกติ) */
 @media (prefers-reduced-motion: reduce) {
   *, ::before, ::after {
-    animation-duration: 0.01ms !important;
+    /* ต้อง 0s ไม่ใช่ 0.01ms — ค่าที่ไม่ใช่ 0 ทำให้ popup ของ antd (ปฏิทิน, dropdown) วัดตำแหน่งผิด
+       แล้วค้างนอกจอ เห็นเป็นกระพริบแล้วหาย (Edge ที่ปิดเอฟเฟกต์ภาพเคลื่อนไหว) */
+    animation-duration: 0s !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
     scroll-behavior: auto !important;
   }
 }
