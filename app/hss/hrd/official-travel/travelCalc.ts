@@ -14,6 +14,8 @@ export const VEHICLE_MODES: { value: VehicleMode; label: string }[] = [
 export const BUDGET_TYPES: Record<BudgetType, string> = { hospital: 'เงินบำรุงโรงพยาบาล', budget: 'งบประมาณ', project: 'โครงการ' }
 
 /** ข้อความหัวบันทึกข้อความ — ตามแบบฟอร์มกระดาษของงานพัฒนาทรัพยากรบุคคล */
+/** เลขที่บันทึกข้อความ (ส่วนหลัง docPrefix) — ตรงกับ backend: ตัวเลขไทย/อารบิก ตัวอักษร - / . ช่องว่าง */
+export const MEMO_NO_RE = /^[0-9๐-๙A-Za-zก-ฮ.\-/ ]*$/
 export const MEMO = {
   org: 'กลุ่มงานพัฒนาทรัพยากรบุคคล โรงพยาบาลพะเยา โทร ๒๕๓๗',
   docPrefix: 'พย.๐๐๓๓.๒๐๒/',
@@ -165,7 +167,7 @@ export const statusOf = (r: Pick<TravelRequest, 'status' | 'approval_stage' | 'w
         : r.approval_stage === 'director' ? (r.sign_mode === 'paper' ? { label: 'รอผลเดินเอกสาร', color: 'gold' } : { label: 'รอ ผอ. ลงนาม', color: 'gold' })
           : { label: r.waiting_for ? `รอ${r.waiting_for.level_name}` : 'รออนุมัติ', color: 'processing' }
 export interface TravelRequest {
-  id: number; requester_id: number; requester_name: string; requester_position: string | null; requester_unit: string | null
+  id: number; memo_no?: string | null; requester_id: number; requester_name: string; requester_position: string | null; requester_unit: string | null
   purpose: string; subject: string; location: string; start_at: string; end_at: string; overnight: boolean
   allowance_max_days: number; allowance_days: number; meals_provided?: number
   vehicle_mode: VehicleMode; vehicle_id: number | null; vehicle_name: string | null; vehicle_plate: string | null
@@ -179,7 +181,7 @@ export interface TravelRequest {
   director_result: 'approved' | 'rejected' | null; director_note: string | null; director_at: string | null
   requester_signature?: string | null; approvals?: ApprovalRow[]
   waiting_for?: { level_name: string; approver_name: string; is_acting: boolean } | null
-  travelers?: TravelerRow[]; traveler_count?: number; fiscal_year?: number
+  travelers?: TravelerRow[]; traveler_count?: number; traveler_names?: string[]; fiscal_year?: number
   signers?: { major: Signer | null; mission: Signer | null; director: Signer | null }
   can_edit?: boolean; can_cancel?: boolean; can_record_actual?: boolean; can_approve?: boolean; can_record_director?: boolean
 }

@@ -10,8 +10,8 @@ import { RequestTravelersDrawer } from '../TravelHistory'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { HRD_TASKS, isHrdTaskKey, TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelShell, travelApi, travelPost, TravelApiError, type HrdTaskKey } from '../travelShared'
-import { BUDGET_TYPES, SIGN_MODE_LABEL, fmtMoney, requestNo, statusOf, thaiDateTime, tripRange, type TravelRequest } from '../travelCalc'
+import { canSeeTravelItem, HRD_ROLES_ITEM, HRD_TASKS, isHrdTaskKey, TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelShell, travelApi, travelPost, TravelApiError, useTravelRoles, type HrdTaskKey } from '../travelShared'
+import { BUDGET_TYPES, MEMO, SIGN_MODE_LABEL, fmtMoney, requestNo, statusOf, thaiDateTime, tripRange, type TravelRequest } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
 
 const { Title, Text } = Typography
@@ -234,7 +234,13 @@ const RequestsContent = () => {
   const router = useRouter()
   const params = useSearchParams()
   // ?tab=approve — ลิงก์จากป้ายรออนุมัติบนเมนู · ?tab=all&task= — การ์ดงานที่ต้องดำเนินการของ HRD (backend ตรวจสิทธิ์ scope=all)
-  const [scope, setScope] = useState<Scope>(params.get('tab') === 'approve' ? 'approve' : params.get('tab') === 'all' ? 'all' : 'mine')
+  // ไม่ระบุ ?tab= → ADMIN/HRD เห็นคำขอทั้งหมดเป็นค่าเริ่มต้น · คนอื่นเห็นคำขอของตนเอง (ที่ยื่นเองและที่ร่วมเดินทาง)
+  // (backend ตรวจสิทธิ์ scope=all อีกชั้น — คนที่ไม่ใช่ ADMIN/HRD ได้ 403)
+  const tabParam = params.get('tab')
+  const [scopeSel, setScope] = useState<Scope | null>(tabParam === 'approve' ? 'approve' : tabParam === 'all' ? 'all' : tabParam === 'mine' ? 'mine' : null)
+  const roles = useTravelRoles()
+  const isManager = !!roles && canSeeTravelItem(HRD_ROLES_ITEM, roles)
+  const scope: Scope | null = scopeSel ?? (roles === null ? null : isManager ? 'all' : 'mine')
   const [task, setTask] = useState<HrdTaskKey | null>(() => { const t = params.get('task'); return isHrdTaskKey(t) ? t : null })
   const [approveFor, setApproveFor] = useState<number | null>(null)
   const [directorFor, setDirectorFor] = useState<TravelRequest | null>(null)
@@ -255,6 +261,7 @@ const RequestsContent = () => {
   const [checkFor, setCheckFor] = useState<number | null>(null)
 
   const load = useCallback(async () => {
+    if (!scope) return   // รอรู้ role ก่อน (อ่าน cookie หลัง mount) — ไม่ยิงซ้ำสองรอบ
     setLoading(true)
     const q = new URLSearchParams({ scope, limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE) })
     if (query) q.set('search', query)
@@ -290,7 +297,19 @@ const RequestsContent = () => {
   const afterAct = () => { load(); loadCount() }
 
   const columns: ColumnsType<TravelRequest> = [
-    { title: 'เลขที่', dataIndex: 'id', width: 104, render: (id: number) => <Text code>{requestNo(id)}</Text> },
+    // ลำดับต่อเนื่องข้ามหน้า (หน้า 2 เริ่มที่ 21)
+    { title: 'ลำดับ', key: 'no', width: 64, align: 'center', render: (_: unknown, __: TravelRequest, i: number) => <Text type="secondary" data-testid="row-no">{(page - 1) * PAGE_SIZE + i + 1}</Text> },
+    {
+      title: 'เลขที่', dataIndex: 'id', width: 190,
+      render: (id: number, r) => <>
+        <Text code>{requestNo(id)}</Text>
+        <div style={{ fontSize: 11, marginTop: 2, whiteSpace: 'nowrap' }} data-testid="memo-no">
+          {r.memo_no
+            ? <Tooltip title="เลขที่บันทึกข้อความ"><Text style={{ fontSize: 11 }}>ที่ {MEMO.docPrefix}{r.memo_no}</Text></Tooltip>
+            : null}
+        </div>
+      </>,
+    },
     {
       title: 'เรื่อง', dataIndex: 'subject',
       render: (v: string, r) => <>
@@ -301,8 +320,20 @@ const RequestsContent = () => {
     },
     { title: 'วันเดินทาง', dataIndex: 'start_at', width: 130, responsive: ['md'], render: (_: string, r) => tripRange(r.start_at, r.end_at) },
     {
-      title: 'ผู้เดินทาง', dataIndex: 'traveler_count', width: 90, align: 'center', responsive: ['lg'],
-      render: (n: number, r) => data?.can_manage ? <a onClick={() => setCheckFor(r.id)} title="ตรวจประวัติผู้เดินทาง">{n} คน</a> : `${n} คน`,
+      // ชื่อผู้เดินทาง (ผู้ขอก่อน) — เกิน 3 คนย่อเป็น "และอีก N คน" ชี้ดูรายชื่อครบ · ช่องค้นหาค้นชื่อผู้เดินทางได้
+      title: 'ผู้เดินทาง', dataIndex: 'traveler_count', width: 220, responsive: ['lg'],
+      render: (n: number, r) => {
+        const names = r.traveler_names ?? []
+        const more = names.length - 3
+        const count = data?.can_manage ? <a onClick={() => setCheckFor(r.id)} title="ตรวจประวัติผู้เดินทาง">{n} คน</a> : <Text type="secondary" style={{ fontSize: 12 }}>{n} คน</Text>
+        return (
+          <div data-testid="travelers" style={{ fontSize: 12, lineHeight: 1.5 }}>
+            {names.slice(0, 3).map((x, i) => <div key={i} style={{ fontWeight: i === 0 ? 500 : 400 }}>{x}</div>)}
+            {more > 0 && <Tooltip title={<div>{names.slice(3).map((x, i) => <div key={i}>{x}</div>)}</div>}><Text type="secondary" style={{ fontSize: 12 }}>และอีก {more} คน</Text></Tooltip>}
+            <div style={{ fontSize: 12 }}>{count}</div>
+          </div>
+        )
+      },
     },
     {
       title: 'ยอดเงิน (บาท)', dataIndex: 'total_amount', width: 160, align: 'right',
@@ -348,7 +379,7 @@ const RequestsContent = () => {
         <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0, fontSize: 22, background: `${TRAVEL_COLOR}1a`, color: TRAVEL_COLOR, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{TRAVEL_MENU[1].icon}</div>
         <div style={{ flex: 1, minWidth: 220 }}>
           <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>รายการขออนุมัติเดินทางไปราชการ</Title>
-          <Text style={{ color: 'var(--app-text-2)' }}>คำขอที่ยื่นเองและที่ร่วมเดินทาง พิมพ์บันทึกข้อความได้ทุกรายการ</Text>
+          <Text style={{ color: 'var(--app-text-2)' }}>{isManager ? 'คำขอของบุคลากรทั้งหมด (ผู้ดูแลระบบ / งานพัฒนาทรัพยากรบุคคล)' : 'คำขอที่ยื่นเองและที่ร่วมเดินทาง'} พิมพ์บันทึกข้อความได้ทุกรายการ</Text>
         </div>
         <Link href={`${TRAVEL_BASE}/request`}><Button type="primary" icon={<PlusOutlined />}>ยื่นคำขอใหม่</Button></Link>
       </div>
@@ -363,7 +394,7 @@ const RequestsContent = () => {
                 ...(data?.can_manage ? [{ value: 'all', label: 'ทั้งหมด' }] : []),
               ]} />
           )}
-          <Input allowClear prefix={<SearchOutlined style={{ color: 'var(--app-text-3)' }} />} placeholder="ค้นหาเรื่อง สถานที่ ผู้ขอ" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: '1 1 220px', maxWidth: 340 }} />
+          <Input allowClear prefix={<SearchOutlined style={{ color: 'var(--app-text-3)' }} />} placeholder="ค้นหาเรื่อง สถานที่ ผู้เดินทาง เลขที่บันทึก" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: '1 1 220px', maxWidth: 340 }} />
           <Select allowClear placeholder="ทุกสถานะ" value={status} onChange={x => { setStatus(x); setPage(1) }} style={{ width: 140 }}
             options={[{ value: 'submitted', label: 'ยื่นแล้ว' }, { value: 'rejected', label: 'ไม่อนุมัติ' }, { value: 'cancelled', label: 'ยกเลิก' }]} />
         </div>

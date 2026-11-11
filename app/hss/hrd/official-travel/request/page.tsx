@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DATE_FORMAT, ThaiDatePicker } from '@/app/general/contracts/contractShared'
 import { TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
 import {
-  BUDGET_TYPES, FLIGHT_LABEL, LODGING_MODES, VEHICLE_MODES, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
+  BUDGET_TYPES, FLIGHT_LABEL, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
   type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
 } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
@@ -89,7 +89,7 @@ const RequestForm = () => {
       setRooms(Object.fromEntries((r.travelers ?? []).filter(t => t.lodging_room).map(t => [t.user_id, t.lodging_room as RoomType])))
       setMeta(m)
       setInit({
-        purpose: r.purpose, subject: r.subject, location: r.location,
+        memo_no: r.memo_no ?? undefined, purpose: r.purpose, subject: r.subject, location: r.location,
         start_date: st, start_time: st, end_date: en, end_time: en,
         companion_ids: companions.map(c => c.user_id),
         allowance_days: r.allowance_days, allowance_days_mode: r.allowance_days === r.allowance_max_days ? 'auto' : 'manual', meals_provided: r.meals_provided || undefined,
@@ -170,7 +170,7 @@ const RequestForm = () => {
     if (!f) return
     setSaving(true)
     const body = {
-      purpose: f.purpose, subject: f.subject, location: f.location,
+      memo_no: f.memo_no?.trim() || null, purpose: f.purpose, subject: f.subject, location: f.location,
       start_at: toIso(f.start_date, f.start_time), end_at: toIso(f.end_date, f.end_time),
       companion_ids: f.companion_ids ?? [],
       allowance_days: f.allowance_days_mode === 'manual' ? f.allowance_days : null,
@@ -251,6 +251,11 @@ const RequestForm = () => {
             </Card>
 
             <Card title="รายละเอียดการเดินทาง" style={card} size="small">
+              <Form.Item name="memo_no" label="เลขที่บันทึกข้อความ"
+                extra="ไม่บังคับ — ยังไม่ได้เลขเว้นว่างได้ แล้วกลับมาแก้ไขคำขอเพื่อใส่เลขได้จนกว่าหัวหน้าจะลงนาม · พิมพ์ต่อท้ายบรรทัด “ที่” ในบันทึกข้อความ"
+                rules={[{ max: 30, message: 'ไม่เกิน 30 ตัวอักษร' }, { pattern: MEMO_NO_RE, message: 'ใช้ได้เฉพาะตัวเลข ตัวอักษร - / และ .' }]}>
+                <Input prefix={<span style={{ color: "var(--app-text-2)" }}>ที่ {MEMO.docPrefix}</span>} placeholder="เช่น 123" maxLength={30} allowClear style={{ maxWidth: 360 }} aria-label="เลขที่บันทึกข้อความ" />
+              </Form.Item>
               <Form.Item name="purpose" label="มีความประสงค์ขออนุมัติเดินทางไปราชการ เพื่อ" rules={[{ required: true, whitespace: true, message: 'กรุณาระบุ' }, { max: 300 }]}>
                 <AutoComplete options={['เข้าร่วมประชุม', 'เข้ารับการอบรม', 'ศึกษาดูงาน', 'เป็นวิทยากร', 'ปฏิบัติราชการ'].map(value => ({ value }))} placeholder="เช่น เข้าร่วมประชุมวิชาการ" />
               </Form.Item>
@@ -261,10 +266,10 @@ const RequestForm = () => {
                 <Input placeholder="เช่น โรงแรม... อำเภอ... จังหวัด..." />
               </Form.Item>
               <Row gutter={12}>
-                <Col xs={14} sm={8}><Form.Item name="start_date" label="๓. ออกเดินทางวันที่" rules={[{ required: true, message: 'ระบุวันที่' }]}><ThaiDatePicker format={DATE_FORMAT} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={10} sm={4}><Form.Item name="start_time" label="เวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={14} sm={8}><Form.Item name="end_date" label="กลับถึงวันที่" rules={[{ required: true, message: 'ระบุวันที่' }]}><ThaiDatePicker format={DATE_FORMAT} style={{ width: '100%' }} /></Form.Item></Col>
-                <Col xs={10} sm={4}><Form.Item name="end_time" label="เวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={14} sm={8}><Form.Item name="start_date" label="๓. ออกเดินทางวันที่" rules={[{ required: true, message: 'ระบุวันที่' }]}><ThaiDatePicker format={DATE_FORMAT} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={10} sm={4}><Form.Item name="start_time" label="เวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={14} sm={8}><Form.Item name="end_date" label="กลับถึงวันที่" rules={[{ required: true, message: 'ระบุวันที่' }]}><ThaiDatePicker format={DATE_FORMAT} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
+                <Col xs={10} sm={4}><Form.Item name="end_time" label="เวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
               </Row>
               {startIso && endIso && !timeOk && <Alert type="error" showIcon title="วันเวลากลับต้องหลังวันเวลาออกเดินทาง" style={{ marginBottom: 8 }} />}
               {calc && dur && (

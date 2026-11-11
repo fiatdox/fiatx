@@ -92,14 +92,21 @@ const T = ({ children, style }: { children: string; style?: Style | Style[] }) =
 const Line = ({ children, style }: { children: React.ReactNode; style?: Style | Style[] }) => (
   <View style={[s.line, ...(Array.isArray(style) ? style : style ? [style] : [])]}>{children}</View>
 )
-/** ช่องกรอกบนเส้นประ — ไม่ระบุ width = ยืดเต็มส่วนที่เหลือ · maxChars = ตัดเป็นหลายบรรทัด ไม่เกิน maxLines (กันล้นหน้า) */
-const Fill = ({ value, width, left, maxChars, maxLines = 1, grow = 1 }: { value?: string | null; width?: number | string; left?: boolean; maxChars?: number; maxLines?: number; grow?: number }) => (
+/**
+ * ช่องกรอกบนเส้นประ — ไม่ระบุ width = ยืดเต็มส่วนที่เหลือ · maxChars = ตัดเป็นหลายบรรทัด ไม่เกิน maxLines (กันล้นหน้า)
+ * การจัดวาง: ช่องข้อความ (ยืดได้) ชิดซ้ายเสมอ · ช่องกว้างคงที่ (ตัวเลข วัน เวลา จำนวนเงิน) กึ่งกลาง
+ * center = บังคับกึ่งกลาง (ชื่อ/ตำแหน่งใต้ลายเซ็น จำนวนเงินตัวอักษรในวงเล็บ) · left = บังคับชิดซ้าย
+ */
+const Fill = ({ value, width, left: leftProp, center, maxChars, maxLines = 1, grow = 1 }: { value?: string | null; width?: number | string; left?: boolean; center?: boolean; maxChars?: number; maxLines?: number; grow?: number }) => {
+  const left = leftProp ?? (!center && width == null)
+  return (
   <View style={[s.fill, { alignItems: left ? 'flex-start' : 'center' }, width != null ? { width } : { flexGrow: grow, flexBasis: value ? 'auto' : 0, minWidth: 20 }]}>
     {value && maxChars
       ? splitLines(value, maxChars, maxLines).map((ln, i) => <Text key={i} style={[s.fillText, left ? { textAlign: 'left', paddingLeft: 3 } : {}]}>{pad(ln)}</Text>)
       : <Text style={[s.fillText, left ? { textAlign: 'left', paddingLeft: 3 } : {}]}>{value ? pad(value) : NB}</Text>}
   </View>
-)
+  )
+}
 /** ย่อหน้าข้อความ — ตัดบรรทัดตามคำเอง (react-pdf หาจุดตัดคำไทยไม่ได้) · indent = ย่อหน้าแรกเยื้อง ๒.๕ ซม. */
 const Para = ({ children, indent, style }: { children: string; indent?: boolean; style?: Style }) => (
   <View style={style}>
@@ -143,8 +150,8 @@ const SigFill = ({ src, date }: { src?: string | null; date?: string | null }) =
 const SignBlock = ({ name, position, role, width = '62%', signature, signedAt }: { name?: string | null; position?: string | null; role?: string; width?: string; signature?: string | null; signedAt?: string | null }) => (
   <View style={{ width, alignSelf: 'flex-end', marginTop: 4 }}>
     <Line><T>(ลงชื่อ)</T>{signature ? <SigFill src={signature} date={signedAt} /> : <Fill />}</Line>
-    <Line><Text>(</Text><Fill value={name ?? ''} /><Text>)</Text></Line>
-    {role ? <Line style={{ justifyContent: 'center' }}><T>{role}</T></Line> : <Line><T>ตำแหน่ง</T><Fill value={position ?? ''} maxChars={34} maxLines={2} /></Line>}
+    <Line><Text>(</Text><Fill value={name ?? ''} center /><Text>)</Text></Line>
+    {role ? <Line style={{ justifyContent: 'center' }}><T>{role}</T></Line> : <Line><T>ตำแหน่ง</T><Fill value={position ?? ''} maxChars={34} maxLines={2} center /></Line>}
   </View>
 )
 const signerName = (x?: { name: string; is_acting: boolean } | null) => x ? x.name : ''
@@ -160,8 +167,8 @@ const OpinionBox = ({ title, signer, right }: { title: string; signer?: Signer |
       <Fill value={signer?.comment ?? ''} maxChars={15} left />
     </Line>
     <Line><T>(ลงชื่อ)</T>{signer?.signature ? <SigFill src={signer.signature} date={signer.acted_at ? th(thaiDateShort(signer.acted_at)) : null} /> : <Fill />}</Line>
-    <Line><Text>(</Text><Fill value={signerName(signer)} /><Text>)</Text></Line>
-    <Line style={{ alignItems: 'flex-start' }}><T>ตำแหน่ง</T><Fill value={signerPos(signer)} maxChars={26} maxLines={2} /></Line>
+    <Line><Text>(</Text><Fill value={signerName(signer)} center /><Text>)</Text></Line>
+    <Line style={{ alignItems: 'flex-start' }}><T>ตำแหน่ง</T><Fill value={signerPos(signer)} maxChars={26} maxLines={2} center /></Line>
   </View>
 )
 
@@ -185,7 +192,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
 
       <Line><T style={s.head}>ส่วนราชการ</T><Fill value={MEMO.org} left /></Line>
       <Line>
-        <G grow={1}><T style={s.head}>ที่</T><Fill value={MEMO.docPrefix} left /></G>
+        <G grow={1}><T style={s.head}>ที่</T><Fill value={`${MEMO.docPrefix}${d.memo_no ? th(d.memo_no) : ''}`} left /></G>
         <G grow={1}><T style={s.head}>วันที่</T><Fill value={th(thaiDate(d.created_at))} /></G>
       </Line>
       <Line><T style={s.head}>เรื่อง</T><Fill value={MEMO.subject} left /></Line>
@@ -235,7 +242,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       <Line style={[s.indent, { marginTop: 2 }]}>
         <T>{`${th(6)}. ประมาณการค่าใช้จ่ายในการเดินทางไปราชการ จำนวนเงินทั้งสิ้น`}</T><Fill value={th(fmtMoney(d.total_amount))} width={74} /><T>บาท</T>
       </Line>
-      <Line style={s.indent2}><Text>(</Text><Fill value={bahtText(d.total_amount)} /><Text>)</Text></Line>
+      <Line style={s.indent2}><Text>(</Text><Fill value={bahtText(d.total_amount)} center /><Text>)</Text></Line>
       <Line style={s.indent2}><T>โดยมีรายละเอียด ดังนี้</T></Line>
       <CostLine no="๖.๑" label="ค่าเบี้ยเลี้ยงเดินทาง จำนวน" amount={d.allowance_amount}>
         <Fill value={th(travelers.length)} width={24} /><T>คน</T><Fill value={th(d.allowance_days)} width={28} /><T>วัน</T>
