@@ -1,5 +1,5 @@
 'use client'
-// งานที่ต้องดำเนินการของ HRD (หน้าแรกเดินทางไปราชการ) — เห็นเฉพาะ ADMIN / HRD (backend ตอบ 403 คนอื่น)
+// งานที่ต้องดำเนินการของ HRD (หน้า /tasks เปิดจากการ์ดเมนูเดินทางไปราชการ) — เห็นเฉพาะ ADMIN / HRD (backend ตอบ 403 คนอื่น)
 // การ์ดละหนึ่งงาน: จำนวน + ตัวอย่าง 3 ใบ + ลิงก์ไปรายการคำขอที่กรองงานนั้นไว้ (?tab=all&task=)
 import React, { useEffect, useState } from 'react'
 import { Alert, Col, Row, Skeleton, Tag, Typography } from 'antd'
@@ -83,7 +83,6 @@ export default function HrdTasks() {
   return (
     <section data-testid="hrd-tasks" style={{ marginBottom: 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 16, color: 'var(--app-text)' }}>งานที่ต้องดำเนินการ</Text>
         {data && (total ? <Tag color="red" style={{ margin: 0 }}>{total} เรื่อง</Tag> : <Tag color="green" style={{ margin: 0 }}>ไม่มีงานค้าง</Tag>)}
         <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>เฉพาะงานพัฒนาทรัพยากรบุคคล / ผู้ดูแลระบบ</Text>
       </div>

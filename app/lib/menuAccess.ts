@@ -85,6 +85,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/hss/hrd/official-travel/signing': HRD_ALLOWANCE_ROLES,
   // งบประมาณและ Dashboard (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
   '/hss/hrd/official-travel/budget': HRD_ALLOWANCE_ROLES,
+  // งานที่ต้องดำเนินการของ HRD (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
+  '/hss/hrd/official-travel/tasks': HRD_ALLOWANCE_ROLES,
 }
 
 // เมนูที่สิทธิ์ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย (เช็คกับ backend)
