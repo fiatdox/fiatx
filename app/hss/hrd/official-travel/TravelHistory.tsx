@@ -2,9 +2,11 @@
 // ประวัติการไปราชการรายบุคคลในปีงบ — งาน HRD ใช้ประกอบการพิจารณาอนุญาตให้ไปราชการ
 // นับเฉพาะคำขอที่ไม่ยกเลิก ทั้งที่เป็นผู้ขอและผู้ร่วมเดินทาง (คำขอที่ยกเลิกแสดงในรายการแต่ไม่นับ)
 import React, { useEffect, useState } from 'react'
-import { Card, Col, Drawer, Empty, Row, Select, Skeleton, Table, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Row, Select, Skeleton, Table, Tag, Typography } from 'antd'
+import { FilePdfOutlined } from '@ant-design/icons'
+import { ApprovalSteps, StatusBadge } from './TravelStatus'
 import { travelApi } from './travelShared'
-import { fmtMoney, requestNo, tripRange } from './travelCalc'
+import { BUDGET_TYPES, LODGING_MODES, MEMO, SIGN_MODE_LABEL, VEHICLE_MODES, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest, type TravelerRow } from './travelCalc'
 
 const { Text } = Typography
 
@@ -25,35 +27,77 @@ const Tile = ({ label, value, unit }: { label: string; value: string | number; u
   </Card>
 )
 
-/** ผู้เดินทางของคำขอหนึ่ง พร้อมจำนวนครั้งในปีงบ — กดชื่อเพื่อดูประวัติ (งาน HRD ใช้ตรวจก่อนอนุญาต) */
-export const RequestTravelersDrawer = ({ requestId, onClose }: { requestId: number; onClose: () => void }) => {
-  const [d, setD] = useState<{ id: number; subject: string; start_at: string; end_at: string; fiscal_year: number; travelers: { user_id: number; name: string; position: string | null; is_requester: boolean; prior_trips: number; fy_trips: number }[] } | null>(null)
+/** ข้อมูลรายละเอียดการขออนุมัติ (งาน HRD) — ข้อมูลคำขอ ค่าใช้จ่าย ลำดับการลงนาม และผู้เดินทางพร้อมจำนวนครั้งในปีงบ (กดชื่อดูประวัติ) */
+export const RequestTravelersDrawer = ({ requestId, onClose, onOpenPdf }: { requestId: number; onClose: () => void; onOpenPdf?: (id: number) => void }) => {
+  const [d, setD] = useState<TravelRequest | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [person, setPerson] = useState<number | null>(null)
   useEffect(() => {
     let alive = true
-    travelApi<NonNullable<typeof d>>(`requests/${requestId}`).then(x => { if (alive) setD(x) }).catch(e => { if (alive) setError((e as Error).message) })
+    travelApi<TravelRequest>(`requests/${requestId}`).then(x => { if (alive) setD(x) }).catch(e => { if (alive) setError((e as Error).message) })
     return () => { alive = false }
   }, [requestId])
   return (
-    <Drawer open onClose={onClose} size={640} title={`ตรวจประวัติผู้เดินทาง · ${requestNo(requestId)}`} rootClassName="travel-history-drawer">
+    <Drawer open onClose={onClose} size={720} title={`ข้อมูลรายละเอียดการขออนุมัติ · ${requestNo(requestId)}`} rootClassName="travel-history-drawer"
+      extra={d && onOpenPdf ? <Button size="small" icon={<FilePdfOutlined />} onClick={() => onOpenPdf(d.id)}>บันทึกข้อความ</Button> : null}>
       {error ? <Empty description={error} /> : !d ? <Skeleton active /> : <>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontWeight: 500 }}>{d.subject}</div>
-          <Text type="secondary" style={{ fontSize: 12 }}>{tripRange(d.start_at, d.end_at)} · ปีงบ {d.fiscal_year} · ไม่นับคำขอนี้</Text>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 15 }}>{d.subject}</div>
+            <Text type="secondary" style={{ fontSize: 12 }}>{d.purpose}{d.memo_no ? ` · ที่ ${MEMO.docPrefix}${d.memo_no}` : ''}</Text>
+          </div>
+          <StatusBadge r={d} />
         </div>
-        <Table size="small" rowKey="user_id" pagination={false} dataSource={d.travelers} scroll={{ x: 'max-content' }}
+        {d.status !== 'submitted' && (d.status === 'rejected' ? d.reject_reason : d.cancel_reason) && (
+          <Alert type={d.status === 'rejected' ? 'error' : 'warning'} showIcon style={{ marginBottom: 12 }}
+            title={`${d.status === 'rejected' ? 'เหตุผลที่ไม่อนุมัติ' : 'เหตุผลที่ยกเลิก'}: ${d.status === 'rejected' ? d.reject_reason : d.cancel_reason}`} />
+        )}
+        <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ marginBottom: 16 }} data-testid="request-detail" items={[
+          { key: 'n', label: 'ผู้ขอ', span: 'filled', children: <>{d.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[d.requester_position, d.requester_unit].filter(Boolean).join(' · ')}</div></> },
+          { key: 'l', label: 'สถานที่', span: 'filled', children: d.location },
+          { key: 'st', label: 'ออกเดินทาง', children: thaiDateTime(d.start_at) },
+          { key: 'en', label: 'กลับถึง', children: thaiDateTime(d.end_at) },
+          { key: 'a', label: 'เบี้ยเลี้ยง', children: `${d.allowance_days} วัน${d.overnight ? ' · พักแรม' : ''}` },
+          { key: 'lo', label: 'ที่พัก', children: d.lodging_mode === 'none' ? 'ไม่เบิก' : `${LODGING_MODES.find(x => x.value === d.lodging_mode)?.label ?? ''} · ${d.lodging_rooms} ห้อง ${d.lodging_nights} คืน` },
+          { key: 'v', label: 'พาหนะ', span: 'filled', children: vehicleText(d) },
+          { key: 'c', label: 'ค่าใช้จ่าย', span: 'filled', children: <>
+            {costRows(d).map(([k, v]) => <div key={k} style={rowCss}><span>{k}</span><span>{fmtMoney(v)}</span></div>)}
+            <div style={{ ...rowCss, fontWeight: 700, borderTop: '1px solid var(--app-border)', marginTop: 4, paddingTop: 4 }}><span>รวมประมาณการ</span><span>{fmtMoney(d.total_amount)} บาท</span></div>
+            {d.actual_amount != null && <div style={{ ...rowCss, color: 'var(--app-text-2)' }}><span>เบิกจ่ายจริง (การเงินยืนยัน)</span><span>{fmtMoney(d.actual_amount)} บาท</span></div>}
+          </> },
+          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${BUDGET_TYPES[d.budget_type]} · ${d.budget_name}` },
+          { key: 'cr', label: 'ยื่นเมื่อ', span: 'filled', children: `${thaiDateTime(d.created_at)} · ${SIGN_MODE_LABEL[d.sign_mode]}` },
+        ]} />
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>ลำดับการลงนาม</div>
+        <ApprovalSteps r={d} />
+        <div style={{ fontWeight: 600, margin: '8px 0 2px' }}>ผู้เดินทางและประวัติในปีงบ {d.fiscal_year}</div>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>{tripRange(d.start_at, d.end_at)} · จำนวนครั้งไม่นับคำขอนี้ · กดชื่อเพื่อดูประวัติ</Text>
+        <Table<TravelerRow> size="small" rowKey="user_id" pagination={false} dataSource={d.travelers ?? []} scroll={{ x: 'max-content' }}
           columns={[
             { title: 'ผู้เดินทาง', dataIndex: 'name', render: (n: string, t) => <><a onClick={() => setPerson(t.user_id)}>{n}</a>{t.is_requester && <Tag style={{ marginLeft: 6 }}>ผู้ขอ</Tag>}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{t.position ?? ''}</div></> },
             { title: 'ไปแล้วก่อนครั้งนี้', dataIndex: 'prior_trips', width: 120, align: 'center', render: (v: number) => <b>{v}</b> },
             { title: 'ทั้งปีงบ (ไม่รวมครั้งนี้)', dataIndex: 'fy_trips', width: 150, align: 'center' },
             { title: '', width: 90, align: 'right', render: (_: unknown, t) => <a onClick={() => setPerson(t.user_id)}>ดูประวัติ</a> },
           ]} />
-        {person && <TravelHistoryDrawer key={person} userId={person} fiscalYear={d.fiscal_year} onClose={() => setPerson(null)} />}
+        {person && d.fiscal_year ? <TravelHistoryDrawer key={person} userId={person} fiscalYear={d.fiscal_year} onClose={() => setPerson(null)} /> : null}
       </>}
     </Drawer>
   )
 }
+
+const rowCss: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12 }
+const vehicleText = (r: TravelRequest) => {
+  const m = VEHICLE_MODES.find(v => v.value === r.vehicle_mode)?.label ?? r.vehicle_mode
+  const extra = r.vehicle_mode === 'bus' || r.vehicle_mode === 'plane' ? r.route_text : r.vehicle_mode === 'other' ? r.vehicle_other
+    : [r.vehicle_name, r.vehicle_plate, r.distance_km ? `${r.distance_km} กม.` : null].filter(Boolean).join(' · ')
+  return extra ? `${m} · ${extra}` : m
+}
+const costRows = (r: TravelRequest) => ([
+  ['ค่าเบี้ยเลี้ยง', r.allowance_amount], ['ค่าเช่าที่พัก', r.lodging_amount], ['ค่าพาหนะ', r.transport_amount],
+  ['แท็กซี่ขาไป (สถานี → ที่พัก)', r.taxi_go_amount ?? 0], ['แท็กซี่ขากลับ (ที่พัก → สถานี)', r.taxi_back_amount ?? 0], ['บ้าน ↔ สถานี ไป-กลับ', r.home_station_amount ?? 0],
+  ['ค่าลงทะเบียน', r.registration_amount], ['ค่าน้ำมัน', r.fuel_amount], ['ค่าทางด่วน', r.toll_amount],
+  [r.other_desc ? `อื่น ๆ (${r.other_desc})` : 'อื่น ๆ', r.other_amount],
+] as [string, number][]).filter(([, v]) => Number(v) > 0)
 
 export const TravelHistoryDrawer =({ userId, fiscalYear, onClose }: { userId: number; fiscalYear: number; onClose: () => void }) => {
   const [fy, setFy] = useState(fiscalYear)

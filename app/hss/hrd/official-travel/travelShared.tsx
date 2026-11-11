@@ -3,7 +3,7 @@
 import React, { useSyncExternalStore } from 'react'
 import { Button, Result } from 'antd'
 import { HomeOutlined, FundOutlined } from '@ant-design/icons'
-import { FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature } from 'react-icons/fa'
+import { FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
@@ -20,6 +20,8 @@ export interface TravelMenuItem {
   href: string
   icon: React.ReactNode
   roles?: string[] // ไม่ระบุ = ทุกคนเห็น
+  /** เห็นเฉพาะผู้อนุมัติ (หัวหน้า/รักษาการกลุ่มงานหรือกลุ่มภารกิจ หรือเคยอยู่ในสาย) — ถาม backend ไม่ใช่ role */
+  approver?: boolean
 }
 
 export const TRAVEL_MENU: TravelMenuItem[] = [
@@ -30,14 +32,21 @@ export const TRAVEL_MENU: TravelMenuItem[] = [
   { title: 'ตั้งค่าค่าเช่าที่พัก', desc: 'อัตราเพดานค่าที่พักแบบเหมาจ่ายและจ่ายจริงตามระดับตำแหน่ง สิทธิ์ชั้นโดยสารเครื่องบิน และระดับของบุคลากร', href: `${TRAVEL_BASE}/lodging`, icon: <FaBed />, roles: HRD_ALLOWANCE_ROLES },
   { title: 'ตั้งค่าการลงนาม', desc: 'เลือกรายกลุ่มว่าให้ลงนามด้วยลายเซ็นในระบบ หรือเดินเอกสารให้เซ็นเอง', href: `${TRAVEL_BASE}/signing`, icon: <FaSignature />, roles: HRD_ALLOWANCE_ROLES },
   { title: 'งบประมาณและ Dashboard', desc: 'ตั้งวงเงินงบประมาณรายปี ดูยอดใช้จริงที่การเงินยืนยัน ยอดรอยืนยัน และคงเหลือ', href: `${TRAVEL_BASE}/budget`, icon: <FaChartPie />, roles: HRD_ALLOWANCE_ROLES },
+  // ต่อท้ายเสมอ — หน้าอื่นอ้าง TRAVEL_MENU ด้วย index (หน้าเมนูย้ายใบนี้ขึ้นเป็นใบแรกเอง)
+  { title: 'งานที่ต้องดำเนินการ', desc: 'คำขอที่รอบันทึกผลคำสั่ง ผอ. รอยอดจากการเงิน ใกล้เดินทางแต่ยังไม่อนุมัติ และงบประมาณที่ต้องดู', href: `${TRAVEL_BASE}/tasks`, icon: <FaTasks />, roles: HRD_ALLOWANCE_ROLES },
+  { title: 'อนุมัติการเดินทางไปราชการ', desc: 'หัวหน้ากลุ่มงาน / หัวหน้ากลุ่มภารกิจ พิจารณาและลงนามคำขอในระบบ (ผู้อำนวยการลงนามบนกระดาษ)', href: `${TRAVEL_BASE}/approval`, icon: <FaUserCheck />, approver: true },
 ]
+/** การ์ด/หน้า งานที่ต้องดำเนินการ (ADMIN / HRD) */
+export const TRAVEL_TASKS_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BASE}/tasks`)!
+/** การ์ด/หน้า อนุมัติการเดินทาง (ผู้อนุมัติในสาย) */
+export const TRAVEL_APPROVAL_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BASE}/approval`)!
 
 // งานที่ต้องดำเนินการของ HRD — การ์ดหน้าแรก (HrdTasks) และตัวกรอง ?task= ของหน้ารายการคำขอ (ตรงกับ backend taskWhere)
 export type HrdTaskKey = 'director' | 'actual' | 'soon'
 export const HRD_TASKS: Record<HrdTaskKey, { title: string; hint: string; color: string }> = {
   director: { title: 'รอบันทึกผลคำสั่งผู้อำนวยการ', hint: 'ผ่านสายอนุมัติแล้ว หรือเดินเอกสาร — บันทึกผลตามบันทึกข้อความที่ ผอ. ลงนามจริง', color: '#d97706' },
   actual: { title: 'รอบันทึกยอดที่การเงินยืนยัน', hint: 'ผอ. อนุมัติแล้ว — บันทึกยอดเบิกจ่ายจริงเพื่อตัดงบประมาณ', color: '#2563eb' },
-  soon: { title: 'ใกล้เดินทางแต่ยังไม่อนุมัติ', hint: 'ออกเดินทางภายใน 7 วัน (หรือเลยวันแล้ว) แต่ยังค้างอยู่ในสายอนุมัติ', color: '#dc2626' },
+  soon: { title: 'ใกล้เดินทางแต่ ผอ. ยังไม่อนุมัติ', hint: 'ออกเดินทางภายใน 7 วัน (หรือเลยวันแล้ว) แต่ยังค้างในสายอนุมัติหรือรอ ผอ. ลงนาม — ต้องเร่ง ไม่งั้นผู้เดินทางไม่มีสิทธิ์เดินทาง', color: '#dc2626' },
 }
 export const isHrdTaskKey = (v: unknown): v is HrdTaskKey => typeof v === 'string' && v in HRD_TASKS
 export const HRD_ROLES_ITEM = { roles: HRD_ALLOWANCE_ROLES } as TravelMenuItem
@@ -74,11 +83,12 @@ export async function travelApi<T = unknown>(path: string, method: 'GET' | 'PUT'
 }
 
 // โครงหน้า: Navbar + breadcrumb (หน้าย่อยส่ง current มา จะมีลิงก์กลับหน้าเมนูให้)
-export const TravelShell = ({ current, children }: { current?: string; children: React.ReactNode }) => (
+/** fluid = ใช้ความกว้างเต็มจอ (หน้าตารางที่มีหลายคอลัมน์) */
+export const TravelShell = ({ current, fluid, children }: { current?: string; fluid?: boolean; children: React.ReactNode }) => (
   <AppThemeProvider colorPrimary="#a855f7">
     <div style={{ minHeight: '100dvh', background: 'var(--app-bg)' }}>
       <Navbar />
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '20px 16px 56px' }}>
+      <div style={{ maxWidth: fluid ? 'none' : 1320, margin: '0 auto', padding: fluid ? '20px clamp(16px, 2vw, 32px) 56px' : '20px 16px 56px' }}>
         <Breadcrumb
           items={[
             { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
