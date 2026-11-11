@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DATE_FORMAT, ThaiDatePicker } from '@/app/general/contracts/contractShared'
 import { TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
 import {
-  BUDGET_TYPES, FLIGHT_LABEL, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
+  BUDGET_TYPES, FLIGHT_LABEL, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, transportExtras, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
   type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
 } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
@@ -37,6 +37,8 @@ const FIELD_MAP: Record<string, string> = { start_at: 'start_date', end_at: 'end
 /** ปีงบประมาณ พ.ศ. ของวันที่ (ต.ค. ขึ้นปีงบใหม่) */
 const fyOf = (d: Dayjs) => d.year() + 543 + (d.month() >= 9 ? 1 : 0)
 const money = (n: number) => `${fmtMoney(n)} บาท`
+/** ค่าแท็กซี่ สถานีขนส่ง/สนามบิน ↔ ที่พัก ที่ใช้บ่อย (ต่อเที่ยว) — ปุ่มใส่ให้ แก้ได้ */
+const TAXI_RATE = 200
 
 const RequestForm = () => {
   const { message } = App.useApp()
@@ -95,6 +97,7 @@ const RequestForm = () => {
         allowance_days: r.allowance_days, allowance_days_mode: r.allowance_days === r.allowance_max_days ? 'auto' : 'manual', meals_provided: r.meals_provided || undefined,
         vehicle_mode: r.vehicle_mode, vehicle_id: r.vehicle_id ?? undefined, vehicle_plate: r.vehicle_plate ?? undefined, distance_km: r.distance_km ?? undefined,
         route_id: r.route_id ?? undefined, vehicle_other: r.vehicle_other ?? undefined, transport_amount: r.transport_amount || undefined, toll_amount: r.toll_amount || undefined,
+        taxi_go_amount: r.taxi_go_amount || undefined, taxi_back_amount: r.taxi_back_amount || undefined, home_station_amount: r.home_station_amount || undefined,
         lodging_mode: r.lodging_mode ?? 'none', lodging_nights: r.lodging_nights || undefined,
         lodging_amount: r.lodging_mode === 'actual' ? r.lodging_amount || undefined : undefined, lodging_note: r.lodging_note ?? undefined,
         registration_amount: r.registration_amount || undefined, other_amount: r.other_amount || undefined, other_desc: r.other_desc ?? undefined,
@@ -139,7 +142,12 @@ const RequestForm = () => {
   const cap = route ? route.max_fare * 2 * travelers.length : null
   const fuel = mode === 'private' && vehicle && v.distance_km > 0 ? round2(v.distance_km * vehicle.rate_per_km) : 0
   const toll = mode === 'private' || mode === 'gov_car' ? v.toll_amount ?? 0 : 0
-  const transport = mode === 'bus' || mode === 'plane' || mode === 'other' ? v.transport_amount ?? 0 : 0
+  const transitMode = mode === 'bus' || mode === 'plane' || mode === 'other'
+  const STATION = mode === 'plane' ? 'สนามบิน' : mode === 'bus' ? 'สถานีขนส่ง' : 'สถานี'
+  const fare = transitMode ? v.transport_amount ?? 0 : 0
+  // ค่าพาหนะย่อย (แท็กซี่ สถานี ↔ ที่พัก · บ้าน ↔ สถานี) — รวมใน ๖.๓
+  const extras = transitMode ? transportExtras(v) : 0
+  const transport = round2(fare + extras)
   // ๖.๒ ค่าเช่าที่พัก — ทั้งคณะใช้รูปแบบเดียว · เพดานรายคน = อัตราตามระดับสิทธิ์ × คืน (ตรงกับ backend computeRequest)
   const maxNights = timeOk ? tripNights(startMs, endMs) : 0
   const lodgingMode: LodgingMode = v.lodging_mode ?? 'none'
@@ -178,6 +186,9 @@ const RequestForm = () => {
       vehicle_mode: f.vehicle_mode, vehicle_id: f.vehicle_id ?? null, vehicle_plate: f.vehicle_plate ?? null, distance_km: f.distance_km ?? null,
       route_id: f.route_id ?? null, vehicle_other: f.vehicle_other ?? null,
       transport_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.transport_amount ?? 0 : 0,
+      taxi_go_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.taxi_go_amount ?? 0 : 0,
+      taxi_back_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.taxi_back_amount ?? 0 : 0,
+      home_station_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.home_station_amount ?? 0 : 0,
       toll_amount: ['private', 'gov_car'].includes(f.vehicle_mode) ? f.toll_amount ?? 0 : 0,
       lodging_mode: f.lodging_mode ?? 'none',
       lodging_nights: f.lodging_mode && f.lodging_mode !== 'none' ? f.lodging_nights ?? 0 : 0,
@@ -217,7 +228,7 @@ const RequestForm = () => {
       key: '6.2', label: 'ค่าเช่าที่พัก', amount: lodging,
       detail: lodgingMode === 'lump' ? `เหมาจ่าย ${travelers.length} คน × ${nights} คืน` : lodgingMode === 'actual' ? `จ่ายจริง ${roomCount} ห้อง ${nights} คืน · เพดาน ${fmtMoney(lodgingCap)}` : '',
     },
-    { key: '6.3', label: 'ค่าพาหนะเดินทาง', detail: route ? `${route.origin} ⇄ ${route.destination}` : mode === 'other' ? v.vehicle_other ?? '' : '', amount: transport },
+    { key: '6.3', label: 'ค่าพาหนะเดินทาง', detail: [route ? `${route.origin} ⇄ ${route.destination}` : mode === 'other' ? v.vehicle_other ?? '' : '', extras ? `รวมแท็กซี่/บ้าน↔สถานี ${fmtMoney(extras)}` : ''].filter(Boolean).join(' · '), amount: transport },
     { key: '6.4', label: 'ค่าลงทะเบียน / ค่าธรรมเนียม', detail: '', amount: registration },
     { key: '6.5', label: 'ค่าน้ำมันเชื้อเพลิง / ค่าทางด่วน', detail: fuel ? `${v.distance_km} กม. × ${vehicle?.rate_per_km} บาท${toll ? ` + ทางด่วน ${fmtMoney(toll)}` : ''}` : toll ? `ทางด่วน` : '', amount: fuel + toll },
     { key: '6.6', label: 'ค่าใช้จ่ายอื่น ๆ', detail: v.other_desc ?? '', amount: other },
@@ -229,12 +240,17 @@ const RequestForm = () => {
 
   return (
     <ConfigProvider locale={TH_LOCALE}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 320px', minWidth: 0 }}>
         <div style={{ width: 48, height: 48, borderRadius: 14, flexShrink: 0, fontSize: 22, background: `${TRAVEL_COLOR}1a`, color: TRAVEL_COLOR, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{TRAVEL_MENU[0].icon}</div>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <Title level={3} style={{ margin: 0, color: 'var(--app-text)' }}>{editId ? 'แก้ไขคำขออนุมัติเดินทางไปราชการ' : 'ขออนุมัติเดินทางไปราชการ'}</Title>
           <Text style={{ color: 'var(--app-text-2)' }}>กรอกตามบันทึกข้อความ ระบบคำนวณค่าใช้จ่ายตามอัตราที่งานพัฒนาทรัพยากรบุคคลตั้งไว้ แล้วพิมพ์ PDF เสนอลงนาม</Text>
         </div>
+        </div>
+        <Link href={TRAVEL_MENU[1].href} data-testid="to-requests">
+          <Button type="primary" icon={<span style={{ display: 'inline-flex' }}>{TRAVEL_MENU[1].icon}</span>}>{TRAVEL_MENU[1].title}</Button>
+        </Link>
       </div>
 
       <Form form={form} layout="vertical" requiredMark="optional" onFinish={save} scrollToFirstError initialValues={init}>
@@ -335,6 +351,20 @@ const RequestForm = () => {
                   <Col xs={24} sm={14}><Form.Item name="vehicle_other" label="ระบุยานพาหนะ" rules={[{ required: true, whitespace: true, message: 'ระบุยานพาหนะ' }, { max: 200 }]}><Input placeholder="เช่น รถไฟ, รถตู้รับจ้าง" /></Form.Item></Col>
                   <Col xs={24} sm={10}><Form.Item name="transport_amount" label="ค่าพาหนะ">{moneyInput()}</Form.Item></Col>
                 </Row>
+              )}
+
+              {(mode === 'bus' || mode === 'plane' || mode === 'other') && (
+                <div className="lodging-box" data-testid="transport-extras">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                    <Text strong>ค่าพาหนะย่อย <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>(รวมใน ๖.๓ ค่าพาหนะเดินทาง · ไม่มีใบเสร็จใช้แบบ บก.๑๑๑)</Text></Text>
+                    <Button size="small" onClick={() => form.setFieldsValue({ taxi_go_amount: TAXI_RATE, taxi_back_amount: TAXI_RATE })}>ใส่ค่าแท็กซี่ {TAXI_RATE} / {TAXI_RATE} บาท</Button>
+                  </div>
+                  <Row gutter={12}>
+                    <Col xs={12} sm={8}><Form.Item name="taxi_go_amount" label="แท็กซี่ขาไป" extra={`${STATION} → ที่พัก`}>{moneyInput(100_000)}</Form.Item></Col>
+                    <Col xs={12} sm={8}><Form.Item name="taxi_back_amount" label="แท็กซี่ขากลับ" extra={`ที่พัก → ${STATION}`}>{moneyInput(100_000)}</Form.Item></Col>
+                    <Col xs={24} sm={8}><Form.Item name="home_station_amount" label="บ้าน ↔ สถานี (ไป-กลับ)" extra={`บ้าน/ที่ทำงาน → ${STATION}ต้นทาง และขากลับ`}>{moneyInput(100_000)}</Form.Item></Col>
+                  </Row>
+                </div>
               )}
             </Card>
 
@@ -495,7 +525,7 @@ const RequestForm = () => {
               </Card>
               <Card title="หลักฐานที่ต้องใช้เบิกจ่าย" style={card} size="small">
                 <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.7, color: 'var(--app-text-2)' }} data-testid="required-docs">
-                  {requiredDocs({ vehicle_mode: mode, lodging_mode: lodgingMode, registration_amount: registration, transport_amount: transport }).map(x => <li key={x}>{x}</li>)}
+                  {requiredDocs({ vehicle_mode: mode, lodging_mode: lodgingMode, registration_amount: registration, transport_amount: fare, extras_amount: extras }).map(x => <li key={x}>{x}</li>)}
                 </ol>
                 {lodgingMode === 'lump' && <Text type="secondary" style={{ fontSize: 12 }}>ค่าที่พักแบบเหมาจ่ายไม่ต้องแนบใบเสร็จ</Text>}
               </Card>

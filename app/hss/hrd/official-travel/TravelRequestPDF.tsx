@@ -2,7 +2,7 @@
 // บันทึกข้อความ "ขออนุมัติเดินทางไปราชการและเบิกค่าใช้จ่ายในการเดินทางไปราชการ" — ตามแบบฟอร์มกระดาษของงานพัฒนาทรัพยากรบุคคล
 // หน้า ๑ = บันทึกข้อความ (ขอบ บน ๒.๕ ซ้าย ๓ ขวา ๒ ล่าง ๒ ซม.) · หน้า ๒ = บัญชีรายชื่อผู้เดินทางและที่มาของยอดเงิน (แนบท้าย)
 // ชิ้นส่วน (ช่องกรอกเส้นประ ช่องติ๊ก ตัดบรรทัดไทย) ตามแบบ components/LeaveFormPDF.tsx
-// ตราครุฑ: วางไฟล์ที่ public/images/garuda.png — ไม่มีไฟล์จะเว้นที่ไว้ (ตัวแสดงตรวจไฟล์ก่อน ส่งมาทาง garudaSrc)
+// ตราครุฑ (สูง ๑.๕ ซม. ตามระเบียบงานสารบรรณ): public/assets/docs/jpe4XHmGBReEanQzvr9sZjii.png — ไม่มีไฟล์จะเว้นที่ไว้ (ตัวแสดงตรวจไฟล์ก่อน ส่งมาทาง garudaSrc)
 import { Document, Font, Image, Page, Path, PDFViewer, Rect, StyleSheet, Svg, Text, View, pdf } from '@react-pdf/renderer'
 import React, { useEffect, useState, type ComponentProps } from 'react'
 import { App, Button, Segmented, Spin, Typography } from 'antd'
@@ -12,8 +12,7 @@ import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSu
 import {
   BUDGET_TYPES, MEMO, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
   type Signer, type TravelRequest,
-  mealCut, personAllowance,
-} from './travelCalc'
+  mealCut, personAllowance, transportExtras, transportTotal } from './travelCalc'
 
 const { Text: AntText } = Typography
 
@@ -97,10 +96,11 @@ const Line = ({ children, style }: { children: React.ReactNode; style?: Style | 
  * การจัดวาง: ช่องข้อความ (ยืดได้) ชิดซ้ายเสมอ · ช่องกว้างคงที่ (ตัวเลข วัน เวลา จำนวนเงิน) กึ่งกลาง
  * center = บังคับกึ่งกลาง (ชื่อ/ตำแหน่งใต้ลายเซ็น จำนวนเงินตัวอักษรในวงเล็บ) · left = บังคับชิดซ้าย
  */
-const Fill = ({ value, width, left: leftProp, center, maxChars, maxLines = 1, grow = 1 }: { value?: string | null; width?: number | string; left?: boolean; center?: boolean; maxChars?: number; maxLines?: number; grow?: number }) => {
+/** nowrap = width เป็นความกว้างขั้นต่ำ ข้อความยาวกว่าให้ช่องขยายตาม ไม่ตัดขึ้นบรรทัดใหม่ (เช่น วันที่ที่เดือนยาว) */
+const Fill = ({ value, width, left: leftProp, center, maxChars, maxLines = 1, grow = 1, nowrap }: { value?: string | null; width?: number | string; left?: boolean; center?: boolean; maxChars?: number; maxLines?: number; grow?: number; nowrap?: boolean }) => {
   const left = leftProp ?? (!center && width == null)
   return (
-  <View style={[s.fill, { alignItems: left ? 'flex-start' : 'center' }, width != null ? { width } : { flexGrow: grow, flexBasis: value ? 'auto' : 0, minWidth: 20 }]}>
+  <View style={[s.fill, { alignItems: left ? 'flex-start' : 'center' }, width != null ? (nowrap ? { minWidth: width, flexShrink: 0, paddingHorizontal: 4 } : { width }) : { flexGrow: grow, flexBasis: value ? 'auto' : 0, minWidth: 20 }]}>
     {value && maxChars
       ? splitLines(value, maxChars, maxLines).map((ln, i) => <Text key={i} style={[s.fillText, left ? { textAlign: 'left', paddingLeft: 3 } : {}]}>{pad(ln)}</Text>)
       : <Text style={[s.fillText, left ? { textAlign: 'left', paddingLeft: 3 } : {}]}>{value ? pad(value) : NB}</Text>}
@@ -211,11 +211,11 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       <Line style={[s.indent, { alignItems: 'flex-start' }]}><T>{`${th(2)}. สถานที่ไปราชการ`}</T><Fill value={d.location} maxChars={60} maxLines={2} left /></Line>
       {/* Sarabun กว้างกว่า TH Sarabun ของแบบกระดาษ — วัน เดือน ปี รวมช่องเดียว และรวมระยะเวลาขึ้นบรรทัดของตัวเอง ไม่ให้ตัดบรรทัดกลางช่อง */}
       <Line style={s.indent}>
-        <T>{`${th(3)}. ระยะเวลาเดินทาง ตั้งแต่วันที่`}</T><Fill value={th(`${st.day} ${st.month} พ.ศ. ${st.year}`)} width={128} />
+        <T>{`${th(3)}. ระยะเวลาเดินทาง ตั้งแต่วันที่`}</T><Fill value={th(`${st.day} ${st.month} พ.ศ. ${st.year}`)} width={128} nowrap />
         <T>เวลา</T><Fill value={th(st.time)} width={40} /><T>น.</T>
       </Line>
       <Line style={s.indent2}>
-        <T>ถึงวันที่</T><Fill value={th(`${en.day} ${en.month} พ.ศ. ${en.year}`)} width={128} /><T>เวลา</T><Fill value={th(en.time)} width={40} /><T>น.</T>
+        <T>ถึงวันที่</T><Fill value={th(`${en.day} ${en.month} พ.ศ. ${en.year}`)} width={128} nowrap /><T>เวลา</T><Fill value={th(en.time)} width={40} /><T>น.</T>
       </Line>
       <Line style={s.indent2}>
         <T>รวมระยะเวลา</T><Fill value={th(dur.days)} width={30} /><T>วัน</T><Fill value={th(dur.hours)} width={30} /><T>ชั่วโมง</T>
@@ -255,7 +255,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <Fill value={d.lodging_nights ? th(d.lodging_nights) : ''} width={20} /><T>คืน</T>
       </CostLine>
       {/* ที่มาของยอด ๖.๓ / ๖.๕ (เส้นทาง · กม. × อัตรา) อยู่ในหน้าแนบท้าย — หน้านี้คงรูปตามแบบกระดาษ */}
-      <CostLine no="๖.๓" label="ค่าพาหนะเดินทาง" amount={d.transport_amount} />
+      <CostLine no="๖.๓" label="ค่าพาหนะเดินทาง" amount={transportTotal(d)} />
       <CostLine no="๖.๔" label="ค่าลงทะเบียน / ค่าธรรมเนียม" amount={d.registration_amount} />
       <CostLine no="๖.๕" label="ค่าน้ำมันเชื้อเพลิง / ค่าทางด่วน" amount={d.fuel_amount + d.toll_amount} />
       <CostLine no="๖.๖" label="ค่าใช้จ่ายอื่น ๆ (ระบุ)" amount={d.other_amount}><Fill value={d.other_desc ?? ''} maxChars={13} left /></CostLine>
@@ -364,6 +364,13 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
       {hasLodging && note('๖.๒ ค่าเช่าที่พัก', lodgingSrc)}
       {(d.vehicle_mode === 'bus' || d.vehicle_mode === 'plane') && note(`๖.๓ ค่าพาหนะ (${d.vehicle_mode === 'bus' ? 'รถโดยสารประจำทาง' : 'เครื่องบิน'})`, `${routeTxt(d.route_text)} · เพดาน ${capText} · ขอเบิก ${th(fmtMoney(d.transport_amount))} บาท`)}
       {d.vehicle_mode === 'other' && d.transport_amount > 0 && note('๖.๓ ค่าพาหนะ', `${d.vehicle_other ?? ''} ${th(fmtMoney(d.transport_amount))} บาท`)}
+      {/* Sarabun ไม่มี ↔ — ใช้ขีด · ข้อความสั้นไม่ให้วงเล็บตกบรรทัด */}
+      {transportExtras(d) > 0 && note('๖.๓ ค่าพาหนะย่อย', [
+        d.taxi_go_amount ? `แท็กซี่ขาไป ${th(fmtMoney(d.taxi_go_amount))} บาท` : '',
+        d.taxi_back_amount ? `แท็กซี่ขากลับ ${th(fmtMoney(d.taxi_back_amount))} บาท` : '',
+        d.taxi_go_amount || d.taxi_back_amount ? 'ระหว่างสถานีกับที่พัก' : '',
+        d.home_station_amount ? `ค่าเดินทางบ้าน - สถานี ไปกลับ ${th(fmtMoney(d.home_station_amount))} บาท` : '',
+      ].filter(Boolean).join(' · '))}
       {d.vehicle_mode === 'private' && note('๖.๕ ค่าน้ำมันเชื้อเพลิง', `${d.vehicle_name ?? ''} ทะเบียน ${d.vehicle_plate ?? '-'} · ${th(fmtNum(d.distance_km ?? 0))} กม. × ${th(fmtNum(d.rate_per_km ?? 0))} บาท/กม. = ${th(fmtMoney(d.fuel_amount))} บาท`)}
       {d.toll_amount > 0 && note('๖.๕ ค่าทางด่วน', `${th(fmtMoney(d.toll_amount))} บาท`)}
       {note('งบประมาณ', `${BUDGET_TYPES[d.budget_type]} · ${d.budget_name}`)}
@@ -403,7 +410,7 @@ export const TravelAttachmentDocument = ({ d, printedAt }: { d: TravelRequest; p
 )
 
 // ─── ตัวแสดงผล — PDFViewer ในหน้า หรือปุ่มบันทึก/แชร์บนมือถือที่แสดง PDF ในหน้าไม่ได้ ──
-const GARUDA = '/images/garuda.png'
+const GARUDA = '/assets/docs/jpe4XHmGBReEanQzvr9sZjii.png'
 const TravelRequestPDF = ({ data }: { data: TravelRequest }) => {
   const { message } = App.useApp()
   const [garuda, setGaruda] = useState<string | null | undefined>(undefined)

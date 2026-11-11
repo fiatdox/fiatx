@@ -57,11 +57,19 @@ export const ROOM_LABEL: Record<RoomType, string> = { single: 'ห้องพ�
 export const FLIGHT_LABEL: Record<FlightClass, string> = { business: 'ชั้นธุรกิจ', economy: 'ชั้นประหยัด' }
 
 /** หลักฐานที่ต้องใช้เบิกจ่าย ตามรูปแบบการเดินทางและค่าใช้จ่ายของคำขอ */
-export const requiredDocs = (d: { vehicle_mode?: VehicleMode; lodging_mode?: LodgingMode; registration_amount?: number; transport_amount?: number }) => {
+/** ค่าพาหนะย่อย (แท็กซี่ไป/กลับ + บ้าน↔สถานี) */
+export const transportExtras = (d: { taxi_go_amount?: number | null; taxi_back_amount?: number | null; home_station_amount?: number | null }) =>
+  round2((d.taxi_go_amount ?? 0) + (d.taxi_back_amount ?? 0) + (d.home_station_amount ?? 0))
+/** ๖.๓ ค่าพาหนะเดินทางทั้งหมด = ค่าโดยสาร + ค่าพาหนะย่อย */
+export const transportTotal = (d: { transport_amount?: number | null; taxi_go_amount?: number | null; taxi_back_amount?: number | null; home_station_amount?: number | null }) =>
+  round2((d.transport_amount ?? 0) + transportExtras(d))
+
+export const requiredDocs = (d: { vehicle_mode?: VehicleMode; lodging_mode?: LodgingMode; registration_amount?: number; transport_amount?: number; extras_amount?: number }) => {
   const docs = ['หนังสืออนุมัติเดินทาง (บันทึกข้อความนี้ที่ลงนามแล้ว)', 'แบบรายงานการเดินทาง (แบบ ๘๗๐๘)']
   if (d.lodging_mode === 'actual') docs.push('ใบเสร็จรับเงินค่าที่พัก (เบิกแบบจ่ายจริง)')
   if (d.vehicle_mode === 'plane') docs.push('ใบเสร็จรับเงินค่าโดยสาร / กากบัตรโดยสาร (Boarding Pass) — ค่าบริการเลือกที่นั่งเบิกไม่ได้')
   if ((d.vehicle_mode === 'bus' || d.vehicle_mode === 'other') && (d.transport_amount ?? 0) > 0) docs.push('ใบรับรองแทนใบเสร็จรับเงิน (แบบ บก.๑๑๑) สำหรับค่าพาหนะรับจ้างที่ไม่มีใบเสร็จ')
+  if ((d.extras_amount ?? 0) > 0) docs.push('ใบรับรองแทนใบเสร็จรับเงิน (แบบ บก.๑๑๑) สำหรับค่าแท็กซี่ / ค่าเดินทางไปสถานีขนส่ง')
   if ((d.registration_amount ?? 0) > 0) docs.push('ใบเสร็จรับเงินค่าลงทะเบียน')
   return docs
 }
@@ -159,13 +167,19 @@ export interface ChainStepLite { step: number; level?: string; level_name: strin
 export type SignMode = 'esign' | 'paper'
 export const SIGN_MODE_LABEL: Record<SignMode, string> = { esign: 'ลงนามในระบบ', paper: 'เดินเอกสาร' }
 
-/** สถานะคำขอสำหรับแสดงผล (ป้าย + สี) */
-export const statusOf = (r: Pick<TravelRequest, 'status' | 'approval_stage' | 'waiting_for' | 'sign_mode'>): { label: string; color: string } =>
-  r.status === 'cancelled' ? { label: 'ยกเลิก', color: 'default' }
-    : r.status === 'rejected' ? { label: 'ไม่อนุมัติ', color: 'error' }
-      : r.approval_stage === 'approved' ? { label: 'อนุมัติแล้ว', color: 'success' }
-        : r.approval_stage === 'director' ? (r.sign_mode === 'paper' ? { label: 'รอผลเดินเอกสาร', color: 'gold' } : { label: 'รอ ผอ. ลงนาม', color: 'gold' })
-          : { label: r.waiting_for ? `รอ${r.waiting_for.level_name}` : 'รออนุมัติ', color: 'processing' }
+/** สถานะคำขอสำหรับแสดงผล — key ใช้เลือกไอคอน, color คือสี Tag ของ antd */
+export type StatusKey = 'step1' | 'step2' | 'director' | 'approved' | 'rejected' | 'cancelled'
+// รออนุมัติทุกขั้น = เทา (ไอคอนนาฬิกา) · อนุมัติ = เขียว · ยกเลิก/ไม่อนุมัติ = แดง (แยกกันด้วยไอคอนและข้อความ)
+export const STATUS_COLOR: Record<StatusKey, string> = { step1: 'default', step2: 'default', director: 'default', approved: 'green', rejected: 'red', cancelled: 'red' }
+export const statusOf = (r: Pick<TravelRequest, 'status' | 'approval_stage' | 'waiting_for' | 'sign_mode' | 'current_step'>): { key: StatusKey; label: string; color: string } => {
+  const key: StatusKey = r.status === 'cancelled' ? 'cancelled' : r.status === 'rejected' ? 'rejected'
+    : r.approval_stage === 'approved' ? 'approved' : r.approval_stage === 'director' ? 'director'
+      : (r.current_step ?? 1) >= 2 ? 'step2' : 'step1'
+  const label = key === 'cancelled' ? 'ยกเลิก' : key === 'rejected' ? 'ไม่อนุมัติ' : key === 'approved' ? 'อนุมัติแล้ว'
+    : key === 'director' ? (r.sign_mode === 'paper' ? 'รอผลเดินเอกสาร' : 'รอ ผอ. ลงนาม')
+      : r.waiting_for ? `รอ${r.waiting_for.level_name}` : 'รออนุมัติ'
+  return { key, label, color: STATUS_COLOR[key] }
+}
 export interface TravelRequest {
   id: number; memo_no?: string | null; requester_id: number; requester_name: string; requester_position: string | null; requester_unit: string | null
   purpose: string; subject: string; location: string; start_at: string; end_at: string; overnight: boolean
@@ -174,6 +188,8 @@ export interface TravelRequest {
   distance_km: number | null; rate_per_km: number | null; route_id: number | null; route_text: string | null; route_max_fare: number | null; vehicle_other: string | null
   allowance_amount: number; lodging_mode: LodgingMode; lodging_rooms: number; lodging_nights: number; lodging_amount: number; lodging_cap: number; lodging_note: string | null
   transport_amount: number
+  /** ค่าพาหนะย่อย (รวมใน ๖.๓): แท็กซี่ สถานี/สนามบิน ↔ ที่พัก ขาไป/ขากลับ · บ้าน ↔ สถานี ไป-กลับ */
+  taxi_go_amount?: number; taxi_back_amount?: number; home_station_amount?: number
   registration_amount: number; fuel_amount: number; toll_amount: number; other_amount: number; other_desc: string | null; total_amount: number
   budget_id: number; budget_type: BudgetType; budget_name: string; actual_amount: number | null; actual_note: string | null; actual_at: string | null
   status: 'submitted' | 'rejected' | 'cancelled'; cancel_reason: string | null; cancelled_at: string | null; created_at: string; updated_at: string
