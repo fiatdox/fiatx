@@ -10,7 +10,7 @@ import { DownloadOutlined, FilePdfOutlined, ShareAltOutlined } from '@ant-design
 import { withBase } from '@/app/lib/basePath'
 import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSupport'
 import {
-  BUDGET_TYPES, MEMO, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
+  BUDGET_TYPES, MEMO, memoOrg, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
   type Signer, type TravelRequest,
   mealCut, personAllowance, transportExtras, transportTotal } from './travelCalc'
 
@@ -190,7 +190,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       {d.status !== 'submitted' && <View style={s.stamp}><T style={{ fontSize: 15, fontWeight: 'bold', color: '#b91c1c' }}>{d.status === 'rejected' ? 'ไม่อนุมัติ' : 'ยกเลิกแล้ว'}</T></View>}
       <T style={s.title}>บันทึกข้อความ</T>
 
-      <Line><T style={s.head}>ส่วนราชการ</T><Fill value={MEMO.org} left /></Line>
+      <Line><T style={s.head}>ส่วนราชการ</T><Fill value={memoOrg(d.requester_unit)} left /></Line>
       <Line>
         <G grow={1}><T style={s.head}>ที่</T><Fill value={`${MEMO.docPrefix}${d.memo_no ? th(d.memo_no) : ''}`} left /></G>
         <G grow={1}><T style={s.head}>วันที่</T><Fill value={th(thaiDate(d.created_at))} /></G>
@@ -265,8 +265,8 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <Check label={BUDGET_TYPES.hospital} on={d.budget_type === 'hospital'} /><Check label={BUDGET_TYPES.budget} on={d.budget_type === 'budget'} />
         <Check label={BUDGET_TYPES.project} on={d.budget_type === 'project'} /><Fill />
       </Line>
-      {/* ชื่อโครงการยาวได้ — ขึ้นบรรทัดของตัวเอง (เฉพาะงบโครงการ) */}
-      {d.budget_type === 'project' && <Line style={s.indent2}><T>ชื่อโครงการ</T><Fill value={d.budget_name} maxChars={60} left /></Line>}
+      {/* งบที่ผู้ขอเลือก (ชื่อยาวได้) — ขึ้นบรรทัดของตัวเองทุกประเภทงบ */}
+      {d.budget_name && <Line style={s.indent2}><T>{d.budget_type === 'project' ? 'ชื่อโครงการ' : 'รายการงบ'}</T><Fill value={d.budget_name} maxChars={60} left /></Line>}
       <Para indent style={{ marginTop: 3 }}>จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติให้เดินทางไปราชการ และอนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการตามระเบียบกระทรวงการคลังว่าด้วยค่าใช้จ่ายในการเดินทางไปราชการ และหลักเกณฑ์ที่เกี่ยวข้องต่อไปด้วย</Para>
 
       <SignBlock name={d.requester_name} position={d.requester_position} signature={d.requester_signature} />

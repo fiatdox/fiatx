@@ -17,11 +17,16 @@ export const BUDGET_TYPES: Record<BudgetType, string> = { hospital: 'เงิ�
 /** เลขที่บันทึกข้อความ (ส่วนหลัง docPrefix) — ตรงกับ backend: ตัวเลขไทย/อารบิก ตัวอักษร - / . ช่องว่าง */
 export const MEMO_NO_RE = /^[0-9๐-๙A-Za-zก-ฮ.\-/ ]*$/
 export const MEMO = {
-  org: 'กลุ่มงานพัฒนาทรัพยากรบุคคล โรงพยาบาลพะเยา โทร ๒๕๓๗',
   docPrefix: 'พย.๐๐๓๓.๒๐๒/',
   subject: 'ขออนุมัติเดินทางไปราชการและเบิกค่าใช้จ่ายในการเดินทางไปราชการ',
   to: 'ผู้อำนวยการโรงพยาบาลพะเยา',
   hospital: 'โรงพยาบาลพะเยา',
+}
+
+/** ส่วนราชการในบันทึกข้อความ = กลุ่มงานของผู้ขอ (snapshot ตอนยื่น) ตามด้วยโรงพยาบาล — ไม่มีกลุ่มงานใช้ชื่อโรงพยาบาล */
+export const memoOrg = (unit?: string | null) => {
+  const u = unit?.trim()
+  return u ? `${u} ${MEMO.hospital}` : MEMO.hospital
 }
 
 const TZ_OFFSET_MS = 7 * 3600 * 1000
