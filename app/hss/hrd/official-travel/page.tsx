@@ -1,11 +1,11 @@
 'use client'
 // เดินทางไปราชการ — บุคลากรขอไปราชการ งานพัฒนาทรัพยากรบุคคล (พรส) ดูแลผู้เดินทางและงบประมาณตามหมวดหมู่
 import React, { useEffect, useState } from 'react'
-import { Col, Row, Tag, Typography } from 'antd'
-import { ArrowRightOutlined } from '@ant-design/icons'
+import { Badge, Card, Col, Row, Tooltip, Typography } from 'antd'
+import { RightOutlined, ToolOutlined } from '@ant-design/icons'
 import { FaPlaneDeparture } from 'react-icons/fa'
 import Link from 'next/link'
-import { canSeeTravelItem, HRD_ROLES_ITEM, TRAVEL_APPROVAL_ITEM, TRAVEL_COLOR, TRAVEL_MENU, TRAVEL_TASKS_ITEM, TravelShell, travelApi, useTravelRoles } from './travelShared'
+import { canSeeTravelItem, HRD_ROLES_ITEM, TRAVEL_APPROVAL_ITEM, TRAVEL_COLOR, TRAVEL_MENU, TRAVEL_TASKS_ITEM, TravelShell, travelApi, useTravelRoles, type TravelMenuItem } from './travelShared'
 
 const { Title, Text } = Typography
 
@@ -34,8 +34,61 @@ export default function OfficialTravelPage() {
       .then(d => { if (alive) setTasks(d.director.count + d.actual.count + d.soon.count + d.budgets.alerts.length + (d.budgets.no_active ? 1 : 0)) }).catch(() => {})
     return () => { alive = false }
   }, [isManager])
+  const tools = items.filter(it => it.roles && it !== TRAVEL_TASKS_ITEM)
+  // ตัวเลข/ข้อความเน้นบนการ์ด (อนุมัติ = รอพิจารณา · งานที่ต้องดำเนินการ = งานค้าง)
+  const cardInfo = (it: TravelMenuItem): { desc: string; badge?: number; badgeColor?: string; highlight?: string; testid?: string } => {
+    if (it === TRAVEL_APPROVAL_ITEM && approver) {
+      return pending > 0
+        ? { desc: `รอพิจารณา ${pending} รายการ`, badge: pending, badgeColor: '#f59e0b', highlight: '#d97706', testid: 'pending-badge' }
+        : { desc: 'ไม่มีคำขอรอพิจารณา' }
+    }
+    if (it === TRAVEL_TASKS_ITEM && tasks != null) {
+      return tasks > 0
+        ? { desc: `ค้าง ${tasks} เรื่อง — กดเพื่อดำเนินการ`, badge: tasks, badgeColor: '#ef4444', highlight: '#dc2626', testid: 'tasks-badge' }
+        : { desc: 'ไม่มีงานค้าง', testid: 'tasks-badge' }
+    }
+    return { desc: it.short ?? it.desc }
+  }
+  const renderCards = (list: TravelMenuItem[]) => (
+    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      {list.map(it => {
+        const c = it.color ?? TRAVEL_COLOR
+        const info = cardInfo(it)
+        return (
+          <Col key={it.href} xs={24} sm={12} lg={8} xl={6}>
+            <Link href={it.href} style={{ display: 'block', height: '100%' }}>
+              <Card hoverable style={{ borderRadius: 12, border: 'none', height: '100%' }} styles={{ body: { padding: 16 } }}>
+                <Tooltip title={it.desc} placement="bottom" mouseEnterDelay={0.6}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{
+                      width: 44, height: 44, flexShrink: 0, fontSize: 20, borderRadius: 12, color: c, backgroundColor: `${c}1f`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {it.icon}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <Text strong style={{ fontSize: 15 }}>{it.title}</Text>
+                      <div data-testid={info.testid}>
+                        {info.highlight
+                          ? <Text strong style={{ fontSize: 12, color: info.highlight }}>{info.desc}</Text>
+                          : <Text type="secondary" style={{ fontSize: 12 }}>{info.desc}</Text>}
+                      </div>
+                    </div>
+                    <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {!!info.badge && <Badge count={info.badge} overflowCount={999} color={info.badgeColor} />}
+                      <RightOutlined style={{ color: 'var(--app-text-3)' }} />
+                    </span>
+                  </div>
+                </Tooltip>
+              </Card>
+            </Link>
+          </Col>
+        )
+      })}
+    </Row>
+  )
   return (
-    <TravelShell>
+    <TravelShell fluid>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 24 }}>
         <div style={{
           width: 52, height: 52, borderRadius: 14, flexShrink: 0, fontSize: 24,
@@ -52,50 +105,17 @@ export default function OfficialTravelPage() {
         </div>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {items.map((it, i) => (
-          <Col xs={24} md={12} xl={items.length >= 5 ? 8 : Math.max(6, 24 / items.length)} key={it.href}>
-            <Link href={it.href} className="travel-menu-card" style={{
-              display: 'flex', flexDirection: 'column', gap: 12, height: '100%',
-              padding: '20px 20px 18px', borderRadius: 16,
-              border: '1px solid var(--app-border)', background: 'var(--app-surface)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{
-                  width: 46, height: 46, borderRadius: 12, fontSize: 20,
-                  background: `${TRAVEL_COLOR}1a`, color: TRAVEL_COLOR,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  {it.icon}
-                </div>
-                {it === TRAVEL_APPROVAL_ITEM && pending > 0
-                  ? <Tag color="red" style={{ margin: 0 }} data-testid="pending-badge">รอพิจารณา {pending}</Tag>
-                  : it === TRAVEL_TASKS_ITEM && tasks != null
-                    ? <Tag color={tasks ? 'red' : 'green'} style={{ margin: 0 }} data-testid="tasks-badge">{tasks ? `ค้าง ${tasks} เรื่อง` : 'ไม่มีงานค้าง'}</Tag>
-                    : <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>{i + 1}</Text>}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--app-text)', marginBottom: 4 }}>{it.title}</div>
-                <div style={{ fontSize: 13, color: 'var(--app-text-2)', lineHeight: 1.5 }}>{it.desc}</div>
-              </div>
-              <div style={{ color: TRAVEL_COLOR, fontSize: 13, fontWeight: 500 }}>
-                เข้าใช้งาน <ArrowRightOutlined className="travel-menu-arrow" />
-              </div>
-            </Link>
-          </Col>
-        ))}
-      </Row>
+      {renderCards(items.filter(it => !it.roles || it === TRAVEL_TASKS_ITEM))}
 
-      <style jsx global>{`
-        .travel-menu-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; }
-        .travel-menu-card:hover {
-          transform: translateY(-3px);
-          border-color: ${TRAVEL_COLOR} !important;
-          box-shadow: 0 10px 26px -10px color-mix(in srgb, ${TRAVEL_COLOR} 55%, transparent);
-        }
-        .travel-menu-arrow { transition: transform 0.18s ease; }
-        .travel-menu-card:hover .travel-menu-arrow { transform: translateX(3px); }
-      `}</style>
+      {tools.length > 0 && (
+        <>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8, margin: '8px 0 12px' }}>
+            <Text strong style={{ fontSize: 15 }}><ToolOutlined style={{ color: TRAVEL_COLOR }} /> ตั้งค่างานพัฒนาทรัพยากรบุคคล</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>แสดงตามสิทธิ์ของท่าน ({(roles ?? []).filter(r => HRD_ROLES_ITEM.roles!.includes(r)).join(' / ')})</Text>
+          </div>
+          {renderCards(tools)}
+        </>
+      )}
     </TravelShell>
   )
 }

@@ -22,19 +22,23 @@ export interface TravelMenuItem {
   roles?: string[] // ไม่ระบุ = ทุกคนเห็น
   /** เห็นเฉพาะผู้อนุมัติ (หัวหน้า/รักษาการกลุ่มงานหรือกลุ่มภารกิจ หรือเคยอยู่ในสาย) — ถาม backend ไม่ใช่ role */
   approver?: boolean
+  /** สีไอคอนบนการ์ดหน้าเมนู */
+  color?: string
+  /** คำอธิบายสั้นบนการ์ดหน้าเมนู (ไม่ระบุ = ใช้ desc) */
+  short?: string
 }
 
 export const TRAVEL_MENU: TravelMenuItem[] = [
-  { title: 'ขออนุมัติเดินทางไปราชการ', desc: 'ยื่นคำขอไปราชการ ระบุเรื่อง สถานที่ วันเดินทาง และประมาณการค่าใช้จ่าย', href: `${TRAVEL_BASE}/request`, icon: <FaFileSignature /> },
-  { title: 'รายการขออนุมัติเดินทางไปราชการ', desc: 'ติดตามสถานะคำขอไปราชการและประวัติการเดินทาง', href: `${TRAVEL_BASE}/requests`, icon: <FaListAlt /> },
-  { title: 'ตั้งค่าเบี้ยเลี้ยงบุคลากร', desc: 'กำหนดอัตราเบี้ยเลี้ยงรายบุคคล และแก้ราคาของแต่ละอัตรา สำหรับบุคลากรที่ปฏิบัติงาน', href: `${TRAVEL_BASE}/allowance`, icon: <FaCoins />, roles: HRD_ALLOWANCE_ROLES },
-  { title: 'ตั้งค่าการเดินทาง', desc: 'อัตราค่าน้ำมันต่อกิโลเมตรของพาหนะส่วนตัว และเพดานราคารถโดยสารประจำทางและเครื่องบินตามเส้นทาง', href: `${TRAVEL_BASE}/transport`, icon: <FaRoute />, roles: HRD_ALLOWANCE_ROLES },
-  { title: 'ตั้งค่าค่าเช่าที่พัก', desc: 'อัตราเพดานค่าที่พักแบบเหมาจ่ายและจ่ายจริงตามระดับตำแหน่ง สิทธิ์ชั้นโดยสารเครื่องบิน และระดับของบุคลากร', href: `${TRAVEL_BASE}/lodging`, icon: <FaBed />, roles: HRD_ALLOWANCE_ROLES },
-  { title: 'ตั้งค่าการลงนาม', desc: 'เลือกรายกลุ่มว่าให้ลงนามด้วยลายเซ็นในระบบ หรือเดินเอกสารให้เซ็นเอง', href: `${TRAVEL_BASE}/signing`, icon: <FaSignature />, roles: HRD_ALLOWANCE_ROLES },
-  { title: 'งบประมาณและ Dashboard', desc: 'ตั้งวงเงินงบประมาณรายปี ดูยอดใช้จริงที่การเงินยืนยัน ยอดรอยืนยัน และคงเหลือ', href: `${TRAVEL_BASE}/budget`, icon: <FaChartPie />, roles: HRD_ALLOWANCE_ROLES },
+  { title: 'ขออนุมัติเดินทางไปราชการ', desc: 'ยื่นคำขอไปราชการ ระบุเรื่อง สถานที่ วันเดินทาง และประมาณการค่าใช้จ่าย', href: `${TRAVEL_BASE}/request`, icon: <FaFileSignature />, color: '#10b981', short: 'ยื่นคำขอไปราชการ และประมาณการค่าใช้จ่าย' },
+  { title: 'รายการขออนุมัติเดินทางไปราชการ', desc: 'ติดตามสถานะคำขอไปราชการและประวัติการเดินทาง', href: `${TRAVEL_BASE}/requests`, icon: <FaListAlt />, color: '#3b82f6', short: 'ติดตามสถานะคำขอและประวัติการเดินทาง' },
+  { title: 'ตั้งค่าเบี้ยเลี้ยงบุคลากร', desc: 'กำหนดอัตราเบี้ยเลี้ยงรายบุคคล และแก้ราคาของแต่ละอัตรา สำหรับบุคลากรที่ปฏิบัติงาน', href: `${TRAVEL_BASE}/allowance`, icon: <FaCoins />, roles: HRD_ALLOWANCE_ROLES, color: '#14b8a6', short: 'อัตราเบี้ยเลี้ยงรายบุคคล และราคาแต่ละอัตรา' },
+  { title: 'ตั้งค่าการเดินทาง', desc: 'อัตราค่าน้ำมันต่อกิโลเมตรของพาหนะส่วนตัว และเพดานราคารถโดยสารประจำทางและเครื่องบินตามเส้นทาง', href: `${TRAVEL_BASE}/transport`, icon: <FaRoute />, roles: HRD_ALLOWANCE_ROLES, color: '#0ea5e9', short: 'ค่าน้ำมันต่อ กม. และเพดานค่าโดยสารตามเส้นทาง' },
+  { title: 'ตั้งค่าค่าเช่าที่พัก', desc: 'อัตราเพดานค่าที่พักแบบเหมาจ่ายและจ่ายจริงตามระดับตำแหน่ง สิทธิ์ชั้นโดยสารเครื่องบิน และระดับของบุคลากร', href: `${TRAVEL_BASE}/lodging`, icon: <FaBed />, roles: HRD_ALLOWANCE_ROLES, color: '#8b5cf6', short: 'เพดานค่าที่พักตามระดับ และสิทธิ์ชั้นโดยสาร' },
+  { title: 'ตั้งค่าการลงนาม', desc: 'เลือกรายกลุ่มว่าให้ลงนามด้วยลายเซ็นในระบบ หรือเดินเอกสารให้เซ็นเอง', href: `${TRAVEL_BASE}/signing`, icon: <FaSignature />, roles: HRD_ALLOWANCE_ROLES, color: '#64748b', short: 'ลงนามในระบบ หรือเดินเอกสาร รายกลุ่มงาน' },
+  { title: 'งบประมาณและ Dashboard', desc: 'ตั้งวงเงินงบประมาณรายปี ดูยอดใช้จริงที่การเงินยืนยัน ยอดรอยืนยัน และคงเหลือ', href: `${TRAVEL_BASE}/budget`, icon: <FaChartPie />, roles: HRD_ALLOWANCE_ROLES, color: '#6366f1', short: 'วงเงินรายปี ยอดใช้จริง รอยืนยัน และคงเหลือ' },
   // ต่อท้ายเสมอ — หน้าอื่นอ้าง TRAVEL_MENU ด้วย index (หน้าเมนูย้ายใบนี้ขึ้นเป็นใบแรกเอง)
-  { title: 'งานที่ต้องดำเนินการ', desc: 'คำขอที่รอบันทึกผลคำสั่ง ผอ. รอยอดจากการเงิน ใกล้เดินทางแต่ยังไม่อนุมัติ และงบประมาณที่ต้องดู', href: `${TRAVEL_BASE}/tasks`, icon: <FaTasks />, roles: HRD_ALLOWANCE_ROLES },
-  { title: 'อนุมัติการเดินทางไปราชการ', desc: 'หัวหน้ากลุ่มงาน / หัวหน้ากลุ่มภารกิจ พิจารณาและลงนามคำขอในระบบ (ผู้อำนวยการลงนามบนกระดาษ)', href: `${TRAVEL_BASE}/approval`, icon: <FaUserCheck />, approver: true },
+  { title: 'งานที่ต้องดำเนินการ', desc: 'คำขอที่รอบันทึกผลคำสั่ง ผอ. รอยอดจากการเงิน ใกล้เดินทางแต่ยังไม่อนุมัติ และงบประมาณที่ต้องดู', href: `${TRAVEL_BASE}/tasks`, icon: <FaTasks />, roles: HRD_ALLOWANCE_ROLES, color: '#dc2626', short: 'รอบันทึกผล ผอ. รอยอดการเงิน และใกล้เดินทาง' },
+  { title: 'อนุมัติการเดินทางไปราชการ', desc: 'หัวหน้ากลุ่มงาน / หัวหน้ากลุ่มภารกิจ พิจารณาและลงนามคำขอในระบบ (ผู้อำนวยการลงนามบนกระดาษ)', href: `${TRAVEL_BASE}/approval`, icon: <FaUserCheck />, approver: true, color: '#f59e0b', short: 'พิจารณาและลงนามคำขอในสายอนุมัติ' },
 ]
 /** การ์ด/หน้า งานที่ต้องดำเนินการ (ADMIN / HRD) */
 export const TRAVEL_TASKS_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BASE}/tasks`)!
