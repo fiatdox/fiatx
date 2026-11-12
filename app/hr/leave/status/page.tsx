@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Table, Tag, Card, Typography, Select, Space, Button, Empty,
-  Segmented, DatePicker, Checkbox, Alert, Avatar, Divider, Modal, App, Spin,
+  Segmented, DatePicker, Checkbox, Alert, Avatar, Divider, Modal, App, Spin, Tooltip,
 } from 'antd'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
 import {
@@ -129,6 +129,8 @@ const BUCKETS = [
 ] as const
 
 type BucketKey = typeof BUCKETS[number]['key']
+// ตำแหน่งของลาพักผ่อนใน BUCKETS — คอลัมน์คงเหลือแทรกต่อจากช่องนี้ (ตารางและแถวรวม)
+const ANNUAL_INDEX = BUCKETS.findIndex(b => b.key === 'ANNUAL')
 
 const bucketOf = (code: string): BucketKey =>
   code === 'ANNUAL' || code === 'SICK' || code === 'PERS' || code === 'MAT' || code === 'PAT' ? code : 'OTHER'
@@ -217,6 +219,31 @@ const numCell = (v: unknown, color?: string) => {
     : <span style={{ fontWeight: 600, color }}>{nf(n)}</span>
 }
 
+// ── วันลาพักผ่อนคงเหลือ (ยอดจาก hr_leave_balances ของปีงบที่ดู — ไม่ขึ้นกับรอบ/ไตรมาสที่เลือก) ──
+interface AnnualBalance { carried_in: number; entitled: number; used: number; remaining: number }
+
+const annualRemainingColumn = {
+  title: (
+    <Tooltip title="ยอดคงเหลือของทั้งปีงบ = ยกมา + สิทธิ์ปีนี้ − ใช้ไป (รวมใบที่รออนุมัติ) — ไม่ขึ้นกับรอบที่เลือกดู">
+      <span style={{ color: '#6366f1' }}>
+        ลาพักผ่อน<br />
+        <Text type="secondary" style={{ fontSize: 10, fontWeight: 400 }}>คงเหลือ (วัน)</Text>
+      </span>
+    </Tooltip>
+  ),
+  key: 'annual_remaining',
+  width: 110,
+  align: 'center' as const,
+  sorter: (x: { annual?: AnnualBalance }, y: { annual?: AnnualBalance }) => (x.annual?.remaining ?? -Infinity) - (y.annual?.remaining ?? -Infinity),
+  render: (_: unknown, r: { annual?: AnnualBalance }) => r.annual
+    ? (
+      <Tooltip title={`ยกมา ${nf(r.annual.carried_in)} + สิทธิ์ปีนี้ ${nf(r.annual.entitled)} − ใช้ไป ${nf(r.annual.used)}`}>
+        <span data-testid="annual-remaining" style={{ fontWeight: 700, color: r.annual.remaining < 0 ? '#ef4444' : '#6366f1' }}>{nf(r.annual.remaining)}</span>
+      </Tooltip>
+    )
+    : <Tooltip title="ยังไม่ได้ตั้งยอดวันลาพักผ่อนของปีงบนี้"><span style={{ color: 'var(--app-text-3)' }}>-</span></Tooltip>,
+}
+
 const overlaps = (r: Rec, from: Dayjs, to: Dayjs) =>
   !r.end.isBefore(from, 'day') && !r.start.isAfter(to, 'day')
 
@@ -248,6 +275,8 @@ const LeaveSummaryContent = () => {
   // หน้าของตารางรายบุคคล — ใช้คิดเลขลำดับต่อเนื่องข้ามหน้า
   const [page, setPage] = useState({ current: 1, pageSize: 25 })
   const [canSeeAll, setCanSeeAll] = useState(false)
+  // วันลาพักผ่อนของปีงบที่ดู (user_id → ยอด) — ไม่มี key = ยังไม่ได้ตั้งยอดในระบบ
+  const [annual, setAnnual] = useState<Record<number, AnnualBalance>>({})
 
   const [fy, setFy] = useState(currentFY())
   const [period, setPeriod] = useState<PeriodKey>('FULL')
@@ -282,11 +311,12 @@ const LeaveSummaryContent = () => {
     const load = async () => {
       setLoading(true)
       try {
-        const qs = new URLSearchParams({ from: fetchFrom, to: fetchTo })
+        const qs = new URLSearchParams({ from: fetchFrom, to: fetchTo, fiscal_year: String(fy) })
         const json = await (await fetch(`/api/v1/hr/leave-requests/summary?${qs}`)).json()
         if (!alive) return
         setRows(json?.success && Array.isArray(json.data) ? json.data.map(toRec) : [])
         setCanSeeAll(Boolean(json?.scope?.can_see_all))
+        setAnnual(json?.success && json.annual_balances ? json.annual_balances : {})
       } catch {
         if (alive) setRows([])
       } finally {
@@ -295,7 +325,7 @@ const LeaveSummaryContent = () => {
     }
     load()
     return () => { alive = false }
-  }, [fetchFrom, fetchTo])
+  }, [fetchFrom, fetchTo, fy])
 
   // ── กรองตามรอบ + สถานะ ────────────────────────────────────────────────────
   const inPeriod = useMemo(
@@ -363,6 +393,7 @@ const LeaveSummaryContent = () => {
     recs: Rec[]
     totalCount: number
     totalDays: number
+    annual?: AnnualBalance
     [k: string]: unknown
   }
 
@@ -384,6 +415,7 @@ const LeaveSummaryContent = () => {
         recs: [...recs].sort((a, b) => a.start.valueOf() - b.start.valueOf()),
         totalCount: recs.length,
         totalDays: round2(recs.reduce((a, r) => a + daysInWindow(r, from, to, fullBill), 0)),
+        annual: annual[userId],
       }
       BUCKETS.forEach(b => {
         const of = recs.filter(r => r.bucket === b.key)
@@ -392,7 +424,7 @@ const LeaveSummaryContent = () => {
       })
       return row
     }).sort((a, b) => b.totalDays - a.totalDays || a.name.localeCompare(b.name, 'th'))
-  }, [filtered, from, to, fullBill])
+  }, [filtered, from, to, fullBill, annual])
 
   // กรองแล้วคนน้อยลงจนหน้าเดิมไม่มี — ตารางจะกลับไปหน้าสุดท้ายเอง เลขลำดับต้องคิดจากหน้าเดียวกัน
   const curPage = Math.min(page.current, Math.max(1, Math.ceil(personRows.length / page.pageSize)))
@@ -425,8 +457,8 @@ const LeaveSummaryContent = () => {
       title: 'สังกัด', dataIndex: 'unit', key: 'unit', width: 220,
       render: (t: string) => <Text style={{ fontSize: 13 }}>{t}</Text>,
     },
-    // คอลัมน์หลัก — จำนวนวันรวมของแต่ละประเภท (ครั้งดูได้ในแถวที่กางออก)
-    ...BUCKETS.map(b => ({
+    // คอลัมน์หลัก — จำนวนวันรวมของแต่ละประเภท (ครั้งดูได้ในแถวที่กางออก) · ต่อท้ายลาพักผ่อนด้วยวันคงเหลือของปีงบ
+    ...BUCKETS.flatMap(b => [{
       title: (
         <span style={{ color: b.color }}>
           {b.label}<br />
@@ -439,7 +471,7 @@ const LeaveSummaryContent = () => {
       align: 'center' as const,
       sorter: (x: PersonRow, y: PersonRow) => Number(x[`d_${b.key}`]) - Number(y[`d_${b.key}`]),
       render: (v: unknown) => numCell(v, b.color),
-    })),
+    }, ...(b.key === 'ANNUAL' ? [annualRemainingColumn] : [])]),
     {
       title: 'รวมทั้งหมด', key: 'total',
       children: [
@@ -561,6 +593,7 @@ const LeaveSummaryContent = () => {
         o[`${b.label} (ครั้ง)`] = Number(p[`c_${b.key}`]) || 0
         o[`${b.label} (วัน)`] = Number(p[`d_${b.key}`]) || 0
       })
+      o['ลาพักผ่อนคงเหลือ (วัน)'] = p.annual ? p.annual.remaining : '-'
       o['รวม (ครั้ง)'] = p.totalCount
       o['รวม (วัน)'] = p.totalDays
       return o
@@ -917,15 +950,26 @@ const LeaveSummaryContent = () => {
               <Table.Summary fixed>
                 <Table.Summary.Row style={{ fontWeight: 700 }}>
                   <Table.Summary.Cell index={0} colSpan={6}>รวมทั้งสิ้น</Table.Summary.Cell>
-                  {BUCKETS.map((b, i) => (
-                    <Table.Summary.Cell key={b.key} index={6 + i} align="center">
-                      <span style={{ color: b.color }}>{nf(daysByBucket.get(b.key) ?? 0)}</span>
-                    </Table.Summary.Cell>
-                  ))}
-                  <Table.Summary.Cell index={6 + BUCKETS.length} align="center">
+                  {/* ลำดับช่องต้องตรงกับคอลัมน์ — คอลัมน์คงเหลือพักผ่อนแทรกต่อจากลาพักผ่อน (+1 ช่องหลังจากนั้น) */}
+                  {BUCKETS.flatMap((b, i) => {
+                    const idx = 6 + i + (i > ANNUAL_INDEX ? 1 : 0)
+                    const cell = (
+                      <Table.Summary.Cell key={b.key} index={idx} align="center">
+                        <span style={{ color: b.color }}>{nf(daysByBucket.get(b.key) ?? 0)}</span>
+                      </Table.Summary.Cell>
+                    )
+                    return i === ANNUAL_INDEX ? [cell, (
+                      <Table.Summary.Cell key="annual_remaining" index={idx + 1} align="center">
+                        <Tooltip title="ผลรวมวันลาพักผ่อนคงเหลือของบุคลากรที่แสดงในตาราง (เฉพาะคนที่ตั้งยอดแล้ว)">
+                          <span style={{ color: '#6366f1' }}>{nf(round2(personRows.reduce((a, p) => a + (p.annual?.remaining ?? 0), 0)))}</span>
+                        </Tooltip>
+                      </Table.Summary.Cell>
+                    )] : [cell]
+                  })}
+                  <Table.Summary.Cell index={7 + BUCKETS.length} align="center">
                     {nf(filtered.length)}
                   </Table.Summary.Cell>
-                  <Table.Summary.Cell index={7 + BUCKETS.length} align="center">
+                  <Table.Summary.Cell index={8 + BUCKETS.length} align="center">
                     {nf(totalDays)}
                   </Table.Summary.Cell>
                 </Table.Summary.Row>
