@@ -2,7 +2,8 @@
 // สูตรนับวันต้องตรงกับ backend: hrdTravelRequestController.allowanceDays
 
 export type VehicleMode = 'gov_car' | 'private' | 'bus' | 'plane' | 'other'
-export type BudgetType = 'hospital' | 'budget' | 'project'
+/** รหัสประเภทงบ (ตาราง hrd_travel_budget_types — ADMIN/HRD เพิ่มเองได้) เดิม hospital / budget / project */
+export type BudgetType = string
 
 export const VEHICLE_MODES: { value: VehicleMode; label: string }[] = [
   { value: 'gov_car', label: 'รถยนต์ราชการ' },
@@ -11,7 +12,16 @@ export const VEHICLE_MODES: { value: VehicleMode; label: string }[] = [
   { value: 'plane', label: 'เครื่องบิน' },
   { value: 'other', label: 'อื่น ๆ' },
 ]
-export const BUDGET_TYPES: Record<BudgetType, string> = { hospital: 'เงินบำรุงโรงพยาบาล', budget: 'งบประมาณ', project: 'โครงการ' }
+/** ประเภทงบ (ช่องที่ติ๊กในบันทึกข้อความ) — ref_code = รหัสงบของการเงิน เช่น P20 · รายการย่อย = งบที่เป็นประเภทนี้ */
+export interface BudgetTypeRow { code: string; ref_code: string | null; name: string; item_label: string; sort_order: number; is_active: boolean; budgets: number }
+/** ชื่อเดิมของ 3 ประเภทแรก — ใช้เมื่อข้อมูลไม่มีชื่อประเภทมาด้วย */
+const LEGACY_TYPE_NAMES: Record<string, string> = { hospital: 'เงินบำรุงโรงพยาบาล', budget: 'งบประมาณ', project: 'โครงการ' }
+/** ชื่อแสดงของประเภท เช่น "P20 · เงินบำรุงโรงพยาบาล" */
+export const budgetTypeLabel = (t: { name: string; ref_code?: string | null } | undefined, code?: string) =>
+  t ? (t.ref_code ? `${t.ref_code} · ${t.name}` : t.name) : (code ? LEGACY_TYPE_NAMES[code] ?? code : '')
+/** ชื่อประเภทของคำขอ — ชื่อ ณ วันยื่น (budget_type_name) */
+export const requestBudgetType = (r: { budget_type: string; budget_type_name?: string | null }) =>
+  r.budget_type_name || LEGACY_TYPE_NAMES[r.budget_type] || r.budget_type
 
 /** ข้อความหัวบันทึกข้อความ — ตามแบบฟอร์มกระดาษของงานพัฒนาทรัพยากรบุคคล */
 /** เลขที่บันทึกข้อความ (ส่วนหลัง docPrefix) — ตรงกับ backend: ตัวเลขไทย/อารบิก ตัวอักษร - / . ช่องว่าง */
@@ -197,6 +207,8 @@ export interface TravelRequest {
   taxi_go_amount?: number; taxi_back_amount?: number; home_station_amount?: number
   registration_amount: number; fuel_amount: number; toll_amount: number; other_amount: number; other_desc: string | null; total_amount: number
   budget_id: number; budget_type: BudgetType; budget_name: string; actual_amount: number | null; actual_note: string | null; actual_at: string | null
+  /** ชื่อประเภทงบและข้อความหน้าชื่องบ ณ วันยื่น (พิมพ์ในบันทึกข้อความ) */
+  budget_type_name?: string | null; budget_item_label?: string | null
   status: 'submitted' | 'rejected' | 'cancelled'; cancel_reason: string | null; cancelled_at: string | null; created_at: string; updated_at: string
   sign_mode: SignMode; approval_stage: ApprovalStage; approval_chain?: ChainStepLite[]; current_step: number; reject_reason: string | null
   director_result: 'approved' | 'rejected' | null; director_note: string | null; director_at: string | null

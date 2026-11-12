@@ -1,6 +1,6 @@
 'use client'
 // ส่วนกลางของระบบเดินทางไปราชการ (งานพัฒนาทรัพยากรบุคคล พรส) — โครงหน้าและเมนู
-import React, { useSyncExternalStore } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button, Result } from 'antd'
 import { HomeOutlined, FundOutlined } from '@ant-design/icons'
 import { FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
@@ -10,6 +10,7 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import { HRD_ALLOWANCE_ROLES, normalizeRoles } from '@/app/lib/menuAccess'
+import { budgetTypeLabel, type BudgetTypeRow } from './travelCalc'
 
 export const TRAVEL_BASE = '/hss/hrd/official-travel'
 export const TRAVEL_COLOR = '#6366f1'
@@ -126,3 +127,13 @@ export const TravelComingSoon = ({ item }: { item: TravelMenuItem }) => (
     />
   </TravelShell>
 )
+
+// ประเภทงบ (ช่องที่ติ๊กในบันทึกข้อความ) — โหลดครั้งเดียวต่อหน้า · reload หลังเพิ่ม/แก้ที่หน้างบประมาณ
+export const useBudgetTypes = () => {
+  const [types, setTypes] = useState<BudgetTypeRow[] | null>(null)
+  const reload = useCallback(() => travelApi<BudgetTypeRow[]>('budget-types').then(setTypes).catch(() => setTypes([])), [])
+  useEffect(() => { reload() }, [reload])
+  const byCode = useMemo(() => new Map((types ?? []).map(t => [t.code, t])), [types])
+  const label = useCallback((code: string) => budgetTypeLabel(byCode.get(code), code), [byCode])
+  return { types, byCode, label, reload }
+}

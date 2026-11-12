@@ -5,7 +5,7 @@ import { Alert, App, Button, Descriptions, Form, Input, Modal, Space, Spin, Tag,
 import { AuditOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FilePdfOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { travelApi } from './travelShared'
-import { BUDGET_TYPES, fmtMoney, requestNo, tripRange, type TravelRequest } from './travelCalc'
+import { fmtMoney, requestBudgetType, requestNo, tripRange, type TravelRequest } from './travelCalc'
 import { ApprovalSteps } from './TravelStatus'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
 
@@ -78,7 +78,7 @@ export const ApproveModal = ({ id, onClose, onSaved, onOpenPdf }: { id: number; 
           { key: 'l', label: 'สถานที่', span: 'filled', children: r.location },
           { key: 't', label: 'ผู้เดินทาง', children: `${r.travelers?.length ?? 0} คน` },
           { key: 'm', label: 'ประมาณการ', children: <b>{fmtMoney(r.total_amount)} บาท</b> },
-          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${BUDGET_TYPES[r.budget_type]} · ${r.budget_name}` },
+          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${requestBudgetType(r)} · ${r.budget_name}` },
         ]} />
         <Button icon={<FilePdfOutlined />} onClick={() => onOpenPdf(r.id)} style={{ marginBottom: 12 }}>ดูบันทึกข้อความ / บัญชีแนบท้าย</Button>
         <ApprovalSteps r={r} />

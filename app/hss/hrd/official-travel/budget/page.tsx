@@ -2,16 +2,19 @@
 // งบประมาณและ Dashboard (เดินทางไปราชการ) — ADMIN / HRD
 // ตัวเลขจริง = ยอดที่การเงินยืนยันแล้วเท่านั้น · คงเหลือ = วงเงิน − ยืนยันแล้ว
 // "รอยืนยัน" = ประมาณการในคำขอที่การเงินยังไม่ยืนยัน — แสดงประกอบการวางแผน ไม่ตัดงบ
+// ประเภทงบ (ช่องติ๊กในบันทึกข้อความ) ADMIN/HRD เพิ่มเองได้ที่แท็บ "ประเภทงบ" — รายการย่อยของประเภท (เช่น P20 แตก 19 รายการ) = งบในแท็บตั้งค่างบประมาณ
 // Dashboard เจาะลึก: กรองตามงบ ประเภทงบ กลุ่มภารกิจ กลุ่มงาน บุคลากร สถานะ — กดแถว/แท่งกราฟเพื่อกรองต่อ
 // ยอดรายคน = เบี้ยเลี้ยงของคนนั้น + ค่าใช้จ่ายร่วมของคำขอหารเท่ากัน (รวมทุกคน = ยอดของคำขอ)
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, App, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Progress, Radio, Result, Row, Segmented, Select, Space, Spin, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Progress, Result, Row, Segmented, Select, Space, Spin, Switch, Table, Tabs, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { ClearOutlined, EditOutlined, FilterOutlined, HistoryOutlined, PlusOutlined } from '@ant-design/icons'
 import EChart from '@/app/components/EChart'
 import { useThemeMode } from '@/app/components/ThemeProvider'
-import { TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
-import { BUDGET_TYPES, TH_MONTHS_SHORT, fmtMoney, requestNo, thaiDateTime, tripRange, type BudgetType } from '../travelCalc'
+import { TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost, useBudgetTypes } from '../travelShared'
+import { TH_MONTHS_SHORT, budgetTypeLabel, fmtMoney, requestNo, thaiDateTime, tripRange, type BudgetType, type BudgetTypeRow } from '../travelCalc'
+
+type BudgetTypes = ReturnType<typeof useBudgetTypes>
 import { TravelHistoryDrawer } from '../TravelHistory'
 
 const { Title, Text } = Typography
@@ -62,7 +65,7 @@ const Stat = ({ label, value, note, color }: { label: string; value: string; not
   </Card>
 )
 
-const DashboardTab = ({ fy }: { fy: number }) => {
+const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
   const { message } = App.useApp()
   const { mode } = useThemeMode()
   const theme = mode === 'dark' ? 'dark' : 'light'
@@ -114,7 +117,7 @@ const DashboardTab = ({ fy }: { fy: number }) => {
   // ภาพรวมงบ: ทั้งปี หรือเฉพาะงบ/ประเภทที่กรอง (คงเหลือเป็นเรื่องของงบทั้งก้อน ไม่ขึ้นกับตัวกรองบุคคล)
   const scope = d.budgets.filter(b => (f.budget_id === null || b.id === f.budget_id) && (f.budget_type === null || b.budget_type === f.budget_type))
   const sum = (k: 'amount' | 'spent' | 'pending' | 'remaining' | 'projected') => scope.reduce((n, b) => n + b[k], 0)
-  const scopeLabel = f.budget_id ? scope[0]?.name ?? '' : f.budget_type ? BUDGET_TYPES[f.budget_type] : `${scope.length} งบ`
+  const scopeLabel = f.budget_id ? scope[0]?.name ?? '' : f.budget_type ? bt.label(f.budget_type) : `${scope.length} งบ`
   const budgetById = new Map(d.budgets.map(b => [b.id, b]))
   const majorOpts = orgs.majors.filter(m => !f.mission_id || m.mission_id === f.mission_id)
 
@@ -150,7 +153,7 @@ const DashboardTab = ({ fy }: { fy: number }) => {
   const filterLink = (label: React.ReactNode, onClick: () => void, title: string) => <a onClick={onClick} title={title}>{label}</a>
 
   const budgetCols: ColumnsType<Dashboard['by_budget'][number]> = [
-    { title: 'งบ', dataIndex: 'budget_name', render: (n: string, b) => <>{filterLink(<b>{n}</b>, () => patch({ budget_id: b.budget_id }), 'กรองเฉพาะงบนี้')}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{BUDGET_TYPES[b.budget_type]}</div></> },
+    { title: 'งบ', dataIndex: 'budget_name', render: (n: string, b) => <>{filterLink(<b>{n}</b>, () => patch({ budget_id: b.budget_id }), 'กรองเฉพาะงบนี้')}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{bt.label(b.budget_type)}</div></> },
     { title: 'ใช้จริง', dataIndex: 'spent', align: 'right', width: 110, render: (v: number) => <span style={{ color: C_SPENT, fontWeight: 600 }}>{fmtMoney(v)}</span> },
     { title: 'รอยืนยัน', dataIndex: 'pending', align: 'right', width: 110, render: (v: number) => v > 0 ? fmtMoney(v) : <Text type="secondary">-</Text> },
     { title: 'บุคลากร', dataIndex: 'people', align: 'center', width: 80, responsive: ['md'], render: (n: number) => `${n} คน` },
@@ -191,7 +194,7 @@ const DashboardTab = ({ fy }: { fy: number }) => {
           <Select allowClear placeholder="ทุกงบ" value={f.budget_id ?? undefined} onChange={v => patch({ budget_id: v ?? null })} aria-label="งบ"
             options={d.budgets.map(b => ({ value: b.id, label: b.name }))} popupMatchSelectWidth={false} />
           <Select allowClear placeholder="ทุกประเภทงบ" value={f.budget_type ?? undefined} onChange={v => patch({ budget_type: v ?? null })} aria-label="ประเภทงบ"
-            options={(Object.keys(BUDGET_TYPES) as BudgetType[]).map(k => ({ value: k, label: BUDGET_TYPES[k] }))} />
+            options={(bt.types ?? []).map(t => ({ value: t.code, label: budgetTypeLabel(t) }))} popupMatchSelectWidth={false} />
           <Select allowClear showSearch optionFilterProp="label" placeholder="ทุกกลุ่มภารกิจ" value={f.mission_id ?? undefined} aria-label="กลุ่มภารกิจ"
             onChange={v => patch({ mission_id: v ?? null, major_id: null })} options={orgs.missions.map(m => ({ value: m.id, label: m.name }))} popupMatchSelectWidth={false} />
           <Select allowClear showSearch optionFilterProp="label" placeholder="ทุกกลุ่มงาน" value={f.major_id ?? undefined} aria-label="กลุ่มงาน"
@@ -277,7 +280,7 @@ const DashboardTab = ({ fy }: { fy: number }) => {
 }
 
 // ── ตั้งค่างบประมาณ ──
-const BudgetModal = ({ edit, fy, onClose, onSaved }: { edit: Budget | 'new'; fy: number; onClose: () => void; onSaved: () => void }) => {
+const BudgetModal = ({ edit, fy, bt, onClose, onSaved }: { edit: Budget | 'new'; fy: number; bt: BudgetTypes; onClose: () => void; onSaved: () => void }) => {
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
@@ -302,19 +305,25 @@ const BudgetModal = ({ edit, fy, onClose, onSaved }: { edit: Budget | 'new'; fy:
     } finally { setSaving(false) }
   }
   const used = edit !== 'new' && edit.requests > 0
+  // ประเภทที่เลือกได้ = ที่เปิดใช้ + ประเภทเดิมของงบนี้ (แม้ปิดใช้แล้ว)
+  const typeOpts = (bt.types ?? []).filter(t => t.is_active || (edit !== 'new' && t.code === edit.budget_type))
+    .map(t => ({ value: t.code, label: `${budgetTypeLabel(t)}${t.is_active ? '' : ' (ปิดใช้)'}` }))
+  const watchedType = Form.useWatch('budget_type', form) as string | undefined
+  const itemLabel = (watchedType && bt.byCode.get(watchedType)?.item_label) || 'รายการงบ'
   return (
     <Modal open title={edit === 'new' ? 'เพิ่มงบประมาณ' : `แก้ไข${edit.name}`} onCancel={onClose} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving} width={560}>
       {used && <Alert type="info" showIcon style={{ marginBottom: 12 }} title={`มีคำขอใช้งบนี้ ${edit.requests} รายการ — เปลี่ยนประเภทหรือปีงบไม่ได้`} description={`ลดวงเงินได้ไม่ต่ำกว่ายอดที่การเงินยืนยันแล้ว ${fmtMoney(edit.spent)} บาท`} />}
       <Form form={form} layout="vertical"
-        initialValues={edit === 'new' ? { fiscal_year: fy, budget_type: 'hospital', is_active: true } : { fiscal_year: edit.fiscal_year, budget_type: edit.budget_type, name: edit.name, amount: edit.amount, note: edit.note ?? undefined, is_active: edit.is_active }}>
+        initialValues={edit === 'new' ? { fiscal_year: fy, budget_type: (bt.types ?? []).find(t => t.is_active)?.code, is_active: true } : { fiscal_year: edit.fiscal_year, budget_type: edit.budget_type, name: edit.name, amount: edit.amount, note: edit.note ?? undefined, is_active: edit.is_active }}>
         <Row gutter={12}>
           <Col xs={10}><Form.Item name="fiscal_year" label="ปีงบประมาณ (พ.ศ.)" rules={[{ required: true, message: 'ระบุปีงบ' }]}><InputNumber min={2500} max={2700} precision={0} style={{ width: '100%' }} disabled={used} /></Form.Item></Col>
           <Col xs={14}><Form.Item name="is_active" label="เปิดให้เลือกในคำขอ" valuePropName="checked"><Switch /></Form.Item></Col>
         </Row>
-        <Form.Item name="budget_type" label="ประเภท (ช่องที่ติ๊กในบันทึกข้อความ)" rules={[{ required: true }]}>
-          <Radio.Group disabled={used} options={(Object.keys(BUDGET_TYPES) as BudgetType[]).map(k => ({ value: k, label: BUDGET_TYPES[k] }))} />
+        <Form.Item name="budget_type" label="ประเภท (ช่องที่ติ๊กในบันทึกข้อความ)" rules={[{ required: true, message: 'เลือกประเภทงบ' }]}
+          extra="เพิ่ม/แก้ประเภทได้ที่แท็บ “ประเภทงบ”">
+          <Select disabled={used} options={typeOpts} placeholder="เลือกประเภทงบ" showSearch optionFilterProp="label" />
         </Form.Item>
-        <Form.Item name="name" label="ชื่องบ" extra="ประเภทโครงการ ชื่อนี้จะพิมพ์ในบรรทัด “ชื่อโครงการ” ของบันทึกข้อความ" rules={[{ required: true, whitespace: true, message: 'ระบุชื่องบ' }, { max: 200 }]}>
+        <Form.Item name="name" label="ชื่องบ" extra={`ชื่อนี้จะพิมพ์ในบรรทัด “${itemLabel}” ของบันทึกข้อความ`} rules={[{ required: true, whitespace: true, message: 'ระบุชื่องบ' }, { max: 200 }]}>
           <Input placeholder="เช่น งบพัฒนาบุคลากร เงินบำรุงโรงพยาบาล" />
         </Form.Item>
         <Form.Item name="amount" label="วงเงิน" rules={[{ required: true, message: 'ระบุวงเงิน' }]}>
@@ -340,7 +349,7 @@ const BudgetModal = ({ edit, fy, onClose, onSaved }: { edit: Budget | 'new'; fy:
   )
 }
 
-const SettingsTab = ({ fy, onChanged }: { fy: number; onChanged: () => void }) => {
+const SettingsTab = ({ fy, bt, onChanged }: { fy: number; bt: BudgetTypes; onChanged: () => void }) => {
   const { message } = App.useApp()
   const [rows, setRows] = useState<Budget[] | null>(null)
   const [edit, setEdit] = useState<Budget | 'new' | null>(null)
@@ -350,7 +359,7 @@ const SettingsTab = ({ fy, onChanged }: { fy: number; onChanged: () => void }) =
   // eslint-disable-next-line react-hooks/set-state-in-effect -- โหลดข้อมูลจาก API
   useEffect(() => { load() }, [load])
   const columns: ColumnsType<Budget> = [
-    { title: 'ประเภท', dataIndex: 'budget_type', width: 150, render: (v: BudgetType) => BUDGET_TYPES[v] },
+    { title: 'ประเภท', dataIndex: 'budget_type', width: 200, render: (v: BudgetType) => bt.label(v) },
     { title: 'ชื่องบ', dataIndex: 'name', render: (n: string, b) => <><div style={{ fontWeight: 500 }}>{n}</div>{b.note && <Text type="secondary" style={{ fontSize: 12 }}>{b.note}</Text>}</> },
     { title: 'วงเงิน (บาท)', dataIndex: 'amount', align: 'right', width: 130, render: fmtMoney },
     { title: 'ใช้จริง', dataIndex: 'spent', align: 'right', width: 120, responsive: ['md'], render: fmtMoney },
@@ -365,10 +374,94 @@ const SettingsTab = ({ fy, onChanged }: { fy: number; onChanged: () => void }) =
         <Text type="secondary" style={{ flex: 1, minWidth: 220 }}>ตั้งงบที่ใช้เดินทางไปราชการของปีงบ {fy} ผู้ขอเลือกงบนี้ในแบบฟอร์ม · ตัดงบเมื่อการเงินยืนยันยอด</Text>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdit('new')}>เพิ่มงบประมาณ</Button>
       </div>
-      <Table<Budget> size="small" rowKey="id" loading={rows === null} columns={columns} dataSource={rows ?? []} pagination={false} scroll={{ x: 'max-content' }}
+      {/* เรียงตามลำดับประเภท แล้วชื่องบ — รายการย่อยของประเภทเดียวกันอยู่ติดกัน */}
+      <Table<Budget> size="small" rowKey="id" loading={rows === null} columns={columns} pagination={false} scroll={{ x: 'max-content' }}
+        dataSource={[...(rows ?? [])].sort((a, b) => (bt.byCode.get(a.budget_type)?.sort_order ?? 9999) - (bt.byCode.get(b.budget_type)?.sort_order ?? 9999) || Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name, 'th'))}
         locale={{ emptyText: <Empty description={`ยังไม่มีงบปีงบ ${fy}`} /> }} />
-      {edit && <BudgetModal key={edit === 'new' ? 'new' : edit.id} edit={edit} fy={fy} onClose={() => setEdit(null)} onSaved={() => { load(); onChanged() }} />}
+      {edit && <BudgetModal key={edit === 'new' ? 'new' : edit.id} edit={edit} fy={fy} bt={bt} onClose={() => setEdit(null)} onSaved={() => { load(); onChanged() }} />}
       <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}><HistoryOutlined /> ทุกการเพิ่ม/แก้ไขเก็บประวัติ ดูได้ในหน้าต่างแก้ไขของแต่ละงบ</Text>
+    </>
+  )
+}
+
+// ── ประเภทงบ — ADMIN / HRD เพิ่ม แก้ชื่อ รหัสงบ ลำดับ เปิด/ปิดใช้ (ไม่มีลบ: งบและคำขอเดิมอ้างอยู่) ──
+const TypeModal = ({ edit, onClose, onSaved }: { edit: BudgetTypeRow | 'new'; onClose: () => void; onSaved: () => void }) => {
+  const { message } = App.useApp()
+  const [form] = Form.useForm()
+  const [saving, setSaving] = useState(false)
+  const save = async () => {
+    const v = await form.validateFields().catch(() => null)
+    if (!v) return
+    setSaving(true)
+    const body = { ...v, name: v.name.trim(), ref_code: v.ref_code?.trim() || null, item_label: v.item_label?.trim() || 'รายการงบ' }
+    try {
+      if (edit === 'new') await travelPost('budget-types', body)
+      else await travelApi(`budget-types/${edit.code}`, 'PUT', body)
+      message.success(`บันทึกประเภท ${body.ref_code ? `${body.ref_code} · ` : ''}${body.name} แล้ว`)
+      onClose(); onSaved()
+    } catch (e) {
+      if (e instanceof TravelApiError && e.field) form.setFields([{ name: e.field, errors: [e.message] }])
+      else message.error((e as Error).message)
+    } finally { setSaving(false) }
+  }
+  return (
+    <Modal open title={edit === 'new' ? 'เพิ่มประเภทงบ' : `แก้ไขประเภท ${budgetTypeLabel(edit)}`} onCancel={onClose} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving} width={520}>
+      <Form form={form} layout="vertical"
+        initialValues={edit === 'new' ? { item_label: 'รายการงบ', is_active: true } : { name: edit.name, ref_code: edit.ref_code ?? undefined, item_label: edit.item_label, sort_order: edit.sort_order, is_active: edit.is_active }}>
+        <Row gutter={12}>
+          <Col xs={9}>
+            <Form.Item name="ref_code" label="รหัสงบ" tooltip="รหัสที่การเงินใช้ เช่น P20 — ไม่บังคับ ห้ามซ้ำ"
+              rules={[{ pattern: /^[A-Za-z0-9.\-/]{0,20}$/, message: 'อังกฤษ/ตัวเลข/. - / ไม่เกิน 20 ตัว' }]}>
+              <Input placeholder="เช่น P20" maxLength={20} />
+            </Form.Item>
+          </Col>
+          <Col xs={15}>
+            <Form.Item name="name" label="ชื่อประเภท (ข้อความข้างช่องติ๊ก)" rules={[{ required: true, whitespace: true, message: 'ระบุชื่อประเภท' }, { max: 100 }]}>
+              <Input placeholder="เช่น เงินบำรุงโรงพยาบาล" maxLength={100} />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={12}>
+          <Col xs={15}>
+            <Form.Item name="item_label" label="ข้อความหน้าชื่องบในบันทึกข้อความ" tooltip="บรรทัดใต้ช่องติ๊ก เช่น “รายการงบ ...” หรือ “ชื่อโครงการ ...”" rules={[{ max: 30 }]}>
+              <Input placeholder="รายการงบ" maxLength={30} />
+            </Form.Item>
+          </Col>
+          <Col xs={9}>
+            <Form.Item name="sort_order" label="ลำดับ" tooltip="ลำดับช่องติ๊กในบันทึกข้อความและในรายการ (น้อยขึ้นก่อน) — เว้นว่าง = ต่อท้าย">
+              <InputNumber min={0} max={9999} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Form.Item name="is_active" label="เปิดใช้" valuePropName="checked" extra="ปิดใช้ = ตั้งงบใหม่ด้วยประเภทนี้ไม่ได้ และไม่แสดงช่องติ๊กในบันทึกข้อความใหม่ (งบและคำขอเดิมยังอยู่)">
+          <Switch />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )
+}
+
+const TypesTab = ({ bt, onChanged }: { bt: BudgetTypes; onChanged: () => void }) => {
+  const [edit, setEdit] = useState<BudgetTypeRow | 'new' | null>(null)
+  const columns: ColumnsType<BudgetTypeRow> = [
+    { title: 'ลำดับ', dataIndex: 'sort_order', width: 70, align: 'center' },
+    { title: 'รหัสงบ', dataIndex: 'ref_code', width: 100, render: (v: string | null) => v ? <Tag color="purple" style={{ margin: 0 }}>{v}</Tag> : <Text type="secondary">—</Text> },
+    { title: 'ชื่อประเภท (ช่องติ๊ก)', dataIndex: 'name', render: (n: string) => <b>{n}</b> },
+    { title: 'หน้าชื่องบในบันทึกข้อความ', dataIndex: 'item_label', width: 190, responsive: ['md'] },
+    { title: 'รายการงบ', dataIndex: 'budgets', width: 100, align: 'center', render: (n: number) => n ? `${n} รายการ` : <Text type="secondary">—</Text> },
+    { title: 'สถานะ', dataIndex: 'is_active', width: 100, align: 'center', render: (v: boolean) => v ? <Tag color="success">เปิดใช้</Tag> : <Tag>ปิดใช้</Tag> },
+    { title: '', width: 56, align: 'center', render: (_: unknown, t) => <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setEdit(t)} title="แก้ไข" aria-label={`แก้ไข ${t.name}`} /> },
+  ]
+  return (
+    <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Text type="secondary" style={{ flex: 1, minWidth: 220 }}>
+          ประเภทงบ = ช่องที่ติ๊กในบันทึกข้อความ (เช่น P20 เงินบำรุง · P21 งบผู้ไปราชการผู้บริหาร) · รายการย่อยของแต่ละประเภทตั้งเป็นงบในแท็บ “ตั้งค่างบประมาณ” แยกวงเงินได้
+        </Text>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setEdit('new')}>เพิ่มประเภทงบ</Button>
+      </div>
+      <Table<BudgetTypeRow> size="small" rowKey="code" loading={bt.types === null} columns={columns} dataSource={bt.types ?? []} pagination={false} scroll={{ x: 'max-content' }} />
+      {edit && <TypeModal key={edit === 'new' ? 'new' : edit.code} edit={edit} onClose={() => setEdit(null)} onSaved={() => { bt.reload(); onChanged() }} />}
     </>
   )
 }
@@ -379,6 +472,7 @@ const BudgetContent = () => {
   const [fy, setFy] = useState<number | null>(null)
   const [denied, setDenied] = useState(false)
   const [version, setVersion] = useState(0)
+  const bt = useBudgetTypes()
   useEffect(() => {
     travelApi<BudgetList>('budgets')
       .then(r => { setYears(r.years); setFy(r.current_fiscal_year) })
@@ -399,8 +493,9 @@ const BudgetContent = () => {
       {fy && (
         <Card styles={{ body: { padding: '4px 16px 16px' } }} style={{ borderRadius: 14 }}>
           <Tabs destroyOnHidden items={[
-            { key: 'dash', label: 'Dashboard', children: <DashboardTab key={`${fy}-${version}`} fy={fy} /> },
-            { key: 'settings', label: 'ตั้งค่างบประมาณ', children: <SettingsTab fy={fy} onChanged={() => setVersion(v => v + 1)} /> },
+            { key: 'dash', label: 'Dashboard', children: <DashboardTab key={`${fy}-${version}`} fy={fy} bt={bt} /> },
+            { key: 'settings', label: 'ตั้งค่างบประมาณ', children: <SettingsTab key={version} fy={fy} bt={bt} onChanged={() => setVersion(v => v + 1)} /> },
+            { key: 'types', label: 'ประเภทงบ', children: <TypesTab bt={bt} onChanged={() => setVersion(v => v + 1)} /> },
           ]} />
         </Card>
       )}

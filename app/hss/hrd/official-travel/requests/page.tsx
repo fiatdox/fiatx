@@ -14,7 +14,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { canSeeTravelItem, HRD_ROLES_ITEM, HRD_TASKS, isHrdTaskKey, TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelShell, travelApi, travelPost, TravelApiError, useTravelRoles, type HrdTaskKey } from '../travelShared'
-import { BUDGET_TYPES, MEMO, SIGN_MODE_LABEL, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest } from '../travelCalc'
+import { MEMO, requestBudgetType, SIGN_MODE_LABEL, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest } from '../travelCalc'
 
 const { Title, Text } = Typography
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้
@@ -87,7 +87,7 @@ const ActualModal = ({ r, onClose, onSaved }: { r: TravelRequest; onClose: () =>
         <Button key="s" type="primary" loading={saving === 'save'} onClick={() => submit(false)}>บันทึกยอดยืนยัน</Button>,
       ]}>
       <Alert type="info" showIcon style={{ marginBottom: 12 }} title="ยอดที่บันทึกนี้เท่านั้นที่ตัดงบประมาณ"
-        description={`${r.requester_name} · ${r.subject} · ประมาณการ ${fmtMoney(r.total_amount)} บาท · ${BUDGET_TYPES[r.budget_type]} ${r.budget_name}`} />
+        description={`${r.requester_name} · ${r.subject} · ประมาณการ ${fmtMoney(r.total_amount)} บาท · ${requestBudgetType(r)} ${r.budget_name}`} />
       <Form form={form} layout="vertical" initialValues={{ actual_amount: r.actual_amount ?? r.total_amount, actual_note: r.actual_note ?? undefined }}>
         <Form.Item name="actual_amount" label="ยอดที่การเงินยืนยัน" rules={[{ required: true, message: 'ระบุยอด' }]}>
           <InputNumber min={0} max={1_000_000} precision={2} style={{ width: '100%' }} suffix="บาท" />

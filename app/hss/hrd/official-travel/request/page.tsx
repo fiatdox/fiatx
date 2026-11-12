@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DATE_FORMAT, ThaiDatePicker } from '@/app/general/contracts/contractShared'
 import { TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
 import {
-  BUDGET_TYPES, FLIGHT_LABEL, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, transportExtras, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
+  FLIGHT_LABEL, budgetTypeLabel, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, transportExtras, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
   type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
 } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
@@ -28,7 +28,7 @@ interface Person {
 }
 interface Vehicle { id: number; code: string; name: string; rate_per_km: number }
 interface RouteOpt { id: number; mode: 'bus' | 'plane'; origin: string; destination: string; max_fare: number; note: string | null }
-interface BudgetOpt { id: number; fiscal_year: number; budget_type: BudgetType; name: string; amount: number; is_active: boolean; remaining: number; pending: number }
+interface BudgetOpt { id: number; fiscal_year: number; budget_type: BudgetType; name: string; amount: number; is_active: boolean; remaining: number; pending: number; type_name: string; type_ref_code: string | null; type_sort: number }
 interface Meta { me: Person & { has_signature?: boolean }; sign_mode: SignMode; approval_chain?: ChainStepLite[]; vehicles: Vehicle[]; routes: RouteOpt[]; budgets: BudgetOpt[]; can_manage: boolean }
 
 /** วันที่ (พ.ศ.) + เวลา → ISO เวลาไทย */
@@ -216,9 +216,14 @@ const RequestForm = () => {
   if (!meta || !init) return <div style={{ padding: 48, textAlign: 'center' }}><Spin /></div>
 
   const routeOpts = meta.routes.filter(r => r.mode === mode).map(r => ({ value: r.id, label: `${r.origin} ⇄ ${r.destination} · ไม่เกิน ${fmtMoney(r.max_fare)} บาท/เที่ยว${r.note ? ` (${r.note})` : ''}` }))
-  const budgetOpts = meta.budgets.filter(b => b.is_active || b.id === orig?.budget_id).map(b => ({
-    value: b.id, label: `${BUDGET_TYPES[b.budget_type]} · ${b.name} (ปีงบ ${b.fiscal_year}) · คงเหลือ ${fmtMoney(b.remaining)} บาท`,
-  }))
+  // จัดกลุ่มตามประเภทงบ (เช่น P20 เงินบำรุง แตกหลายรายการ) — ค้นหาได้ทั้งชื่องบและชื่อ/รหัสประเภท
+  const budgetOpts = [...meta.budgets.filter(b => b.is_active || b.id === orig?.budget_id)
+    .reduce((m, b) => {
+      const key = b.budget_type
+      if (!m.has(key)) m.set(key, { label: budgetTypeLabel({ name: b.type_name, ref_code: b.type_ref_code }, key), options: [] as { value: number; label: string; search: string }[] })
+      m.get(key)!.options.push({ value: b.id, label: `${b.name} (ปีงบ ${b.fiscal_year}) · คงเหลือ ${fmtMoney(b.remaining)} บาท`, search: `${b.type_ref_code ?? ''} ${b.type_name} ${b.name}` })
+      return m
+    }, new Map<string, { label: string; options: { value: number; label: string; search: string }[] }>()).values()]
   const companionOpts = [...new Map([...options, ...companionIds.map(id => people.get(id)).filter((p): p is Person => !!p)].map(p => [p.id, p])).values()]
     .filter(p => p.id !== me?.id)
     .map(p => ({ value: p.id, label: `${p.name}${p.position ? ` · ${p.position}` : ''} · ${fmtMoney(p.rate)} บาท/วัน${p.fy_trips != null ? ` · ปีงบนี้ไปแล้ว ${p.fy_trips} ครั้ง` : ''}` }))
@@ -476,7 +481,8 @@ const RequestForm = () => {
                 {budgetOpts.length === 0
                   ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ยังไม่มีงบที่เปิดใช้ — แจ้งงานพัฒนาทรัพยากรบุคคล" />
                   : <Form.Item name="budget_id" rules={[{ required: true, message: 'เลือกงบประมาณ' }]} style={{ marginBottom: 8 }}>
-                    <Select options={budgetOpts} placeholder="เลือกงบประมาณ" popupMatchSelectWidth={false} />
+                    <Select options={budgetOpts} placeholder="เลือกงบประมาณ (พิมพ์ค้นหาชื่องบหรือรหัส เช่น P20)" popupMatchSelectWidth={false} showSearch
+                      filterOption={(q, o) => !!o && 'search' in o && String(o.search).toLowerCase().includes(q.trim().toLowerCase())} />
                   </Form.Item>}
                 {budget && (
                   <div style={{ fontSize: 12.5, color: 'var(--app-text-2)', lineHeight: 1.7 }}>

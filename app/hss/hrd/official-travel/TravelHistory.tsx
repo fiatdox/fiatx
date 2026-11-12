@@ -6,7 +6,7 @@ import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Row, Select, Ske
 import { FilePdfOutlined } from '@ant-design/icons'
 import { ApprovalSteps, StatusBadge } from './TravelStatus'
 import { travelApi } from './travelShared'
-import { BUDGET_TYPES, LODGING_MODES, MEMO, SIGN_MODE_LABEL, VEHICLE_MODES, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest, type TravelerRow } from './travelCalc'
+import { LODGING_MODES, requestBudgetType, MEMO, SIGN_MODE_LABEL, VEHICLE_MODES, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest, type TravelerRow } from './travelCalc'
 
 const { Text } = Typography
 
@@ -65,7 +65,7 @@ export const RequestTravelersDrawer = ({ requestId, onClose, onOpenPdf }: { requ
             <div style={{ ...rowCss, fontWeight: 700, borderTop: '1px solid var(--app-border)', marginTop: 4, paddingTop: 4 }}><span>รวมประมาณการ</span><span>{fmtMoney(d.total_amount)} บาท</span></div>
             {d.actual_amount != null && <div style={{ ...rowCss, color: 'var(--app-text-2)' }}><span>เบิกจ่ายจริง (การเงินยืนยัน)</span><span>{fmtMoney(d.actual_amount)} บาท</span></div>}
           </> },
-          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${BUDGET_TYPES[d.budget_type]} · ${d.budget_name}` },
+          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${requestBudgetType(d)} · ${d.budget_name}` },
           { key: 'cr', label: 'ยื่นเมื่อ', span: 'filled', children: `${thaiDateTime(d.created_at)} · ${SIGN_MODE_LABEL[d.sign_mode]}` },
         ]} />
         <div style={{ fontWeight: 600, marginBottom: 8 }}>ลำดับการลงนาม</div>

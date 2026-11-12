@@ -10,7 +10,7 @@ import { DownloadOutlined, FilePdfOutlined, ShareAltOutlined } from '@ant-design
 import { withBase } from '@/app/lib/basePath'
 import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSupport'
 import {
-  BUDGET_TYPES, MEMO, memoOrg, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
+  MEMO, requestBudgetType, memoOrg, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
   type Signer, type TravelRequest,
   mealCut, personAllowance, transportExtras, transportTotal } from './travelCalc'
 
@@ -261,12 +261,12 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       <CostLine no="๖.๖" label="ค่าใช้จ่ายอื่น ๆ (ระบุ)" amount={d.other_amount}><Fill value={d.other_desc ?? ''} maxChars={13} left /></CostLine>
 
       <Line style={[s.indent, { marginTop: 3 }]}>
+        {/* พิมพ์เฉพาะประเภทงบที่เลือก (ชื่อ ณ วันยื่น) — ไม่วาดช่องติ๊กของประเภทอื่น */}
         <T>ทั้งนี้ ขอใช้งบประมาณจาก</T>
-        <Check label={BUDGET_TYPES.hospital} on={d.budget_type === 'hospital'} /><Check label={BUDGET_TYPES.budget} on={d.budget_type === 'budget'} />
-        <Check label={BUDGET_TYPES.project} on={d.budget_type === 'project'} /><Fill />
+        <Fill value={requestBudgetType(d)} maxChars={50} left />
       </Line>
       {/* งบที่ผู้ขอเลือก (ชื่อยาวได้) — ขึ้นบรรทัดของตัวเองทุกประเภทงบ */}
-      {d.budget_name && <Line style={s.indent2}><T>{d.budget_type === 'project' ? 'ชื่อโครงการ' : 'รายการงบ'}</T><Fill value={d.budget_name} maxChars={60} left /></Line>}
+      {d.budget_name && <Line style={s.indent2}><T>{d.budget_item_label || (d.budget_type === 'project' ? 'ชื่อโครงการ' : 'รายการงบ')}</T><Fill value={d.budget_name} maxChars={60} left /></Line>}
       <Para indent style={{ marginTop: 3 }}>จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติให้เดินทางไปราชการ และอนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการตามระเบียบกระทรวงการคลังว่าด้วยค่าใช้จ่ายในการเดินทางไปราชการ และหลักเกณฑ์ที่เกี่ยวข้องต่อไปด้วย</Para>
 
       <SignBlock name={d.requester_name} position={d.requester_position} signature={d.requester_signature} />
@@ -373,7 +373,7 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
       ].filter(Boolean).join(' · '))}
       {d.vehicle_mode === 'private' && note('๖.๕ ค่าน้ำมันเชื้อเพลิง', `${d.vehicle_name ?? ''} ทะเบียน ${d.vehicle_plate ?? '-'} · ${th(fmtNum(d.distance_km ?? 0))} กม. × ${th(fmtNum(d.rate_per_km ?? 0))} บาท/กม. = ${th(fmtMoney(d.fuel_amount))} บาท`)}
       {d.toll_amount > 0 && note('๖.๕ ค่าทางด่วน', `${th(fmtMoney(d.toll_amount))} บาท`)}
-      {note('งบประมาณ', `${BUDGET_TYPES[d.budget_type]} · ${d.budget_name}`)}
+      {note('งบประมาณ', `${requestBudgetType(d)} · ${d.budget_name}`)}
       {note('รวมทั้งสิ้น', `${th(fmtMoney(d.total_amount))} บาท (${bahtText(d.total_amount)})`)}
 
       <View wrap={false}>
