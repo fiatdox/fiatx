@@ -68,6 +68,8 @@ interface User {
 
 // ชื่อสถานะที่ถือว่า "ยังปฏิบัติงานอยู่" — สถานะอื่น (ลาออก/เกษียณ/โอนย้าย ฯลฯ) ต้องระบุวันสิ้นสุด
 const WORKING_STATUS_NAME = 'ปฏิบัติงาน'
+// กลับต้นสังกัด (มาช่วยราชการแล้วกลับหน่วยงานเดิม) — src/db/user_status_return_home.sql ฝั่ง backend
+const RETURN_HOME_STATUS_NAME = 'กลับต้นสังกัด'
 
 interface SystemOption { id: number; name: string; [k: string]: unknown }
 
@@ -111,6 +113,7 @@ const isActive = (u: User) =>
 // ── สีตามประเภทบุคลากร (ใช้ร่วมกับหน้าอื่น — app/lib/staffTypeTone) / สถานะ ──────
 const statusTag = (name: string) =>
   name === WORKING_STATUS_NAME ? 'success'
+    : name === RETURN_HOME_STATUS_NAME ? 'cyan'
     : name.includes('เกษียณ') ? 'purple'
     : name.includes('โอน') || name.includes('ย้าย') ? 'orange'
     : name.includes('ลาออก') ? 'red'
@@ -182,6 +185,7 @@ const PageContent = () => {
   const byId = (arr: SystemOption[], id?: number) => arr.find((o) => o.id === id)?.name ?? '-'
 
   // สถานะที่ไม่ใช่ "ปฏิบัติงาน" -> ต้องระบุวันสิ้นสุด + is_active = 'N'
+  const isReturnHome = userStatuses.find((s) => s.id === watchedStatusId)?.name === RETURN_HOME_STATUS_NAME
   const isNonWorkingStatus = (statusId?: number) =>
     statusId != null && userStatuses.find((s) => s.id === statusId)?.name !== WORKING_STATUS_NAME
 
@@ -960,9 +964,9 @@ const PageContent = () => {
                 <Col span={12}>
                   <Form.Item
                     name="work_end_date"
-                    label="วันที่สิ้นสุดการปฏิบัติงาน"
-                    tooltip="วันสุดท้ายที่บุคลากรปฏิบัติงาน (เช่น วันลาออก/เกษียณ/โอนย้าย)"
-                    rules={[{ required: true, message: 'กรุณาระบุวันที่สิ้นสุดการปฏิบัติงาน' }]}
+                    label={isReturnHome ? 'วันที่กลับต้นสังกัด' : 'วันที่สิ้นสุดการปฏิบัติงาน'}
+                    tooltip="วันสุดท้ายที่บุคลากรปฏิบัติงาน (เช่น วันลาออก/เกษียณ/โอนย้าย/กลับต้นสังกัด)"
+                    rules={[{ required: true, message: isReturnHome ? 'กรุณาระบุวันที่กลับต้นสังกัด' : 'กรุณาระบุวันที่สิ้นสุดการปฏิบัติงาน' }]}
                   >
                     <DatePicker style={{ width: '100%' }} format={BE_DATE} placeholder="เลือกวันที่สิ้นสุด" />
                   </Form.Item>
