@@ -262,8 +262,9 @@ function RepairSlipDocument({ data }: { data: RepairSlipData }) {
         {/* ── เนื้อความ ── */}
         <View style={[s.row, s.indent]}>
           <T style={s.lbl}>ด้วยฝ่าย/งาน</T>
-          <Fill v={data.department} />&nbsp;
-          <T> มีความประสงค์ทำการซ่อมบำรุง &nbsp;</T>
+          <Fill v={data.department} />
+          {/* ช่องว่างหน้าข้อความต้องอยู่ใน <T> — &nbsp; ลอยใน View ทำให้ react-pdf เตือน "Invalid ' ' string child" */}
+          <T>{' '}มีความประสงค์ทำการซ่อมบำรุง &nbsp;</T>
         </View>
         <View style={[s.row, { marginBottom: 2 }]}>
 

@@ -970,6 +970,9 @@ const PageContent = () => {
     missionHeadDecision:  r.missionApprove === 1 ? 'approved' : r.missionApprove === 2 ? 'rejected'
                             : r.missionHeadApproval?.status === 'approved' ? 'approved' : r.missionHeadApproval?.status === 'rejected' ? 'rejected' : undefined,
   })
+  // สร้างข้อมูลใบส่งซ่อมครั้งเดียวต่อการเปิด — ถ้าสร้างใหม่ทุก render ตัว PDFViewer จะสร้าง PDF ใหม่ทุกครั้งที่หน้า re-render (หนัก)
+  // toSlipData ใช้แค่ค่าคงที่ระดับไฟล์ จึงขึ้นกับ printSlip อย่างเดียว
+  const slipData = useMemo(() => printSlip ? toSlipData(printSlip) : null, [printSlip])
 
   // เปิด modal รายละเอียด — โหลดรูปและประวัติขอเพิ่มเวลาสดจาก API ทุกครั้ง
   const openDetail = (req: ManageRepairRequest) => {
@@ -3089,6 +3092,8 @@ const PageContent = () => {
         </Form>
       </Modal>
 
+      {/* เปิดแทนหน้าต่างรายละเอียด (ปุ่มแก้ไขข้อมูลปิดรายละเอียดก่อน) — ไม่ซ้อน modal สองชั้น
+          modal ซ้อนกันในหน้านี้ทำให้หลังปิดแล้วคลิกอะไรในหน้าไม่ได้ (เกิดทั้งกับใบส่งซ่อม PDF และแก้ไขข้อมูล) */}
       <RepairEditModal apiId={editReq?.apiId ?? null} code={editReq?.id} onClose={() => setEditReq(null)}
         onSaved={e => { if (editReq?.apiId) applyEdit(editReq.apiId, e) }} />
 
@@ -3101,10 +3106,12 @@ const PageContent = () => {
           <Space>
             <Button onClick={() => setDetailModal(null)}>ปิด</Button>
             {detailModal?.apiId && (
-              <Button icon={<EditOutlined />} data-testid="repair-edit-btn" onClick={() => setEditReq(detailModal)}>แก้ไขข้อมูล</Button>
+              <Button icon={<EditOutlined />} data-testid="repair-edit-btn" onClick={() => { setEditReq(detailModal); setDetailModal(null) }}>แก้ไขข้อมูล</Button>
             )}
             <Button type="primary" icon={<PrinterOutlined />} style={{ background: '#6d28d9', borderColor: '#6d28d9' }}
-              onClick={() => detailModal && setPrintSlip(detailModal)}>
+              // ปิดหน้าต่างรายละเอียดก่อนเปิดใบส่งซ่อม — ไม่ซ้อน modal สองชั้น
+              // (modal ซ้อนกับ iframe ตัวแสดง PDF ของเบราว์เซอร์ ทำให้หลังปิด PDF แล้วคลิกอะไรในหน้าไม่ได้)
+              onClick={() => { if (!detailModal) return; setPrintSlip(detailModal); setDetailModal(null) }}>
               พิมพ์ใบส่งซ่อม
             </Button>
           </Space>
@@ -3306,7 +3313,7 @@ const PageContent = () => {
         destroyOnHidden
       >
         <div style={{ width: '100%', height: '100%' }}>
-          {printSlip && <RepairSlipPDFViewer data={toSlipData(printSlip)} />}
+          {slipData && <RepairSlipPDFViewer data={slipData} />}
         </div>
       </Modal>
     </div>
