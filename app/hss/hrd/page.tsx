@@ -13,6 +13,7 @@ import { FaGraduationCap, FaPlaneDeparture } from 'react-icons/fa'
 import Navbar from '@/app/components/Navbar'
 import { AppThemeProvider } from '@/app/components/ThemeProvider'
 import Link from 'next/link'
+import { canSeeTravelItem, HRD_ROLES_ITEM, useTravelRoles } from './official-travel/travelShared'
 import {
   loadStrategies, loadGoals, loadTrainings,
   formatCompactTHB, getPillarMeta, getStatusMeta, getCompetencyMeta,
@@ -57,6 +58,9 @@ const HRDHub = () => {
     .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
     .slice(0, 5)
 
+  // หน้าภาพรวมเดินทางไปราชการเปิดเฉพาะ ADMIN/HRD — คนอื่นไปหน้ายื่นคำขอแทน
+  const travelHub = canSeeTravelItem(HRD_ROLES_ITEM, useTravelRoles())
+
   const menuItems = [
     {
       title: 'ยุทธศาสตร์การพัฒนาบุคลากร',
@@ -99,7 +103,7 @@ const HRDHub = () => {
       subtitle: 'Official Travel',
       icon: <FaPlaneDeparture className="text-4xl text-indigo-400" />,
       description: 'บุคลากรขอไปราชการ งานพัฒนาทรัพยากรบุคคลดูแลผู้เดินทางและจัดสรรงบประมาณตามหมวดหมู่',
-      href: '/hss/hrd/official-travel',
+      href: travelHub ? '/hss/hrd/official-travel' : '/hss/hrd/official-travel/request',
       color: 'from-indigo-500/20 to-indigo-600/5',
       stats: [
         { label: 'สถานะระบบ', value: 'กำลังจัดทำ' }

@@ -75,6 +75,9 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/general/assets/donation-review':       ['ADMIN', 'DONATION_COMMITTEE'],
   '/general/assets/donation-registration': ['ADMIN', 'DONATION_PROCUREMENT'],
   '/general/assets/donation-admin':        ['ADMIN'],
+  // หน้าภาพรวมระบบเดินทางไปราชการ (การ์ดเมนูทั้งหมด) — เฉพาะ ADMIN / HRD (proxy.ts กั้น URL ตรงเฉพาะหน้านี้หน้าเดียว
+  // หน้าย่อยขอ/รายการคำขอยังเปิดให้ทุกคน · หน้าอนุมัติเข้าจากเมนู sidebar ของหัวหน้า ดู MENU_SUPERVISOR_ONLY)
+  '/hss/hrd/official-travel': HRD_ALLOWANCE_ROLES,
   // ตั้งค่าเบี้ยเลี้ยงบุคลากร (เดินทางไปราชการ) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์
   '/hss/hrd/official-travel/allowance': HRD_ALLOWANCE_ROLES,
   // ตั้งค่าการเดินทาง (ค่าน้ำมัน/กม. · เพดานราคารถโดยสาร/เครื่องบิน) — proxy.ts กั้น URL ตรง, backend ตรวจสิทธิ์การแก้ไข
@@ -91,7 +94,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
 
 // เมนูที่สิทธิ์ไม่ได้มาจาก role แต่มาจากการถูกแต่งตั้งเป็นหัวหน้าหน่วย (เช็คกับ backend)
 // อนุมัติการลา — เฉพาะหัวหน้า/รักษาการ กลุ่มภารกิจ · กลุ่มงาน · หน่วยงาน (หรือ ผอ./ADMIN)
-export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval']
+// อนุมัติการเดินทางไปราชการ — หัวหน้ากลุ่มงาน/กลุ่มภารกิจในสายอนุมัติ (หน้าภาพรวมเปิดเฉพาะ ADMIN/HRD จึงต้องมีทางเข้าจาก sidebar)
+export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval', '/hss/hrd/official-travel/approval']
 
 // เมนูที่ ผอ. / รักษาการ ผอ. (hr_settings — ไม่ใช่ role) เห็นได้ด้วย นอกเหนือจาก role ใน MENU_ROLE_REQUIREMENTS
 export const MENU_DIRECTOR_ALSO = ['/hr/leave/staff-history']

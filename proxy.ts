@@ -127,7 +127,9 @@ export function proxy(req: NextRequest) {
   }
 
   // ตั้งค่าเบี้ยเลี้ยงบุคลากร · ตั้งค่าการเดินทาง (เดินทางไปราชการ) — เฉพาะ ADMIN / HRD
-  if (['allowance', 'transport', 'lodging', 'signing', 'budget', 'tasks'].some(p => underPrefix(pathname, `/hss/hrd/official-travel/${p}`))) {
+  // + หน้าภาพรวม (การ์ดเมนู) เฉพาะหน้านั้นหน้าเดียว — หน้าขอ/รายการคำขอ/อนุมัติยังเข้าได้ตามสิทธิ์ของแต่ละหน้า
+  if (pathname.replace(/\/+$/, '') === '/hss/hrd/official-travel'
+    || ['allowance', 'transport', 'lodging', 'signing', 'budget', 'tasks'].some(p => underPrefix(pathname, `/hss/hrd/official-travel/${p}`))) {
     const roles = getRoles(req).map(r => r.toUpperCase())
     if (!roles.some(r => HRD_ALLOWANCE_ROLES.includes(r))) {
       const homeUrl = req.nextUrl.clone()

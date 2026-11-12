@@ -88,7 +88,10 @@ export async function travelApi<T = unknown>(path: string, method: 'GET' | 'PUT'
 
 // โครงหน้า: Navbar + breadcrumb (หน้าย่อยส่ง current มา จะมีลิงก์กลับหน้าเมนูให้)
 /** fluid = ใช้ความกว้างเต็มจอ (หน้าตารางที่มีหลายคอลัมน์) */
-export const TravelShell = ({ current, fluid, children }: { current?: string; fluid?: boolean; children: React.ReactNode }) => (
+export const TravelShell = ({ current, fluid, children }: { current?: string; fluid?: boolean; children: React.ReactNode }) => {
+  // หน้าภาพรวมเปิดเฉพาะ ADMIN/HRD (proxy.ts) — คนอื่นไม่ต้องมีลิงก์ที่กดแล้วเด้งกลับหน้าหลัก
+  const hubLink = canSeeTravelItem(HRD_ROLES_ITEM, useTravelRoles())
+  return (
   <AppThemeProvider colorPrimary="#a855f7">
     <div style={{ minHeight: '100dvh', background: 'var(--app-bg)' }}>
       <Navbar />
@@ -98,7 +101,7 @@ export const TravelShell = ({ current, fluid, children }: { current?: string; fl
             { href: '/home', title: <><HomeOutlined /> หน้าหลัก</> },
             { title: <><FundOutlined /> พัฒนาระบบบริการและสนับสนุนบริการสุขภาพ</> },
             { href: '/hss/hrd', title: <><FaGraduationCap style={{ display: 'inline-block', verticalAlign: '-2px' }} /> งานพัฒนาทรัพยากรบุคคล</> },
-            current
+            current && hubLink
               ? { href: TRAVEL_BASE, title: <><FaPlaneDeparture style={{ display: 'inline-block', verticalAlign: '-2px' }} /> เดินทางไปราชการ</> }
               : { title: <><FaPlaneDeparture style={{ display: 'inline-block', verticalAlign: '-2px' }} /> เดินทางไปราชการ</> },
             ...(current ? [{ title: current }] : []),
@@ -109,7 +112,8 @@ export const TravelShell = ({ current, fluid, children }: { current?: string; fl
       </div>
     </div>
   </AppThemeProvider>
-)
+  )
+}
 
 // หน้าย่อยที่ยังไม่ได้ทำระบบ
 export const TravelComingSoon = ({ item }: { item: TravelMenuItem }) => (
