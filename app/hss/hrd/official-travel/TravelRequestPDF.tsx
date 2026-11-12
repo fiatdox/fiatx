@@ -266,7 +266,11 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <Fill value={requestBudgetType(d)} maxChars={50} left />
       </Line>
       {/* งบที่ผู้ขอเลือก (ชื่อยาวได้) — ขึ้นบรรทัดของตัวเองทุกประเภทงบ */}
-      {d.budget_name && <Line style={s.indent2}><T>{d.budget_item_label || (d.budget_type === 'project' ? 'ชื่อโครงการ' : 'รายการงบ')}</T><Fill value={d.budget_name} maxChars={60} left /></Line>}
+      {/* ข้อความหน้าชื่องบตามประเภท — ว่าง ('') = ไม่มีคำนำหน้า · คำขอเก่าที่ไม่มีค่า (null) = ค่าเดิม */}
+      {d.budget_name && (() => {
+        const label = d.budget_item_label ?? (d.budget_type === 'project' ? 'ชื่อโครงการ' : 'รายการงบ')
+        return <Line style={s.indent2}>{label && <T>{label}</T>}<Fill value={d.budget_name} maxChars={60} left /></Line>
+      })()}
       <Para indent style={{ marginTop: 3 }}>จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติให้เดินทางไปราชการ และอนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการตามระเบียบกระทรวงการคลังว่าด้วยค่าใช้จ่ายในการเดินทางไปราชการ และหลักเกณฑ์ที่เกี่ยวข้องต่อไปด้วย</Para>
 
       <SignBlock name={d.requester_name} position={d.requester_position} signature={d.requester_signature} />
