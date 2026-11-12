@@ -1,7 +1,8 @@
 'use client'
 // งานที่ต้องดำเนินการของ HRD (หน้า /tasks เปิดจากการ์ดเมนูเดินทางไปราชการ) — เห็นเฉพาะ ADMIN / HRD (backend ตอบ 403 คนอื่น)
 // การ์ดละหนึ่งงาน: จำนวน + ตัวอย่าง 3 ใบ + ลิงก์ไปรายการคำขอที่กรองงานนั้นไว้ (?tab=all&task=)
-import React, { useEffect, useState } from 'react'
+// ฝังในหน้ารายการคำขอ: ส่ง onPick มา → กดการ์ด/แถวแล้วกรองตารางในหน้าเดิม (ไม่เปลี่ยนหน้า) · active = งานที่กรองอยู่
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Alert, Col, Row, Skeleton, Tag, Typography } from 'antd'
 import { ArrowRightOutlined, CheckCircleFilled } from '@ant-design/icons'
 import { FaClipboardCheck, FaCoins, FaExclamationTriangle, FaWallet } from 'react-icons/fa'
@@ -28,13 +29,26 @@ const ICON: Record<HrdTaskKey, React.ReactNode> = { director: <FaClipboardCheck 
 const BUDGET_COLOR = '#7c3aed'
 const listHref = (k: HrdTaskKey) => `${TRAVEL_BASE}/requests?tab=all&task=${k}`
 
-const Shell = ({ color, icon, title, count, unit, sub, href, cta, children, testId }: {
+// onPick จากหน้ารายการคำขอ — ให้ Shell/ItemRow ไม่ต้องรับ prop ต่อกันหลายชั้น
+const PickCtx = createContext<{ onPick?: (k: HrdTaskKey) => void; active?: HrdTaskKey | null }>({})
+/** ลิงก์ไปรายการที่กรองงานนี้ — ถ้าอยู่ในหน้ารายการอยู่แล้ว (มี onPick) กรองในหน้าเดิมแทนการเปลี่ยนหน้า */
+const TaskLink = ({ task, href, children, ...rest }: { task?: HrdTaskKey; href: string; children: React.ReactNode } & Omit<React.ComponentProps<typeof Link>, 'href'>) => {
+  const { onPick } = useContext(PickCtx)
+  return <Link href={href} {...rest} onClick={task && onPick ? e => { e.preventDefault(); onPick(task) } : undefined}>{children}</Link>
+}
+
+const Shell = ({ color, icon, title, count, unit, sub, href, cta, children, testId, task }: {
   color: string; icon: React.ReactNode; title: string; count: number; unit: string; sub?: React.ReactNode
-  href: string; cta: string; children?: React.ReactNode; testId: string
-}) => (
-  <div data-testid={testId} className="hrd-task-card" style={{
+  href: string; cta: string; children?: React.ReactNode; testId: string; task?: HrdTaskKey
+}) => {
+  const { active } = useContext(PickCtx)
+  const on = !!task && active === task
+  return (
+  <div data-testid={testId} data-active={on || undefined} className="hrd-task-card" style={{
     height: '100%', display: 'flex', flexDirection: 'column', gap: 10, padding: 16, borderRadius: 14,
-    background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderTop: `3px solid ${count ? color : 'var(--app-border)'}`,
+    background: on ? `${color}0f` : 'var(--app-surface)',
+    // แยก width/style/color — ห้ามผสม border กับ borderTop (React เตือนเมื่อ active เปลี่ยน)
+    borderStyle: 'solid', borderWidth: '3px 1px 1px', borderColor: `${count ? color : 'var(--app-border)'} ${on ? color : 'var(--app-border)'} ${on ? color : 'var(--app-border)'}`,
   }}>
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
       <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${color}1a`, color }}>{icon}</div>
@@ -52,23 +66,25 @@ const Shell = ({ color, icon, title, count, unit, sub, href, cta, children, test
         ? <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}><CheckCircleFilled style={{ color: '#10b981', marginRight: 6 }} />ไม่มีงานค้าง</Text>
         : children}
     </div>
-    <Link href={href} style={{ color, fontSize: 13, fontWeight: 500 }}>{cta} <ArrowRightOutlined /></Link>
+    <TaskLink task={task} href={href} style={{ color, fontSize: 13, fontWeight: 500 }}>{on ? 'กำลังแสดงในตาราง' : cta} <ArrowRightOutlined /></TaskLink>
   </div>
-)
+  )
+}
 
 /** แถวตัวอย่างคำขอ — ลิงก์ไปรายการที่กรองงานนี้ไว้ (เรียงลำดับเดียวกัน คำขอนี้อยู่ต้นรายการ) */
 const ItemRow = ({ it, note, task }: { it: TaskItem; note?: React.ReactNode; task: HrdTaskKey }) => (
-  <Link href={listHref(task)} className="hrd-task-item" style={{ display: 'block', padding: '6px 8px', borderRadius: 8, color: 'inherit' }}>
+  <TaskLink task={task} href={listHref(task)} className="hrd-task-item" style={{ display: 'block', padding: '6px 8px', borderRadius: 8, color: 'inherit' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
       <Text style={{ fontSize: 12, fontWeight: 600 }} ellipsis>{it.requester_name}</Text>
       <Text style={{ fontSize: 11, color: 'var(--app-text-3)', whiteSpace: 'nowrap' }}>{requestNo(it.id)}</Text>
     </div>
     <div style={{ fontSize: 12, color: 'var(--app-text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.subject} · {it.location}</div>
     <div style={{ fontSize: 11, color: 'var(--app-text-3)' }}>{note}</div>
-  </Link>
+  </TaskLink>
 )
 
-export default function HrdTasks() {
+/** reloadKey เปลี่ยน = โหลดจำนวนใหม่ (หลังบันทึกผล/ยอดจากหน้ารายการคำขอ) */
+export default function HrdTasks({ onPick, active, reloadKey = 0 }: { onPick?: (k: HrdTaskKey) => void; active?: HrdTaskKey | null; reloadKey?: number } = {}) {
   const [data, setData] = useState<Tasks | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(0)   // เวลาที่โหลด — ใช้แยก "กลับแล้ว / เลยวันเดินทาง" (render ต้องไม่เรียก Date.now())
@@ -76,12 +92,13 @@ export default function HrdTasks() {
     let alive = true
     travelApi<Tasks>('requests/hrd-tasks').then(d => { if (alive) { setData(d); setNow(Date.now()) } }).catch(e => { if (alive) setError((e as Error).message) })
     return () => { alive = false }
-  }, [])
+  }, [reloadKey])
 
   const total = data ? data.director.count + data.actual.count + data.soon.count + data.budgets.alerts.length + (data.budgets.no_active ? 1 : 0) : 0
 
   return (
-    <section data-testid="hrd-tasks" style={{ marginBottom: 28 }}>
+    <PickCtx.Provider value={{ onPick, active }}>
+    <section data-testid="hrd-tasks" style={{ marginBottom: onPick ? 16 : 28 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         {data && (total ? <Tag color="red" style={{ margin: 0 }}>{total} เรื่อง</Tag> : <Tag color="green" style={{ margin: 0 }}>ไม่มีงานค้าง</Tag>)}
         <Text style={{ color: 'var(--app-text-3)', fontSize: 12 }}>เฉพาะงานพัฒนาทรัพยากรบุคคล / ผู้ดูแลระบบ</Text>
@@ -91,14 +108,14 @@ export default function HrdTasks() {
       {data && (
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12} xl={6}>
-            <Shell testId="task-director" color={HRD_TASKS.director.color} icon={ICON.director} title={HRD_TASKS.director.title} count={data.director.count} unit="คำขอ"
+            <Shell testId="task-director" task="director" color={HRD_TASKS.director.color} icon={ICON.director} title={HRD_TASKS.director.title} count={data.director.count} unit="คำขอ"
               sub={data.director.count ? `เดินเอกสาร ${data.director.paper} · ลงนามในระบบ ${data.director.count - data.director.paper}` : HRD_TASKS.director.hint}
               href={listHref('director')} cta="บันทึกผล">
               {data.director.items.slice(0, 3).map(it => <ItemRow key={it.id} it={it} task="director" note={<>ออกเดินทาง {thaiDateShort(it.start_at)}{it.sign_mode === 'paper' && <Tag color="gold" style={{ marginInlineStart: 6, fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>เดินเอกสาร</Tag>}</>} />)}
             </Shell>
           </Col>
           <Col xs={24} md={12} xl={6}>
-            <Shell testId="task-actual" color={HRD_TASKS.actual.color} icon={ICON.actual} title={HRD_TASKS.actual.title} count={data.actual.count} unit="คำขอ"
+            <Shell testId="task-actual" task="actual" color={HRD_TASKS.actual.color} icon={ICON.actual} title={HRD_TASKS.actual.title} count={data.actual.count} unit="คำขอ"
               sub={data.actual.count ? `เดินทางกลับแล้ว ${data.actual.returned} · ยังไม่เดินทาง ${data.actual.count - data.actual.returned}` : HRD_TASKS.actual.hint}
               href={listHref('actual')} cta="บันทึกยอด">
               {data.actual.items.slice(0, 3).map(it => <ItemRow key={it.id} it={it} task="actual"
@@ -106,7 +123,7 @@ export default function HrdTasks() {
             </Shell>
           </Col>
           <Col xs={24} md={12} xl={6}>
-            <Shell testId="task-soon" color={HRD_TASKS.soon.color} icon={ICON.soon} title={HRD_TASKS.soon.title} count={data.soon.count} unit="คำขอ"
+            <Shell testId="task-soon" task="soon" color={HRD_TASKS.soon.color} icon={ICON.soon} title={HRD_TASKS.soon.title} count={data.soon.count} unit="คำขอ"
               sub={data.soon.count ? `ภายใน ${data.soon_days} วัน${data.soon.overdue ? ` · เลยวันเดินทางแล้ว ${data.soon.overdue}` : ''}` : HRD_TASKS.soon.hint}
               href={listHref('soon')} cta="ติดตามสายอนุมัติ">
               {data.soon.items.slice(0, 3).map(it => <ItemRow key={it.id} it={it} task="soon"
@@ -138,5 +155,6 @@ export default function HrdTasks() {
         .hrd-task-item:hover { background: var(--app-bg); }
       `}</style>
     </section>
+    </PickCtx.Provider>
   )
 }

@@ -9,6 +9,7 @@ import { AuditOutlined, CheckCircleOutlined, ClockCircleOutlined, EditOutlined, 
 import { RequestTravelersDrawer } from '../TravelHistory'
 import { StatusBadge } from '../TravelStatus'
 import { ApproveModal, TripUrgency } from '../TravelApprove'
+import HrdTasks from '../HrdTasks'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -191,7 +192,16 @@ const RequestsContent = () => {
     openPdf(openId)
     router.replace(`${TRAVEL_BASE}/requests`)
   }, [openId, openPdf, router])
-  const afterAct = () => { load(); loadCount() }
+  // การ์ดงานที่ต้องดำเนินการ (ADMIN/HRD) — โหลดจำนวนใหม่หลังบันทึกผล ผอ. / ยอดการเงิน / ยกเลิก / อนุมัติ
+  const [tasksKey, setTasksKey] = useState(0)
+  const afterAct = () => { load(); loadCount(); setTasksKey(k => k + 1) }
+  const afterSave = () => { load(); setTasksKey(k => k + 1) }
+  // กดการ์ดงาน = กรองตารางในหน้าเดิม (กดการ์ดที่กรองอยู่ซ้ำ = เลิกกรอง)
+  const pickTask = (k: HrdTaskKey) => {
+    const next = task === k && scope === 'all' ? null : k
+    setScope('all'); setTask(next); setStatus(undefined); setPage(1)
+    router.replace(`${TRAVEL_BASE}/requests?tab=all${next ? `&task=${next}` : ''}`, { scroll: false })
+  }
 
   const columns: ColumnsType<TravelRequest> = [
     // ลำดับต่อเนื่องข้ามหน้า (หน้า 2 เริ่มที่ 21)
@@ -283,6 +293,12 @@ const RequestsContent = () => {
         </div>
         <Link href={`${TRAVEL_BASE}/request`}><Button type="primary" icon={<PlusOutlined />}>ยื่นคำขอใหม่</Button></Link>
       </div>
+      {isManager && (
+        <>
+          <Title level={5} style={{ margin: '0 0 8px', color: 'var(--app-text)' }}>งานที่ต้องดำเนินการ</Title>
+          <HrdTasks onPick={pickTask} active={scope === 'all' ? task : null} reloadKey={tasksKey} />
+        </>
+      )}
       <Card styles={{ body: { padding: 12 } }} style={{ borderRadius: 14 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           {(data?.can_manage || approver?.involved || (approver?.pending ?? 0) > 0 || scope !== 'mine') && (
@@ -321,9 +337,9 @@ const RequestsContent = () => {
         {printing && <TravelRequestPDF data={printing} />}
       </Modal>
       {approveFor && <ApproveModal key={approveFor} id={approveFor} onClose={() => setApproveFor(null)} onSaved={afterAct} onOpenPdf={openPdf} />}
-      {directorFor && <DirectorModal key={directorFor.id} r={directorFor} onClose={() => setDirectorFor(null)} onSaved={load} />}
-      {actualFor && <ActualModal key={actualFor.id} r={actualFor} onClose={() => setActualFor(null)} onSaved={load} />}
-      {cancelFor && <CancelModal key={cancelFor.id} r={cancelFor} onClose={() => setCancelFor(null)} onSaved={load} />}
+      {directorFor && <DirectorModal key={directorFor.id} r={directorFor} onClose={() => setDirectorFor(null)} onSaved={afterSave} />}
+      {actualFor && <ActualModal key={actualFor.id} r={actualFor} onClose={() => setActualFor(null)} onSaved={afterSave} />}
+      {cancelFor && <CancelModal key={cancelFor.id} r={cancelFor} onClose={() => setCancelFor(null)} onSaved={afterSave} />}
       {checkFor && <RequestTravelersDrawer key={checkFor} requestId={checkFor} onClose={() => setCheckFor(null)} onOpenPdf={id => { setCheckFor(null); openPdf(id) }} />}
       <Text type="secondary" style={{ display: 'block', marginTop: 10, fontSize: 12 }}>
         ยอดประมาณการในคำขอไม่ตัดงบ — งบถูกตัดเมื่องานพัฒนาทรัพยากรบุคคลบันทึกยอดที่การเงินยืนยันแล้ว{data?.rows.some(r => r.actual_at) ? ` · ยืนยันล่าสุด ${thaiDateTime(data.rows.filter(r => r.actual_at).map(r => r.actual_at!).sort().pop()!)}` : ''}
