@@ -282,7 +282,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       </View>
 
       <View style={s.footer} fixed>
-        <Text>{pad(`คำขอในระบบ ${requestNo(d.id)}${d.requester_signature ? ' · ลงนามอิเล็กทรอนิกส์ผ่านระบบ (ยกเว้นผู้อำนวยการ)' : ''}`)}</Text>
+        <View />
         <Text>{pad(`พิมพ์เมื่อ ${printedAt}`)}</Text>
       </View>
     </Page>
