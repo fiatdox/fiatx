@@ -44,12 +44,25 @@ function readInitialMode(): ThemeMode {
   return 'light'
 }
 
+// ผู้ใช้ปิดเอฟเฟกต์ภาพเคลื่อนไหวของระบบ (Windows: ปิด "แสดงภาพเคลื่อนไหว") — globals.css บังคับ animation 0s
+// แต่ antd ยังรอ animationend ตอนปิด modal ซึ่งบางครั้งไม่มา → modal ค้างแบบมองไม่เห็นทับทั้งหน้า คลิกอะไรไม่ได้
+// จึงสั่ง antd ปิด motion เอง (ไม่ต้องรอ event) — ConfigProvider ของแต่ละหน้ารับ token นี้ต่อจากตัวนี้
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+const subscribeReducedMotion = (cb: () => void) => {
+  const mq = window.matchMedia(REDUCED_MOTION)
+  mq.addEventListener('change', cb)
+  return () => mq.removeEventListener('change', cb)
+}
+const usePrefersReducedMotion = () =>
+  useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(REDUCED_MOTION).matches, () => false)
+
 /**
  * Provider ระดับ root — เก็บสถานะโหมดธีมไว้ที่เดียว ใช้ร่วมกันทั้ง Navbar และทุกหน้า
  * วางไว้ใน app/layout.tsx ครอบ children ทั้งหมด
  */
 export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [mode, setModeState] = useState<ThemeMode>('light')
+  const reducedMotion = usePrefersReducedMotion()
 
   // sync จาก attribute ที่ script ตั้งไว้ ตอน mount ฝั่ง client
   useEffect(() => {
@@ -71,7 +84,9 @@ export const ThemeModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <ThemeModeContext.Provider value={{ mode, setMode: applyMode, toggle }}>
       {/* สไตล์ antd ทั้งระบบอยู่ใน @layer antd — ให้ Tailwind utilities ทับได้ (ลำดับ layer อยู่ใน globals.css) */}
-      <StyleProvider layer>{children}</StyleProvider>
+      <StyleProvider layer>
+        <ConfigProvider theme={{ token: { motion: !reducedMotion } }}>{children}</ConfigProvider>
+      </StyleProvider>
     </ThemeModeContext.Provider>
   )
 }
