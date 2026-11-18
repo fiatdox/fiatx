@@ -1,5 +1,6 @@
 'use client'
 // หน้ารวมระบบคืนหลักประกันสัญญา: ทางเข้าหน้าจอของแต่ละหน่วยงาน + งานของฉัน + ภาพรวม + กฎ
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useCallback, useEffect, useState } from 'react'
 import { Alert, App, Button, Card, Col, Empty, Row, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -80,11 +81,11 @@ const HubCharts = ({ s }: { s: any }) => {
 
   return (
     <Row gutter={[12, 12]} className="mb-4">
-      <Col xs={24} lg={12}>{card('สัญญาแยกตามขั้นตอน', 'ไม่นับสัญญาที่ยกเลิก', hbar(stageData.map(x => x.label), stageData.map(x => x.n), v => String(v), i => `${stageData[i].label}<br/><b>${stageData[i].n}</b> ฉบับ`), stageData.every(x => x.n === 0))}</Col>
+      <Col xs={24} lg={12}>{card('สัญญาแยกตามขั้นตอน', 'ไม่นับสัญญาที่ยกเลิก', hbar(stageData.map(x => x.label), stageData.map(x => x.n), v => String(v), i => `${escHtml(stageData[i].label)}<br/><b>${stageData[i].n}</b> ฉบับ`), stageData.every(x => x.n === 0))}</Col>
       <Col xs={24} lg={12}>{card('หลักประกันที่ต้องคืน ตามเดือนหมดประกัน', '12 เดือนข้างหน้า และที่เลยวันหมดประกันแล้วแต่ยังไม่คืน', {
         backgroundColor: 'transparent',
         grid: { left: 8, right: 8, top: 20, bottom: 8, containLabel: true },
-        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: any[]) => { const m = months[p[0].dataIndex]; return `${m.label}<br/><b>${fmtMoney(m.amount)}</b> บาท · ${m.contracts} สัญญา` } },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: any[]) => { const m = months[p[0].dataIndex]; return `${escHtml(m.label)}<br/><b>${fmtMoney(m.amount)}</b> บาท · ${m.contracts} สัญญา` } },
         xAxis: { type: 'category', data: months.map(m => m.label), axisLabel: { fontSize: 10, interval: 0, rotate: 45 } },
         yAxis: { type: 'value', ...axisCommon, axisLabel: { fontSize: 11, formatter: short } },
         series: [{
@@ -106,7 +107,7 @@ const HubCharts = ({ s }: { s: any }) => {
           data: duties.map((d: any) => d[k]),
         })),
       }, duties.length === 0)}</Col>
-      <Col xs={24} lg={12}>{card('หลักประกันที่ถือไว้ แยกตามประเภท', 'ยอดเงินและจำนวนฉบับที่ยังไม่คืน', hbar(types.map(t => t.label), types.map(t => t.amount), short, i => `${types[i].label}<br/><b>${fmtMoney(types[i].amount)}</b> บาท · ${types[i].n} ฉบับ`), types.length === 0)}</Col>
+      <Col xs={24} lg={12}>{card('หลักประกันที่ถือไว้ แยกตามประเภท', 'ยอดเงินและจำนวนฉบับที่ยังไม่คืน', hbar(types.map(t => t.label), types.map(t => t.amount), short, i => `${escHtml(types[i].label)}<br/><b>${fmtMoney(types[i].amount)}</b> บาท · ${types[i].n} ฉบับ`), types.length === 0)}</Col>
     </Row>
   )
 }

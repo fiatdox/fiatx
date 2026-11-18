@@ -3,7 +3,7 @@
 // ที่มาของงานใช้คู่เดียวกัน: ขัดจังหวะ (ไม่ได้วางแผน) = ส้ม, วางแผน = เขียว
 import type { Nature } from '../types'
 import {
-  type EChartsCoreOption, type Palette, base as kitBase, categoryAxis, gap, num, valueAxis,
+  type EChartsCoreOption, type Palette, escHtml, base as kitBase, categoryAxis, gap, num, valueAxis,
 } from '@/app/lib/chartKit'
 import { NATURES, NATURE_LABEL, DOW_LABEL, type NatureRow, type heat } from './analytics'
 
@@ -21,7 +21,7 @@ const natureTooltip = (P: Palette, rows: NatureRow[]) => ({
     const r = rows[ps[0].dataIndex]
     const lines = NATURES.filter(n => r.nature[n] > 0)
       .map(n => `${dot(P.nature[n])}${NATURE_LABEL[n]} <b>${hrsText(r.nature[n])}</b> (${Math.round((r.nature[n] * 100) / (r.minutes || 1))}%)`)
-    return `${r.name}<br/>${lines.join('<br/>')}<br/>รวม <b>${hrsText(r.minutes)}</b> · ${num(r.n)} งาน${r.urgent ? ` · ด่วน ${num(r.urgent)}` : ''}`
+    return `${escHtml(r.name)}<br/>${lines.join('<br/>')}<br/>รวม <b>${hrsText(r.minutes)}</b> · ${num(r.n)} งาน${r.urgent ? ` · ด่วน ${num(r.urgent)}` : ''}`
   },
 })
 
@@ -77,7 +77,7 @@ export const sourceOption = (rows: { name: string; planned: boolean; n: number }
     ...base(P).tooltip,
     formatter: (ps: { dataIndex: number }[]) => {
       const r = rows[ps[0].dataIndex]
-      return `${r.name}<br/>${dot(r.planned ? P.nature.proactive : P.nature.reactive)}${r.planned ? 'วางแผน' : 'ขัดจังหวะ'} <b>${num(r.n)}</b> งาน`
+      return `${escHtml(r.name)}<br/>${dot(r.planned ? P.nature.proactive : P.nature.reactive)}${r.planned ? 'วางแผน' : 'ขัดจังหวะ'} <b>${num(r.n)}</b> งาน`
     },
   },
   grid: { left: 8, right: 48, top: 40, bottom: 8, containLabel: true },

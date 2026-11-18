@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useState, useMemo } from 'react'
 import {
   Typography, Card, Tag, Button, Table,
@@ -386,7 +387,7 @@ const PageContent = () => {
                 tooltip: {
                   trigger: 'item', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)',
                   textStyle: { color: 'var(--app-text)' },
-                  formatter: (p: any) => `${p.name}<br/>฿${Number(p.value).toLocaleString()} (${p.percent}%)`,
+                  formatter: (p: any) => `${escHtml(p.name)}<br/>฿${Number(p.value).toLocaleString()} (${p.percent}%)`,
                 },
                 legend: {
                   orient: 'vertical', right: 4, top: 'center',

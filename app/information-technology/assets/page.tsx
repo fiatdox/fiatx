@@ -15,7 +15,7 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import EChart from '@/app/components/EChart'
 import { StatCard } from '@/app/components/StatCard'
 import { useThemeMode } from '@/app/components/ThemeProvider'
-import { PALETTES, clip } from '@/app/lib/chartKit'
+import { PALETTES, clip, escHtml } from '@/app/lib/chartKit'
 import { AGE_LABEL, KIND_LABEL, SOURCE_LABEL, STATUS_COLOR, STATUS_FILTERS, ageState, ageYears, money, short, thDate, type AgeState, type Asset, type Kind } from './assetShared'
 
 const { Title, Text } = Typography
@@ -82,7 +82,7 @@ const PageContent = ({ isDark }: { isDark: boolean }) => {
   })
   const tip = { backgroundColor: P.surface, borderColor: P.grid, textStyle: { color: P.text } }
   const hbar = (data: [string, number][], color: string, labelOf: (k: string) => string) => ({
-    backgroundColor: 'transparent', tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => `${labelOf(data[p[0].dataIndex][0])}<br/><b>${data[p[0].dataIndex][1].toLocaleString('th-TH')}</b> รายการ<br/><i>กดเพื่อกรอง</i>` },
+    backgroundColor: 'transparent', tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => `${escHtml(labelOf(data[p[0].dataIndex][0]))}<br/><b>${data[p[0].dataIndex][1].toLocaleString('th-TH')}</b> รายการ<br/><i>กดเพื่อกรอง</i>` },
     grid: { left: 8, right: 48, top: 8, bottom: 8, containLabel: true },
     xAxis: { type: 'value', minInterval: 1, axisLabel: { color: P.muted, fontSize: 11 }, splitLine: { lineStyle: { color: P.grid } } },
     yAxis: { type: 'category', inverse: true, data: data.map(d => clip(labelOf(d[0]), 24)), axisLabel: { color: P.text, fontSize: 11 }, axisTick: { show: false }, axisLine: { lineStyle: { color: P.grid } } },

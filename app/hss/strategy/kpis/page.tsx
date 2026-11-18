@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useState, useMemo } from 'react'
 import {
   Typography, Card, Row, Col, Table,
@@ -346,7 +347,7 @@ const KPIPageContent = () => {
                     borderColor: 'var(--app-border-strong)',
                     textStyle: { color: 'var(--app-text)' },
                     formatter: (p: { name: string; value: number; percent: number }) =>
-                      `${p.name}<br/>${p.value} รายการ (${p.percent}%)`,
+                      `${escHtml(p.name)}<br/>${p.value} รายการ (${p.percent}%)`,
                   },
                   title: [
                     { text: 'ภาพรวม', left: 'center', top: '38%', textStyle: { color: 'var(--app-text-2)', fontSize: 11, fontWeight: 400 } },
@@ -394,7 +395,7 @@ const KPIPageContent = () => {
                     textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number }[]) => {
                       const d = byDept[params[0].dataIndex]
-                      return `<b>${d.dept}</b><br/>เฉลี่ย: ${d.avg}%<br/>จำนวน: ${d.count} KPI`
+                      return `<b>${escHtml(d.dept)}</b><br/>เฉลี่ย: ${d.avg}%<br/>จำนวน: ${d.count} KPI`
                     },
                   },
                   xAxis: {
@@ -524,7 +525,7 @@ const KPIPageContent = () => {
                     textStyle: { color: 'var(--app-text)' },
                     formatter: (params: { dataIndex: number }[]) => {
                       const k = topKpis[params[0].dataIndex]
-                      return `<b>${k.name}</b><br/>ผลงาน: ${k.actual} ${k.unit}<br/>เป้าหมาย: ${k.target} ${k.unit}<br/>ความสำเร็จ: <b>${k.pct}%</b>`
+                      return `<b>${escHtml(k.name)}</b><br/>ผลงาน: ${k.actual} ${escHtml(k.unit)}<br/>เป้าหมาย: ${k.target} ${escHtml(k.unit)}<br/>ความสำเร็จ: <b>${k.pct}%</b>`
                     },
                   },
                   xAxis: {

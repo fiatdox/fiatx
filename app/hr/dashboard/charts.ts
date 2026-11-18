@@ -5,7 +5,7 @@
 // ผ่าน validate_palette ทั้งโหมดสว่าง (พื้น #ffffff) และมืด (พื้น #1e293b) แล้ว
 import type { EChartsCoreOption } from 'echarts'
 import { AGE_BANDS, type Named, type UnitRow } from './insights'
-import { PALETTES, type Palette, barHeight, categoryAxis, gap, num, valueAxis, base as kitBase } from '@/app/lib/chartKit'
+import { PALETTES, type Palette, escHtml, barHeight, categoryAxis, gap, num, valueAxis, base as kitBase } from '@/app/lib/chartKit'
 
 export { PALETTES, barHeight, type Palette }
 
@@ -109,8 +109,8 @@ export const exitByUnitOption = (
     formatter: (ps: { dataIndex: number; seriesName: string; value: number; color: string }[]) => {
       const r = rows[ps[0].dataIndex]
       const parts = ps.filter(p => p.value > 0)
-        .map(p => `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color};margin-right:6px"></span>${p.seriesName} <b>${num(p.value)}</b> คน`)
-      return `${r.name}<br/>${parts.join('<br/>')}<br/>รวม <b>${num(r.exits)}</b> คน · อัตราการออก ${r.exitRate.toLocaleString('th-TH', { maximumFractionDigits: 1 })}% (คงอยู่ ${num(r.staff)} คน)`
+        .map(p => `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${p.color};margin-right:6px"></span>${escHtml(p.seriesName)} <b>${num(p.value)}</b> คน`)
+      return `${escHtml(r.name)}<br/>${parts.join('<br/>')}<br/>รวม <b>${num(r.exits)}</b> คน · อัตราการออก ${r.exitRate.toLocaleString('th-TH', { maximumFractionDigits: 1 })}% (คงอยู่ ${num(r.staff)} คน)`
     },
   },
   grid: { left: 8, right: 24, top: 40, bottom: 8, containLabel: true },
@@ -134,7 +134,7 @@ export const singleBarOption = (
     ...base(P).tooltip,
     formatter: (ps: { dataIndex: number; name: string; value: number }[]) => {
       const p = ps[0]
-      return `${p.name}<br/><b>${num(p.value)} คน</b>${tooltipExtra ? `<br/>${tooltipExtra(p.dataIndex)}` : ''}`
+      return `${escHtml(p.name)}<br/><b>${num(p.value)} คน</b>${tooltipExtra ? `<br/>${tooltipExtra(p.dataIndex)}` : ''}`
     },
   },
   grid: { left: 8, right: 48, top: 32, bottom: 8, containLabel: true },

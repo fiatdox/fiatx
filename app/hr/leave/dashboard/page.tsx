@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Card, Typography, Row, Col, Tag, Space, Select, Table, Empty, Progress, Checkbox, Alert, Spin, Tooltip, Segmented,
@@ -498,7 +499,7 @@ const LeaveAnalyticsContent = () => {
       trigger: 'axis', axisPointer: { type: 'shadow' },
       formatter: (p: { dataIndex: number }[]) => {
         const x = [...unitRate].reverse()[p[0].dataIndex]
-        return `${x.g}<br/>เฉลี่ย <b>${nf(x.rate)}</b> วัน/คน<br/>วันลารวม ${nf(x.d)} วัน · บุคลากร ${nf(x.h)} คน`
+        return `${escHtml(x.g)}<br/>เฉลี่ย <b>${nf(x.rate)}</b> วัน/คน<br/>วันลารวม ${nf(x.d)} วัน · บุคลากร ${nf(x.h)} คน`
       },
     },
     grid: { left: 8, right: 40, top: 8, bottom: 8, containLabel: true },
@@ -655,7 +656,7 @@ const LeaveAnalyticsContent = () => {
         trigger: 'axis', axisPointer: { type: 'shadow' },
         formatter: (p: { dataIndex: number }[]) => {
           const x = rows[p[0].dataIndex]
-          return `${x.name}<br/>เวลาที่ใช้ต่อขั้น (มัธยฐาน รวมใบที่ค้าง) <b>${fmtWait(x.responseH)}</b>`
+          return `${escHtml(x.name)}<br/>เวลาที่ใช้ต่อขั้น (มัธยฐาน รวมใบที่ค้าง) <b>${fmtWait(x.responseH)}</b>`
             + `<br/>เฉพาะที่กดแล้ว ${x.acted ? `${fmtWait(x.medianH)} · ภายใน 3 วัน ${x.slaPct}%` : 'ยังไม่ได้กด'}`
             + `<br/>ดำเนินการ ${nf(x.acted)} ขั้น · ค้างอยู่ ${nf(x.waiting)} ใบ`
         },

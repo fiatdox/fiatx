@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Card, Typography, ConfigProvider, Row, Col, Tag,
@@ -108,7 +109,7 @@ const PageContent = () => {
         const p = Array.isArray(params) ? params[0] : params
         const t = totals[p.dataIndex]
         const d = dims[p.dataIndex]
-        return `<b>${d.short}</b><br/>${d.name}<br/>คะแนน: <b>${t.earned}</b> / ${t.max} (${t.pct}%)<br/>คะแนนจำเป็น: <b>${t.reqEarned}</b> / ${t.reqMax}`
+        return `<b>${escHtml(d.short)}</b><br/>${escHtml(d.name)}<br/>คะแนน: <b>${t.earned}</b> / ${t.max} (${t.pct}%)<br/>คะแนนจำเป็น: <b>${t.reqEarned}</b> / ${t.reqMax}`
       }
     },
     grid: { left: 60, right: 30, top: 30, bottom: 50 },
@@ -153,7 +154,7 @@ const PageContent = () => {
         const d = dims[i]
         const t = totals[i]
         const gap = t.reqMax - t.reqEarned
-        return `<b>${d.short}</b> (ด้าน ${d.no})<br/>คะแนนจำเป็นที่ได้: <b style="color:#22c55e">${t.reqEarned}</b><br/>ส่วนที่ขาด: <b style="color:#ef4444">${gap}</b><br/>คะแนนจำเป็นเต็ม: <b>${t.reqMax}</b><br/>ความสำเร็จ: <b>${t.reqPct}%</b>`
+        return `<b>${escHtml(d.short)}</b> (ด้าน ${d.no})<br/>คะแนนจำเป็นที่ได้: <b style="color:#22c55e">${t.reqEarned}</b><br/>ส่วนที่ขาด: <b style="color:#ef4444">${gap}</b><br/>คะแนนจำเป็นเต็ม: <b>${t.reqMax}</b><br/>ความสำเร็จ: <b>${t.reqPct}%</b>`
       }
     },
     legend: { data: ['คะแนนจำเป็นที่ได้', 'ส่วนที่ขาด'], bottom: 0, textStyle: { color: 'var(--app-text)' } },
@@ -205,7 +206,7 @@ const PageContent = () => {
       formatter: (params: { dataIndex: number }[] | { dataIndex: number }) => {
         const p = Array.isArray(params) ? params[0] : params
         const x = reqGapItems[p.dataIndex]
-        return `<b>${x.item.no} ${x.item.name}</b><br/>ด้าน: ${x.dim.short}<br/>จำเป็นที่ได้: <b>${x.item.requiredEarned}</b> / ${x.item.requiredMax}<br/>ส่วนที่ขาด: <b style="color:#ef4444">${x.gap}</b> คะแนน (${x.pct}%)`
+        return `<b>${escHtml(x.item.no)} ${escHtml(x.item.name)}</b><br/>ด้าน: ${escHtml(x.dim.short)}<br/>จำเป็นที่ได้: <b>${x.item.requiredEarned}</b> / ${x.item.requiredMax}<br/>ส่วนที่ขาด: <b style="color:#ef4444">${x.gap}</b> คะแนน (${x.pct}%)`
       }
     },
     grid: { left: 8, right: 80, top: 10, bottom: 10, containLabel: true },
@@ -284,7 +285,7 @@ const PageContent = () => {
           const p = Array.isArray(params) ? params[0] : params
           const it = items[p.dataIndex]
           const pct = it.maxScore > 0 ? Math.round((it.earnedScore / it.maxScore) * 100) : 0
-          return `<b>${it.no} ${it.name}</b><br/>คะแนน: <b>${it.earnedScore}</b> / ${it.maxScore} (${pct}%)<br/>จำเป็น: ${it.requiredEarned} / ${it.requiredMax}`
+          return `<b>${escHtml(it.no)} ${escHtml(it.name)}</b><br/>คะแนน: <b>${it.earnedScore}</b> / ${it.maxScore} (${pct}%)<br/>จำเป็น: ${it.requiredEarned} / ${it.requiredMax}`
         }
       },
       grid: { left: 8, right: 60, top: 10, bottom: 10, containLabel: true },

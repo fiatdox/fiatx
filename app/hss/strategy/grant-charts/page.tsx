@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   App, Typography, Card, Tag, Select,
@@ -344,13 +345,13 @@ const GanttPageContent = () => {
           const end   = new Date(e).toLocaleDateString('th-TH', { dateStyle: 'medium' })
           if (type === 'milestone') {
             return `
-              <div style="font-weight:700;color:#f8fafc">${text}</div>
+              <div style="font-weight:700;color:#f8fafc">${escHtml(text)}</div>
               <div style="color:#fca5a5;font-size:11px">📍 Milestone — ${start}</div>
             `
           }
           const c = getProgressColor(prog)
           return `
-            <div style="font-weight:700;margin-bottom:6px;color:#f8fafc">${text}</div>
+            <div style="font-weight:700;margin-bottom:6px;color:#f8fafc">${escHtml(text)}</div>
             <div style="font-size:11px;color:#94a3b8">เริ่ม: <b style="color:#cbd5e1">${start}</b></div>
             <div style="font-size:11px;color:#94a3b8">สิ้นสุด: <b style="color:#cbd5e1">${end}</b></div>
             <div style="margin-top:6px;color:${c.fill};font-weight:700">ความคืบหน้า ${prog}% — ${c.label}</div>

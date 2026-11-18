@@ -11,7 +11,7 @@ import { Alert, App, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, 
 import type { ColumnsType } from 'antd/es/table'
 import { AppstoreOutlined, BulbOutlined, CheckCircleOutlined, ClearOutlined, ClockCircleOutlined, DashboardOutlined, EditOutlined, FilterOutlined, HistoryOutlined, PlusOutlined, SafetyCertificateOutlined, SettingOutlined, TeamOutlined, WalletOutlined } from '@ant-design/icons'
 import EChart from '@/app/components/EChart'
-import { PALETTES, type Palette } from '@/app/lib/chartKit'
+import { PALETTES, type Palette, escHtml } from '@/app/lib/chartKit'
 import { useThemeMode } from '@/app/components/ThemeProvider'
 import { TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost, useBudgetTypes } from '../travelShared'
 import { TH_MONTHS_SHORT, budgetTypeLabel, fmtMoney, requestNo, thaiDateTime, tripRange, type BudgetType, type BudgetTypeRow } from '../travelCalc'
@@ -185,7 +185,7 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
   const monthlyOption = monthBy === 'status' ? {
     ...monthBase,
     legend: { bottom: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11, color: P.muted } },
-    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const m = months[p[0].dataIndex]; return `${m.label}<br/>ยืนยันแล้ว <b>${fmtMoney(m.spent)}</b> บาท<br/>รอยืนยัน <b>${fmtMoney(m.pending)}</b> บาท<br/>${m.requests} คำขอ` } },
+    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const m = months[p[0].dataIndex]; return `${escHtml(m.label)}<br/>ยืนยันแล้ว <b>${fmtMoney(m.spent)}</b> บาท<br/>รอยืนยัน <b>${fmtMoney(m.pending)}</b> บาท<br/>${m.requests} คำขอ` } },
     series: [stack('ยืนยันแล้ว', C_SPENT, months.map(m => m.spent), false), stack('รอยืนยัน (ประมาณการ)', C_PENDING, months.map(m => m.pending), true, monthTotal)],
   } : {
     ...monthBase,
@@ -195,8 +195,8 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
       formatter: (p: { dataIndex: number; seriesIndex: number; seriesName: string; value: number }[]) => {
         const m = months[p[0].dataIndex]
         const rows = p.filter(x => x.value > 0).sort((x, y) => y.value - x.value)
-          .map(x => `${swatchHtml(profColor(P, profWithAmount[x.seriesIndex].key, dark))}${x.seriesName} <b>${fmtMoney(x.value)}</b>`).join('<br/>')
-        return `${m.label} · รวม <b>${fmtMoney(m.spent + m.pending)}</b> บาท${rows ? `<br/>${rows}` : ''}`
+          .map(x => `${swatchHtml(profColor(P, profWithAmount[x.seriesIndex].key, dark))}${escHtml(x.seriesName)} <b>${fmtMoney(x.value)}</b>`).join('<br/>')
+        return `${escHtml(m.label)} · รวม <b>${fmtMoney(m.spent + m.pending)}</b> บาท${rows ? `<br/>${rows}` : ''}`
       },
     },
     series: profWithAmount.map((pr, si) => {
@@ -209,7 +209,7 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
     backgroundColor: 'transparent',
     legend: { bottom: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 11, color: P.muted } },
     grid: { left: 8, right: 40, top: 8, bottom: 32, containLabel: true },
-    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const u = units[p[0].dataIndex]; return `${u.unit}<br/>ยืนยันแล้ว <b>${fmtMoney(u.spent)}</b> บาท<br/>รอยืนยัน <b>${fmtMoney(u.pending)}</b> บาท<br/>${u.people} คน · ${u.requests} คำขอ<br/><i>กดเพื่อกรองกลุ่มงานนี้</i>` } },
+    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const u = units[p[0].dataIndex]; return `${escHtml(u.unit)}<br/>ยืนยันแล้ว <b>${fmtMoney(u.spent)}</b> บาท<br/>รอยืนยัน <b>${fmtMoney(u.pending)}</b> บาท<br/>${u.people} คน · ${u.requests} คำขอ<br/><i>กดเพื่อกรองกลุ่มงานนี้</i>` } },
     xAxis: { type: 'value', ...axis, splitNumber: 3, axisLabel: { fontSize: 11, formatter: short } },
     yAxis: { type: 'category', data: units.map(u => u.unit.length > 22 ? u.unit.slice(0, 21) + '…' : u.unit), inverse: true, axisLabel: { fontSize: 11 } },
     series: [
@@ -226,7 +226,7 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
   })
   const catOption = {
     backgroundColor: 'transparent',
-    tooltip: { ...tip, trigger: 'item', formatter: (p: { name: string; value: number; percent: number }) => `${p.name}<br/><b>${fmtMoney(p.value)}</b> บาท · ${p.percent}%` },
+    tooltip: { ...tip, trigger: 'item', formatter: (p: { name: string; value: number; percent: number }) => `${escHtml(p.name)}<br/><b>${fmtMoney(p.value)}</b> บาท · ${p.percent}%` },
     series: [{
       type: 'pie', radius: ['56%', '84%'], padAngle: 2, itemStyle: { borderRadius: 6 }, label: centerLabel(short(catTotal), 'บาท (ประมาณการ)'),
       emphasis: { scale: true, scaleSize: 4 }, labelLine: { show: false },
@@ -245,7 +245,7 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
   const notYet = profs.filter(p => p.people === 0 && p.headcount > 0 && p.key !== 'unknown')
   const profDonut = {
     backgroundColor: 'transparent',
-    tooltip: { ...tip, trigger: 'item', formatter: (p: { name: string; value: number; percent: number; dataIndex: number }) => { const r = byTotal[p.dataIndex]; return `${p.name}<br/><b>${fmtMoney(p.value)}</b> บาท · ${p.percent}%<br/>${r.people} คน · ${r.person_trips} คน-ครั้ง<br/><i>กดเพื่อกรองกลุ่มนี้</i>` } },
+    tooltip: { ...tip, trigger: 'item', formatter: (p: { name: string; value: number; percent: number; dataIndex: number }) => { const r = byTotal[p.dataIndex]; return `${escHtml(p.name)}<br/><b>${fmtMoney(p.value)}</b> บาท · ${p.percent}%<br/>${r.people} คน · ${r.person_trips} คน-ครั้ง<br/><i>กดเพื่อกรองกลุ่มนี้</i>` } },
     series: [{
       type: 'pie', radius: ['52%', '82%'], padAngle: 2, cursor: 'pointer', itemStyle: { borderRadius: 6 },
       label: centerLabel(short(profTotal), `บาท · ${travelled.reduce((n, p) => n + p.people, 0)} คน`),
@@ -257,7 +257,7 @@ const DashboardTab = ({ fy, bt }: { fy: number; bt: BudgetTypes }) => {
   const coverageOption = {
     backgroundColor: 'transparent',
     grid: { left: 8, right: 104, top: 8, bottom: 8, containLabel: true },
-    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const r = covRows[p[0].dataIndex]; return `${r.label}<br/>ได้เดินทาง <b>${r.people}</b> จาก ${r.headcount} คน (${r.coverage}%)<br/>ยอด ${fmtMoney(r.total)} บาท<br/><i>กดเพื่อกรองกลุ่มนี้</i>` } },
+    tooltip: { ...tip, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (p: { dataIndex: number }[]) => { const r = covRows[p[0].dataIndex]; return `${escHtml(r.label)}<br/>ได้เดินทาง <b>${r.people}</b> จาก ${r.headcount} คน (${r.coverage}%)<br/>ยอด ${fmtMoney(r.total)} บาท<br/><i>กดเพื่อกรองกลุ่มนี้</i>` } },
     xAxis: { type: 'value', max: (v: { max: number }) => Math.min(100, Math.max(10, Math.ceil(v.max / 10) * 10)), ...axis, splitNumber: 4, axisLabel: { fontSize: 11, formatter: (v: number) => `${v}%` } },
     yAxis: { type: 'category', inverse: true, data: covRows.map(r => r.label), axisLabel: { fontSize: 11 }, axisTick: { show: false } },
     series: [{

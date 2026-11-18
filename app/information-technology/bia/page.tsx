@@ -16,7 +16,7 @@ import Breadcrumb from '@/app/components/AppBreadcrumb'
 import EChart from '@/app/components/EChart'
 import { StatCard } from '@/app/components/StatCard'
 import { useThemeMode } from '@/app/components/ThemeProvider'
-import { PALETTES, clip } from '@/app/lib/chartKit'
+import { PALETTES, clip, escHtml } from '@/app/lib/chartKit'
 import { KIND_LABEL, LEVEL_LABEL, RISK_LEVELS, levelOf, suggestRisk, type Asset, type RiskLevel, type RiskRow } from '../assets/assetShared'
 
 const { Title, Text } = Typography
@@ -203,7 +203,7 @@ const PageContent = ({ isDark }: { isDark: boolean }) => {
     backgroundColor: 'transparent',
     legend: { bottom: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10, textStyle: { color: P.muted, fontSize: 11 } },
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: P.surface, borderColor: P.grid, textStyle: { color: P.text },
-      formatter: (p: { dataIndex: number }[]) => { const x = rows[p[0].dataIndex]; return `<b>${x.s.name}</b><br/>${TIERS[x.tier - 1].label}<br/>MTPD ${x.mtpd == null ? '> 1 สัปดาห์' : hrs(x.mtpd)} · RTO ${hrs(x.s.rto_hours)} · RPO ${hrs(x.s.rpo_hours)}${x.gaps.length ? `<br/><span style="color:${TC[1]}">${x.gaps.join('<br/>')}</span>` : ''}` } },
+      formatter: (p: { dataIndex: number }[]) => { const x = rows[p[0].dataIndex]; return `<b>${escHtml(x.s.name)}</b><br/>${TIERS[x.tier - 1].label}<br/>MTPD ${x.mtpd == null ? '> 1 สัปดาห์' : hrs(x.mtpd)} · RTO ${hrs(x.s.rto_hours)} · RPO ${hrs(x.s.rpo_hours)}${x.gaps.length ? `<br/><span style="color:${TC[1]}">${x.gaps.map(escHtml).join('<br/>')}</span>` : ''}` } },
     grid: { left: 8, right: 24, top: 8, bottom: 40, containLabel: true },
     xAxis: { type: 'value', min: 0, max: pos(cap), interval: 0.5, name: 'ระยะเวลา (สเกล log)', nameLocation: 'middle', nameGap: 24, nameTextStyle: { color: P.muted, fontSize: 11 },
       axisLabel: { color: P.muted, fontSize: 10.5, showMinLabel: true, formatter: (v: number) => { const t = TICKS.find(h => Math.abs(pos(h) - v) < 0.26); return t ? hrs(t) : '' } },
@@ -218,7 +218,7 @@ const PageContent = ({ isDark }: { isDark: boolean }) => {
   // ผลกระทบตามเวลาที่หยุด (heatmap บริการ × ช่วงเวลา)
   const heatOption = {
     backgroundColor: 'transparent',
-    tooltip: { backgroundColor: P.surface, borderColor: P.grid, textStyle: { color: P.text }, formatter: (p: { value: number[] }) => `${rows[p.value[1]].s.name}<br/>หยุด ${WINDOWS[p.value[0]].label}: <b>${p.value[2]} · ${IMPACT_WORD[p.value[2]]}</b>` },
+    tooltip: { backgroundColor: P.surface, borderColor: P.grid, textStyle: { color: P.text }, formatter: (p: { value: number[] }) => `${escHtml(rows[p.value[1]].s.name)}<br/>หยุด ${WINDOWS[p.value[0]].label}: <b>${p.value[2]} · ${IMPACT_WORD[p.value[2]]}</b>` },
     grid: { left: 8, right: 8, top: 8, bottom: 8, containLabel: true },
     visualMap: { show: false, min: 0, max: 5, inRange: { color: isDark ? ['#1e293b', '#5b2a2a', '#9b3a33', '#d95926', '#e66767'] : ['#f1f5f9', '#fde2d4', '#f8b48f', '#eb6834', '#c0262d'] } },
     xAxis: { type: 'category', data: WINDOWS.map(w => w.label), position: 'top', axisLabel: { color: P.text, fontSize: 11 }, axisTick: { show: false }, axisLine: { show: false } },

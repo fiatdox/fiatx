@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Card, Typography, ConfigProvider, Row, Col, theme, App,
@@ -141,7 +142,7 @@ const PageContent = () => {
         trigger: 'axis', axisPointer: { type: 'shadow' },
         formatter: (p: { dataIndex: number }[]) => {
           const d = data[p[0].dataIndex]
-          return `<b>${d.name}</b><br/>เฉลี่ย ${d.avgHours} ชม. (${d.n} รายการ)`
+          return `<b>${escHtml(d.name)}</b><br/>เฉลี่ย ${d.avgHours} ชม. (${d.n} รายการ)`
         },
       },
       grid: { left: 8, right: 40, bottom: 8, top: 16, containLabel: true },
@@ -173,7 +174,7 @@ const PageContent = () => {
       tooltip: {
         position: 'top',
         formatter: (p: { data: [number, number, number] }) =>
-          `${equipNames[p.data[1]]}<br/>${monthLabel(months[p.data[0]])}: <b>${p.data[2]}</b> รายการ`,
+          `${escHtml(equipNames[p.data[1]])}<br/>${monthLabel(months[p.data[0]])}: <b>${p.data[2]}</b> รายการ`,
       },
       grid: { left: 8, right: 16, top: 16, bottom: 60, containLabel: true },
       xAxis: {

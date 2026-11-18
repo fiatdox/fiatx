@@ -20,7 +20,7 @@ import { DashboardSkeleton } from '@/app/components/Skeleton'
 import { StatCard } from '@/app/components/StatCard'
 import ChartCard from '@/app/components/ChartCard'
 import type { ChartTheme } from '@/app/components/EChart'
-import { PALETTES, base, valueAxis, categoryAxis, barHeight, num, type Palette, type EChartsCoreOption } from '@/app/lib/chartKit'
+import { PALETTES, base, escHtml, valueAxis, categoryAxis, barHeight, num, type Palette, type EChartsCoreOption } from '@/app/lib/chartKit'
 
 const { Title, Text } = Typography
 
@@ -83,7 +83,7 @@ const trendOption = (s: Stats, P: Palette): EChartsCoreOption => {
     tooltip: {
       ...b.tooltip, axisPointer: { type: daily ? 'line' : 'shadow' },
       formatter: (ps: { dataIndex: number; marker: string; seriesName: string; value: number }[]) =>
-        `${full[ps[0].dataIndex]}<br/>${ps.map(p => `${p.marker}${p.seriesName} <b>${num(p.value)}</b>`).join('<br/>')}`,
+        `${full[ps[0].dataIndex]}<br/>${ps.map(p => `${p.marker}${escHtml(p.seriesName)} <b>${num(p.value)}</b>`).join('<br/>')}`,
     },
     grid: { left: 8, right: 16, top: 40, bottom: 8, containLabel: true },
     xAxis: { type: 'category', data: labels, boundaryGap: !daily, axisLabel: { color: P.muted }, axisLine: { lineStyle: { color: P.grid } }, axisTick: { show: false } },
@@ -103,7 +103,7 @@ const hbarOption = (labels: string[], values: number[], P: Palette, extra: (i: n
   legend: { show: false },
   tooltip: {
     ...base(P, num).tooltip,
-    formatter: (ps: { dataIndex: number; name: string; value: number }[]) => `${ps[0].name}<br/><b>${num(ps[0].value)}</b> ครั้ง · ${extra(ps[0].dataIndex)}`,
+    formatter: (ps: { dataIndex: number; name: string; value: number }[]) => `${escHtml(ps[0].name)}<br/><b>${num(ps[0].value)}</b> ครั้ง · ${extra(ps[0].dataIndex)}`,
   },
   // top เว้นที่ให้ปุ่ม PNG/SVG ของการ์ด ไม่ให้ทับแท่งบนสุด
   grid: { left: 8, right: 56, top: 32, bottom: 8, containLabel: true },

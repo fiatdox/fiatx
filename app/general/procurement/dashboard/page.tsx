@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useMemo } from 'react'
 import {
   ConfigProvider, theme, Typography, Card, Button, Table,
@@ -306,12 +307,12 @@ const PageContent = () => {
                   const monthTotal = bars.reduce((s, p) => s + (p.value || 0), 0)
                   const rows = bars
                     .filter(p => p.value > 0)
-                    .map(p => `<div style="display:flex;justify-content:space-between;gap:14px;padding:1px 0"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>${p.seriesName}</span><b style="color:#e2e8f0">${p.value} ใบ</b></div>`)
+                    .map(p => `<div style="display:flex;justify-content:space-between;gap:14px;padding:1px 0"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${p.color};margin-right:6px"></span>${escHtml(p.seriesName)}</span><b style="color:#e2e8f0">${p.value} ใบ</b></div>`)
                     .join('') || '<div style="color:#64748b;font-size:11px">—</div>'
                   const lineRow = line
-                    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #334155;display:flex;justify-content:space-between;gap:14px"><span><span style="display:inline-block;width:10px;height:2px;background:${line.color};margin-right:6px;vertical-align:middle"></span>${line.seriesName}</span><b style="color:#fbbf24">${line.value} ใบ</b></div>`
+                    ? `<div style="margin-top:6px;padding-top:6px;border-top:1px solid #334155;display:flex;justify-content:space-between;gap:14px"><span><span style="display:inline-block;width:10px;height:2px;background:${line.color};margin-right:6px;vertical-align:middle"></span>${escHtml(line.seriesName)}</span><b style="color:#fbbf24">${line.value} ใบ</b></div>`
                     : ''
-                  return `<div style="font-weight:600;margin-bottom:6px;color:#fff">${params[0].axisValue}</div>
+                  return `<div style="font-weight:600;margin-bottom:6px;color:#fff">${escHtml(params[0].axisValue)}</div>
                     <div style="color:#10b981;font-weight:600;margin:2px 0">รวมเดือนนี้ ${monthTotal} ใบ</div>${rows}${lineRow}`
                 },
               },
@@ -425,7 +426,7 @@ const PageContent = () => {
                       backgroundColor: '#0f172a', borderColor: '#334155',
                       textStyle: { color: '#e2e8f0' },
                       formatter: (p: { name: string; value: number; percent: number }) =>
-                        `${p.name}<br/>${p.value} ใบ (${p.percent}%)`,
+                        `${escHtml(p.name)}<br/>${p.value} ใบ (${p.percent}%)`,
                     },
                     legend: {
                       orient: 'horizontal', bottom: 0, left: 'center',
@@ -472,7 +473,7 @@ const PageContent = () => {
                       backgroundColor: '#0f172a', borderColor: '#334155',
                       textStyle: { color: '#e2e8f0' },
                       formatter: (p: { name: string; value: number; percent: number }) =>
-                        `${p.name}<br/>${p.value} ใบ (${p.percent}%)`,
+                        `${escHtml(p.name)}<br/>${p.value} ใบ (${p.percent}%)`,
                     },
                     legend: {
                       orient: 'horizontal', bottom: 0, left: 'center',

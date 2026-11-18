@@ -1,4 +1,5 @@
 'use client'
+import { escHtml } from '@/app/lib/chartKit'
 import React, { useState, useMemo } from 'react'
 import {
   Card, Typography, ConfigProvider, Row, Col,
@@ -320,7 +321,7 @@ function HaitPageContent() {
             <Text type="secondary" style={{ fontSize: 11, display: 'block', textAlign: 'center', marginBottom: 4 }}>สัดส่วนสถานะ</Text>
             <EChart height={220} option={{
               backgroundColor: 'transparent',
-              tooltip: { trigger: 'item', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' }, formatter: (p: { name: string; value: number; percent: number }) => `${p.name}: ${p.value} ข้อ (${p.percent}%)` },
+              tooltip: { trigger: 'item', backgroundColor: 'var(--app-bg)', borderColor: 'var(--app-border-strong)', textStyle: { color: 'var(--app-text)' }, formatter: (p: { name: string; value: number; percent: number }) => `${escHtml(p.name)}: ${p.value} ข้อ (${p.percent}%)` },
               legend: { bottom: 0, left: 'center', textStyle: { color: 'var(--app-text-2)', fontSize: 11 }, itemWidth: 10, itemHeight: 10 },
               series: [{
                 type: 'pie', radius: ['48%', '70%'], center: ['50%', '42%'],
