@@ -267,6 +267,15 @@ const MENU_TREE: NavItem[] = [
           { key: '/information-technology/smart-hospital/edit', icon: <FaFileAlt />, label: 'แก้ไขคะแนนประเมิน' },
         ]
       },
+      {
+        key: 'it-assets',
+        icon: <FaWarehouse />,
+        label: 'ทรัพย์สินและความต่อเนื่อง IT',
+        children: [
+          { key: '/information-technology/assets', icon: <FaWarehouse />, label: 'ทะเบียนทรัพย์สิน (Asset Register)' },
+          { key: '/information-technology/assets/risk', icon: <FaShieldAlt />, label: 'ประเมินความเสี่ยงทรัพย์สิน' },
+        ]
+      },
       { key: '/information-technology/grant-charts', icon: <FaTasks />, label: 'แผนโครงการ IT (Gantt)' },
        { key: '/information-technology/user-request', icon: <FaUserShield />, label: 'ขอรหัสผู้ใช้งานระบบ' },
       { key: '/information-technology/lan-request', icon: <FaNetworkWired />, label: 'ขอติดตั้งจุด LAN' },
