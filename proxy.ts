@@ -4,7 +4,7 @@ import { IT_STAFF_ROLES, SALARY_ID_ROLES, HR_POST_MANAGER_ROLES, HRD_ALLOWANCE_R
 // Smart Hospital และแผนโครงการ IT — เมนูซ่อนไว้ใน menuAccess.ts แล้ว ที่นี่กั้นทั้งสาขา
 // ทะเบียนทรัพย์สินงาน IT — ครุภัณฑ์คอมพิวเตอร์ทั้งโรงพยาบาล (backend requireRoles ด้วย)
 // สถิติการเข้าใช้งานระบบ — เมนูอยู่ในลิ้นชักโปรไฟล์ (Navbar) แสดงเฉพาะ IT_STAFF_ROLES
-const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts', '/information-technology/his-users-session', '/information-technology/assets', '/information-technology/bia', '/account/usage']
+const IT_ONLY_PREFIXES = ['/information-technology/smart-hospital', '/information-technology/grant-charts', '/information-technology/his-users-session', '/information-technology/assets', '/information-technology/bia', '/information-technology/risk-register', '/account/usage']
 
 // ถอดรหัส cookie ที่ js-cookie เขียนไว้ (percent-encoded) — เผื่อกรณีไม่ได้ encode ด้วย
 function safeDecode(v: string): string {
