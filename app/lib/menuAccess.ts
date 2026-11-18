@@ -76,6 +76,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/information-technology/bia': IT_STAFF_ROLES,
   // ทะเบียนความเสี่ยง ปีงบประมาณละ 2 ครั้ง (proxy.ts กั้น URL ตรง, backend requireRoles)
   '/information-technology/risk-register': IT_STAFF_ROLES,
+  // ประเมินความเสี่ยงของบุคคลภายนอก (3rd Party) — proxy.ts กั้น URL ตรง, backend requireRoles
+  '/information-technology/third-party-risk': IT_STAFF_ROLES,
   // Dashboard ผู้บริหาร (ความเสี่ยง + ทรัพย์สิน IT) — เจ้าหน้าที่ IT ทุกระดับ + ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
   // ผอ. ไม่ใช่ role จึงไม่กั้นที่ proxy.ts — backend ตรวจสิทธิ์ (itExecutiveRoutes) ตอบ 403 แล้วหน้าเว็บแสดงไม่มีสิทธิ์
   '/information-technology/executive-dashboard': IT_STAFF_ROLES,
