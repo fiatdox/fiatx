@@ -72,6 +72,8 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/information-technology/assets': IT_STAFF_ROLES,
   // ประเมินความเสี่ยงทรัพย์สิน — อยู่ใต้ /information-technology/assets (proxy.ts กั้นทั้งสาขา)
   '/information-technology/assets/risk': IT_STAFF_ROLES,
+  // Business Impact Analysis — ทะเบียนบริการสำคัญ RTO/RPO (proxy.ts กั้น URL ตรง, backend requireRoles)
+  '/information-technology/bia': IT_STAFF_ROLES,
   // ตรวจสอบ/อนุมัติคำขอข้อมูลสถิติ (PDPA) — เฉพาะหัวหน้ากลุ่มงานข้อมูลทางการแพทย์
   '/medical-data/statistics-review': ['ADMIN', 'CHIEF_GROUP_MEDSTAT'],
   // ระบบรับบริจาคครุภัณฑ์ — แยกสิทธิ์ตามขั้นตอน (เจ้าหน้าที่รับบริจาค / กรรมการ / พัสดุ / ผู้ดูแลระบบ)

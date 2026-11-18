@@ -274,6 +274,7 @@ const MENU_TREE: NavItem[] = [
         children: [
           { key: '/information-technology/assets', icon: <FaWarehouse />, label: 'ทะเบียนทรัพย์สิน (Asset Register)' },
           { key: '/information-technology/assets/risk', icon: <FaShieldAlt />, label: 'ประเมินความเสี่ยงทรัพย์สิน' },
+          { key: '/information-technology/bia', icon: <FaChartBar />, label: 'Business Impact Analysis (BIA)' },
         ]
       },
       { key: '/information-technology/grant-charts', icon: <FaTasks />, label: 'แผนโครงการ IT (Gantt)' },
