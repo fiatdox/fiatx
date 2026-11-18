@@ -76,6 +76,9 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
   '/information-technology/bia': IT_STAFF_ROLES,
   // ทะเบียนความเสี่ยง ปีงบประมาณละ 2 ครั้ง (proxy.ts กั้น URL ตรง, backend requireRoles)
   '/information-technology/risk-register': IT_STAFF_ROLES,
+  // Dashboard ผู้บริหาร (ความเสี่ยง + ทรัพย์สิน IT) — เจ้าหน้าที่ IT ทุกระดับ + ผอ./รักษาการ ผอ. (ดู MENU_DIRECTOR_ALSO)
+  // ผอ. ไม่ใช่ role จึงไม่กั้นที่ proxy.ts — backend ตรวจสิทธิ์ (itExecutiveRoutes) ตอบ 403 แล้วหน้าเว็บแสดงไม่มีสิทธิ์
+  '/information-technology/executive-dashboard': IT_STAFF_ROLES,
   // ตรวจสอบ/อนุมัติคำขอข้อมูลสถิติ (PDPA) — เฉพาะหัวหน้ากลุ่มงานข้อมูลทางการแพทย์
   '/medical-data/statistics-review': ['ADMIN', 'CHIEF_GROUP_MEDSTAT'],
   // ระบบรับบริจาคครุภัณฑ์ — แยกสิทธิ์ตามขั้นตอน (เจ้าหน้าที่รับบริจาค / กรรมการ / พัสดุ / ผู้ดูแลระบบ)
@@ -106,7 +109,7 @@ export const MENU_ROLE_REQUIREMENTS: Record<string, string[]> = {
 export const MENU_SUPERVISOR_ONLY = ['/hr/leave/approval', '/hss/hrd/official-travel/approval']
 
 // เมนูที่ ผอ. / รักษาการ ผอ. (hr_settings — ไม่ใช่ role) เห็นได้ด้วย นอกเหนือจาก role ใน MENU_ROLE_REQUIREMENTS
-export const MENU_DIRECTOR_ALSO = ['/hr/leave/staff-history']
+export const MENU_DIRECTOR_ALSO = ['/hr/leave/staff-history', '/information-technology/executive-dashboard']
 
 /** normalize roles จาก cookie user_data ให้เป็นตัวพิมพ์ใหญ่ */
 export const normalizeRoles = (roles?: unknown): string[] =>

@@ -17,7 +17,7 @@ import {
   FaHospital, FaBoxes, FaBuilding, FaMoneyBillWave, FaWifi, FaUserShield,
   FaUmbrellaBeach, FaUserClock, FaChevronLeft, FaChevronRight,
   FaCalendarAlt, FaWrench, FaCar, FaUserTie, FaUsers, FaTachometerAlt,
-  FaIdCard, FaShieldAlt, FaGift, FaWarehouse, FaClipboardList, FaMicrochip,
+  FaIdCard, FaShieldAlt, FaGift, FaWarehouse, FaClipboardList, FaMicrochip, FaChartLine,
   FaUsersCog, FaLock, FaHistory, FaPlaneDeparture,
 } from 'react-icons/fa'
 import { useRouter } from 'next/navigation'
@@ -143,6 +143,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
       { key: '/hr/leave/balance-audit', icon: <FaClipboardList />, label: 'ตรวจแก้วันลาสะสม', color: '#047857' },
       { key: '/hr/leave/balance-transfer', icon: <FaClipboardList />, label: 'ตรวจสอบการโอนยอดวันลาสะสม', color: '#0e7490' },
       { key: '/accounting/salary-ids', icon: <FaIdCard />, label: 'เลขที่เงินเดือนบุคลากร', color: '#22c55e', roles: SALARY_ID_ROLES },
+      // เจ้าหน้าที่ IT ทุกระดับ / ผอ. — สิทธิ์ตาม menuAccess (role + MENU_DIRECTOR_ALSO)
+      { key: '/information-technology/executive-dashboard', icon: <FaChartLine />, label: 'Dashboard ความเสี่ยงและทรัพย์สิน IT', color: '#0f766e' },
       { key: '/information-technology/hait', icon: <FaMicrochip />, label: 'ภาพรวม HAIT', color: '#6366f1' },
       { key: '/account/user-credentials', icon: <FaLock />, label: 'จัดการบัญชีผู้ใช้บุคลากร', color: '#64748b', roles: ['ADMIN', 'IT_STAFF'] },
       { key: '/account/roles', icon: <FaUsersCog />, label: 'จัดการสิทธิ์การใช้งาน', color: '#a855f7', roles: ADMIN_ROLES },
