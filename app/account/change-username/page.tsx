@@ -110,9 +110,8 @@ const ChangeUsernameContent = () => {
         return
       }
 
-      // backend ออก token ใหม่ให้ (ของเดิมยังถือชื่อเก่า + ธงบังคับเปลี่ยน) — ต้องเก็บทับทันที
+      // token ใหม่ (ชื่อใหม่ ไม่มีธงบังคับเปลี่ยน) route /api/v1/users/me/username เก็บทับใน cookie HttpOnly ให้แล้ว
       const COOKIE_HOURS = 8 / 24
-      if (json.token) Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
       const raw = Cookies.get('user_data')
       if (raw) {
         try {

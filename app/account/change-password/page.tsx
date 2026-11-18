@@ -123,7 +123,8 @@ const ChangePasswordContent = () => {
         color: 'var(--app-text)',
         confirmButtonColor: '#006a5a',
       })
-      Cookies.remove('auth_token')
+      // auth_token เป็น HttpOnly — ให้ server ลบ (ลบ user_data / user_type_id ด้วย)
+      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
       Cookies.remove('user_data')
       Cookies.remove('user_type_id')
       router.push('/')

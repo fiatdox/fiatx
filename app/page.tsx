@@ -80,11 +80,11 @@ export default function LoginPage() {
   }, [challengeToken])
 
   // เก็บ cookie แล้วเข้าระบบ — ใช้ร่วมกันทั้งเส้นทางปกติและเส้นทาง MFA
-  const completeLogin = (json: { token: string; data: { user_type_id: number }; username_change_required?: boolean }) => {
+  // auth_token ตั้งเป็น cookie HttpOnly ที่ route /api/auth/login และ /api/auth/verify-otp แล้ว (หน้าเว็บไม่เห็น token)
+  const completeLogin = (json: { data: { user_type_id: number }; username_change_required?: boolean }) => {
     // อายุ cookie = 8 ชม. ให้ตรงกับอายุ JWT ฝั่ง backend (exp: '8h')
     const COOKIE_HOURS = 8 / 24
     saveChallenge(null)
-    Cookies.set('auth_token', json.token, { expires: COOKIE_HOURS, sameSite: 'Lax' })
     Cookies.set('user_data', JSON.stringify(json.data), { expires: COOKIE_HOURS, sameSite: 'Lax' })
     Cookies.set('user_type_id', String(json.data.user_type_id), { expires: COOKIE_HOURS, sameSite: 'Lax' })
     // นโยบายอายุรหัสผ่าน: ไม่บล็อกที่นี่ — เข้าใช้งานได้ตามปกติ

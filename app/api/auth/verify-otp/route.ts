@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { clientHeaders } from '../../_proxy'
+import { respondWithAuthCookie } from '../../_authCookie'
 
+// ยืนยัน OTP (MFA) — สำเร็จแล้วเก็บ token ลง cookie HttpOnly (ไม่ส่ง token ให้เบราว์เซอร์)
 export async function POST(req: NextRequest) {
   const body = await req.json()
 
@@ -11,5 +13,5 @@ export async function POST(req: NextRequest) {
   })
 
   const data = await res.json()
-  return NextResponse.json(data, { status: res.status })
+  return respondWithAuthCookie(req, data, res.status)
 }

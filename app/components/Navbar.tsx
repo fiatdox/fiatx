@@ -739,10 +739,13 @@ const Navbar: React.FC = () => {
                 setOpenProfile(false)
                 router.push('/hr/leave/posts')
               } else if (key === 'logout') {
-                Cookies.remove('auth_token')
-                Cookies.remove('user_data')
+                // auth_token เป็น HttpOnly — ให้ server ลบ แล้วค่อยกลับหน้าเข้าสู่ระบบ
                 setOpenProfile(false)
-                router.push('/')
+                fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}).finally(() => {
+                  Cookies.remove('user_data')
+                  Cookies.remove('user_type_id')
+                  router.push('/')
+                })
               }
             }}
             items={[
