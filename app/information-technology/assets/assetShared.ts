@@ -37,6 +37,20 @@ export const ageState = (a: Asset): AgeState => {
   if (age >= a.life_years) return 'expired'
   return a.life_years - age <= 1 ? 'soon' : 'ok'
 }
+export const AGE_TAG: Record<AgeState, string> = { expired: 'red', soon: 'orange', ok: 'green', unknown: 'default' }
+/** อายุเป็น "x ปี y เดือน" (ปัดลงเป็นเดือน) */
+export const ageText = (y: number | null) => {
+  if (y == null) return '-'
+  const m = Math.max(0, Math.floor(y * 12 + 1e-9))
+  return m < 12 ? `${m} เดือน` : `${Math.floor(m / 12)} ปี${m % 12 ? ` ${m % 12} เดือน` : ''}`
+}
+/** วันที่ครบอายุการใช้งานตามทะเบียน (วันที่ได้รับ + อายุการใช้งาน) */
+export const lifeEnd = (a: Asset) => {
+  const d = parseDate(a.receive)
+  if (!d || !a.life_years) return null
+  const e = new Date(d); e.setMonth(e.getMonth() + Math.round(a.life_years * 12))
+  return e
+}
 export const thDate = (s: string | null) => { const d = parseDate(s); return d ? d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' }) : '-' }
 export const money = (n: number) => n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 export const short = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(1)} ล้าน` : n.toLocaleString('th-TH')

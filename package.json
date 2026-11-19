@@ -1,6 +1,6 @@
 {
   "name": "fiatx",
-  "version": "0.1.152",
+  "version": "0.1.153",
   "private": true,
   "scripts": {
     "dev": "next dev --port=5555",
@@ -13,6 +13,11 @@
     "@react-pdf/pdfkit": "^5.0.0",
     "@react-pdf/renderer": "^4.4.1",
     "@svar-ui/react-gantt": "^2.6.1",
+    "@tiptap/extension-text-align": "3.32.2",
+    "@tiptap/extension-text-style": "3.32.2",
+    "@tiptap/pm": "3.32.2",
+    "@tiptap/react": "3.32.2",
+    "@tiptap/starter-kit": "3.32.2",
     "antd": "^6.3.1",
     "echarts": "^6.1.0",
     "js-cookie": "^3.0.8",
