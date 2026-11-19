@@ -2,11 +2,12 @@
 // ตั้งค่าการเดินทาง (เดินทางไปราชการ) — ADMIN / HRD
 //   1) พาหนะส่วนตัว: เบิกค่าน้ำมันตามระยะทาง บาท/กม. แยกประเภทรถ
 //   2) รถโดยสารประจำทาง 3) เครื่องบิน: เพดานราคาต่อเที่ยวตามเส้นทาง ใช้ได้ทั้งไปและกลับ
+//   4) รถรับจ้างในจังหวัดพะเยา (ที่พัก/บ้าน ↔ สถานี): อัตราบาท/เที่ยว/คนแยกอำเภอ ตามที่ สสจ.พะเยา กำหนด
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { App, AutoComplete, Button, Card, Col, Empty, Form, Input, InputNumber, Modal, Popconfirm, Result, Row, Space, Table, Tabs, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { DeleteOutlined, EditOutlined, HistoryOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { FaBus, FaCar, FaMotorcycle, FaPlane, FaRoute } from 'react-icons/fa'
+import { FaBus, FaCar, FaMotorcycle, FaPlane, FaRoute, FaTaxi } from 'react-icons/fa'
 import { TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
 
 const { Title, Text } = Typography
@@ -14,7 +15,8 @@ const { Title, Text } = Typography
 type Mode = 'bus' | 'plane'
 interface Vehicle { id: number; code: string; name: string; rate_per_km: number; updated_at: string; updated_by_name: string | null }
 interface RouteRow { id: number; mode: Mode; origin: string; destination: string; max_fare: number; note: string | null; updated_at: string; updated_by_name: string | null }
-interface TransportData { vehicles: Vehicle[]; routes: RouteRow[]; can_edit: boolean; limits: { max_rate: number; max_fare: number } }
+interface LocalRate { id: number; district: string; rate: number; note: string | null; updated_at: string; updated_by_name: string | null }
+interface TransportData { vehicles: Vehicle[]; routes: RouteRow[]; local_rates?: LocalRate[]; can_edit: boolean; limits: { max_rate: number; max_fare: number; max_local?: number } }
 interface LogRow { id: number; entity_id: number; action: 'create' | 'update' | 'delete'; before: Record<string, unknown> | null; after: Record<string, unknown> | null; changed_at: string; changed_by_name: string | null }
 
 const MODE_INFO: Record<Mode, { label: string; icon: React.ReactNode; hint: string }> = {
@@ -31,7 +33,7 @@ const fmtDateTime = (v: string) => new Date(v).toLocaleString('th-TH', { day: 'n
 const ACTION_LABEL = { create: 'เพิ่ม', update: 'แก้ไข', delete: 'ลบ' } as const
 
 // ── ประวัติ (ใช้ร่วม รถ/เส้นทาง) ──
-const LogTable = ({ rows, entity }: { rows: LogRow[] | null; entity: 'vehicle' | 'route' }) => (
+const LogTable = ({ rows, entity }: { rows: LogRow[] | null; entity: 'vehicle' | 'route' | 'local' }) => (
   <Table<LogRow>
     size="small" rowKey="id" loading={rows === null} dataSource={rows ?? []} pagination={false} scroll={{ x: 'max-content' }}
     locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ยังไม่มีประวัติ" /> }}
@@ -39,6 +41,11 @@ const LogTable = ({ rows, entity }: { rows: LogRow[] | null; entity: 'vehicle' |
       { title: 'วันที่', dataIndex: 'changed_at', render: fmtDateTime, width: 130 },
       {
         title: 'รายการ', render: (_: unknown, r) => {
+          if (entity === 'local') {
+            const b = r.before as { district: string; rate: number; note: string | null } | null, a = r.after as { district: string; rate: number; note: string | null } | null
+            return <>{a && <>อ.{a.district} · </>}{b && a && <>{b.rate !== a.rate ? <>{baht(b.rate)} → <b>{baht(a.rate)}</b></> : baht(a.rate)} บาท/เที่ยว/คน</>}
+              {b && a && (b.note ?? '') !== (a.note ?? '') && <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>หมายเหตุ: {b.note ?? '—'} → {a.note ?? '—'}</div>}</>
+          }
           if (entity === 'vehicle') {
             const b = r.before as { name: string; rate_per_km: number } | null, a = r.after as { name: string; rate_per_km: number } | null
             return <>{b && a && <>{baht(b.rate_per_km)} → <b>{baht(a.rate_per_km)}</b> บาท/กม.</>}{b && a && b.name !== a.name && <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{b.name} → {a.name}</div>}</>
@@ -131,6 +138,69 @@ const VehiclePanel = ({ data, onChanged, onError }: { data: TransportData; onCha
         ))}
       </Row>
       {edit && <VehicleEditModal key={edit.id} v={edit} maxRate={data.limits.max_rate} onClose={() => setEdit(null)} onSaved={onChanged} onError={onError} />}
+    </>
+  )
+}
+
+// ── รถรับจ้างในจังหวัดพะเยา (ที่พัก/บ้าน ↔ สถานี) แยกอำเภอ ──
+const LocalEditModal = ({ r, maxRate, onClose, onSaved, onError }: { r: LocalRate; maxRate: number; onClose: () => void; onSaved: () => Promise<void>; onError: (e: unknown) => void }) => {
+  const { message } = App.useApp()
+  const [form] = Form.useForm()
+  const [saving, setSaving] = useState(false)
+  const [log, setLog] = useState<LogRow[] | null>(null)
+  useEffect(() => {
+    travelApi<LogRow[]>(`transport/log?entity=local&id=${r.id}`).then(setLog).catch(e => { onError(e); setLog([]) })
+  }, [r.id, onError])
+  const save = async () => {
+    const x = await form.validateFields().catch(() => null)
+    if (!x) return
+    setSaving(true)
+    try {
+      const res = await travelApi<{ changed: boolean }>(`transport/local/${r.id}`, 'PUT', { rate: x.rate, note: x.note?.trim() || null })
+      message.success(res.changed ? `บันทึกอัตรา อ.${r.district} ${baht(x.rate)} บาท/เที่ยว/คน แล้ว` : 'ไม่มีการเปลี่ยนแปลง')
+      onClose()
+      await onSaved()
+    } catch (e) {
+      if (e instanceof TravelApiError && e.field) form.setFields([{ name: e.field, errors: [e.message] }])
+      else onError(e)
+    } finally { setSaving(false) }
+  }
+  return (
+    <Modal title={`แก้อัตราค่ารถรับจ้าง อ.${r.district}`} open onCancel={onClose} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving}>
+      <Form form={form} layout="vertical" initialValues={{ rate: r.rate, note: r.note ?? undefined }}>
+        <Form.Item name="rate" label="อัตรา (บาท/เที่ยว/คน)" rules={[{ required: true, message: 'กรุณาระบุอัตรา' }]} extra="มีผลกับคำขอที่ยื่น/แก้ไขหลังจากนี้ คำขอเดิมเก็บอัตรา ณ วันที่ขอไว้แล้ว">
+          <InputNumber min={1} max={maxRate} precision={0} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="note" label="หมายเหตุ / จุดขึ้น-ลงตามประกาศ" rules={[{ max: 200 }]}><Input placeholder="เช่น รพ. → บขส." /></Form.Item>
+      </Form>
+      <Text strong style={{ display: 'block', marginBottom: 6 }}>ประวัติการแก้อัตรา</Text>
+      <LogTable rows={log} entity="local" />
+    </Modal>
+  )
+}
+
+const LocalPanel = ({ data, onChanged, onError }: { data: TransportData; onChanged: () => Promise<void>; onError: (e: unknown) => void }) => {
+  const [edit, setEdit] = useState<LocalRate | null>(null)
+  const columns: ColumnsType<LocalRate> = [
+    { title: 'อำเภอ', dataIndex: 'district', render: (v: string, r) => <><span style={{ fontWeight: 500 }}>{v}</span>{r.note && <div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{r.note}</div>}</> },
+    { title: 'อัตรา (บาท/เที่ยว/คน)', dataIndex: 'rate', align: 'right', width: 180, render: (v: number) => <b>{baht(v)}</b> },
+    {
+      title: 'แก้ล่าสุด', dataIndex: 'updated_at', width: 180, responsive: ['md'],
+      render: (v: string, r) => r.updated_by_name ? <><div style={{ fontSize: 13 }}>{r.updated_by_name}</div><Text type="secondary" style={{ fontSize: 12 }}>{fmtDateTime(v)}</Text></> : <Text type="secondary">—</Text>,
+    },
+    ...(data.can_edit ? [{
+      title: '', width: 60, align: 'right' as const,
+      render: (_: unknown, r: LocalRate) => <Button type="text" size="small" icon={<EditOutlined />} onClick={() => setEdit(r)} aria-label={`แก้อัตรา อ.${r.district}`} title="แก้อัตรา" />,
+    }] : []),
+  ]
+  return (
+    <>
+      <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+        ค่ารถรับจ้างในจังหวัดพะเยา (ที่พัก/บ้าน ↔ สถานีขนส่ง) เบิกตามที่จ่ายจริงไม่เกินอัตราที่สำนักงานสาธารณสุขจังหวัดพะเยากำหนด · อัตรา × จำนวนเที่ยว × จำนวนผู้เดินทาง · ผู้ขอเลือกอำเภอที่ขึ้นรถและระบุจุดขึ้นรถในแบบฟอร์ม
+      </Text>
+      <Table<LocalRate> size="small" rowKey="id" columns={columns} dataSource={data.local_rates ?? []} pagination={false} scroll={{ x: 'max-content' }}
+        locale={{ emptyText: <Empty description="ยังไม่มีอัตรา (รัน src/db/hrd_travel_local_taxi.sql)" /> }} />
+      {edit && <LocalEditModal key={edit.id} r={edit} maxRate={data.limits.max_local ?? 10000} onClose={() => setEdit(null)} onSaved={onChanged} onError={onError} />}
     </>
   )
 }
@@ -300,6 +370,7 @@ const TransportContent = () => {
               { key: 'private', icon: <FaCar />, label: 'พาหนะส่วนตัว', children: <VehiclePanel data={data} onChanged={load} onError={onError} /> },
               { key: 'bus', icon: <FaBus />, label: `รถประจำทาง (${count('bus')})`, children: <RoutePanel mode="bus" data={data} onChanged={load} onError={onError} /> },
               { key: 'plane', icon: <FaPlane />, label: `เครื่องบิน (${count('plane')})`, children: <RoutePanel mode="plane" data={data} onChanged={load} onError={onError} /> },
+              { key: 'local', icon: <FaTaxi />, label: `รถรับจ้างในจังหวัด (${data.local_rates?.length ?? 0})`, children: <LocalPanel data={data} onChanged={load} onError={onError} /> },
             ]}
           />
         )}

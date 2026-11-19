@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button, Result } from 'antd'
 import { HomeOutlined, FundOutlined } from '@ant-design/icons'
-import { FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
+import { FaFileAlt, FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
@@ -40,6 +40,7 @@ export const TRAVEL_MENU: TravelMenuItem[] = [
   // ต่อท้ายเสมอ — หน้าอื่นอ้าง TRAVEL_MENU ด้วย index (หน้าเมนูย้ายใบนี้ขึ้นเป็นใบแรกเอง)
   { title: 'งานที่ต้องดำเนินการ', desc: 'คำขอที่รอบันทึกผลคำสั่ง ผอ. รอยอดจากการเงิน ใกล้เดินทางแต่ยังไม่อนุมัติ และงบประมาณที่ต้องดู', href: `${TRAVEL_BASE}/tasks`, icon: <FaTasks />, roles: HRD_ALLOWANCE_ROLES, color: '#dc2626', short: 'รอบันทึกผล ผอ. รอยอดการเงิน และใกล้เดินทาง' },
   { title: 'อนุมัติการเดินทางไปราชการ', desc: 'หัวหน้ากลุ่มงาน / หัวหน้ากลุ่มภารกิจ พิจารณาและลงนามคำขอในระบบ (ผู้อำนวยการลงนามบนกระดาษ)', href: `${TRAVEL_BASE}/approval`, icon: <FaUserCheck />, approver: true, color: '#f59e0b', short: 'พิจารณาและลงนามคำขอในสายอนุมัติ' },
+  { title: 'รายงานผลการเดินทางไปราชการ', desc: 'ผู้เดินทางเขียนรายงานหลังเดินทาง พิมพ์บันทึกข้อความเสนอผู้บริหารทราบ · ผู้บริหารดูรายงานทั้งหมดได้ที่นี่', href: `${TRAVEL_BASE}/reports`, icon: <FaFileAlt />, color: '#0d9488', short: 'รายงานผลหลังเดินทาง เสนอผู้บริหารทราบ' },
 ]
 /** การ์ด/หน้า งานที่ต้องดำเนินการ (ADMIN / HRD) */
 export const TRAVEL_TASKS_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BASE}/tasks`)!

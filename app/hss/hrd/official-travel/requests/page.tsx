@@ -5,7 +5,7 @@
 import React, { Suspense, useCallback, useEffect, useState } from 'react'
 import { Alert, App, Badge, Button, Card, Empty, Form, Input, InputNumber, Modal, Radio, Segmented, Select, Space, Spin, Table, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { AuditOutlined, CheckCircleOutlined, ClockCircleOutlined, EditOutlined, FileDoneOutlined, PlusOutlined, PrinterOutlined, ProfileOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons'
+import { FileTextOutlined, AuditOutlined, CheckCircleOutlined, ClockCircleOutlined, EditOutlined, FileDoneOutlined, PlusOutlined, PrinterOutlined, ProfileOutlined, SearchOutlined, StopOutlined } from '@ant-design/icons'
 import { RequestTravelersDrawer } from '../TravelHistory'
 import { StatusBadge } from '../TravelStatus'
 import { ApproveModal, TripUrgency } from '../TravelApprove'
@@ -14,7 +14,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { canSeeTravelItem, HRD_ROLES_ITEM, HRD_TASKS, isHrdTaskKey, TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelShell, travelApi, travelPost, TravelApiError, useTravelRoles, type HrdTaskKey } from '../travelShared'
-import { MEMO, requestBudgetType, SIGN_MODE_LABEL, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest } from '../travelCalc'
+import { MEMO, isNoClaim, requestBudgetType, requestDates, SIGN_MODE_LABEL, fmtMoney, requestNo, thaiDateTime, type TravelRequest } from '../travelCalc'
 
 const { Title, Text } = Typography
 // react-pdf เรนเดอร์ฝั่ง server ไม่ได้
@@ -226,7 +226,7 @@ const RequestsContent = () => {
           <span style={{ color: 'var(--app-text-3)' }}> · {[r.requester_position, r.requester_unit].filter(Boolean).join(' · ') || '—'}</span></div>}
       </>,
     },
-    { title: 'วันเดินทาง', dataIndex: 'start_at', width: 130, responsive: ['md'], render: (_: string, r) => tripRange(r.start_at, r.end_at) },
+    { title: 'วันเดินทาง', dataIndex: 'start_at', width: 130, responsive: ['md'], render: (_: string, r) => requestDates(r) },
     {
       // ชื่อผู้เดินทาง (ผู้ขอก่อน) — เกิน 3 คนย่อเป็น "และอีก N คน" ชี้ดูรายชื่อครบ · ช่องค้นหาค้นชื่อผู้เดินทางได้
       title: 'ผู้เดินทาง', dataIndex: 'traveler_count', width: 220, responsive: ['lg'],
@@ -245,7 +245,7 @@ const RequestsContent = () => {
     },
     {
       title: 'ยอดเงินประมาณการ (บาท)', dataIndex: 'total_amount', width: 190, align: 'right',
-      render: (v: number, r) => <>
+      render: (v: number, r) => isNoClaim(r) ? <Tag color="green" style={{ margin: 0 }}>ไม่เบิกค่าใช้จ่าย</Tag> : <>
         <div>{fmtMoney(v)}</div>
         {r.status === 'submitted' && r.approval_stage === 'approved' && (r.actual_amount != null
           ? <Tag color="success" style={{ margin: 0 }}>ยืนยัน {fmtMoney(r.actual_amount)}</Tag>
@@ -275,6 +275,13 @@ const RequestsContent = () => {
           <Button type="text" size="small" icon={<PrinterOutlined />} loading={printLoading === r.id} onClick={() => openPdf(r.id)} title="พิมพ์ PDF" aria-label={`พิมพ์ ${requestNo(r.id)}`} />
           {r.can_record_director && <Button type="text" size="small" icon={<FileDoneOutlined style={{ color: '#ca8a04' }} />} onClick={() => setDirectorFor(r)} title={r.sign_mode === 'paper' ? 'บันทึกผลตามเอกสารที่ลงนามแล้ว' : 'บันทึกผลคำสั่ง ผอ.'} aria-label={`บันทึกผล ผอ. ${requestNo(r.id)}`} />}
           {data?.can_manage && <Button type="text" size="small" icon={<ProfileOutlined />} onClick={() => setCheckFor(r.id)} title="รายละเอียดการขออนุมัติ" aria-label={`รายละเอียดการขออนุมัติ ${requestNo(r.id)}`} />}
+          {/* รายงานผลการเดินทาง: ผู้ขอ/HRD หลังถึงวันเดินทาง · มีรายงานแล้วทุกคนที่เห็นแถวเปิดดูได้ (backend ตรวจสิทธิ์) */}
+          {r.status === 'submitted' && (r.report_status || (r.can_cancel && Date.parse(r.start_at) <= now)) && (
+            <Link href={`${TRAVEL_BASE}/report?id=${r.id}`}>
+              <Button type="text" size="small" icon={<FileTextOutlined style={{ color: r.report_status === 'submitted' ? '#16a34a' : r.report_status ? '#ca8a04' : undefined }} />}
+                title={r.report_status === 'submitted' ? 'รายงานผลการเดินทาง (ส่งแล้ว)' : r.report_status ? 'รายงานผลการเดินทาง (ร่าง)' : 'เขียนรายงานผลการเดินทาง'} aria-label={`รายงานผล ${requestNo(r.id)}`} />
+            </Link>
+          )}
           {r.can_edit && <Link href={`${TRAVEL_BASE}/request?id=${r.id}`}><Button type="text" size="small" icon={<EditOutlined />} title="แก้ไข" aria-label={`แก้ไข ${requestNo(r.id)}`} /></Link>}
           {r.can_record_actual && <Button type="text" size="small" icon={<CheckCircleOutlined style={{ color: '#16a34a' }} />} onClick={() => setActualFor(r)} title="ยืนยันยอดจากการเงิน" aria-label={`ยืนยันยอด ${requestNo(r.id)}`} />}
           {r.can_cancel && <Button type="text" size="small" danger icon={<StopOutlined />} onClick={() => setCancelFor(r)} title="ยกเลิกคำขอ" aria-label={`ยกเลิก ${requestNo(r.id)}`} />}

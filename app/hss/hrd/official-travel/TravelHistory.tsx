@@ -6,7 +6,8 @@ import { Alert, Button, Card, Col, Descriptions, Drawer, Empty, Row, Select, Ske
 import { FilePdfOutlined } from '@ant-design/icons'
 import { ApprovalSteps, StatusBadge } from './TravelStatus'
 import { travelApi } from './travelShared'
-import { LODGING_MODES, requestBudgetType, MEMO, SIGN_MODE_LABEL, VEHICLE_MODES, fmtMoney, requestNo, thaiDateTime, tripRange, type TravelRequest, type TravelerRow } from './travelCalc'
+import { RequestFiles } from './TravelFiles'
+import { LODGING_MODES, homeStationText, isNoClaim, requestBudgetText, requestDates, MEMO, SIGN_MODE_LABEL, VEHICLE_MODES, fmtMoney, requestNo, thaiDateParts, thaiDateTime, tripDatesText, type TravelRequest, type TravelerRow } from './travelCalc'
 
 const { Text } = Typography
 
@@ -55,23 +56,29 @@ export const RequestTravelersDrawer = ({ requestId, onClose, onOpenPdf }: { requ
         <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ marginBottom: 16 }} data-testid="request-detail" items={[
           { key: 'n', label: 'ผู้ขอ', span: 'filled', children: <>{d.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[d.requester_position, d.requester_unit].filter(Boolean).join(' · ')}</div></> },
           { key: 'l', label: 'สถานที่', span: 'filled', children: d.location },
+          ...(isNoClaim(d) ? [{ key: 'td', label: 'วันที่เดินทาง', span: 'filled' as const, children: <>{tripDatesText(d.trip_dates ?? [], true)} <Text type="secondary" style={{ fontSize: 12 }}>({d.trip_dates?.length ?? 0} วัน · เวลา {thaiDateParts(d.start_at).time}–{thaiDateParts(d.end_at).time} น.)</Text></> }] : [
           { key: 'st', label: 'ออกเดินทาง', children: thaiDateTime(d.start_at) },
-          { key: 'en', label: 'กลับถึง', children: thaiDateTime(d.end_at) },
-          { key: 'a', label: 'เบี้ยเลี้ยง', children: `${d.allowance_days} วัน${d.overnight ? ' · พักแรม' : ''}` },
-          { key: 'lo', label: 'ที่พัก', children: d.lodging_mode === 'none' ? 'ไม่เบิก' : `${LODGING_MODES.find(x => x.value === d.lodging_mode)?.label ?? ''} · ${d.lodging_rooms} ห้อง ${d.lodging_nights} คืน` },
+          { key: 'en', label: 'กลับถึง', children: thaiDateTime(d.end_at) }]),
+          ...(isNoClaim(d) ? [] : [{ key: 'a', label: 'เบี้ยเลี้ยง', children: `${d.allowance_days} วัน${d.overnight ? ' · พักแรม' : ''}` },
+          { key: 'lo', label: 'ที่พัก', children: d.lodging_mode === 'none' ? 'ไม่เบิก' : `${LODGING_MODES.find(x => x.value === d.lodging_mode)?.label ?? ''} · ${d.lodging_rooms} ห้อง ${d.lodging_nights} คืน` }]),
           { key: 'v', label: 'พาหนะ', span: 'filled', children: vehicleText(d) },
-          { key: 'c', label: 'ค่าใช้จ่าย', span: 'filled', children: <>
+          { key: 'c', label: 'ค่าใช้จ่าย', span: 'filled', children: isNoClaim(d) ? <Tag color="green" style={{ margin: 0 }}>ไม่เบิกค่าใช้จ่าย</Tag> : <>
             {costRows(d).map(([k, v]) => <div key={k} style={rowCss}><span>{k}</span><span>{fmtMoney(v)}</span></div>)}
             <div style={{ ...rowCss, fontWeight: 700, borderTop: '1px solid var(--app-border)', marginTop: 4, paddingTop: 4 }}><span>รวมประมาณการ</span><span>{fmtMoney(d.total_amount)} บาท</span></div>
             {d.actual_amount != null && <div style={{ ...rowCss, color: 'var(--app-text-2)' }}><span>เบิกจ่ายจริง (การเงินยืนยัน)</span><span>{fmtMoney(d.actual_amount)} บาท</span></div>}
           </> },
-          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${requestBudgetType(d)} · ${d.budget_name}` },
+          { key: 'b', label: 'งบประมาณ', span: 'filled', children: requestBudgetText(d) },
           { key: 'cr', label: 'ยื่นเมื่อ', span: 'filled', children: `${thaiDateTime(d.created_at)} · ${SIGN_MODE_LABEL[d.sign_mode]}` },
         ]} />
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>เอกสารแนบ</div>
+        <div style={{ marginBottom: 16 }}>
+          <RequestFiles requestId={d.id} files={d.files ?? []} mode={d.vehicle_mode} costMode={d.cost_mode} vehicleRequest={d.vehicle_request} editable={d.status === 'submitted' && !!d.can_cancel}
+            onChanged={() => travelApi<TravelRequest>(`requests/${requestId}`).then(setD).catch(() => {})} />
+        </div>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>ลำดับการลงนาม</div>
         <ApprovalSteps r={d} />
         <div style={{ fontWeight: 600, margin: '8px 0 2px' }}>ผู้เดินทางและประวัติในปีงบ {d.fiscal_year}</div>
-        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>{tripRange(d.start_at, d.end_at)} · จำนวนครั้งไม่นับคำขอนี้ · กดชื่อเพื่อดูประวัติ</Text>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>{requestDates(d)} · จำนวนครั้งไม่นับคำขอนี้ · กดชื่อเพื่อดูประวัติ</Text>
         <Table<TravelerRow> size="small" rowKey="user_id" pagination={false} dataSource={d.travelers ?? []} scroll={{ x: 'max-content' }}
           columns={[
             { title: 'ผู้เดินทาง', dataIndex: 'name', render: (n: string, t) => <><a onClick={() => setPerson(t.user_id)}>{n}</a>{t.is_requester && <Tag style={{ marginLeft: 6 }}>ผู้ขอ</Tag>}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{t.position ?? ''}</div></> },
@@ -94,7 +101,7 @@ const vehicleText = (r: TravelRequest) => {
 }
 const costRows = (r: TravelRequest) => ([
   ['ค่าเบี้ยเลี้ยง', r.allowance_amount], ['ค่าเช่าที่พัก', r.lodging_amount], ['ค่าพาหนะ', r.transport_amount],
-  ['แท็กซี่ขาไป (สถานี → ที่พัก)', r.taxi_go_amount ?? 0], ['แท็กซี่ขากลับ (ที่พัก → สถานี)', r.taxi_back_amount ?? 0], ['บ้าน ↔ สถานี ไป-กลับ', r.home_station_amount ?? 0],
+  ['แท็กซี่ขาไป (สถานี → ที่พัก)', r.taxi_go_amount ?? 0], ['แท็กซี่ขากลับ (ที่พัก → สถานี)', r.taxi_back_amount ?? 0], [r.home_station_district ? `รถรับจ้างไปสถานี (${homeStationText(r)})` : 'บ้าน ↔ สถานี ไป-กลับ', r.home_station_amount ?? 0],
   ['ค่าลงทะเบียน', r.registration_amount], ['ค่าน้ำมัน', r.fuel_amount], ['ค่าทางด่วน', r.toll_amount],
   [r.other_desc ? `อื่น ๆ (${r.other_desc})` : 'อื่น ๆ', r.other_amount],
 ] as [string, number][]).filter(([, v]) => Number(v) > 0)
@@ -131,7 +138,7 @@ export const TravelHistoryDrawer =({ userId, fiscalYear, onClose }: { userId: nu
           locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`ปีงบ ${h.fiscal_year} ยังไม่เคยไปราชการ`} /> }}
           rowClassName={r => r.status !== 'submitted' ? 'travel-row-cancelled' : ''}
           columns={[
-            { title: 'วันที่', dataIndex: 'start_at', width: 120, render: (_: string, r) => <><div>{tripRange(r.start_at, r.end_at)}</div><Text type="secondary" style={{ fontSize: 11 }}>{requestNo(r.id)}</Text></> },
+            { title: 'วันที่', dataIndex: 'start_at', width: 120, render: (_: string, r) => <><div>{requestDates(r)}</div><Text type="secondary" style={{ fontSize: 11 }}>{requestNo(r.id)}</Text></> },
             { title: 'เรื่อง', dataIndex: 'subject', render: (v: string, r) => <><div>{v}</div><Text type="secondary" style={{ fontSize: 12 }}>{r.location}</Text></> },
             { title: 'บทบาท', dataIndex: 'is_requester', width: 110, render: (v: boolean, r) => v ? <Tag color="purple">ผู้ขอ</Tag> : <><Tag>ร่วมเดินทาง</Tag><div style={{ fontSize: 11, color: 'var(--app-text-3)' }}>{r.requester_name}</div></> },
             { title: 'วัน', dataIndex: 'allowance_days', width: 56, align: 'center' },

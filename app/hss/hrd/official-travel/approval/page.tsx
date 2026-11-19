@@ -10,7 +10,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { TRAVEL_APPROVAL_ITEM, TRAVEL_BASE, TRAVEL_COLOR, TravelShell, travelApi } from '../travelShared'
-import { fmtMoney, requestNo, tripRange, type TravelRequest } from '../travelCalc'
+import { requestAmountText, requestDates, requestNo, type TravelRequest } from '../travelCalc'
 import { StatusBadge } from '../TravelStatus'
 import { ApproveModal, TripUrgency } from '../TravelApprove'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
@@ -104,9 +104,9 @@ const ApprovalContent = () => {
         <Text type="secondary" style={{ fontSize: 12 }}>{r.location}</Text>
       </>,
     },
-    { title: 'วันเดินทาง', dataIndex: 'start_at', width: 130, render: (_: string, r) => tripRange(r.start_at, r.end_at) },
+    { title: 'วันเดินทาง', dataIndex: 'start_at', width: 130, render: (_: string, r) => requestDates(r) },
     { title: 'ผู้เดินทาง', dataIndex: 'traveler_count', width: 90, align: 'center', render: (n: number) => `${n ?? 1} คน` },
-    { title: 'ยอดเงินประมาณการ (บาท)', dataIndex: 'total_amount', width: 170, align: 'right', render: (v: number) => fmtMoney(v) },
+    { title: 'ยอดเงินประมาณการ (บาท)', dataIndex: 'total_amount', width: 170, align: 'right', render: (_: number, r) => requestAmountText(r) },
     {
       title: 'สถานะ', dataIndex: 'status', width: 200, align: 'center',
       render: (_: string, r) => {

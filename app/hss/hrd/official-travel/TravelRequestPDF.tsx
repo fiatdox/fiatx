@@ -12,7 +12,7 @@ import { canInlinePdf, canShareFile, saveBlob, shareFile } from '@/app/lib/pdfSu
 import {
   MEMO, requestBudgetType, memoOrg, bahtText, durationParts, fmtMoney, fmtNum, requestNo, requiredDocs, thaiDate, thaiDateParts, thaiDateShort, thaiDateTime, thaiDigits,
   type Signer, type TravelRequest,
-  mealCut, personAllowance, transportExtras, transportTotal } from './travelCalc'
+  homeStationText, isNoClaim, tripDatesText, mealCut, personAllowance, transportExtras, transportTotal } from './travelCalc'
 
 const { Text: AntText } = Typography
 
@@ -172,6 +172,9 @@ const OpinionBox = ({ title, signer, right }: { title: string; signer?: Signer |
   </View>
 )
 
+/** เรื่องของบันทึกข้อความ — ไม่เบิกค่าใช้จ่ายไม่ขอเบิก */
+const memoSubject = (d: TravelRequest) => isNoClaim(d) ? 'ขออนุมัติเดินทางไปราชการ โดยไม่เบิกค่าใช้จ่าย' : MEMO.subject
+
 // ─── หน้า ๑ บันทึกข้อความ ─────────────────────────────────────────────────────
 const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: string; printedAt: string }) => {
   const st = thaiDateParts(d.start_at), en = thaiDateParts(d.end_at)
@@ -182,6 +185,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
   const m = d.vehicle_mode
   const plate = m === 'private' || m === 'gov_car' ? d.vehicle_plate : ''
   const routeOrOther = m === 'bus' || m === 'plane' ? routeTxt(d.route_text) : m === 'other' ? d.vehicle_other : ''
+  const nc = isNoClaim(d)
   return (
     // บันทึกข้อความต้องจบหน้าเดียว — wrap={false} ไม่ขึ้นหน้าใหม่ · ช่องข้อความยาวจำกัดบรรทัดไว้แล้ว (Fill maxLines)
     <Page size="A4" style={s.page} wrap={false}>
@@ -195,7 +199,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <G grow={1}><T style={s.head}>ที่</T><Fill value={`${MEMO.docPrefix}${d.memo_no ? th(d.memo_no) : ''}`} left /></G>
         <G grow={1}><T style={s.head}>วันที่</T><Fill value={th(thaiDate(d.created_at))} /></G>
       </Line>
-      <Line><T style={s.head}>เรื่อง</T><Fill value={MEMO.subject} left /></Line>
+      <Line><T style={s.head}>เรื่อง</T><Fill value={memoSubject(d)} left /></Line>
       <Line style={{ marginTop: 4 }}><T style={s.bold}>เรียน</T><T>{`  ${MEMO.to}`}</T></Line>
 
       <Line style={[s.indent, { marginTop: 4 }]}>
@@ -210,6 +214,16 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
       <Line style={[s.indent, { alignItems: 'flex-start' }]}><T>{`${th(1)}. เรื่อง/วัตถุประสงค์`}</T><Fill value={d.subject} maxChars={58} maxLines={2} left /></Line>
       <Line style={[s.indent, { alignItems: 'flex-start' }]}><T>{`${th(2)}. สถานที่ไปราชการ`}</T><Fill value={d.location} maxChars={60} maxLines={2} left /></Line>
       {/* Sarabun กว้างกว่า TH Sarabun ของแบบกระดาษ — วัน เดือน ปี รวมช่องเดียว และรวมระยะเวลาขึ้นบรรทัดของตัวเอง ไม่ให้ตัดบรรทัดกลางช่อง */}
+      {nc ? <>
+      {/* ไม่เบิกค่าใช้จ่าย: หลายวันในเดือนเดียว ไป-กลับในวันเดียวกัน เวลาเดียวกันทุกวัน */}
+      <Line style={[s.indent, { alignItems: 'flex-start' }]}>
+        <T>{`${th(3)}. ระยะเวลาเดินทาง ในวันที่`}</T><Fill value={th(tripDatesText(d.trip_dates ?? [], true))} maxChars={52} maxLines={2} left />
+      </Line>
+      <Line style={s.indent2}>
+        <T>เวลา</T><Fill value={th(st.time)} width={40} /><T>น. ถึง</T><Fill value={th(en.time)} width={40} /><T>น.</T>
+        <T>รวม</T><Fill value={th(d.trip_dates?.length ?? 0)} width={30} /><T>วัน (ไป-กลับในวันเดียวกัน)</T>
+      </Line>
+      </> : <>
       <Line style={s.indent}>
         <T>{`${th(3)}. ระยะเวลาเดินทาง ตั้งแต่วันที่`}</T><Fill value={th(`${st.day} ${st.month} พ.ศ. ${st.year}`)} width={128} nowrap />
         <T>เวลา</T><Fill value={th(st.time)} width={40} /><T>น.</T>
@@ -221,6 +235,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <T>รวมระยะเวลา</T><Fill value={th(dur.days)} width={30} /><T>วัน</T><Fill value={th(dur.hours)} width={30} /><T>ชั่วโมง</T>
         {dur.minutes ? <><Fill value={th(dur.minutes)} width={30} /><T>นาที</T></> : null}
       </Line>
+      </>}
       <Line style={[s.indent, { alignItems: 'flex-start' }]}>
         <T>{`${th(4)}. ผู้ร่วมเดินทาง จำนวน`}</T><Fill value={th(companions.length)} width={26} /><T>คน ได้แก่</T><Fill value={compNames} maxChars={44} maxLines={2} left />
       </Line>
@@ -238,7 +253,12 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         <Check label="รถโดยสารประจำทาง" on={m === 'bus'} /><Check label="เครื่องบิน" on={m === 'plane'} /><Check label="อื่น ๆ" on={m === 'other'} />
         <Fill value={routeOrOther} maxChars={34} left />
       </Line>
+      {d.vehicle_request && m === 'gov_car' && <Line style={s.indent2}><Check label="ขออนุมัติใช้รถราชการ (ตามหนังสือขออนุมัติใช้รถที่แนบ)" on /></Line>}
 
+      {nc ? <>
+      <Line style={[s.indent, { marginTop: 2 }]}><T>{`${th(6)}. ค่าใช้จ่าย`}</T><Check label="ไม่เบิกค่าใช้จ่ายในการเดินทางไปราชการ" on /></Line>
+      <Para indent style={{ marginTop: 3 }}>จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติให้เดินทางไปราชการ โดยไม่เบิกค่าใช้จ่ายในการเดินทางไปราชการ</Para>
+      </> : <>
       <Line style={[s.indent, { marginTop: 2 }]}>
         <T>{`${th(6)}. ประมาณการค่าใช้จ่ายในการเดินทางไปราชการ จำนวนเงินทั้งสิ้น`}</T><Fill value={th(fmtMoney(d.total_amount))} width={74} /><T>บาท</T>
       </Line>
@@ -272,6 +292,7 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
         return <Line style={s.indent2}>{label && <T>{label}</T>}<Fill value={d.budget_name} maxChars={60} left /></Line>
       })()}
       <Para indent style={{ marginTop: 3 }}>จึงเรียนมาเพื่อโปรดพิจารณาอนุมัติให้เดินทางไปราชการ และอนุมัติเบิกค่าใช้จ่ายในการเดินทางไปราชการตามระเบียบกระทรวงการคลังว่าด้วยค่าใช้จ่ายในการเดินทางไปราชการ และหลักเกณฑ์ที่เกี่ยวข้องต่อไปด้วย</Para>
+      </>}
 
       <SignBlock name={d.requester_name} position={d.requester_position} signature={d.requester_signature} />
 
@@ -296,7 +317,9 @@ const MemoPage = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: s
 // ─── หน้า ๒ แนบท้าย: บัญชีรายชื่อ + ที่มาของยอดเงิน ─────────────────────────
 // w = ความกว้าง % · wrap = จำนวนอักษรต่อบรรทัดในเซลล์ที่ตัวอักษร ๑๐ pt (react-pdf ตัดคำไทยเองไม่ได้ ต้องตัดก่อน)
 // มีค่าที่พัก → เพิ่มคอลัมน์เพดานที่พักรายคน (ย่อคอลัมน์อื่นลง)
-const colsOf = (lodging: boolean) => lodging
+const colsOf = (lodging: boolean, noClaim = false) => noClaim
+  ? [{ w: 8, label: 'ลำดับ', wrap: 5 }, { w: 40, label: 'ชื่อ - สกุล', wrap: 27 }, { w: 37, label: 'ตำแหน่ง', wrap: 25 }, { w: 15, label: 'ไปแล้ว*', wrap: 10 }]
+  : lodging
   ? [
     { w: 6, label: 'ที่', wrap: 3 }, { w: 21, label: 'ชื่อ - สกุล', wrap: 14 }, { w: 19, label: 'ตำแหน่ง', wrap: 13 }, { w: 10, label: 'ไปแล้ว*', wrap: 7 },
     { w: 10, label: 'บาท/วัน', wrap: 7 }, { w: 6, label: 'วัน', wrap: 3 }, { w: 12, label: 'เบี้ยเลี้ยง', wrap: 9 }, { w: 16, label: 'ที่พัก', wrap: 11 },
@@ -312,7 +335,8 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
   const travelers = d.travelers ?? []
   const hasLodging = d.lodging_mode !== 'none' && d.lodging_amount > 0
   const meals = d.meals_provided ?? 0
-  const COLS = colsOf(hasLodging)
+  const nc = isNoClaim(d)
+  const COLS = colsOf(hasLodging, nc)
   const border = { borderLeftWidth: 0.8, borderLeftColor: INK }
   const cell = (i: number, children: string | string[], align: 'left' | 'center' | 'right' = 'left', bold = false) => (
     <View key={i} style={[{ width: `${COLS[i].w}%`, alignSelf: 'stretch', justifyContent: 'center' }, i > 0 ? border : {}]}>
@@ -337,12 +361,14 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
   const capText = d.route_max_fare != null ? `${th(fmtMoney(d.route_max_fare))} บาท/เที่ยว × ไป-กลับ × ${th(travelers.length)} คน = ไม่เกิน ${th(fmtMoney(d.route_max_fare * 2 * travelers.length))} บาท` : ''
   return (
     <Page size="A4" style={s.page}>
-      <T style={{ fontSize: 14, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 }}>บัญชีรายชื่อผู้เดินทางและรายละเอียดการคำนวณค่าใช้จ่าย</T>
+      <T style={{ fontSize: 14, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 }}>{nc ? 'บัญชีรายชื่อผู้เดินทาง' : 'บัญชีรายชื่อผู้เดินทางและรายละเอียดการคำนวณค่าใช้จ่าย'}</T>
       <T style={{ textAlign: 'center' }}>แนบท้ายบันทึกข้อความ</T>
-      <T style={{ textAlign: 'center', marginBottom: 8 }}>{`เรื่อง ${MEMO.subject}`}</T>
+      <T style={{ textAlign: 'center', marginBottom: 8 }}>{`เรื่อง ${memoSubject(d)}`}</T>
       {note('เรื่อง/วัตถุประสงค์', d.subject, 2)}
       {/* ตัวเลข/จุดแคบกว่าอักษรไทย — บรรทัดนี้ยาวได้มากกว่าปกติ */}
-      {note('ระยะเวลาเดินทาง', `${th(thaiDateTime(d.start_at))} ถึง ${th(thaiDateTime(d.end_at))}${d.overnight ? ' (พักแรม)' : ' (ไม่พักแรม)'}`, 2, 54)}
+      {nc
+        ? note('วันที่เดินทาง', `${th(tripDatesText(d.trip_dates ?? [], true))} รวม ${th(d.trip_dates?.length ?? 0)} วัน · เวลา ${th(thaiDateParts(d.start_at).time)} ถึง ${th(thaiDateParts(d.end_at).time)} น. (ไม่เบิกค่าใช้จ่าย)`, 3, 54)
+        : note('ระยะเวลาเดินทาง', `${th(thaiDateTime(d.start_at))} ถึง ${th(thaiDateTime(d.end_at))}${d.overnight ? ' (พักแรม)' : ' (ไม่พักแรม)'}`, 2, 54)}
 
       <View style={s.tbl}>
         <View style={[s.tr, { borderTopWidth: 0, backgroundColor: '#f3f4f6' }]}>{COLS.map((c, i) => <View key={i} style={[{ width: `${c.w}%`, alignSelf: 'stretch', justifyContent: 'center' }, i > 0 ? border : {}]}><Text style={s.th}>{pad(c.label)}</Text></View>)}</View>
@@ -350,19 +376,20 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
           <View key={t.user_id} style={s.tr} wrap={false}>
             {cell(0, th(n + 1), 'center')}{cell(1, `${t.name}${t.is_requester ? ' (ผู้ขอ)' : ''}`)}{cell(2, t.position ?? '-')}
             {cell(3, t.prior_trips == null ? '-' : `${th(t.prior_trips)} ครั้ง`, 'center')}
-            {cell(4, th(fmtMoney(t.rate)), 'right')}{cell(5, th(d.allowance_days), 'center')}{cell(6, th(fmtMoney(personAllowance(t.rate, d.allowance_days, meals))), 'right')}
-            {hasLodging && cell(7, lodgingCell(t), 'right')}
+            {!nc && <>{cell(4, th(fmtMoney(t.rate)), 'right')}{cell(5, th(d.allowance_days), 'center')}{cell(6, th(fmtMoney(personAllowance(t.rate, d.allowance_days, meals))), 'right')}
+            {hasLodging && cell(7, lodgingCell(t), 'right')}</>}
           </View>
         ))}
-        <View style={s.tr}>
+        {!nc && <View style={s.tr}>
           <View style={{ width: `${COLS.slice(0, 6).reduce((n, c) => n + c.w, 0)}%` }}><Text style={[s.td, s.bold, { textAlign: 'right' }]}>{pad(`รวม ${th(travelers.length)} คน`)}</Text></View>
           <View style={[{ width: `${COLS[6].w}%` }, border]}><Text style={[s.td, s.bold, { textAlign: 'right' }]}>{pad(th(fmtMoney(d.allowance_amount)))}</Text></View>
           {hasLodging && <View style={[{ width: `${COLS[7].w}%` }, border]}><Text style={[s.td, s.bold, { textAlign: 'right' }]}>{pad(th(fmtMoney(d.lodging_mode === 'lump' ? d.lodging_amount : d.lodging_cap)))}</Text></View>}
-        </View>
+        </View>}
       </View>
       <Text style={{ fontSize: 9, marginTop: 2, color: '#374151' }}>{pad(`* ไปราชการแล้วในปีงบประมาณ ${th(d.fiscal_year ?? '')} ก่อนครั้งนี้ (นับคำขอที่ไม่ยกเลิก ทั้งที่เป็นผู้ขอและผู้ร่วมเดินทาง)`)}</Text>
       {hasLodging && <Text style={{ fontSize: 9, color: '#374151' }}>{pad(d.lodging_mode === 'lump' ? 'ช่องที่พัก = ค่าเช่าที่พักเหมาจ่ายของแต่ละคน (อัตราตามระดับสิทธิ์ × จำนวนคืน)' : 'ช่องที่พัก = เพดานค่าเช่าที่พักจ่ายจริงของแต่ละคน (อัตราห้องเดี่ยว/ห้องคู่ตามระดับสิทธิ์ × จำนวนคืน)')}</Text>}
 
+      {!nc && <>
       <T style={{ fontWeight: 'bold', marginTop: 10 }}>ที่มาของยอดเงิน</T>
       {note('๖.๑ เบี้ยเลี้ยง', `อัตราของผู้เดินทางแต่ละคน × ${th(d.allowance_days)} วัน (ระยะเวลาเดินทางเบิกได้สูงสุด ${th(d.allowance_max_days)} วัน)${meals ? ` หักอาหารที่ผู้จัดเลี้ยง ${th(meals)} มื้อ มื้อละ ๑ ใน ๓ ของอัตรา (${[...new Set(travelers.map(t => t.rate))].map(r => `${th(fmtMoney(r))} บาท หักมื้อละ ${th(fmtMoney(mealCut(r)))} บาท`).join(' · ')})` : ''}`)}
       {hasLodging && note('๖.๒ ค่าเช่าที่พัก', lodgingSrc)}
@@ -373,7 +400,9 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
         d.taxi_go_amount ? `แท็กซี่ขาไป ${th(fmtMoney(d.taxi_go_amount))} บาท` : '',
         d.taxi_back_amount ? `แท็กซี่ขากลับ ${th(fmtMoney(d.taxi_back_amount))} บาท` : '',
         d.taxi_go_amount || d.taxi_back_amount ? 'ระหว่างสถานีกับที่พัก' : '',
-        d.home_station_amount ? `ค่าเดินทางบ้าน - สถานี ไปกลับ ${th(fmtMoney(d.home_station_amount))} บาท` : '',
+        d.home_station_amount ? (d.home_station_district
+          ? `ค่ารถรับจ้างไปสถานี ${th(fmtMoney(d.home_station_amount))} บาท (${th(homeStationText(d).replace(/ → /g, ' ถึง '))})`
+          : `ค่าเดินทางบ้าน - สถานี ไปกลับ ${th(fmtMoney(d.home_station_amount))} บาท`) : '',
       ].filter(Boolean).join(' · '))}
       {d.vehicle_mode === 'private' && note('๖.๕ ค่าน้ำมันเชื้อเพลิง', `${d.vehicle_name ?? ''} ทะเบียน ${d.vehicle_plate ?? '-'} · ${th(fmtNum(d.distance_km ?? 0))} กม. × ${th(fmtNum(d.rate_per_km ?? 0))} บาท/กม. = ${th(fmtMoney(d.fuel_amount))} บาท`)}
       {d.toll_amount > 0 && note('๖.๕ ค่าทางด่วน', `${th(fmtMoney(d.toll_amount))} บาท`)}
@@ -391,6 +420,7 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
       </View>
       <Text style={{ fontSize: 9, marginTop: 8, color: '#374151' }}>{pad('การนับวันเบี้ยเลี้ยง: ๒๔ ชั่วโมงนับเป็น ๑ วัน เศษเกิน ๑๒ ชั่วโมงนับเป็น ๑ วัน กรณีไม่พักแรมเศษเกิน ๖ ชั่วโมงนับเป็นครึ่งวัน')}</Text>
       <Text style={{ fontSize: 9, color: '#374151' }}>{pad('อัตราเบี้ยเลี้ยง ค่าที่พัก ค่าน้ำมัน และเพดานค่าพาหนะ เป็นอัตรา ณ วันยื่นคำขอ ตามที่งานพัฒนาทรัพยากรบุคคลตั้งไว้ในระบบ')}</Text>
+      </>}
 
       <View style={s.footer} fixed>
         <Text>{pad(`คำขอในระบบ ${requestNo(d.id)}`)}</Text>
@@ -402,7 +432,7 @@ const AttachmentPage = ({ d, printedAt }: { d: TravelRequest; printedAt: string 
 
 /** บันทึกข้อความ — ๑ หน้าเสมอ */
 export const TravelRequestDocument = ({ d, garudaSrc, printedAt }: { d: TravelRequest; garudaSrc?: string; printedAt: string }) => (
-  <Document title={`${MEMO.subject} ${requestNo(d.id)}`} author={d.requester_name}>
+  <Document title={`${memoSubject(d)} ${requestNo(d.id)}`} author={d.requester_name}>
     <MemoPage d={d} garudaSrc={garudaSrc} printedAt={printedAt} />
   </Document>
 )
@@ -455,7 +485,7 @@ const TravelRequestPDF = ({ data }: { data: TravelRequest }) => {
     setBusy(kind)
     try {
       const file = await build()
-      if (kind === 'share' && canShareFile(file)) await shareFile(file, MEMO.subject)
+      if (kind === 'share' && canShareFile(file)) await shareFile(file, memoSubject(data))
       else { saveBlob(file, fileName); message.success('บันทึกไฟล์แล้ว — เปิดไฟล์จากแถบดาวน์โหลดแล้วสั่งพิมพ์', 5) }
     } catch { message.error('สร้างไฟล์ PDF ไม่สำเร็จ') } finally { setBusy(null) }
   }

@@ -76,6 +76,11 @@ export const FLIGHT_LABEL: Record<FlightClass, string> = { business: 'ชั้�
 export const transportExtras = (d: { taxi_go_amount?: number | null; taxi_back_amount?: number | null; home_station_amount?: number | null }) =>
   round2((d.taxi_go_amount ?? 0) + (d.taxi_back_amount ?? 0) + (d.home_station_amount ?? 0))
 /** ๖.๓ ค่าพาหนะเดินทางทั้งหมด = ค่าโดยสาร + ค่าพาหนะย่อย */
+/** ข้อความค่ารถรับจ้างไปสถานี เช่น "อ.จุน: บ้านพัก → บขส. ไป-กลับ (อัตรา 110 บาท/เที่ยว/คน)" */
+export const homeStationText = (d: { home_station_district?: string | null; home_station_from?: string | null; home_station_to?: string | null; home_station_trips?: number | null; home_station_rate?: number | null }) =>
+  d.home_station_district
+    ? `อ.${d.home_station_district}: ${d.home_station_from ?? '-'} → ${d.home_station_to ?? '-'} ${d.home_station_trips === 1 ? 'เที่ยวเดียว' : 'ไป-กลับ'}${d.home_station_rate ? ` (อัตรา ${d.home_station_rate} บาท/เที่ยว/คน)` : ''}`
+    : ''
 export const transportTotal = (d: { transport_amount?: number | null; taxi_go_amount?: number | null; taxi_back_amount?: number | null; home_station_amount?: number | null }) =>
   round2((d.transport_amount ?? 0) + transportExtras(d))
 
@@ -152,6 +157,28 @@ export const thaiDate = (iso: string | number | Date) => { const p = thaiDatePar
 export const thaiDateShort = (iso: string | number | Date) => { const p = thaiDateParts(iso); return `${p.day} ${p.monthShort} ${String(p.year).slice(2)}` }
 export const thaiDateTime = (iso: string | number | Date) => { const p = thaiDateParts(iso); return `${p.day} ${p.monthShort} ${String(p.year).slice(2)} ${p.time} น.` }
 
+export type CostMode = 'claim' | 'no_claim'
+export const COST_MODES: { value: CostMode; label: string; hint: string }[] = [
+  { value: 'claim', label: 'เบิกค่าใช้จ่าย', hint: 'ไปช่วงวันติดกัน คำนวณเบี้ยเลี้ยง ที่พัก ค่าพาหนะ และเลือกงบประมาณ' },
+  { value: 'no_claim', label: 'ไม่เบิกค่าใช้จ่าย (เลือกหลายวัน)', hint: 'เช่น ออกหน่วย — เลือกได้หลายวันในเดือนเดียว ไป-กลับในวันเดียวกัน ไม่ผูกงบประมาณ' },
+]
+export const isNoClaim = (r: { cost_mode?: string | null }) => r.cost_mode === 'no_claim'
+/** วันที่ของคำขอไม่เบิก เช่น "1, 5, 6, 10 มี.ค. 70" (long = เดือนเต็ม พ.ศ. ๔ หลัก) */
+export const tripDatesText = (dates: string[], long = false) => {
+  if (!dates.length) return ''
+  const ds = [...dates].sort()
+  const [y, m] = ds[0].split('-').map(Number)
+  const days = ds.map(d => Number(d.slice(8, 10))).join(', ')
+  return long ? `${days} ${TH_MONTHS_FULL[m - 1]} พ.ศ. ${y + 543}` : `${days} ${TH_MONTHS_SHORT[m - 1]} ${String(y + 543).slice(2)}`
+}
+/** วันเดินทางของคำขอสำหรับตาราง/รายการ — ไม่เบิกแสดงรายวัน · เบิกแสดงช่วง */
+export const requestDates = (r: { start_at: string; end_at: string; cost_mode?: string | null; trip_dates?: string[] | null }) =>
+  isNoClaim(r) && r.trip_dates?.length ? tripDatesText(r.trip_dates) : tripRange(r.start_at, r.end_at)
+/** ยอดเงินสำหรับตาราง — ไม่เบิกแสดงข้อความ */
+export const requestAmountText = (r: { total_amount: number; cost_mode?: string | null }) => isNoClaim(r) ? 'ไม่เบิก' : fmtMoney(r.total_amount)
+export const requestBudgetText = (r: { budget_type: string | null; budget_type_name?: string | null; budget_name: string | null; cost_mode?: string | null }) =>
+  isNoClaim(r) || !r.budget_type ? 'ไม่เบิกค่าใช้จ่าย (ไม่ใช้งบประมาณ)' : `${requestBudgetType(r as { budget_type: string; budget_type_name?: string | null })} · ${r.budget_name}`
+
 /** ช่วงวันเดินทางแบบสั้น เช่น "1–3 ธ.ค. 69" */
 export const tripRange = (start: string, end: string) => {
   const a = thaiDateParts(start), b = thaiDateParts(end)
@@ -205,6 +232,9 @@ export interface TravelRequest {
   transport_amount: number
   /** ค่าพาหนะย่อย (รวมใน ๖.๓): แท็กซี่ สถานี/สนามบิน ↔ ที่พัก ขาไป/ขากลับ · บ้าน ↔ สถานี ไป-กลับ */
   taxi_go_amount?: number; taxi_back_amount?: number; home_station_amount?: number
+  /** ที่พัก/บ้าน ↔ สถานี: อำเภอที่ขึ้นรถ อัตรา (บาท/เที่ยว/คน) จำนวนเที่ยว และจุดขึ้น-ลง ณ วันที่ขอ */
+  home_station_rate_id?: number | null; home_station_district?: string | null; home_station_rate?: number | null; home_station_trips?: number | null
+  home_station_from?: string | null; home_station_to?: string | null
   registration_amount: number; fuel_amount: number; toll_amount: number; other_amount: number; other_desc: string | null; total_amount: number
   budget_id: number; budget_type: BudgetType; budget_name: string; actual_amount: number | null; actual_note: string | null; actual_at: string | null
   /** ชื่อประเภทงบและข้อความหน้าชื่องบ ณ วันยื่น (พิมพ์ในบันทึกข้อความ) */
@@ -217,4 +247,10 @@ export interface TravelRequest {
   travelers?: TravelerRow[]; traveler_count?: number; traveler_names?: string[]; fiscal_year?: number
   signers?: { major: Signer | null; mission: Signer | null; director: Signer | null }
   can_edit?: boolean; can_cancel?: boolean; can_record_actual?: boolean; can_approve?: boolean; can_record_director?: boolean
+  /** ไฟล์แนบ (หนังสือต้นเรื่อง / อนุมัติเครื่องบิน / อนุมัติรถยนต์ส่วนตัว) และประเภทที่ต้องแนบแต่ยังไม่มี */
+  files?: import('./TravelFiles').TravelFile[]; missing_files?: import('./TravelFiles').FileKind[]
+  /** claim = เบิกค่าใช้จ่าย · no_claim = ไม่เบิกค่าใช้จ่าย เลือกหลายวันในเดือนเดียว (trip_dates) · vehicle_request = ขออนุมัติใช้รถราชการ */
+  cost_mode?: CostMode; trip_dates?: string[] | null; vehicle_request?: boolean
+  /** รายงานผลการเดินทาง: null = ยังไม่เขียน */
+  report_status?: 'draft' | 'submitted' | null
 }

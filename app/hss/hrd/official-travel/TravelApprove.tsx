@@ -5,9 +5,10 @@ import { Alert, App, Button, Descriptions, Form, Input, Modal, Space, Spin, Tag,
 import { AuditOutlined, CheckCircleOutlined, ExclamationCircleOutlined, FilePdfOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { travelApi } from './travelShared'
-import { fmtMoney, requestBudgetType, requestNo, tripRange, type TravelRequest } from './travelCalc'
+import { fmtMoney, isNoClaim, requestBudgetText, requestDates, requestNo, type TravelRequest } from './travelCalc'
 import { ApprovalSteps } from './TravelStatus'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
+import { RequestFiles } from './TravelFiles'
 
 const { Text } = Typography
 
@@ -73,14 +74,16 @@ export const ApproveModal = ({ id, onClose, onSaved, onOpenPdf }: { id: number; 
       {!r ? <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div> : <>
         <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginBottom: 12 }} items={[
           { key: 'n', label: 'ผู้ขอ', children: <>{r.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[r.requester_position, r.requester_unit].filter(Boolean).join(' · ')}</div></> },
-          { key: 'd', label: 'วันเดินทาง', children: tripRange(r.start_at, r.end_at) },
+          { key: 'd', label: 'วันเดินทาง', children: requestDates(r) },
           { key: 's', label: 'เรื่อง', span: 'filled', children: <>{r.purpose} · {r.subject}</> },
           { key: 'l', label: 'สถานที่', span: 'filled', children: r.location },
           { key: 't', label: 'ผู้เดินทาง', children: `${r.travelers?.length ?? 0} คน` },
-          { key: 'm', label: 'ประมาณการ', children: <b>{fmtMoney(r.total_amount)} บาท</b> },
-          { key: 'b', label: 'งบประมาณ', span: 'filled', children: `${requestBudgetType(r)} · ${r.budget_name}` },
+          { key: 'm', label: 'ประมาณการ', children: isNoClaim(r) ? <Tag color="green" style={{ margin: 0 }}>ไม่เบิกค่าใช้จ่าย</Tag> : <b>{fmtMoney(r.total_amount)} บาท</b> },
+          { key: 'b', label: 'งบประมาณ', span: 'filled', children: requestBudgetText(r) },
         ]} />
         <Button icon={<FilePdfOutlined />} onClick={() => onOpenPdf(r.id)} style={{ marginBottom: 12 }}>ดูบันทึกข้อความ / บัญชีแนบท้าย</Button>
+        <div style={{ fontWeight: 600, marginBottom: 2 }}>เอกสารแนบ</div>
+        <div style={{ marginBottom: 12 }}><RequestFiles requestId={r.id} files={r.files ?? []} mode={r.vehicle_mode} costMode={r.cost_mode} vehicleRequest={r.vehicle_request} /></div>
         <ApprovalSteps r={r} />
         {r.can_approve ? <>
           {sig === undefined ? <Spin size="small" />

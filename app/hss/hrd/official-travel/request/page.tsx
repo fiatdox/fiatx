@@ -3,7 +3,7 @@
 // ยอดเงินคำนวณสดจากหน้าตั้งค่า (อัตราเบี้ยเลี้ยงรายคน · บาท/กม. · เพดานเส้นทาง) — server คำนวณ/ตรวจซ้ำเป็นตัวจริง
 // ?id= แก้ไขคำขอเดิม · บันทึกแล้วไปหน้ารายการพร้อมเปิด PDF
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, App, AutoComplete, Button, Card, Col, ConfigProvider, Descriptions, Empty, Form, Input, InputNumber, Radio, Result, Row, Segmented, Select, Space, Spin, Table, Tag, TimePicker, Typography } from 'antd'
+import { Alert, App, AutoComplete, Button, Card, Checkbox, Col, ConfigProvider, Descriptions, Empty, Form, Input, InputNumber, Radio, Result, Row, Segmented, Select, Space, Spin, Table, Tag, TimePicker, Typography } from 'antd'
 import thTH from 'antd/locale/th_TH'
 import { SaveOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
@@ -12,10 +12,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { DATE_FORMAT, ThaiDatePicker } from '@/app/general/contracts/contractShared'
 import { TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, travelApi, travelPost } from '../travelShared'
 import {
+  COST_MODES, TH_MONTHS_FULL, tripDatesText, type CostMode,
   FLIGHT_LABEL, budgetTypeLabel, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, transportExtras, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
   type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
 } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
+import type { UploadFile } from 'antd'
+import { FILE_KIND_LABEL, PendingFilePicker, RequestFiles, requiredKinds, uploadTravelFile, type FileKind } from '../TravelFiles'
 
 const { Title, Text } = Typography
 // ปีในหัวปฏิทินเป็น พ.ศ.
@@ -29,7 +32,9 @@ interface Person {
 interface Vehicle { id: number; code: string; name: string; rate_per_km: number }
 interface RouteOpt { id: number; mode: 'bus' | 'plane'; origin: string; destination: string; max_fare: number; note: string | null }
 interface BudgetOpt { id: number; fiscal_year: number; budget_type: BudgetType; name: string; amount: number; is_active: boolean; remaining: number; pending: number; type_name: string; type_ref_code: string | null; type_sort: number }
-interface Meta { me: Person & { has_signature?: boolean }; sign_mode: SignMode; approval_chain?: ChainStepLite[]; vehicles: Vehicle[]; routes: RouteOpt[]; budgets: BudgetOpt[]; can_manage: boolean }
+/** ค่ารถรับจ้างในจังหวัดพะเยา (ที่พัก/บ้าน ↔ สถานี) แยกอำเภอ — บาท/เที่ยว/คน/วัน ตามที่ สสจ.พะเยา กำหนด */
+interface LocalRate { id: number; district: string; rate: number; note: string | null }
+interface Meta { me: Person & { has_signature?: boolean }; sign_mode: SignMode; approval_chain?: ChainStepLite[]; vehicles: Vehicle[]; routes: RouteOpt[]; local_rates?: LocalRate[]; budgets: BudgetOpt[]; can_manage: boolean }
 
 /** วันที่ (พ.ศ.) + เวลา → ISO เวลาไทย */
 const toIso = (d?: Dayjs | null, t?: Dayjs | null) => d && t ? `${d.format('YYYY-MM-DD')}T${t.format('HH:mm')}:00+07:00` : null
@@ -39,6 +44,29 @@ const fyOf = (d: Dayjs) => d.year() + 543 + (d.month() >= 9 ? 1 : 0)
 const money = (n: number) => `${fmtMoney(n)} บาท`
 /** ค่าแท็กซี่ สถานีขนส่ง/สนามบิน ↔ ที่พัก ที่ใช้บ่อย (ต่อเที่ยว) — ปุ่มใส่ให้ แก้ได้ */
 const TAXI_RATE = 200
+/** สถานีที่ขึ้นรถโดยสาร/เครื่องบินที่ใช้บ่อย — พิมพ์ชื่ออื่นได้ */
+const STATION_OPTS = ['สถานีขนส่งผู้โดยสารจังหวัดพะเยา (บขส.)', 'ท่าอากาศยานแม่ฟ้าหลวง เชียงราย', 'ท่าอากาศยานเชียงใหม่', 'สถานีรถไฟลำปาง'].map(value => ({ value }))
+
+/** วันที่ไม่ต้องใช้เบี้ยเลี้ยง/ที่พัก — เลือกหลายวันในเดือนเดียว (ค่า = ['YYYY-MM-DD', ...] เรียงแล้ว) */
+const WEEK = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']
+const DayGrid = ({ month, value = [], onChange }: { month?: Dayjs | null; value?: string[]; onChange?: (v: string[]) => void }) => {
+  if (!month) return <Text type="secondary">เลือกเดือนก่อน แล้วกดวันที่ที่จะไป</Text>
+  const first = month.startOf('month')
+  const on = new Set(value)
+  const toggle = (k: string) => onChange?.(on.has(k) ? value.filter(x => x !== k) : [...value, k].sort())
+  return (
+    <div className="day-grid" role="group" aria-label="เลือกวันที่เดินทาง" data-testid="day-grid">
+      {WEEK.map(w => <div key={w} className="dg-h">{w}</div>)}
+      {Array.from({ length: first.day() }, (_, i) => <div key={`e${i}`} />)}
+      {Array.from({ length: month.daysInMonth() }, (_, i) => {
+        const d = first.add(i, 'day'), k = d.format('YYYY-MM-DD'), sel = on.has(k)
+        return <button type="button" key={k} className={`dg-d${sel ? ' on' : ''}${d.day() === 0 || d.day() === 6 ? ' we' : ''}`} aria-pressed={sel} aria-label={`วันที่ ${i + 1}`} onClick={() => toggle(k)}>{i + 1}</button>
+      })}
+    </div>
+  )
+}
+const monthLabel = (d: Dayjs) => `${TH_MONTHS_FULL[d.month()]} ${d.year() + 543}`
+const NO_CLAIM_MODES = ['gov_car', 'private', 'other']
 
 const RequestForm = () => {
   const { message } = App.useApp()
@@ -58,6 +86,9 @@ const RequestForm = () => {
   const [rooms, setRooms] = useState<Record<number, RoomType>>({})
   // ลายเซ็นของผู้ขอ (ต้องมีก่อนยื่น) — undefined = ยังไม่ได้ตรวจ
   const [signature, setSignature] = useState<string | null | undefined>(undefined)
+  // ไฟล์แนบที่เลือกไว้ (คำขอใหม่) — อัปโหลดหลังบันทึกคำขอสำเร็จ · คำขอเดิมแนบ/ลบได้ทันทีผ่าน RequestFiles
+  const [pending, setPending] = useState<Record<FileKind, UploadFile[]>>({ source: [], plane: [], private_car: [], vehicle_use: [] })
+  const [fileErr, setFileErr] = useState<Partial<Record<FileKind, string>>>({})
   const [checkingSig, setCheckingSig] = useState(false)
   const checkSignature = useCallback(async () => {
     setCheckingSig(true)
@@ -76,7 +107,8 @@ const RequestForm = () => {
       const m = await travelApi<Meta>('requests/meta')
       if (!editId) {
         const cur = m.budgets.find(b => b.is_active)
-        setInit({ vehicle_mode: 'gov_car', budget_id: cur?.id, allowance_days_mode: 'auto', lodging_mode: 'none' })
+        setInit({ cost_mode: 'claim', vehicle_mode: 'gov_car', budget_id: cur?.id, allowance_days_mode: 'auto', lodging_mode: 'none', home_station_trips: 2,
+          trip_dates: [], day_start: dayjs().hour(8).minute(0), day_end: dayjs().hour(16).minute(30) })
         setMeta(m)
         return
       }
@@ -93,11 +125,15 @@ const RequestForm = () => {
       setInit({
         memo_no: r.memo_no ?? undefined, purpose: r.purpose, subject: r.subject, location: r.location,
         start_date: st, start_time: st, end_date: en, end_time: en,
+        cost_mode: r.cost_mode ?? 'claim', trip_dates: r.trip_dates ?? [], trip_month: r.trip_dates?.length ? dayjs(r.trip_dates[0]) : undefined,
+        day_start: st, day_end: en, vehicle_request: !!r.vehicle_request,
         companion_ids: companions.map(c => c.user_id),
         allowance_days: r.allowance_days, allowance_days_mode: r.allowance_days === r.allowance_max_days ? 'auto' : 'manual', meals_provided: r.meals_provided || undefined,
         vehicle_mode: r.vehicle_mode, vehicle_id: r.vehicle_id ?? undefined, vehicle_plate: r.vehicle_plate ?? undefined, distance_km: r.distance_km ?? undefined,
         route_id: r.route_id ?? undefined, vehicle_other: r.vehicle_other ?? undefined, transport_amount: r.transport_amount || undefined, toll_amount: r.toll_amount || undefined,
         taxi_go_amount: r.taxi_go_amount || undefined, taxi_back_amount: r.taxi_back_amount || undefined, home_station_amount: r.home_station_amount || undefined,
+        home_station_rate_id: r.home_station_rate_id ?? undefined, home_station_trips: r.home_station_trips ?? 2,
+        home_station_from: r.home_station_from ?? undefined, home_station_to: r.home_station_to ?? undefined,
         lodging_mode: r.lodging_mode ?? 'none', lodging_nights: r.lodging_nights || undefined,
         lodging_amount: r.lodging_mode === 'actual' ? r.lodging_amount || undefined : undefined, lodging_note: r.lodging_note ?? undefined,
         registration_amount: r.registration_amount || undefined, other_amount: r.other_amount || undefined, other_desc: r.other_desc ?? undefined,
@@ -114,7 +150,8 @@ const RequestForm = () => {
     if (q.trim().length < 2) return
     const t = setTimeout(async () => {
       setSearching(true)
-      const fy = form.getFieldValue('start_date') ? `&fiscal_year=${fyOf(form.getFieldValue('start_date'))}` : ''
+      const ref = form.getFieldValue('start_date') ?? form.getFieldValue('trip_month')
+      const fy = ref ? `&fiscal_year=${fyOf(ref)}` : ''
       const ex = editId ? `&except_id=${editId}` : ''
       try { const list = await travelApi<Person[]>(`requests/people?search=${encodeURIComponent(q.trim())}${fy}${ex}`); setOptions(list); remember(list) }
       catch { /* ค้นไม่ได้ก็พิมพ์ใหม่ */ } finally { setSearching(false) }
@@ -127,6 +164,12 @@ const RequestForm = () => {
   const startIso = toIso(v.start_date, v.start_time), endIso = toIso(v.end_date, v.end_time)
   const startMs = startIso ? Date.parse(startIso) : NaN, endMs = endIso ? Date.parse(endIso) : NaN
   const timeOk = Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs
+  // ไม่เบิกค่าใช้จ่าย: เลือกวันในเดือนเดียว ไป-กลับในวันเดียวกัน เวลาเดียวกันทุกวัน
+  const costMode: CostMode = v.cost_mode ?? 'claim'
+  const noClaim = costMode === 'no_claim'
+  const tripDates: string[] = v.trip_dates ?? []
+  const dayOk = !!v.day_start && !!v.day_end && v.day_end.format('HH:mm') > v.day_start.format('HH:mm')
+  const dateOk = noClaim ? tripDates.length > 0 && dayOk : timeOk
   const calc = timeOk ? allowanceDays(startMs, endMs) : null
   const dur = timeOk ? durationParts(startMs, endMs) : null
   const me = meta?.me
@@ -147,6 +190,22 @@ const RequestForm = () => {
   const fare = transitMode ? v.transport_amount ?? 0 : 0
   // ค่าพาหนะย่อย (แท็กซี่ สถานี ↔ ที่พัก · บ้าน ↔ สถานี) — รวมใน ๖.๓
   const extras = transitMode ? transportExtras(v) : 0
+  // ที่พัก/บ้าน ↔ สถานี: เพดาน = อัตราของอำเภอ × เที่ยว × จำนวนผู้เดินทาง (ตรงกับ backend)
+  const localRates = meta?.local_rates ?? []
+  const hsRate = localRates.find(x => x.id === v.home_station_rate_id)
+  const hsTrips: number = v.home_station_trips ?? 2
+  const hsCap = hsRate ? hsRate.rate * hsTrips * Math.max(1, travelers.length) : null
+  const fillHs = (rateId: number | undefined, trips: number) => {
+    const r = localRates.find(x => x.id === rateId)
+    if (!r) return
+    const cur = form.getFieldsValue(['home_station_amount', 'home_station_to'])
+    const cap = r.rate * trips * Math.max(1, travelers.length)
+    form.setFieldsValue({
+      // ว่าง / เกินเพดาน / เท่าเพดานเดิม (ยังไม่ได้แก้เอง) → ใช้เพดานใหม่
+      home_station_amount: !cur.home_station_amount || cur.home_station_amount > cap || cur.home_station_amount === hsCap ? cap : cur.home_station_amount,
+      home_station_to: cur.home_station_to || (mode === 'bus' ? STATION_OPTS[0].value : undefined),
+    })
+  }
   const transport = round2(fare + extras)
   // ๖.๒ ค่าเช่าที่พัก — ทั้งคณะใช้รูปแบบเดียว · เพดานรายคน = อัตราตามระดับสิทธิ์ × คืน (ตรงกับ backend computeRequest)
   const maxNights = timeOk ? tripNights(startMs, endMs) : 0
@@ -173,11 +232,32 @@ const RequestForm = () => {
     if (r) form.setFieldsValue({ transport_amount: r.max_fare * 2 * travelers.length })
   }
 
+  const reloadFiles = async () => {
+    if (!editId) return
+    try { const r = await travelApi<TravelRequest>(`requests/${editId}`); setOrig(o => o ? { ...o, files: r.files, missing_files: r.missing_files } : o) } catch { /* ไม่เป็นไร */ }
+  }
   const save = async () => {
     const f = await form.validateFields().catch(() => null)
+    // ไฟล์ที่ต้องแนบตามพาหนะ: หนังสือต้นเรื่องทุกคำขอ · เครื่องบิน · รถยนต์ส่วนตัว
+    const need = requiredKinds(form.getFieldValue('vehicle_mode'), form.getFieldValue('cost_mode'), form.getFieldValue('vehicle_request'))
+    const lack = need.filter(k => editId ? !(orig?.files ?? []).some(x => x.kind === k) : pending[k].length === 0)
+    setFileErr(Object.fromEntries(lack.map(k => [k, `กรุณาแนบ${FILE_KIND_LABEL[k]}`])))
     if (!f) return
+    if (lack.length) {
+      message.error(`กรุณาแนบ ${lack.map(k => FILE_KIND_LABEL[k]).join(', ')}`)
+      document.querySelector('[data-testid=attach-card]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
     setSaving(true)
-    const body = {
+    const nc = f.cost_mode === 'no_claim'
+    const body = nc ? {
+      cost_mode: 'no_claim', memo_no: f.memo_no?.trim() || null, purpose: f.purpose, subject: f.subject, location: f.location,
+      trip_dates: f.trip_dates ?? [], day_start: f.day_start?.format('HH:mm'), day_end: f.day_end?.format('HH:mm'),
+      companion_ids: f.companion_ids ?? [],
+      vehicle_mode: f.vehicle_mode, vehicle_id: f.vehicle_id ?? null, vehicle_plate: f.vehicle_plate ?? null, distance_km: f.distance_km ?? null,
+      vehicle_other: f.vehicle_other ?? null, vehicle_request: f.vehicle_mode === 'gov_car' && !!f.vehicle_request,
+    } : {
+      cost_mode: 'claim', vehicle_request: f.vehicle_mode === 'gov_car' && !!f.vehicle_request,
       memo_no: f.memo_no?.trim() || null, purpose: f.purpose, subject: f.subject, location: f.location,
       start_at: toIso(f.start_date, f.start_time), end_at: toIso(f.end_date, f.end_time),
       companion_ids: f.companion_ids ?? [],
@@ -189,6 +269,9 @@ const RequestForm = () => {
       taxi_go_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.taxi_go_amount ?? 0 : 0,
       taxi_back_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.taxi_back_amount ?? 0 : 0,
       home_station_amount: ['bus', 'plane', 'other'].includes(f.vehicle_mode) ? f.home_station_amount ?? 0 : 0,
+      ...(['bus', 'plane', 'other'].includes(f.vehicle_mode) && (f.home_station_amount ?? 0) > 0
+        ? { home_station_rate_id: f.home_station_rate_id ?? null, home_station_trips: f.home_station_trips ?? 2, home_station_from: f.home_station_from?.trim() || null, home_station_to: f.home_station_to?.trim() || null }
+        : { home_station_rate_id: null, home_station_trips: null, home_station_from: null, home_station_to: null }),
       toll_amount: ['private', 'gov_car'].includes(f.vehicle_mode) ? f.toll_amount ?? 0 : 0,
       lodging_mode: f.lodging_mode ?? 'none',
       lodging_nights: f.lodging_mode && f.lodging_mode !== 'none' ? f.lodging_nights ?? 0 : 0,
@@ -200,7 +283,13 @@ const RequestForm = () => {
     }
     try {
       const r = editId ? await travelApi<{ id: number }>(`requests/${editId}`, 'PUT', body) : await travelPost<{ id: number }>('requests', body)
-      message.success(editId ? 'บันทึกการแก้ไขแล้ว' : 'ยื่นคำขอแล้ว — พิมพ์บันทึกข้อความเพื่อเสนอลงนามได้เลย')
+      // คำขอใหม่: อัปโหลดไฟล์ที่เลือกไว้ (เฉพาะประเภทที่ใช้กับพาหนะนี้) — ไม่สำเร็จบางไฟล์ แนบเพิ่มได้ที่รายละเอียดคำขอ
+      const failed: string[] = []
+      if (!editId) for (const k of need) for (const x of pending[k]) {
+        try { await uploadTravelFile(r.id, k, x.originFileObj as File) } catch (e) { failed.push((e as Error).message) }
+      }
+      if (failed.length) message.warning(`ยื่นคำขอแล้ว แต่แนบไฟล์ไม่สำเร็จ ${failed.length} ไฟล์ — แนบเพิ่มได้ที่รายละเอียดคำขอ (${failed[0]})`, 8)
+      else message.success(editId ? 'บันทึกการแก้ไขแล้ว' : 'ยื่นคำขอแล้ว — พิมพ์บันทึกข้อความเพื่อเสนอลงนามได้เลย')
       router.push(`${TRAVEL_BASE}/requests?open=${r.id}`)
     } catch (e) {
       if (e instanceof TravelApiError && e.field === 'signature') { message.error(e.message); checkSignature() }
@@ -272,13 +361,17 @@ const RequestForm = () => {
             </Card>
 
             <Card title="รายละเอียดการเดินทาง" style={card} size="small">
+              <Form.Item name="cost_mode" label="ประเภทคำขอ" extra={COST_MODES.find(c => c.value === costMode)?.hint}>
+                <Segmented options={COST_MODES.map(c => ({ value: c.value, label: c.label }))} aria-label="ประเภทคำขอ"
+                  onChange={x => { if (x === 'no_claim' && !NO_CLAIM_MODES.includes(form.getFieldValue('vehicle_mode'))) form.setFieldsValue({ vehicle_mode: 'gov_car' }) }} />
+              </Form.Item>
               <Form.Item name="memo_no" label="เลขที่บันทึกข้อความ"
                 extra="ไม่บังคับ — ยังไม่ได้เลขเว้นว่างได้ แล้วกลับมาแก้ไขคำขอเพื่อใส่เลขได้จนกว่าหัวหน้าจะลงนาม · พิมพ์ต่อท้ายบรรทัด “ที่” ในบันทึกข้อความ"
                 rules={[{ max: 30, message: 'ไม่เกิน 30 ตัวอักษร' }, { pattern: MEMO_NO_RE, message: 'ใช้ได้เฉพาะตัวเลข ตัวอักษร - / และ .' }]}>
                 <Input prefix={<span style={{ color: "var(--app-text-2)" }}>ที่ {MEMO.docPrefix}</span>} placeholder="เช่น 123" maxLength={30} allowClear style={{ maxWidth: 360 }} aria-label="เลขที่บันทึกข้อความ" />
               </Form.Item>
               <Form.Item name="purpose" label="มีความประสงค์ขออนุมัติเดินทางไปราชการ เพื่อ" rules={[{ required: true, whitespace: true, message: 'กรุณาระบุ' }, { max: 300 }]}>
-                <AutoComplete options={['เข้าร่วมประชุม', 'เข้ารับการอบรม', 'ศึกษาดูงาน', 'เป็นวิทยากร', 'ปฏิบัติราชการ'].map(value => ({ value }))} placeholder="เช่น เข้าร่วมประชุมวิชาการ" />
+                <AutoComplete options={['เข้าร่วมประชุม', 'เข้ารับการอบรม', 'ศึกษาดูงาน', 'เป็นวิทยากร', 'ปฏิบัติราชการ', 'ออกหน่วยบริการ', 'ออกเยี่ยมบ้าน'].map(value => ({ value }))} placeholder="เช่น เข้าร่วมประชุมวิชาการ" />
               </Form.Item>
               <Form.Item name="subject" label="๑. เรื่อง/วัตถุประสงค์" rules={[{ required: true, whitespace: true, message: 'กรุณาระบุเรื่อง' }, { max: 1000 }]}>
                 <Input.TextArea rows={2} placeholder="ชื่อการประชุม/หลักสูตร และวัตถุประสงค์" />
@@ -286,6 +379,28 @@ const RequestForm = () => {
               <Form.Item name="location" label="๒. สถานที่ไปราชการ" rules={[{ required: true, whitespace: true, message: 'กรุณาระบุสถานที่' }, { max: 300 }]}>
                 <Input placeholder="เช่น โรงแรม... อำเภอ... จังหวัด..." />
               </Form.Item>
+              {noClaim ? <>
+                <Row gutter={12}>
+                  <Col xs={24} sm={8}>
+                    <Form.Item name="trip_month" label="๓. เดือนที่เดินทาง" rules={[{ required: true, message: 'เลือกเดือน' }]}>
+                      <ThaiDatePicker picker="month" format={monthLabel} allowClear={false} style={{ width: '100%' }} aria-label="เดือนที่เดินทาง"
+                        onChange={() => form.setFieldsValue({ trip_dates: [] })} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} sm={4}><Form.Item name="day_start" label="ออกเวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
+                  <Col xs={12} sm={4}><Form.Item name="day_end" label="กลับถึงเวลา" dependencies={['day_start']}
+                    rules={[{ required: true, message: 'ระบุเวลา' }, ({ getFieldValue }) => ({ validator: (_, x) => x && getFieldValue('day_start') && x.format('HH:mm') <= getFieldValue('day_start').format('HH:mm') ? Promise.reject(new Error('ต้องหลังเวลาออก')) : Promise.resolve() })]}>
+                    <TimePicker format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
+                </Row>
+                <Form.Item name="trip_dates" label="วันที่เดินทาง (กดเลือกได้หลายวัน)" rules={[{ required: true, type: 'array', min: 1, message: 'เลือกวันที่อย่างน้อย ๑ วัน' }]}>
+                  <DayGrid month={v.trip_month} />
+                </Form.Item>
+                {tripDates.length > 0 && (
+                  <Alert type="info" showIcon style={{ marginBottom: 8 }} data-testid="trip-summary"
+                    title={`เดินทาง ${tripDates.length} วัน: ${tripDatesText(tripDates, true)}${dayOk ? ` · เวลา ${v.day_start.format('HH.mm')}–${v.day_end.format('HH.mm')} น.` : ''}`}
+                    description="ไป-กลับในวันเดียวกันทุกวัน · ไม่เบิกค่าใช้จ่าย" />
+                )}
+              </> : <>
               <Row gutter={12}>
                 <Col xs={14} sm={8}><Form.Item name="start_date" label="๓. ออกเดินทางวันที่" rules={[{ required: true, message: 'ระบุวันที่' }]}><ThaiDatePicker format={DATE_FORMAT} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
                 <Col xs={10} sm={4}><Form.Item name="start_time" label="เวลา" rules={[{ required: true, message: 'ระบุเวลา' }]}><TimePicker format="HH:mm" minuteStep={5} needConfirm={false} allowClear={false} style={{ width: '100%' }} /></Form.Item></Col>
@@ -298,6 +413,7 @@ const RequestForm = () => {
                   title={`รวมระยะเวลา ${dur.days} วัน ${dur.hours} ชั่วโมง${dur.minutes ? ` ${dur.minutes} นาที` : ''} · ${calc.overnight ? 'พักแรม' : 'ไม่พักแรม'} · เบิกเบี้ยเลี้ยงได้ ${calc.days} วัน`}
                   description="๒๔ ชั่วโมงนับ ๑ วัน เศษเกิน ๑๒ ชั่วโมงนับ ๑ วัน ไม่พักแรมเศษเกิน ๖ ชั่วโมงนับครึ่งวัน" />
               )}
+              </>}
             </Card>
 
             <Card title="๔. ผู้ร่วมเดินทาง" style={card} size="small">
@@ -309,30 +425,37 @@ const RequestForm = () => {
                 columns={[
                   { title: 'ผู้เดินทาง', dataIndex: 'name', render: (n: string, p: Person) => <>{n}{p.id === me?.id && <Tag style={{ marginLeft: 6 }}>ผู้ขอ</Tag>}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{p.position ?? ''}</div></> },
                   { title: 'ปีงบนี้ไปแล้ว', dataIndex: 'fy_trips', align: 'center', width: 110, render: (n?: number) => n == null ? '—' : <Tag color={n > 0 ? 'gold' : undefined} style={{ margin: 0 }}>{n} ครั้ง</Tag> },
-                  { title: 'อัตรา (บาท/วัน)', dataIndex: 'rate', align: 'right', width: 130, render: (r: number) => fmtMoney(r) },
-                  { title: 'เบี้ยเลี้ยง', align: 'right', width: 120, render: (_: unknown, p: Person) => fmtMoney(round2(p.rate * days)) },
+                  ...(noClaim ? [] : [
+                    { title: 'อัตรา (บาท/วัน)', dataIndex: 'rate', align: 'right' as const, width: 130, render: (r: number) => fmtMoney(r) },
+                    { title: 'เบี้ยเลี้ยง', align: 'right' as const, width: 120, render: (_: unknown, p: Person) => fmtMoney(round2(p.rate * days)) },
+                  ]),
                   ...(mode === 'plane' ? [{ title: 'สิทธิ์เครื่องบิน', dataIndex: 'flight_class', width: 120, render: (f?: FlightClass) => f ? <Tag color={f === 'business' ? 'purple' : undefined}>{FLIGHT_LABEL[f]}</Tag> : '—' }] : []),
                 ]} />
             </Card>
 
             <Card title="๕. ยานพาหนะที่ใช้ในการเดินทาง" style={card} size="small">
               <Form.Item name="vehicle_mode" rules={[{ required: true, message: 'เลือกยานพาหนะ' }]}>
-                <Radio.Group optionType="button" options={VEHICLE_MODES} />
+                <Radio.Group optionType="button" options={noClaim ? VEHICLE_MODES.filter(m => NO_CLAIM_MODES.includes(m.value)) : VEHICLE_MODES} />
               </Form.Item>
               {mode === 'private' && (
                 <Row gutter={12}>
-                  <Col xs={24} sm={8}><Form.Item name="vehicle_id" label="ประเภทรถ" rules={[{ required: true, message: 'เลือกประเภทรถ' }]}>
-                    <Select options={meta.vehicles.map(x => ({ value: x.id, label: `${x.name} · ${fmtMoney(x.rate_per_km)} บาท/กม.` }))} />
+                  <Col xs={24} sm={8}><Form.Item name="vehicle_id" label="ประเภทรถ" rules={[{ required: !noClaim, message: 'เลือกประเภทรถ' }]}>
+                    <Select allowClear={noClaim} options={meta.vehicles.map(x => ({ value: x.id, label: noClaim ? x.name : `${x.name} · ${fmtMoney(x.rate_per_km)} บาท/กม.` }))} />
                   </Form.Item></Col>
                   <Col xs={12} sm={6}><Form.Item name="vehicle_plate" label="ทะเบียน" rules={[{ required: true, whitespace: true, message: 'ระบุทะเบียน' }, { max: 50 }]}><Input placeholder="กข 1234 พะเยา" /></Form.Item></Col>
-                  <Col xs={12} sm={5}><Form.Item name="distance_km" label="ระยะทางไป-กลับ" rules={[{ required: true, message: 'ระบุระยะทาง' }]}><InputNumber min={0.1} max={5000} precision={1} style={{ width: '100%' }} suffix="กม." /></Form.Item></Col>
-                  <Col xs={24} sm={5}><Form.Item name="toll_amount" label="ค่าทางด่วน">{moneyInput(100_000)}</Form.Item></Col>
+                  <Col xs={12} sm={5}><Form.Item name="distance_km" label={noClaim ? 'ระยะทาง (ต่อวัน)' : 'ระยะทางไป-กลับ'} rules={[{ required: !noClaim, message: 'ระบุระยะทาง' }]}><InputNumber min={0.1} max={5000} precision={1} style={{ width: '100%' }} suffix="กม." /></Form.Item></Col>
+                  {!noClaim && <Col xs={24} sm={5}><Form.Item name="toll_amount" label="ค่าทางด่วน">{moneyInput(100_000)}</Form.Item></Col>}
                 </Row>
               )}
               {mode === 'gov_car' && (
                 <Row gutter={12}>
                   <Col xs={12} sm={8}><Form.Item name="vehicle_plate" label="ทะเบียนรถราชการ" rules={[{ max: 50 }]}><Input /></Form.Item></Col>
-                  <Col xs={12} sm={8}><Form.Item name="toll_amount" label="ค่าทางด่วน">{moneyInput(100_000)}</Form.Item></Col>
+                  {!noClaim && <Col xs={12} sm={8}><Form.Item name="toll_amount" label="ค่าทางด่วน">{moneyInput(100_000)}</Form.Item></Col>}
+                  <Col xs={24}>
+                    <Form.Item name="vehicle_request" valuePropName="checked" style={{ marginBottom: 8 }}>
+                      <Checkbox>ขออนุมัติใช้รถราชการ <Text type="secondary" style={{ fontSize: 12 }}>(ต้องแนบหนังสือขออนุมัติใช้รถ)</Text></Checkbox>
+                    </Form.Item>
+                  </Col>
                 </Row>
               )}
               {(mode === 'bus' || mode === 'plane') && (
@@ -354,11 +477,11 @@ const RequestForm = () => {
               {mode === 'other' && (
                 <Row gutter={12}>
                   <Col xs={24} sm={14}><Form.Item name="vehicle_other" label="ระบุยานพาหนะ" rules={[{ required: true, whitespace: true, message: 'ระบุยานพาหนะ' }, { max: 200 }]}><Input placeholder="เช่น รถไฟ, รถตู้รับจ้าง" /></Form.Item></Col>
-                  <Col xs={24} sm={10}><Form.Item name="transport_amount" label="ค่าพาหนะ">{moneyInput()}</Form.Item></Col>
+                  {!noClaim && <Col xs={24} sm={10}><Form.Item name="transport_amount" label="ค่าพาหนะ">{moneyInput()}</Form.Item></Col>}
                 </Row>
               )}
 
-              {(mode === 'bus' || mode === 'plane' || mode === 'other') && (
+              {!noClaim && (mode === 'bus' || mode === 'plane' || mode === 'other') && (
                 <div className="lodging-box" data-testid="transport-extras">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                     <Text strong>ค่าพาหนะย่อย <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>(รวมใน ๖.๓ ค่าพาหนะเดินทาง · ไม่มีใบเสร็จใช้แบบ บก.๑๑๑)</Text></Text>
@@ -367,13 +490,61 @@ const RequestForm = () => {
                   <Row gutter={12}>
                     <Col xs={12} sm={8}><Form.Item name="taxi_go_amount" label="แท็กซี่ขาไป" extra={`${STATION} → ที่พัก`}>{moneyInput(100_000)}</Form.Item></Col>
                     <Col xs={12} sm={8}><Form.Item name="taxi_back_amount" label="แท็กซี่ขากลับ" extra={`ที่พัก → ${STATION}`}>{moneyInput(100_000)}</Form.Item></Col>
-                    <Col xs={24} sm={8}><Form.Item name="home_station_amount" label="บ้าน ↔ สถานี (ไป-กลับ)" extra={`บ้าน/ที่ทำงาน → ${STATION}ต้นทาง และขากลับ`}>{moneyInput(100_000)}</Form.Item></Col>
                   </Row>
+                  <div className="hs-box" data-testid="home-station">
+                    <Text strong style={{ display: 'block', marginBottom: 6 }}>ค่ารถรับจ้าง ที่พัก/บ้าน ↔ {STATION}ต้นทาง <Text type="secondary" style={{ fontSize: 12, fontWeight: 400 }}>(ในจังหวัดพะเยา เบิกตามจ่ายจริงไม่เกินอัตราที่ สสจ.พะเยา กำหนด · บาท/เที่ยว/คน)</Text></Text>
+                    <Row gutter={12}>
+                      <Col xs={24} sm={9}>
+                        <Form.Item name="home_station_rate_id" label="อำเภอที่ขึ้นรถ" dependencies={['home_station_amount']}
+                          rules={[({ getFieldValue }) => ({ validator: (_, x) => !x && (getFieldValue('home_station_amount') ?? 0) > 0 ? Promise.reject(new Error('เลือกอำเภอที่ขึ้นรถ')) : Promise.resolve() })]}>
+                          <Select allowClear placeholder="ไม่เบิก" aria-label="อำเภอที่ขึ้นรถ" popupMatchSelectWidth={false}
+                            onChange={(id?: number) => { if (!id) form.setFieldsValue({ home_station_amount: undefined, home_station_from: undefined, home_station_to: undefined }); else fillHs(id, hsTrips) }}
+                            options={localRates.map(r => ({ value: r.id, label: <span>{r.district} <Text type="secondary" style={{ fontSize: 12 }}>{r.rate} บาท{r.note ? ` · ${r.note}` : ''}</Text></span> }))}
+                            labelRender={o => { const r = localRates.find(x => x.id === o.value); return r ? `อ.${r.district} · ${r.rate} บาท/เที่ยว/คน` : o.label }} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} sm={7}>
+                        <Form.Item name="home_station_trips" label="จำนวนเที่ยว">
+                          <Segmented block disabled={!hsRate} options={[{ value: 2, label: 'ไป-กลับ' }, { value: 1, label: 'เที่ยวเดียว' }]} onChange={t => fillHs(v.home_station_rate_id, Number(t))} />
+                        </Form.Item>
+                      </Col>
+                      <Col xs={12} sm={8}>
+                        <Form.Item name="home_station_amount" label="จ่ายจริง" dependencies={['home_station_rate_id', 'home_station_trips', 'companion_ids']}
+                          extra={hsRate ? `ไม่เกิน ${fmtMoney(hsCap ?? 0)} บาท (${hsRate.rate} × ${hsTrips} เที่ยว × ${travelers.length} คน)` : undefined}
+                          rules={[{ validator: (_, x) => hsCap != null && (x ?? 0) > hsCap ? Promise.reject(new Error(`เบิกได้ไม่เกิน ${fmtMoney(hsCap)} บาท`)) : Promise.resolve() }]}>
+                          <InputNumber min={0} max={100_000} precision={2} style={{ width: '100%' }} suffix="บาท" disabled={!hsRate} aria-label="ค่ารถรับจ้างจ่ายจริง" />
+                        </Form.Item>
+                      </Col>
+                      {hsRate && <>
+                        <Col xs={24} sm={12}>
+                          <Form.Item name="home_station_from" label="ขึ้นรถที่" rules={[{ required: true, whitespace: true, message: 'ระบุจุดขึ้นรถ' }, { max: 200 }]}>
+                            <Input placeholder={hsRate.note ? `เช่น ${hsRate.note.split('→')[0].trim()}` : `เช่น บ้านพัก อ.${hsRate.district}`} />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={12}>
+                          <Form.Item name="home_station_to" label={`ไปขึ้น${mode === 'plane' ? 'เครื่องบิน' : 'รถ'}ที่`} rules={[{ required: true, whitespace: true, message: `ระบุ${STATION}ที่ไปขึ้น` }, { max: 200 }]}>
+                            <AutoComplete options={STATION_OPTS} placeholder={`ชื่อ${STATION}`} filterOption={(i, o) => !!o?.value.includes(i.trim())} />
+                          </Form.Item>
+                        </Col>
+                      </>}
+                    </Row>
+                  </div>
                 </div>
               )}
             </Card>
 
-            <Card title="๖. ประมาณการค่าใช้จ่าย" style={card} size="small">
+            <Card title="เอกสารแนบ" style={card} size="small" data-testid="attach-card">
+              {editId && orig
+                ? <RequestFiles requestId={editId} files={orig.files ?? []} mode={mode} costMode={costMode} vehicleRequest={v.vehicle_request} editable onChanged={() => { setFileErr({}); reloadFiles() }} />
+                : requiredKinds(mode, costMode, v.vehicle_request).length === 0 ? <Text type="secondary">ไม่ต้องแนบเอกสาร (แนบหนังสือต้นเรื่องได้ที่รายละเอียดคำขอหลังยื่น)</Text>
+                : requiredKinds(mode, costMode, v.vehicle_request).map(k => (
+                  <PendingFilePicker key={k} kind={k} value={pending[k]} error={fileErr[k]}
+                    onChange={v => { setPending(p => ({ ...p, [k]: v })); if (v.length) setFileErr(e => ({ ...e, [k]: undefined })) }} />
+                ))}
+              {editId && Object.values(fileErr).some(Boolean) && <Text type="danger" style={{ fontSize: 12.5 }}>{Object.values(fileErr).filter(Boolean).join(' · ')}</Text>}
+            </Card>
+
+            {!noClaim && <Card title="๖. ประมาณการค่าใช้จ่าย" style={card} size="small">
               <Row gutter={12}>
                 <Col xs={24} sm={12}>
                   <Form.Item name="allowance_days_mode" label="จำนวนวันเบี้ยเลี้ยง">
@@ -459,12 +630,22 @@ const RequestForm = () => {
                 <Col xs={24} sm={12}><Form.Item name="other_amount" label="ค่าใช้จ่ายอื่น ๆ">{moneyInput()}</Form.Item></Col>
                 {other > 0 && <Col xs={24}><Form.Item name="other_desc" label="ระบุค่าใช้จ่ายอื่น ๆ" rules={[{ required: true, whitespace: true, message: 'ระบุรายการ' }, { max: 200 }]}><Input /></Form.Item></Col>}
               </Row>
-            </Card>
+            </Card>}
           </Col>
 
           {/* สรุปยอด + งบ — ติดด้านขวาบนจอกว้าง */}
           <Col xs={24} xl={8}>
             <div className="travel-summary">
+              {noClaim ? (
+                <Card title="สรุปคำขอ" style={card} size="small" data-testid="no-claim-summary">
+                  <Tag color="green" style={{ marginBottom: 8 }}>ไม่เบิกค่าใช้จ่าย</Tag>
+                  <div style={{ fontSize: 13, lineHeight: 1.8 }}>
+                    <div>วันที่เดินทาง: <b>{tripDates.length ? tripDatesText(tripDates) : '-'}</b> ({tripDates.length} วัน)</div>
+                    <div>ผู้เดินทาง: <b>{travelers.length}</b> คน</div>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>ขออนุมัติเดินทางอย่างเดียว ไม่คำนวณเบี้ยเลี้ยง ค่าที่พัก ค่าพาหนะ และไม่ใช้งบประมาณ</Text>
+                </Card>
+              ) : <>
               <Card title="สรุปค่าใช้จ่าย" style={card} size="small">
                 <Table size="small" pagination={false} rowKey="key" dataSource={costRows} showHeader={false}
                   columns={[
@@ -495,6 +676,7 @@ const RequestForm = () => {
                     description="ยื่นได้ แต่ควรแจ้งงานพัฒนาทรัพยากรบุคคลก่อน — งบจะถูกตัดเมื่อการเงินยืนยันยอดจริง" />
                 )}
               </Card>
+              </>}
               <Card title="การลงนามและสายอนุมัติ" style={card} size="small">
                 {paper ? <>
                   <Alert type="info" showIcon style={{ marginBottom: 10 }} data-testid="paper-mode" title="กลุ่มของท่านใช้การเดินเอกสาร"
@@ -529,15 +711,15 @@ const RequestForm = () => {
                 </>}
                 {editId && <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>บันทึกการแก้ไขแล้วสายอนุมัติและโหมดการลงนามคิดใหม่ตามผังปัจจุบัน</Text>}
               </Card>
-              <Card title="หลักฐานที่ต้องใช้เบิกจ่าย" style={card} size="small">
+              {!noClaim && <Card title="หลักฐานที่ต้องใช้เบิกจ่าย" style={card} size="small">
                 <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, lineHeight: 1.7, color: 'var(--app-text-2)' }} data-testid="required-docs">
                   {requiredDocs({ vehicle_mode: mode, lodging_mode: lodgingMode, registration_amount: registration, transport_amount: fare, extras_amount: extras }).map(x => <li key={x}>{x}</li>)}
                 </ol>
                 {lodgingMode === 'lump' && <Text type="secondary" style={{ fontSize: 12 }}>ค่าที่พักแบบเหมาจ่ายไม่ต้องแนบใบเสร็จ</Text>}
-              </Card>
+              </Card>}
               <Space style={{ width: '100%', justifyContent: 'flex-end' }} wrap>
                 <Link href={`${TRAVEL_BASE}/requests`}><Button>ยกเลิก</Button></Link>
-                <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={saving} disabled={!timeOk || (!paper && !signature)}>
+                <Button type="primary" icon={<SaveOutlined />} htmlType="submit" loading={saving} disabled={!dateOk || (!paper && !signature)}>
                   {editId ? 'บันทึกการแก้ไข' : 'ยื่นคำขอและพิมพ์'}
                 </Button>
               </Space>
@@ -549,6 +731,14 @@ const RequestForm = () => {
         @media (min-width: 1200px) { .travel-summary { position: sticky; top: 80px; } }
         .travel-chain { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--app-text-2); }
         .lodging-box { border: 1px solid var(--app-border); border-radius: 12px; padding: 12px 12px 4px; margin-bottom: 16px; }
+        .hs-box { border-top: 1px dashed var(--app-border); padding-top: 10px; }
+        .day-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 44px)); gap: 6px; }
+        .dg-h { text-align: center; font-size: 12px; color: var(--app-text-3); }
+        .dg-d { height: 36px; border-radius: 8px; border: 1px solid var(--app-border); background: var(--app-surface); color: var(--app-text); cursor: pointer; font-size: 14px; }
+        .dg-d.we { color: #dc2626; }
+        .dg-d:hover { border-color: ${TRAVEL_COLOR}; }
+        .dg-d.on { background: ${TRAVEL_COLOR}; border-color: ${TRAVEL_COLOR}; color: #fff; font-weight: 600; }
+        .dg-d:focus-visible { outline: 2px solid ${TRAVEL_COLOR}; outline-offset: 2px; }
       `}</style>
     </ConfigProvider>
   )
