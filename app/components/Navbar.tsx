@@ -226,6 +226,7 @@ const MENU_TREE: NavItem[] = [
           { key: '/hss/hrd/official-travel/requests', label: 'รายการขออนุมัติเดินทางไปราชการ' },
           { key: '/hss/hrd/official-travel/approval', label: 'อนุมัติการเดินทางไปราชการ' },
           { key: '/hss/hrd/official-travel/reports', label: 'รายงานผลการเดินทางไปราชการ' },
+          { key: '/hss/hrd/official-travel/claims', label: 'ตรวจการเบิกค่าใช้จ่าย (HRD/การเงิน)' },
           { key: '/hss/hrd/official-travel/budget', label: 'งบประมาณไปราชการ (HRD)' },
         ]
       },

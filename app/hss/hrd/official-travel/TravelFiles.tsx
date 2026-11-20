@@ -9,19 +9,21 @@ import type { CostMode, VehicleMode } from './travelCalc'
 
 const { Text } = Typography
 
-export type FileKind = 'source' | 'plane' | 'private_car' | 'vehicle_use'
+export type FileKind = 'source' | 'plane' | 'private_car' | 'vehicle_use' | 'receipt'
 export interface TravelFile { id: number; kind: FileKind; original_name: string; mime: string; size_bytes: number; uploaded_at: string; uploaded_by_name: string | null }
 export const FILE_KIND_LABEL: Record<FileKind, string> = {
   source: 'หนังสือต้นเรื่อง',
   plane: 'หนังสืออนุมัติเดินทางโดยเครื่องบิน',
   private_car: 'หนังสือขออนุมัติใช้รถยนต์ส่วนตัว',
   vehicle_use: 'หนังสือขออนุมัติใช้รถ',
+  receipt: 'ใบเสร็จ/หลักฐานการเบิก',
 }
 export const FILE_KIND_HINT: Record<FileKind, string> = {
   source: 'หนังสือเชิญ / คำสั่ง / หนังสือที่เป็นเหตุให้ไปราชการ',
   plane: 'ผู้มีอำนาจอนุมัติให้เดินทางโดยเครื่องบิน',
   private_car: 'ผู้มีอำนาจอนุมัติให้ใช้รถยนต์ส่วนตัวเดินทาง',
   vehicle_use: 'แบบขออนุญาตใช้รถราชการ',
+  receipt: 'ใบเสร็จค่าที่พัก ค่าลงทะเบียน ค่าทางด่วน ค่าโดยสาร ฯลฯ (ตอนเบิกจ่ายจริง)',
 }
 export const FILE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*'
 export const FILE_MAX_MB = 10
@@ -60,7 +62,7 @@ export async function deleteTravelFile(requestId: number, fileId: number) {
   if (!res.ok || j.success === false) throw new Error(j.message ?? 'ลบไฟล์ไม่สำเร็จ')
 }
 
-const FileLink = ({ requestId, f }: { requestId: number; f: TravelFile }) => (
+export const FileLink = ({ requestId, f }: { requestId: number; f: TravelFile }) => (
   <a href={fileUrl(requestId, f.id)} target="_blank" rel="noopener noreferrer" style={{ wordBreak: 'break-all' }}>
     {f.mime === 'application/pdf' ? <FilePdfOutlined style={{ marginRight: 6, color: '#dc2626' }} /> : <FileImageOutlined style={{ marginRight: 6, color: '#2563eb' }} />}
     {f.original_name}
