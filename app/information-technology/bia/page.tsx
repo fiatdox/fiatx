@@ -1,6 +1,7 @@
 'use client'
 // Business Impact Analysis (BIA) ของงาน IT — ทะเบียนบริการ/ระบบงานสำคัญ + Dashboard
-// ข้อมูล: /api/v1/it/bia (ทะเบียน BIA) · /api/v1/it/assets (ครุภัณฑ์) · /api/v1/it/asset-risks (ผลประเมินความเสี่ยงทรัพย์สิน)
+// ข้อมูล: /api/v1/it/bia (ทะเบียน BIA) · /api/v1/it/assets (ครุภัณฑ์คอมพิวเตอร์) · /api/v1/it/asset-risks (ผลประเมินความเสี่ยงทรัพย์สิน)
+//        /api/v1/it/bia/assets (ครุภัณฑ์เป้าหมายนอกหมวดคอมพิวเตอร์: ซอฟต์แวร์ ไฟฟ้าสำรอง/สื่อสาร ปรับอากาศ/โทรศัพท์ · เครื่องมือแพทย์ค้นหาทีละคำ)
 // MTPD = ระยะหยุดนานที่สุดที่รับได้ = ช่วงเวลาแรกที่ผลกระทบถึงระดับ 4 (สูง) · Tier ตาม MTPD: ≤4 ชม. วิกฤต · ≤24 ชม. สูง · ≤72 ชม. ปานกลาง · มากกว่านั้น ต่ำ
 // ช่องว่างการกู้คืน: RTO เกิน MTPD · แผนสำรอง manual ใช้ได้สั้นกว่า RTO · Tier 1–2 ไม่มีแผนสำรอง · พึ่งบริการที่ RTO ยาวกว่า · พึ่งครุภัณฑ์เสี่ยงสูง/ออกจากทะเบียนแล้ว
 // เฉพาะเจ้าหน้าที่ IT (menuAccess + proxy.ts + backend requireRoles)
@@ -20,6 +21,18 @@ import { PALETTES, clip, escHtml } from '@/app/lib/chartKit'
 import { KIND_LABEL, LEVEL_LABEL, RISK_LEVELS, levelOf, suggestRisk, type Asset, type RiskLevel, type RiskRow } from '../assets/assetShared'
 
 const { Title, Text } = Typography
+
+// ครุภัณฑ์ที่ผูกกับ BIA ได้ — หมวดคอมพิวเตอร์ (มีผลประเมินความเสี่ยง) + กลุ่มเป้าหมายจากหมวดอื่น (group, ยังไม่มีหน้าประเมิน)
+type BiaGroup = 'software' | 'power' | 'facility' | 'medical'
+type BiaAsset = Asset & { group?: BiaGroup; group_label?: string }
+const GROUP_ORDER: { group: BiaGroup | 'it'; label: string }[] = [
+  { group: 'it', label: 'คอมพิวเตอร์/เครือข่าย' }, { group: 'software', label: 'ซอฟต์แวร์' }, { group: 'power', label: 'ไฟฟ้าสำรอง/สื่อสาร' },
+  { group: 'facility', label: 'ปรับอากาศ/โทรศัพท์' }, { group: 'medical', label: 'เครื่องมือแพทย์' },
+]
+const assetTypeLabel = (a: BiaAsset) => a.group_label ?? KIND_LABEL[a.kind]
+const assetOptLabel = (a: BiaAsset) => `${a.noid} · ${a.name ?? '-'}${a.model ? ` (${a.model})` : ''} · ${a.department ?? '-'}`
+// ค้นหาแบบหลายคำ (ทุกคำต้องเจอในชื่อตัวเลือก)
+const matchWords = (input: string, label: unknown) => { const l = String(label ?? '').toLowerCase(); return input.toLowerCase().split(/\s+/).filter(Boolean).every(w => l.includes(w)) }
 
 type Category = 'clinical' | 'support' | 'admin' | 'infra'
 interface Service {
@@ -50,15 +63,17 @@ const hrs = (h: number | null) => h == null ? '-' : h < 1 ? `${Math.round(h * 60
 // ── วิเคราะห์ ──
 const mtpdOf = (s: Service) => WINDOWS.find(w => (s[w.key] as number) >= 4)?.hours ?? null
 const tierOf = (mtpd: number | null) => mtpd == null ? 4 : mtpd <= 4 ? 1 : mtpd <= 24 ? 2 : mtpd <= 72 ? 3 : 4
-interface DepAsset { key: string; asset: Asset | null; score: number | null; level: RiskLevel | null; assessed: boolean }
+interface DepAsset { key: string; asset: BiaAsset | null; score: number | null; level: RiskLevel | null; assessed: boolean }
 interface Analysed { s: Service; mtpd: number | null; tier: number; maxImpact: number; deps: DepAsset[]; worstAsset: DepAsset | null; gaps: string[] }
-const analyse = (list: Service[], assets: Map<string, Asset>, risks: Map<string, RiskRow>): Analysed[] => {
+const analyse = (list: Service[], assets: Map<string, BiaAsset>, risks: Map<string, RiskRow>): Analysed[] => {
   const byId = new Map(list.map(s => [s.id, s]))
   return list.map(s => {
     const mtpd = mtpdOf(s), tier = tierOf(mtpd)
     const deps: DepAsset[] = s.asset_keys.map(k => {
       const a = assets.get(k) ?? null
       if (!a) return { key: k, asset: null, score: null, level: null, assessed: false }
+      // ครุภัณฑ์นอกหมวดคอมพิวเตอร์ยังไม่มีหน้าประเมินความเสี่ยง — ไม่คิดคะแนน
+      if (a.group) return { key: k, asset: a, score: null, level: null, assessed: false }
       const r = risks.get(k), sg = suggestRisk(a)
       const score = r ? r.score : sg.likelihood * sg.impact
       return { key: k, asset: a, score, level: levelOf(score), assessed: !!r }
@@ -79,7 +94,7 @@ const analyse = (list: Service[], assets: Map<string, Asset>, risks: Map<string,
 const tierTag = (t: number) => { const x = TIERS[t - 1]; return <Tooltip title={x.hint}><Tag color={x.tag} style={{ margin: 0, fontWeight: 600 }}>{x.label}</Tag></Tooltip> }
 
 // ── ฟอร์มบริการ ──
-const ServiceModal = ({ edit, services, assets, onClose, onSaved }: { edit: Service | 'new'; services: Service[]; assets: Asset[]; onClose: () => void; onSaved: () => void }) => {
+const ServiceModal = ({ edit, services, assets, onClose, onSaved }: { edit: Service | 'new'; services: Service[]; assets: BiaAsset[]; onClose: () => void; onSaved: () => void }) => {
   const { message } = App.useApp()
   const [form] = Form.useForm()
   const [saving, setSaving] = useState(false)
@@ -107,7 +122,32 @@ const ServiceModal = ({ edit, services, assets, onClose, onSaved }: { edit: Serv
     } catch (e) { message.error((e as Error).message) } finally { setSaving(false) }
   }
   const seg = (lo: number, words: string[]) => Array.from({ length: 6 - lo }, (_, i) => i + lo).map(n => ({ value: n, label: <Tooltip title={words[n]}><span style={{ padding: '0 4px' }}>{n}</span></Tooltip> }))
-  const assetOpts = useMemo(() => assets.filter(a => a.status_group !== 'disposed').map(a => ({ value: a.key, label: `${a.noid} · ${a.name ?? '-'} · ${a.department ?? '-'}`, kind: a.kind })), [assets])
+  // เครื่องมือแพทย์มีหลายพันรายการ — ค้นจาก backend ทีละคำ แล้วเก็บผลไว้ (ตัวที่เลือกแล้วจะยังมีชื่อแสดง)
+  const [medFound, setMedFound] = useState<BiaAsset[]>([])
+  const [medSearching, setMedSearching] = useState(false)
+  const [medQ, setMedQ] = useState('')
+  useEffect(() => {
+    const q = medQ.trim()
+    if (q.length < 2) return
+    let stop = false
+    const t = setTimeout(async () => {
+      setMedSearching(true)
+      try {
+        const j = await fetch(`/api/v1/it/bia/assets?search=${encodeURIComponent(q.slice(0, 60))}`).then(r => r.json())
+        if (!stop && j.success) setMedFound(prev => { const m = new Map(prev.map(a => [a.key, a])); for (const a of j.data as BiaAsset[]) if (a.group === 'medical') m.set(a.key, a); return [...m.values()] })
+      } catch { /* ค้นไม่สำเร็จ — ใช้รายการเดิม */ } finally { if (!stop) setMedSearching(false) }
+    }, 350)
+    return () => { stop = true; clearTimeout(t) }
+  }, [medQ])
+  const assetOpts = useMemo(() => {
+    const all = new Map<string, BiaAsset>(); for (const a of [...assets, ...medFound]) all.set(a.key, a)
+    const list = [...all.values()].filter(a => a.status_group !== 'disposed')
+    return GROUP_ORDER.map(g => ({
+      label: g.group === 'medical' ? `${g.label} (พิมพ์ค้นหาอย่างน้อย 2 ตัวอักษร)` : g.label,
+      title: g.label,
+      options: list.filter(a => (a.group ?? 'it') === g.group).map(a => ({ value: a.key, label: assetOptLabel(a) })),
+    })).filter(g => g.options.length > 0)
+  }, [assets, medFound])
   return (
     <Modal open title={edit === 'new' ? 'เพิ่มบริการ/ระบบงานในทะเบียน BIA' : `แก้ไข ${edit.name}`} onCancel={onClose} onOk={save} okText="บันทึก" cancelText="ยกเลิก" confirmLoading={saving} width={820} destroyOnHidden>
       <Form form={form} layout="vertical" initialValues={init} requiredMark="optional">
@@ -136,8 +176,10 @@ const ServiceModal = ({ edit, services, assets, onClose, onSaved }: { edit: Serv
           <Col xs={12} md={8}><Form.Item name="workaround_hours" label="ใช้แผนสำรองได้นาน (ชม.)"><InputNumber min={0} max={9999} style={{ width: '100%' }} /></Form.Item></Col>
         </Row>
         <Form.Item name="peak_period" label="ช่วงเวลาที่ใช้งานหนัก"><Input maxLength={255} placeholder="เช่น 08:00–12:00 วันราชการ, สิ้นเดือน" /></Form.Item>
-        <Form.Item name="asset_keys" label="ครุภัณฑ์ที่บริการนี้พึ่งพา (จากทะเบียนทรัพย์สิน IT)">
-          <Select mode="multiple" showSearch optionFilterProp="label" placeholder="พิมพ์เลขครุภัณฑ์ ชื่อ หรือหน่วยงาน เช่น Server" aria-label="ครุภัณฑ์ที่พึ่งพา" options={assetOpts} maxTagCount="responsive" />
+        <Form.Item name="asset_keys" label="ครุภัณฑ์ที่บริการนี้พึ่งพา" extra="คอมพิวเตอร์/เครือข่าย ซอฟต์แวร์ ไฟฟ้าสำรอง/สื่อสาร ปรับอากาศ/โทรศัพท์ และเครื่องมือแพทย์ (พิมพ์ค้นหาอย่างน้อย 2 ตัวอักษร) — ไม่รวมโต๊ะ เก้าอี้ ตู้ พัดลม">
+          <Select mode="multiple" showSearch={{ filterOption: (input, o) => matchWords(input, o?.label), onSearch: setMedQ }}
+            placeholder="พิมพ์เลขครุภัณฑ์ ชื่อ หรือหน่วยงาน เช่น Server, เครื่องปรับอากาศ, เครื่องกำเนิดไฟฟ้า" aria-label="ครุภัณฑ์ที่พึ่งพา"
+            options={assetOpts} maxTagCount="responsive" loading={medSearching} notFoundContent={medSearching ? 'กำลังค้นหา…' : 'ไม่พบครุภัณฑ์'} />
         </Form.Item>
         <Form.Item name="depends_on" label="บริการอื่นที่ต้องใช้">
           <Select mode="multiple" showSearch optionFilterProp="label" aria-label="บริการที่พึ่งพา" options={services.filter(s => edit === 'new' || s.id !== edit.id).map(s => ({ value: s.id, label: s.name }))} />
@@ -158,7 +200,7 @@ const ServiceModal = ({ edit, services, assets, onClose, onSaved }: { edit: Serv
 const PageContent = ({ isDark }: { isDark: boolean }) => {
   const { message } = App.useApp()
   const [services, setServices] = useState<Service[] | null>(null)
-  const [assets, setAssets] = useState<Asset[]>([])
+  const [assets, setAssets] = useState<BiaAsset[]>([])
   const [risks, setRisks] = useState<RiskRow[]>([])
   const [denied, setDenied] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -175,8 +217,15 @@ const PageContent = ({ isDark }: { isDark: boolean }) => {
       if (rb.status === 403) { setDenied(true); return }
       const [jb, ja, jr] = await Promise.all([rb.json(), ra.json(), rr.json()])
       if (!jb.success) throw new Error(jb.message || 'โหลดทะเบียน BIA ไม่สำเร็จ')
-      setServices(jb.data); setAssets(ja.success ? ja.data : []); setRisks(jr.success ? jr.data : [])
+      // ครุภัณฑ์เป้าหมายนอกหมวดคอมพิวเตอร์ + ตัวที่บันทึกไว้แล้วแต่ไม่อยู่ในหมวดคอมพิวเตอร์ (เช่น เครื่องมือแพทย์)
+      const itAssets: BiaAsset[] = ja.success ? ja.data : []
+      const itKeys = new Set(itAssets.map(a => a.key))
+      const missing = [...new Set((jb.data as Service[]).flatMap(s => s.asset_keys))].filter(k => !itKeys.has(k)).slice(0, 200)
+      const jt = await fetch(`/api/v1/it/bia/assets${missing.length ? `?keys=${encodeURIComponent(missing.join(','))}` : ''}`).then(r => r.json()).catch(() => ({ success: false }))
+      const others: BiaAsset[] = jt.success ? jt.data : []
+      setServices(jb.data); setAssets([...itAssets, ...others.filter(a => !itKeys.has(a.key))]); setRisks(jr.success ? jr.data : [])
       if (!ja.success) message.warning('โหลดทะเบียนครุภัณฑ์ไม่สำเร็จ — ส่วนความเสี่ยงของครุภัณฑ์จะไม่แสดง')
+      else if (!jt.success) message.warning('โหลดครุภัณฑ์หมวดอื่น (ไฟฟ้า แอร์ โทรศัพท์ เครื่องมือแพทย์) ไม่สำเร็จ')
     } catch (e) { message.error((e as Error).message) } finally { setLoading(false) }
   }, [message])
   // eslint-disable-next-line react-hooks/set-state-in-effect -- โหลดข้อมูลจาก API
@@ -298,12 +347,12 @@ const PageContent = ({ isDark }: { isDark: boolean }) => {
       extra={<Text type="secondary" style={{ fontSize: 12 }}>เรียงตาม Tier แล้ว RTO</Text>}>
       <Table size="small" rowKey={x => x.s.id} dataSource={active} columns={priorityCols} pagination={false} scroll={{ x: 1200 }} data-testid="bia-priority" />
     </Card>
-    <Card title="ครุภัณฑ์ที่บริการ Tier 1–2 พึ่งพา" size="small" style={{ borderRadius: 16 }} extra={<Text type="secondary" style={{ fontSize: 12 }}>ความเสี่ยงจากหน้าประเมินความเสี่ยงทรัพย์สิน (ยังไม่ประเมิน = ค่าระบบเสนอ)</Text>}>
+    <Card title="ครุภัณฑ์ที่บริการ Tier 1–2 พึ่งพา" size="small" style={{ borderRadius: 16 }} extra={<Text type="secondary" style={{ fontSize: 12 }}>ความเสี่ยงจากหน้าประเมินความเสี่ยงทรัพย์สิน (ยังไม่ประเมิน = ค่าระบบเสนอ · ครุภัณฑ์นอกหมวดคอมพิวเตอร์ยังไม่มีผลประเมิน)</Text>}>
       {critAssets.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ยังไม่ได้ผูกครุภัณฑ์กับบริการ Tier 1–2 — ระบุได้ที่แท็บทะเบียนบริการ" /> :
         <Table size="small" rowKey={x => x.d.key} dataSource={critAssets} pagination={{ pageSize: 10, hideOnSinglePage: true }} scroll={{ x: 900 }} columns={[
-          { title: 'ครุภัณฑ์', key: 'a', render: (_: unknown, x) => x.d.asset ? <><span style={{ fontFamily: 'monospace', fontSize: 12.5 }}>{x.d.asset.noid}</span><div>{x.d.asset.name}</div><Text type="secondary" style={{ fontSize: 12 }}>{KIND_LABEL[x.d.asset.kind]} · {x.d.asset.department ?? '-'}</Text></> : <Text type="danger">{x.d.key} (ไม่พบในทะเบียน)</Text> },
+          { title: 'ครุภัณฑ์', key: 'a', render: (_: unknown, x) => x.d.asset ? <><span style={{ fontFamily: 'monospace', fontSize: 12.5 }}>{x.d.asset.noid}</span><div>{x.d.asset.name}</div><Text type="secondary" style={{ fontSize: 12 }}>{assetTypeLabel(x.d.asset)} · {x.d.asset.department ?? '-'}</Text></> : <Text type="danger">{x.d.key} (ไม่พบในทะเบียน)</Text> },
           { title: 'สถานะ', key: 's', width: 140, render: (_: unknown, x) => x.d.asset?.status ?? '-' },
-          { title: 'ความเสี่ยง', key: 'r', width: 160, render: (_: unknown, x) => x.d.level ? <><Tag color={RISK_LEVELS.find(l => l.key === x.d.level)!.tag} style={{ margin: 0 }}>{x.d.score} · {LEVEL_LABEL[x.d.level]}</Tag><div><Text type="secondary" style={{ fontSize: 11.5 }}>{x.d.assessed ? 'ประเมินแล้ว' : 'ระบบเสนอ'}</Text></div></> : '-' },
+          { title: 'ความเสี่ยง', key: 'r', width: 160, render: (_: unknown, x) => x.d.level ? <><Tag color={RISK_LEVELS.find(l => l.key === x.d.level)!.tag} style={{ margin: 0 }}>{x.d.score} · {LEVEL_LABEL[x.d.level]}</Tag><div><Text type="secondary" style={{ fontSize: 11.5 }}>{x.d.assessed ? 'ประเมินแล้ว' : 'ระบบเสนอ'}</Text></div></> : x.d.asset?.group ? <Text type="secondary" style={{ fontSize: 12 }}>ยังไม่มีผลประเมิน</Text> : '-' },
           { title: 'บริการที่พึ่งพา', key: 'sv', render: (_: unknown, x) => <>{tierTag(x.tier)} <span style={{ fontSize: 12.5 }}>{x.services.join(', ')}</span></> },
         ]} />}
     </Card>

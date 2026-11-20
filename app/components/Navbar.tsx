@@ -271,10 +271,17 @@ const MENU_TREE: NavItem[] = [
       {
         key: 'it-assets',
         icon: <FaWarehouse />,
-        label: 'ทรัพย์สินและความต่อเนื่อง IT',
+        label: 'ทรัพย์สินงาน IT',
         children: [
           { key: '/information-technology/assets', icon: <FaWarehouse />, label: 'ทะเบียนทรัพย์สิน (Asset Register)' },
           { key: '/information-technology/assets/risk', icon: <FaShieldAlt />, label: 'ประเมินความเสี่ยงทรัพย์สิน' },
+        ]
+      },
+      {
+        key: 'it-risk-continuity',
+        icon: <FaShieldAlt />,
+        label: 'ความเสี่ยงและความต่อเนื่อง IT',
+        children: [
           { key: '/information-technology/bia', icon: <FaChartBar />, label: 'Business Impact Analysis (BIA)' },
           { key: '/information-technology/risk-register', icon: <FaClipboardList />, label: 'ทะเบียนความเสี่ยง (Risk Register)' },
           { key: '/information-technology/third-party-risk', icon: <FaShieldAlt />, label: 'ประเมินความเสี่ยงบุคคลภายนอก (3rd Party)' },
