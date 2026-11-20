@@ -21,6 +21,16 @@ import type { UploadFile } from 'antd'
 import { FILE_KIND_LABEL, PendingFilePicker, RequestFiles, requiredKinds, uploadTravelFile, type FileKind } from '../TravelFiles'
 
 const { Title, Text } = Typography
+/** สีปุ่มประเภทคำขอ "ไม่เบิกค่าใช้จ่าย" ตอนเลือก */
+const COST_NO_CLAIM_COLOR = '#059669'
+/** ตัวเลือกแบบปุ่ม (Segmented / Radio ปุ่ม) — ช่องที่เลือกเป็นสีทึบ ตัวอักษรขาว ให้เห็นชัด · ต้องครอบ Form.Item (ไม่ใช่ข้างใน) เพราะ Form.Item ผูกค่ากับลูกตัวแรก */
+const pickTheme = (color: string) => ({
+  token: { colorPrimary: color },
+  components: {
+    Segmented: { itemSelectedBg: color, itemSelectedColor: '#fff', itemColor: 'var(--app-text)', itemHoverColor: 'var(--app-text)', trackBg: 'var(--app-bg)', trackPadding: 3 },
+    Radio: { buttonSolidCheckedBg: color, buttonSolidCheckedHoverBg: color, buttonSolidCheckedActiveBg: color, buttonSolidCheckedColor: '#fff', buttonColor: 'var(--app-text)' },
+  },
+})
 // ปีในหัวปฏิทินเป็น พ.ศ.
 const TH_LOCALE = { ...thTH, DatePicker: { ...thTH.DatePicker!, lang: { ...thTH.DatePicker!.lang, yearFormat: 'BBBB' } } }
 
@@ -361,10 +371,15 @@ const RequestForm = () => {
             </Card>
 
             <Card title="รายละเอียดการเดินทาง" style={card} size="small">
-              <Form.Item name="cost_mode" label="ประเภทคำขอ" extra={COST_MODES.find(c => c.value === costMode)?.hint}>
-                <Segmented options={COST_MODES.map(c => ({ value: c.value, label: c.label }))} aria-label="ประเภทคำขอ"
-                  onChange={x => { if (x === 'no_claim' && !NO_CLAIM_MODES.includes(form.getFieldValue('vehicle_mode'))) form.setFieldsValue({ vehicle_mode: 'gov_car' }) }} />
-              </Form.Item>
+              {/* ช่องที่เลือกเป็นสีทึบให้เห็นชัด — เบิก = สีระบบเดินทาง · ไม่เบิก = เขียว (ตรงกับป้าย "ไม่เบิก" ในรายการ)
+                  ConfigProvider ต้องครอบ Form.Item ไม่ใช่อยู่ข้างใน — Form.Item ผูกค่ากับลูกตัวแรกโดยตรง */}
+              <ConfigProvider theme={pickTheme(costMode === 'no_claim' ? COST_NO_CLAIM_COLOR : TRAVEL_COLOR)}>
+                <Form.Item name="cost_mode" label="ประเภทคำขอ" extra={COST_MODES.find(c => c.value === costMode)?.hint}>
+                  <Segmented size="large" options={COST_MODES.map(c => ({ value: c.value, label: c.label }))} aria-label="ประเภทคำขอ"
+                    style={{ border: '1px solid var(--app-border-strong)' }}
+                    onChange={x => { if (x === 'no_claim' && !NO_CLAIM_MODES.includes(form.getFieldValue('vehicle_mode'))) form.setFieldsValue({ vehicle_mode: 'gov_car' }) }} />
+                </Form.Item>
+              </ConfigProvider>
               <Form.Item name="memo_no" label="เลขที่บันทึกข้อความ"
                 extra="ไม่บังคับ — ยังไม่ได้เลขเว้นว่างได้ แล้วกลับมาแก้ไขคำขอเพื่อใส่เลขได้จนกว่าหัวหน้าจะลงนาม · พิมพ์ต่อท้ายบรรทัด “ที่” ในบันทึกข้อความ"
                 rules={[{ max: 30, message: 'ไม่เกิน 30 ตัวอักษร' }, { pattern: MEMO_NO_RE, message: 'ใช้ได้เฉพาะตัวเลข ตัวอักษร - / และ .' }]}>
@@ -434,9 +449,11 @@ const RequestForm = () => {
             </Card>
 
             <Card title="๕. ยานพาหนะที่ใช้ในการเดินทาง" style={card} size="small">
-              <Form.Item name="vehicle_mode" rules={[{ required: true, message: 'เลือกยานพาหนะ' }]}>
-                <Radio.Group optionType="button" options={noClaim ? VEHICLE_MODES.filter(m => NO_CLAIM_MODES.includes(m.value)) : VEHICLE_MODES} />
-              </Form.Item>
+              <ConfigProvider theme={pickTheme(TRAVEL_COLOR)}>
+                <Form.Item name="vehicle_mode" rules={[{ required: true, message: 'เลือกยานพาหนะ' }]}>
+                  <Radio.Group optionType="button" buttonStyle="solid" options={noClaim ? VEHICLE_MODES.filter(m => NO_CLAIM_MODES.includes(m.value)) : VEHICLE_MODES} />
+                </Form.Item>
+              </ConfigProvider>
               {mode === 'private' && (
                 <Row gutter={12}>
                   <Col xs={24} sm={8}><Form.Item name="vehicle_id" label="ประเภทรถ" rules={[{ required: !noClaim, message: 'เลือกประเภทรถ' }]}>
@@ -504,9 +521,12 @@ const RequestForm = () => {
                         </Form.Item>
                       </Col>
                       <Col xs={12} sm={7}>
-                        <Form.Item name="home_station_trips" label="จำนวนเที่ยว">
-                          <Segmented block disabled={!hsRate} options={[{ value: 2, label: 'ไป-กลับ' }, { value: 1, label: 'เที่ยวเดียว' }]} onChange={t => fillHs(v.home_station_rate_id, Number(t))} />
-                        </Form.Item>
+                        <ConfigProvider theme={pickTheme(TRAVEL_COLOR)}>
+                          <Form.Item name="home_station_trips" label="จำนวนเที่ยว">
+                            <Segmented block disabled={!hsRate} options={[{ value: 2, label: 'ไป-กลับ' }, { value: 1, label: 'เที่ยวเดียว' }]} onChange={t => fillHs(v.home_station_rate_id, Number(t))}
+                              style={{ border: '1px solid var(--app-border-strong)' }} />
+                          </Form.Item>
+                        </ConfigProvider>
                       </Col>
                       <Col xs={12} sm={8}>
                         <Form.Item name="home_station_amount" label="จ่ายจริง" dependencies={['home_station_rate_id', 'home_station_trips', 'companion_ids']}
@@ -574,12 +594,14 @@ const RequestForm = () => {
               <div className="lodging-box">
                 <Row gutter={12}>
                   <Col xs={24} md={12}>
+                    <ConfigProvider theme={pickTheme(TRAVEL_COLOR)}>
                     <Form.Item name="lodging_mode" label="๖.๒ ค่าเช่าที่พัก (ทั้งคณะใช้รูปแบบเดียวกัน)"
                       extra={timeOk && maxNights === 0 ? 'ไป-กลับวันเดียว เบิกค่าที่พักไม่ได้' : LODGING_MODES.find(m => m.value === lodgingMode)?.hint || undefined}
                       rules={[{ validator: (_, x) => x && x !== 'none' && timeOk && maxNights === 0 ? Promise.reject(new Error('ไป-กลับวันเดียว เบิกค่าที่พักไม่ได้')) : Promise.resolve() }]}>
-                      <Radio.Group optionType="button" onChange={e => { if (e.target.value !== 'none' && !form.getFieldValue('lodging_nights') && maxNights > 0) form.setFieldsValue({ lodging_nights: maxNights }) }}
+                      <Radio.Group optionType="button" buttonStyle="solid" onChange={e => { if (e.target.value !== 'none' && !form.getFieldValue('lodging_nights') && maxNights > 0) form.setFieldsValue({ lodging_nights: maxNights }) }}
                         options={LODGING_MODES.map(m => ({ value: m.value, label: m.label, disabled: m.value !== 'none' && timeOk && maxNights === 0 }))} />
                     </Form.Item>
+                    </ConfigProvider>
                   </Col>
                   {lodgingMode !== 'none' && (
                     <Col xs={12} md={5}>
@@ -604,8 +626,10 @@ const RequestForm = () => {
                       { title: 'ผู้เดินทาง', dataIndex: 'name', render: (n: string, p: Person) => <>{n}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{p.lodging_class_name ?? ''}</div></> },
                       ...(lodgingMode === 'actual' ? [{
                         title: 'ห้องพัก', width: 140, render: (_: unknown, p: Person) => (
-                          <Segmented size="small" value={roomOf(p)} onChange={x => setRooms(r => ({ ...r, [p.id]: x as RoomType }))} aria-label={`ห้องพักของ ${p.name}`}
-                            options={[{ value: 'single', label: 'เดี่ยว' }, { value: 'double', label: 'คู่' }]} />
+                          <ConfigProvider theme={pickTheme(TRAVEL_COLOR)}>
+                            <Segmented size="small" value={roomOf(p)} onChange={x => setRooms(r => ({ ...r, [p.id]: x as RoomType }))} aria-label={`ห้องพักของ ${p.name}`}
+                              options={[{ value: 'single', label: 'เดี่ยว' }, { value: 'double', label: 'คู่' }]} />
+                          </ConfigProvider>
                         ),
                       }] : []),
                       { title: 'บาท/คืน', align: 'right' as const, width: 90, render: (_: unknown, p: Person) => fmtMoney(lodgingRate(p)) },

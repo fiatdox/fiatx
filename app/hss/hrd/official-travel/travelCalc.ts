@@ -186,6 +186,13 @@ export const tripRange = (start: string, end: string) => {
   return `${thaiDateShort(start)} – ${thaiDateShort(end)}`
 }
 
+/**
+ * ชื่อสำหรับเอกสาร — คำนำหน้าติดชื่อตามแบบหนังสือราชการ ("นาย ทศพร ยอดเมือง" → "นายทศพร ยอดเมือง")
+ * ชื่อในสายอนุมัติบางแหล่งต่อคำนำหน้าด้วยช่องว่าง และคำขอเก่าเก็บชื่อแบบนั้นไว้ จึงจัดตอนแสดง
+ * คำนำหน้า: นาย นาง นางสาว และคำย่อที่ลงท้ายด้วยจุด (น.ส. ดร. นพ. พญ. ร.ต.อ. ...) · ว่าที่ ...
+ */
+const NAME_PREFIX_RE = /^((?:ว่าที่\s?)?(?:นางสาว|นาย|นาง|[ก-๙]{1,5}\.(?:[ก-๙]{1,4}\.){0,3}|ว่าที่(?:ร้อย|พัน)?(?:ตรี|โท|เอก)(?:หญิง)?))\s+(?=[ก-ฮเ-ไ])/
+export const tidyName = (n: string | null | undefined) => (n ?? '').replace(/\s+/g, ' ').trim().replace(NAME_PREFIX_RE, '$1')
 export const requestNo = (id: number) => `TR-${String(id).padStart(6, '0')}`
 
 // ── รูปข้อมูลคำขอจาก API (GET /requests/:id) ──

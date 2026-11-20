@@ -9,7 +9,7 @@ import { DownloadOutlined } from '@ant-design/icons'
 import type { JSONContent } from '@tiptap/react'
 import { withBase } from '@/app/lib/basePath'
 import { canInlinePdf, saveBlob } from '@/app/lib/pdfSupport'
-import { MEMO, isNoClaim, memoOrg, requestNo, thaiDate, thaiDateParts, thaiDigits, tripDatesText } from './travelCalc'
+import { MEMO, isNoClaim, memoOrg, requestNo, thaiDate, thaiDateParts, thaiDigits, tidyName, tripDatesText } from './travelCalc'
 import { REPORT_BASE_PT, SARABUN_SCALE } from './reportShared'
 
 Font.register({
@@ -96,8 +96,11 @@ const plain = (text: string, extra: Partial<Run> = {}): Run[] => [{ text, size: 
 
 const s = StyleSheet.create({
   page: { fontFamily: 'SarabunRpt', fontSize: FS, paddingTop: '2.5cm', paddingBottom: '2cm', paddingLeft: '3cm', paddingRight: '2cm', lineHeight: 1.4, color: INK },
-  garuda: { position: 'absolute', top: '1.1cm', left: '3cm', width: 42, height: 42 },
-  title: { fontSize: 19, fontWeight: 'bold', textAlign: 'center', marginTop: -24, marginBottom: 8 },
+  // หัวครุฑห่างขอบบน ๒.๕ ซม. เหมือนบันทึกข้อความขออนุมัติ
+  garuda: { position: 'absolute', top: '2.5cm', left: '3cm', width: 42, height: 42 },
+  // แถวหัวเรื่องสูงเท่าครุฑ (๑.๕ ซม.) ชื่อเอกสารกึ่งกลางแนวตั้ง ตรงเอวครุฑ — เหมือนบันทึกข้อความขออนุมัติ
+  titleRow: { height: 42, justifyContent: 'center', marginBottom: 6 },
+  title: { fontSize: 19, fontWeight: 'bold', textAlign: 'center', lineHeight: 1.2 },
   row: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2 },
   head: { fontWeight: 'bold', fontSize: 13.5, marginRight: 6 },
   fill: { flex: 1, borderBottomWidth: 0.6, borderBottomColor: '#6b7280', borderBottomStyle: 'dotted', paddingLeft: 3 },
@@ -160,7 +163,7 @@ const tripText = (r: ReportRequestInfo) => {
 
 export const TravelReportDocument = ({ r, report, garudaSrc, printedAt, today }: { r: ReportRequestInfo; report: ReportData; garudaSrc?: string; printedAt: string; today: string }) => {
   const companions = r.travelers.filter(t => !t.is_requester)
-  const intro = `ตามที่ข้าพเจ้า ${r.requester_name} ตำแหน่ง ${r.requester_position ?? '-'}${companions.length ? ` พร้อมด้วย ${companions.length <= 3 ? companions.map(c => c.name).join(', ') : `${companions.slice(0, 2).map(c => c.name).join(', ')} และคณะ รวม ${r.travelers.length} คน`}` : ''} ได้รับอนุมัติให้เดินทางไปราชการ เพื่อ${r.purpose} เรื่อง ${r.subject} ณ ${r.location} ${tripText(r)}${isNoClaim(r) ? ' โดยไม่เบิกค่าใช้จ่าย' : ''} นั้น`
+  const intro = `ตามที่ข้าพเจ้า ${tidyName(r.requester_name)} ตำแหน่ง ${r.requester_position ?? '-'}${companions.length ? ` พร้อมด้วย ${companions.length <= 3 ? companions.map(c => tidyName(c.name)).join(', ') : `${companions.slice(0, 2).map(c => tidyName(c.name)).join(', ')} และคณะ รวม ${r.travelers.length} คน`}` : ''} ได้รับอนุมัติให้เดินทางไปราชการ เพื่อ${r.purpose} เรื่อง ${r.subject} ณ ${r.location} ${tripText(r)}${isNoClaim(r) ? ' โดยไม่เบิกค่าใช้จ่าย' : ''} นั้น`
   const outro = 'บัดนี้ การเดินทางไปราชการดังกล่าวได้เสร็จสิ้นแล้ว จึงขอรายงานผลการเดินทางไปราชการ ดังนี้'
   return (
     <Document title={`รายงานผลการเดินทางไปราชการ ${requestNo(r.id)}`} author={r.requester_name}>
@@ -168,20 +171,21 @@ export const TravelReportDocument = ({ r, report, garudaSrc, printedAt, today }:
         {/* eslint-disable-next-line jsx-a11y/alt-text -- Image ของ react-pdf ไม่มี alt */}
         {garudaSrc ? <Image src={garudaSrc} style={s.garuda} /> : null}
         {report.status === 'draft' && <Text style={s.draft}>{pad('ร่าง')}</Text>}
-        <Text style={s.title}>{pad('บันทึกข้อความ')}</Text>
+        {/* แถวหัวเรื่องอยู่ข้างครุฑ (หัวครุฑห่างขอบบน ๒.๕ ซม.) — หน้าถัดไปเริ่มที่ขอบบน ๒.๕ ซม. ตามปกติ */}
+        <View style={s.titleRow}><Text style={s.title}>{pad('บันทึกข้อความ')}</Text></View>
         <Row label="ส่วนราชการ" value={memoOrg(r.requester_unit)} />
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={{ flex: 1 }}><Row label="ที่" value={`${MEMO.docPrefix}${report.memo_no ?? ''}`} /></View>
           <View style={{ flex: 1 }}><Row label="วันที่" value={thaiDate(report.submitted_at ?? today)} /></View>
         </View>
         <Row label="เรื่อง" value="รายงานผลการเดินทางไปราชการ" />
-        <View style={[s.row, { marginTop: 4, marginBottom: 6 }]}><Text style={s.head}>{pad('เรียน')}</Text><Text>{pad(MEMO.to)}</Text></View>
+        <View style={[s.row, { marginTop: 4, marginBottom: 6 }]}><View style={{ width: INDENT }}><Text style={[s.head, { marginRight: 0 }]}>{pad('เรียน')}</Text></View><Text>{pad(MEMO.to)}</Text></View>
 
         <Lines runs={plain(intro)} indent={INDENT} mb={3} />
         <Lines runs={plain(outro)} indent={INDENT} mb={3} />
         <View style={{ marginTop: 2, marginBottom: 4 }}><Blocks nodes={report.content.content} /></View>
         <Lines runs={plain('จึงเรียนมาเพื่อโปรดทราบ')} indent={INDENT} />
-        <Sign name={r.requester_name} role={r.requester_position} />
+        <Sign name={tidyName(r.requester_name)} role={r.requester_position} />
 
         {/* ความเห็นหัวหน้าในสาย (ตามผังของคำขอ) และผู้อำนวยการ — ลงนามบนกระดาษ */}
         <View wrap={false} style={{ marginTop: 6 }}>
@@ -189,13 +193,13 @@ export const TravelReportDocument = ({ r, report, garudaSrc, printedAt, today }:
             <View key={c.step} style={s.box}>
               <Text style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{pad(`ความเห็น${c.level_name ?? 'หัวหน้า'}`)}</Text>
               <View style={s.row}><Text style={s.fill}>{' '}</Text></View>
-              <Sign name={c.approver_name} role={c.is_acting ? `รักษาการ${c.level_name ?? ''}` : c.level_name} width="60%" />
+              <Sign name={tidyName(c.approver_name)} role={c.is_acting ? `รักษาการ${c.level_name ?? ''}` : c.level_name} width="60%" />
             </View>
           ))}
           <View style={s.box}>
             <Text style={{ fontWeight: 'bold', textDecoration: 'underline' }}>{pad(`ความเห็น${MEMO.to}`)}</Text>
             <View style={[s.row, { alignItems: 'center' }]}><Box /><Text style={{ marginRight: 12 }}>{pad('ทราบ')}</Text><Box /><Text style={{ marginRight: 4 }}>{pad('อื่น ๆ')}</Text><Text style={s.fill}>{' '}</Text></View>
-            <Sign name={r.director?.name} role={r.director?.is_acting ? `รักษาการในตำแหน่ง${MEMO.to}` : MEMO.to} width="60%" />
+            <Sign name={tidyName(r.director?.name)} role={r.director?.is_acting ? `รักษาการในตำแหน่ง${MEMO.to}` : MEMO.to} width="60%" />
           </View>
         </View>
 
