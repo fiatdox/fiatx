@@ -208,8 +208,13 @@ export interface Signer {
   name: string; position: string | null; is_acting: boolean; unit: string | null
   action?: 'approved' | 'rejected'; comment?: string | null; acted_at?: string; signature?: string
 }
-export type ApprovalStage = 'chain' | 'director' | 'approved'
+/** hrd = รอเจ้าหน้าที่ HRD ตรวจ · returned = HRD ส่งกลับให้ผู้ขอแก้ไข · chain = สายหัวหน้า · director = รอ ผอ. ลงนาม · approved */
+export type ApprovalStage = 'hrd' | 'returned' | 'chain' | 'director' | 'approved'
+/** การตรวจของเจ้าหน้าที่ HRD */
+export interface HrdReview { reviewer_name: string; action: 'passed' | 'returned' | 'rejected'; note: string | null; acted_at: string }
 export interface ApprovalRow { step: number; level: 'MAJOR' | 'MISSION'; approver_name: string; approver_position: string | null; is_acting: boolean; unit_name: string | null; action: 'approved' | 'rejected'; comment: string | null; acted_at: string }
+/** ฐานะที่ยื่นได้ (หัวหน้าหลายหน่วย) พร้อมสายอนุมัติของฐานะนั้น */
+export interface ApprovalCapacityOpt { key: string; type: 'mission' | 'major' | 'member'; label: string; unit_name: string; is_acting: boolean; approval_chain: ChainStepLite[] }
 export interface ChainStepLite { step: number; level?: string; level_name: string; approver_name: string; is_acting: boolean; unit_name: string | null }
 
 /** โหมดการลงนาม (ตั้งตามกลุ่ม): ลงนามในระบบ (ผอ. เซ็นจริง) / เดินเอกสารให้เซ็นเองทุกช่อง */
@@ -217,14 +222,16 @@ export type SignMode = 'esign' | 'paper'
 export const SIGN_MODE_LABEL: Record<SignMode, string> = { esign: 'ลงนามในระบบ', paper: 'เดินเอกสาร' }
 
 /** สถานะคำขอสำหรับแสดงผล — key ใช้เลือกไอคอน, color คือสี Tag ของ antd */
-export type StatusKey = 'step1' | 'step2' | 'director' | 'approved' | 'rejected' | 'cancelled'
-// รออนุมัติทุกขั้น = เทา (ไอคอนนาฬิกา) · อนุมัติ = เขียว · ยกเลิก/ไม่อนุมัติ = แดง (แยกกันด้วยไอคอนและข้อความ)
-export const STATUS_COLOR: Record<StatusKey, string> = { step1: 'default', step2: 'default', director: 'default', approved: 'green', rejected: 'red', cancelled: 'red' }
+export type StatusKey = 'hrd' | 'returned' | 'step1' | 'step2' | 'director' | 'approved' | 'rejected' | 'cancelled'
+// รออนุมัติทุกขั้น = เทา (ไอคอนนาฬิกา) · ส่งกลับแก้ไข = ส้ม · อนุมัติ = เขียว · ยกเลิก/ไม่อนุมัติ = แดง (แยกกันด้วยไอคอนและข้อความ)
+export const STATUS_COLOR: Record<StatusKey, string> = { hrd: 'default', returned: 'orange', step1: 'default', step2: 'default', director: 'default', approved: 'green', rejected: 'red', cancelled: 'red' }
 export const statusOf = (r: Pick<TravelRequest, 'status' | 'approval_stage' | 'waiting_for' | 'sign_mode' | 'current_step'>): { key: StatusKey; label: string; color: string } => {
   const key: StatusKey = r.status === 'cancelled' ? 'cancelled' : r.status === 'rejected' ? 'rejected'
     : r.approval_stage === 'approved' ? 'approved' : r.approval_stage === 'director' ? 'director'
+      : r.approval_stage === 'hrd' ? 'hrd' : r.approval_stage === 'returned' ? 'returned'
       : (r.current_step ?? 1) >= 2 ? 'step2' : 'step1'
-  const label = key === 'cancelled' ? 'ยกเลิก' : key === 'rejected' ? 'ไม่อนุมัติ' : key === 'approved' ? 'อนุมัติแล้ว'
+  const label = key === 'cancelled' ? 'ยกเลิก' : key === 'rejected' ? 'ไม่อนุมัติ' : key === 'approved' ? 'อนุมัติ เดินทางได้'
+    : key === 'hrd' ? 'รอ HRD ตรวจ' : key === 'returned' ? 'ส่งกลับแก้ไข'
     : key === 'director' ? (r.sign_mode === 'paper' ? 'รอผลเดินเอกสาร' : 'รอ ผอ. ลงนาม')
       : r.waiting_for ? `รอ${r.waiting_for.level_name}` : 'รออนุมัติ'
   return { key, label, color: STATUS_COLOR[key] }
@@ -248,16 +255,27 @@ export interface TravelRequest {
   budget_type_name?: string | null; budget_item_label?: string | null
   status: 'submitted' | 'rejected' | 'cancelled'; cancel_reason: string | null; cancelled_at: string | null; created_at: string; updated_at: string
   sign_mode: SignMode; approval_stage: ApprovalStage; approval_chain?: ChainStepLite[]; current_step: number; reject_reason: string | null
+  /** ขออนุมัติในฐานะ (หัวหน้าหลายหน่วย) — mission:<id> | major:<id> | member:<id> · null = สายตามสังกัด */
+  approval_capacity?: string | null; capacity_label?: string | null
   director_result: 'approved' | 'rejected' | null; director_note: string | null; director_at: string | null
+  /** เจ้าหน้าที่ HRD ผู้อัปเดตสถานะหลัง ผอ. ลงนาม (แจ้งผู้เดินทาง) */
+  director_by_name?: string | null
   requester_signature?: string | null; approvals?: ApprovalRow[]
   waiting_for?: { level_name: string; approver_name: string; is_acting: boolean } | null
   travelers?: TravelerRow[]; traveler_count?: number; traveler_names?: string[]; fiscal_year?: number
   signers?: { major: Signer | null; mission: Signer | null; director: Signer | null }
-  can_edit?: boolean; can_cancel?: boolean; can_record_actual?: boolean; can_approve?: boolean; can_record_director?: boolean
+  can_edit?: boolean; can_cancel?: boolean; can_record_actual?: boolean; can_approve?: boolean; can_record_director?: boolean; can_hrd_review?: boolean
+  /** การตรวจของ HRD (รายละเอียดคำขอ) · return_note = สิ่งที่ HRD ให้แก้ไข (เฉพาะตอนส่งกลับ) */
+  reviews?: HrdReview[]; return_note?: string | null
+  /** เคยผ่านขั้น HRD ตรวจ (คำขอที่ยื่นก่อนมีขั้นนี้ = false) */
+  hrd_reviewed?: boolean
   /** ไฟล์แนบ (หนังสือต้นเรื่อง / อนุมัติเครื่องบิน / อนุมัติรถยนต์ส่วนตัว) และประเภทที่ต้องแนบแต่ยังไม่มี */
   files?: import('./TravelFiles').TravelFile[]; missing_files?: import('./TravelFiles').FileKind[]
   /** claim = เบิกค่าใช้จ่าย · no_claim = ไม่เบิกค่าใช้จ่าย เลือกหลายวันในเดือนเดียว (trip_dates) · vehicle_request = ขออนุมัติใช้รถราชการ */
   cost_mode?: CostMode; trip_dates?: string[] | null; vehicle_request?: boolean
   /** รายงานผลการเดินทาง: null = ยังไม่เขียน */
   report_status?: 'draft' | 'submitted' | null
+  /** การเบิกค่าใช้จ่ายจริง (เคลียร์ค่าใช้จ่าย) — null = ยังไม่บันทึก */
+  claim_status?: 'draft' | 'hrd' | 'returned' | 'finance' | 'verified' | 'closed' | null
+  can_claim?: boolean
 }

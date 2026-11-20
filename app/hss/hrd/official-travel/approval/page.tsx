@@ -99,7 +99,7 @@ const ApprovalContent = () => {
       title: 'ผู้ขอ / เรื่อง', dataIndex: 'subject',
       render: (v: string, r) => <>
         <div style={{ fontWeight: 600 }} data-testid="requester">{r.requester_name}
-          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--app-text-3)' }}> · {[r.requester_position, r.requester_unit].filter(Boolean).join(' · ')}</span></div>
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--app-text-3)' }}> · {[r.requester_position, r.requester_unit].filter(Boolean).join(' · ')}{r.capacity_label ? ` · ในฐานะ${r.capacity_label}` : ''}</span></div>
         <div>{v}</div>
         <Text type="secondary" style={{ fontSize: 12 }}>{r.location}</Text>
       </>,

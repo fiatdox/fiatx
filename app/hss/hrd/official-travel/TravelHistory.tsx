@@ -54,7 +54,8 @@ export const RequestTravelersDrawer = ({ requestId, onClose, onOpenPdf }: { requ
             title={`${d.status === 'rejected' ? 'เหตุผลที่ไม่อนุมัติ' : 'เหตุผลที่ยกเลิก'}: ${d.status === 'rejected' ? d.reject_reason : d.cancel_reason}`} />
         )}
         <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }} style={{ marginBottom: 16 }} data-testid="request-detail" items={[
-          { key: 'n', label: 'ผู้ขอ', span: 'filled', children: <>{d.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[d.requester_position, d.requester_unit].filter(Boolean).join(' · ')}</div></> },
+          { key: 'n', label: 'ผู้ขอ', span: 'filled', children: <>{d.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[d.requester_position, d.requester_unit].filter(Boolean).join(' · ')}</div>
+            {d.capacity_label && <Tag color="purple" style={{ marginTop: 4 }}>ในฐานะ{d.capacity_label}</Tag>}</> },
           { key: 'l', label: 'สถานที่', span: 'filled', children: d.location },
           ...(isNoClaim(d) ? [{ key: 'td', label: 'วันที่เดินทาง', span: 'filled' as const, children: <>{tripDatesText(d.trip_dates ?? [], true)} <Text type="secondary" style={{ fontSize: 12 }}>({d.trip_dates?.length ?? 0} วัน · เวลา {thaiDateParts(d.start_at).time}–{thaiDateParts(d.end_at).time} น.)</Text></> }] : [
           { key: 'st', label: 'ออกเดินทาง', children: thaiDateTime(d.start_at) },

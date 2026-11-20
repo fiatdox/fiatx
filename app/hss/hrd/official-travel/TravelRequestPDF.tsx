@@ -119,6 +119,13 @@ const th = (v: string | number | null | undefined) => (v === null || v === undef
 const routeTxt = (t: string | null | undefined) => (t ?? '').replace(/\s*⇄\s*/g, ' - ')
 const money = (n: number) => (n > 0 ? th(fmtMoney(n)) : '-')
 
+/** ช่องหน่วยงานของผู้ขอ — ยื่นในฐานะหัวหน้ากลุ่มภารกิจ หน่วยคือกลุ่มภารกิจ (ป้ายเป็น "กลุ่มภารกิจ" ไม่ใช่ "กลุ่มงาน") */
+const unitLabel = (unit: string | null | undefined) => {
+  const u = unit?.trim() ?? ''
+  const kind = u.startsWith('กลุ่มภารกิจ') ? 'กลุ่มภารกิจ' : 'กลุ่มงาน'
+  const name = u.startsWith(kind) ? u.slice(kind.length).trim() || u : u
+  return <><T>{kind}</T><Fill value={name || '-'} maxChars={30} /></>
+}
 const INK = '#000'
 const RULE = '#6b7280'
 const LINE_H = 15
@@ -343,7 +350,7 @@ const MemoPage = ({ d, garudaSrc }: { d: TravelRequest; garudaSrc?: string }) =>
         <G grow={2}><T>ตำแหน่ง</T><Fill value={d.requester_position} maxChars={30} /></G>
       </Line>
       <Line style={{ alignItems: 'flex-start' }}>
-        <G grow={1}><T>กลุ่มงาน</T><Fill value={d.requester_unit ?? '-'} maxChars={30} /></G>
+        <G grow={1}>{unitLabel(d.requester_unit)}</G>
         <G grow={2}><T>มีความประสงค์ขออนุมัติเดินทางไปราชการ เพื่อ</T><Fill value={d.purpose} maxChars={34} left /></G>
       </Line>
       <Line><T>รายละเอียดดังนี้</T></Line>
@@ -520,7 +527,8 @@ const AttachmentPage = ({ d }: { d: TravelRequest }) => {
         : note('ระยะเวลาเดินทาง', `${th(thaiDateTime(d.start_at))} ถึง ${th(thaiDateTime(d.end_at))}${d.overnight ? ' (พักแรม)' : ' (ไม่พักแรม)'}`, 2, 54)}
 
       <View style={s.tbl}>
-        <View style={[s.tr, { borderTopWidth: 0, backgroundColor: '#f3f4f6' }]}>{COLS.map((c, i) => <View key={i} style={[{ width: `${c.w}%`, alignSelf: 'stretch', justifyContent: 'center' }, i > 0 ? border : {}]}><Text style={s.th}>{pad(c.label)}</Text></View>)}</View>
+        {/* fixed = หัวตารางซ้ำทุกหน้าที่ตารางต่อไป (ผู้เดินทางมากจนตารางยาวหลายหน้า) */}
+        <View fixed style={[s.tr, { borderTopWidth: 0, backgroundColor: '#f3f4f6' }]}>{COLS.map((c, i) => <View key={i} style={[{ width: `${c.w}%`, alignSelf: 'stretch', justifyContent: 'center' }, i > 0 ? border : {}]}><Text style={s.th}>{pad(c.label)}</Text></View>)}</View>
         {travelers.map((t, n) => (
           <View key={t.user_id} style={s.tr} wrap={false}>
             {cell(0, th(n + 1), 'center')}{cell(1, `${tidyName(t.name)}${t.is_requester ? ' (ผู้ขอ)' : ''}`)}{cell(2, t.position ?? '-')}

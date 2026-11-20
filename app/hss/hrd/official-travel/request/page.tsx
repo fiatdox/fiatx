@@ -14,7 +14,7 @@ import { TRAVEL_BASE, TRAVEL_COLOR, TRAVEL_MENU, TravelApiError, TravelShell, tr
 import {
   COST_MODES, TH_MONTHS_FULL, tripDatesText, type CostMode,
   FLIGHT_LABEL, budgetTypeLabel, LODGING_MODES, MEMO, MEMO_NO_RE, VEHICLE_MODES, transportExtras, allowanceDays, bahtText, maxMeals, mealCut, personAllowance, durationParts, fmtMoney, requiredDocs, round2, tripNights,
-  type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
+  type ApprovalCapacityOpt, type BudgetType, type ChainStepLite, type FlightClass, type LodgingMode, type RoomType, type SignMode, type TravelRequest, type VehicleMode,
 } from '../travelCalc'
 import { SignaturePreview } from '@/app/account/settings/SignatureSettings'
 import type { UploadFile } from 'antd'
@@ -44,7 +44,7 @@ interface RouteOpt { id: number; mode: 'bus' | 'plane'; origin: string; destinat
 interface BudgetOpt { id: number; fiscal_year: number; budget_type: BudgetType; name: string; amount: number; is_active: boolean; remaining: number; pending: number; type_name: string; type_ref_code: string | null; type_sort: number }
 /** ค่ารถรับจ้างในจังหวัดพะเยา (ที่พัก/บ้าน ↔ สถานี) แยกอำเภอ — บาท/เที่ยว/คน/วัน ตามที่ สสจ.พะเยา กำหนด */
 interface LocalRate { id: number; district: string; rate: number; note: string | null }
-interface Meta { me: Person & { has_signature?: boolean }; sign_mode: SignMode; approval_chain?: ChainStepLite[]; vehicles: Vehicle[]; routes: RouteOpt[]; local_rates?: LocalRate[]; budgets: BudgetOpt[]; can_manage: boolean }
+interface Meta { me: Person & { has_signature?: boolean }; sign_mode: SignMode; approval_chain?: ChainStepLite[]; capacities?: ApprovalCapacityOpt[]; vehicles: Vehicle[]; routes: RouteOpt[]; local_rates?: LocalRate[]; budgets: BudgetOpt[]; can_manage: boolean }
 
 /** วันที่ (พ.ศ.) + เวลา → ISO เวลาไทย */
 const toIso = (d?: Dayjs | null, t?: Dayjs | null) => d && t ? `${d.format('YYYY-MM-DD')}T${t.format('HH:mm')}:00+07:00` : null
@@ -97,7 +97,7 @@ const RequestForm = () => {
   // ลายเซ็นของผู้ขอ (ต้องมีก่อนยื่น) — undefined = ยังไม่ได้ตรวจ
   const [signature, setSignature] = useState<string | null | undefined>(undefined)
   // ไฟล์แนบที่เลือกไว้ (คำขอใหม่) — อัปโหลดหลังบันทึกคำขอสำเร็จ · คำขอเดิมแนบ/ลบได้ทันทีผ่าน RequestFiles
-  const [pending, setPending] = useState<Record<FileKind, UploadFile[]>>({ source: [], plane: [], private_car: [], vehicle_use: [] })
+  const [pending, setPending] = useState<Record<FileKind, UploadFile[]>>({ source: [], plane: [], private_car: [], vehicle_use: [], receipt: [] })
   const [fileErr, setFileErr] = useState<Partial<Record<FileKind, string>>>({})
   const [checkingSig, setCheckingSig] = useState(false)
   const checkSignature = useCallback(async () => {
@@ -117,7 +117,7 @@ const RequestForm = () => {
       const m = await travelApi<Meta>('requests/meta')
       if (!editId) {
         const cur = m.budgets.find(b => b.is_active)
-        setInit({ cost_mode: 'claim', vehicle_mode: 'gov_car', budget_id: cur?.id, allowance_days_mode: 'auto', lodging_mode: 'none', home_station_trips: 2,
+        setInit({ approval_capacity: m.capacities?.[0]?.key, cost_mode: 'claim', vehicle_mode: 'gov_car', budget_id: cur?.id, allowance_days_mode: 'auto', lodging_mode: 'none', home_station_trips: 2,
           trip_dates: [], day_start: dayjs().hour(8).minute(0), day_end: dayjs().hour(16).minute(30) })
         setMeta(m)
         return
@@ -133,6 +133,8 @@ const RequestForm = () => {
       setRooms(Object.fromEntries((r.travelers ?? []).filter(t => t.lodging_room).map(t => [t.user_id, t.lodging_room as RoomType])))
       setMeta(m)
       setInit({
+        // ฐานะเดิม — ถ้าไม่อยู่ในตัวเลือกแล้ว (พ้นจากหัวหน้าหน่วยนั้น) ใช้ฐานะแรก
+        approval_capacity: m.capacities?.some(c => c.key === r.approval_capacity) ? r.approval_capacity : m.capacities?.[0]?.key,
         memo_no: r.memo_no ?? undefined, purpose: r.purpose, subject: r.subject, location: r.location,
         start_date: st, start_time: st, end_date: en, end_time: en,
         cost_mode: r.cost_mode ?? 'claim', trip_dates: r.trip_dates ?? [], trip_month: r.trip_dates?.length ? dayjs(r.trip_dates[0]) : undefined,
@@ -261,12 +263,14 @@ const RequestForm = () => {
     setSaving(true)
     const nc = f.cost_mode === 'no_claim'
     const body = nc ? {
+      approval_capacity: f.approval_capacity ?? null,
       cost_mode: 'no_claim', memo_no: f.memo_no?.trim() || null, purpose: f.purpose, subject: f.subject, location: f.location,
       trip_dates: f.trip_dates ?? [], day_start: f.day_start?.format('HH:mm'), day_end: f.day_end?.format('HH:mm'),
       companion_ids: f.companion_ids ?? [],
       vehicle_mode: f.vehicle_mode, vehicle_id: f.vehicle_id ?? null, vehicle_plate: f.vehicle_plate ?? null, distance_km: f.distance_km ?? null,
       vehicle_other: f.vehicle_other ?? null, vehicle_request: f.vehicle_mode === 'gov_car' && !!f.vehicle_request,
     } : {
+      approval_capacity: f.approval_capacity ?? null,
       cost_mode: 'claim', vehicle_request: f.vehicle_mode === 'gov_car' && !!f.vehicle_request,
       memo_no: f.memo_no?.trim() || null, purpose: f.purpose, subject: f.subject, location: f.location,
       start_at: toIso(f.start_date, f.start_time), end_at: toIso(f.end_date, f.end_time),
@@ -299,7 +303,7 @@ const RequestForm = () => {
         try { await uploadTravelFile(r.id, k, x.originFileObj as File) } catch (e) { failed.push((e as Error).message) }
       }
       if (failed.length) message.warning(`ยื่นคำขอแล้ว แต่แนบไฟล์ไม่สำเร็จ ${failed.length} ไฟล์ — แนบเพิ่มได้ที่รายละเอียดคำขอ (${failed[0]})`, 8)
-      else message.success(editId ? 'บันทึกการแก้ไขแล้ว' : 'ยื่นคำขอแล้ว — พิมพ์บันทึกข้อความเพื่อเสนอลงนามได้เลย')
+      else message.success(editId ? 'บันทึกการแก้ไขแล้ว — ส่งให้เจ้าหน้าที่ HRD ตรวจอีกครั้ง' : 'ยื่นคำขอแล้ว — รอเจ้าหน้าที่ HRD ตรวจ ก่อนส่งให้หัวหน้าอนุมัติ')
       router.push(`${TRAVEL_BASE}/requests?open=${r.id}`)
     } catch (e) {
       if (e instanceof TravelApiError && e.field === 'signature') { message.error(e.message); checkSignature() }
@@ -340,6 +344,10 @@ const RequestForm = () => {
   const card = { borderRadius: 14, marginBottom: 16 }
   // โหมดการลงนามตามกลุ่มของผู้ขอ — เดินเอกสารไม่ต้องมีลายเซ็นในระบบ
   const paper = meta.sign_mode === 'paper'
+  // ขออนุมัติในฐานะ: สายอนุมัติตามฐานะที่เลือก (หัวหน้าหลายหน่วย) · คนทั่วไปใช้สายตามสังกัด
+  const capacities = meta.capacities ?? []
+  const capacity = capacities.find(c => c.key === v.approval_capacity) ?? capacities[0]
+  const chain = capacity ? capacity.approval_chain : meta.approval_chain ?? []
   const moneyInput = (max = 1_000_000) => <InputNumber min={0} max={max} precision={2} style={{ width: '100%' }} suffix="บาท" />
 
   return (
@@ -357,6 +365,10 @@ const RequestForm = () => {
         </Link>
       </div>
 
+      {orig?.approval_stage === 'returned' && (
+        <Alert type="warning" showIcon style={{ marginBottom: 16 }} data-testid="returned-alert" title="เจ้าหน้าที่ HRD ส่งคำขอกลับให้แก้ไข"
+          description={<>{orig.return_note && <div style={{ whiteSpace: 'pre-wrap' }}>{orig.return_note}</div>}<div>แก้ไขแล้วกด “บันทึกการแก้ไข” เพื่อส่งให้ HRD ตรวจอีกครั้ง</div></>} />
+      )}
       <Form form={form} layout="vertical" requiredMark="optional" onFinish={save} scrollToFirstError initialValues={init}>
         <Row gutter={16}>
           <Col xs={24} xl={16}>
@@ -702,12 +714,30 @@ const RequestForm = () => {
               </Card>
               </>}
               <Card title="การลงนามและสายอนุมัติ" style={card} size="small">
+                {capacities.length > 1 && (
+                  <ConfigProvider theme={pickTheme(TRAVEL_COLOR)}>
+                    <Form.Item name="approval_capacity" label="ขออนุมัติในฐานะ" style={{ marginBottom: 12 }} rules={[{ required: true, message: 'เลือกฐานะที่ขออนุมัติ' }]}
+                      extra="ท่านเป็นหัวหน้ามากกว่าหนึ่งหน่วย — เลือกตามงานที่ไปราชการครั้งนี้ สายอนุมัติจะเปลี่ยนตามฐานะที่เลือก">
+                      <Radio.Group data-testid="capacity" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                        options={capacities.map(c => ({
+                          value: c.key,
+                          label: <span data-testid={`capacity-${c.key}`}>
+                            <b>{c.label}</b>{c.is_acting ? ' (รักษาการ)' : ''}
+                            <span style={{ display: 'block', fontSize: 12, color: 'var(--app-text-3)' }}>
+                              {c.approval_chain.length ? `เสนอ${c.approval_chain.map(s => `${s.level_name}${s.unit_name ? ` ${s.unit_name}` : ''}`).join(' → ')} → ผู้อำนวยการ` : 'เสนอผู้อำนวยการโดยตรง'}
+                            </span>
+                          </span>,
+                        }))} />
+                    </Form.Item>
+                  </ConfigProvider>
+                )}
                 {paper ? <>
                   <Alert type="info" showIcon style={{ marginBottom: 10 }} data-testid="paper-mode" title="กลุ่มของท่านใช้การเดินเอกสาร"
                     description="ยื่นแล้วพิมพ์บันทึกข้อความ ลงนามจริงและเสนอตามลำดับด้านล่าง งานพัฒนาทรัพยากรบุคคลบันทึกผลตามเอกสารที่ลงนามแล้ว" />
                   <ol className="travel-chain" data-testid="approval-chain">
                     <li><b>ผู้ขอ</b> ลงนามบนบันทึกข้อความ</li>
-                    {meta.approval_chain?.map(s => (
+                    <li><b>เจ้าหน้าที่ HRD</b> ตรวจคำขอและเอกสารแนบในระบบ</li>
+                    {chain.map(s => (
                       <li key={s.step}><b>{s.level_name}</b> {s.is_acting ? '(รักษาการ) ' : ''}{s.approver_name} — ให้ความเห็นและลงนาม</li>
                     ))}
                     <li><b>ผู้อำนวยการ</b> ลงนามอนุมัติ</li>
@@ -726,12 +756,13 @@ const RequestForm = () => {
                     </Space>} />}
                 <ol className="travel-chain" data-testid="approval-chain">
                   <li><b>ผู้ขอ</b> ลงนามในระบบ</li>
-                  {meta.approval_chain?.map(s => (
+                  <li><b>เจ้าหน้าที่ HRD</b> ตรวจคำขอและเอกสารแนบ</li>
+                  {chain.map(s => (
                     <li key={s.step}><b>{s.level_name}</b> {s.is_acting ? '(รักษาการ) ' : ''}{s.approver_name} — อนุมัติและลงนามในระบบ</li>
                   ))}
                   <li><b>ผู้อำนวยการ</b> ลงนามจริงบนบันทึกข้อความที่พิมพ์</li>
                 </ol>
-                {meta.approval_chain?.length === 0 &&<Text type="secondary" style={{ fontSize: 12 }}>ไม่มีหัวหน้าในสายที่ต้องอนุมัติในระบบ — เสนอผู้อำนวยการโดยตรง</Text>}
+                {chain.length === 0 &&<Text type="secondary" style={{ fontSize: 12 }}>ไม่มีหัวหน้าในสายที่ต้องอนุมัติในระบบ — เสนอผู้อำนวยการโดยตรง</Text>}
                 </>}
                 {editId && <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>บันทึกการแก้ไขแล้วสายอนุมัติและโหมดการลงนามคิดใหม่ตามผังปัจจุบัน</Text>}
               </Card>

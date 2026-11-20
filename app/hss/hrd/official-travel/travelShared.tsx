@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button, Result } from 'antd'
 import { HomeOutlined, FundOutlined } from '@ant-design/icons'
-import { FaFileAlt, FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
+import { FaFileAlt, FaFileInvoiceDollar, FaGraduationCap, FaPlaneDeparture, FaFileSignature, FaListAlt, FaCoins, FaRoute, FaChartPie, FaBed, FaSignature, FaTasks, FaUserCheck } from 'react-icons/fa'
 import Link from 'next/link'
 import Cookies from 'js-cookie'
 import Breadcrumb from '@/app/components/AppBreadcrumb'
@@ -29,6 +29,9 @@ export interface TravelMenuItem {
   short?: string
 }
 
+/** ตรวจการเบิกค่าใช้จ่าย: HRD + เจ้าหน้าที่การเงินตรวจงาน HRD (HRD_FINANCE) — backend ตรวจสิทธิ์รายขั้น */
+export const TRAVEL_CLAIM_ROLES = ['ADMIN', 'HRD', 'HRD_FINANCE']
+
 export const TRAVEL_MENU: TravelMenuItem[] = [
   { title: 'ขออนุมัติเดินทางไปราชการ', desc: 'ยื่นคำขอไปราชการ ระบุเรื่อง สถานที่ วันเดินทาง และประมาณการค่าใช้จ่าย', href: `${TRAVEL_BASE}/request`, icon: <FaFileSignature />, color: '#10b981', short: 'ยื่นคำขอไปราชการ และประมาณการค่าใช้จ่าย' },
   { title: 'รายการขออนุมัติเดินทางไปราชการ', desc: 'ติดตามสถานะคำขอไปราชการและประวัติการเดินทาง', href: `${TRAVEL_BASE}/requests`, icon: <FaListAlt />, color: '#3b82f6', short: 'ติดตามสถานะคำขอและประวัติการเดินทาง' },
@@ -40,6 +43,7 @@ export const TRAVEL_MENU: TravelMenuItem[] = [
   // ต่อท้ายเสมอ — หน้าอื่นอ้าง TRAVEL_MENU ด้วย index (หน้าเมนูย้ายใบนี้ขึ้นเป็นใบแรกเอง)
   { title: 'งานที่ต้องดำเนินการ', desc: 'คำขอที่รอบันทึกผลคำสั่ง ผอ. รอยอดจากการเงิน ใกล้เดินทางแต่ยังไม่อนุมัติ และงบประมาณที่ต้องดู', href: `${TRAVEL_BASE}/tasks`, icon: <FaTasks />, roles: HRD_ALLOWANCE_ROLES, color: '#dc2626', short: 'รอบันทึกผล ผอ. รอยอดการเงิน และใกล้เดินทาง' },
   { title: 'อนุมัติการเดินทางไปราชการ', desc: 'หัวหน้ากลุ่มงาน / หัวหน้ากลุ่มภารกิจ พิจารณาและลงนามคำขอในระบบ (ผู้อำนวยการลงนามบนกระดาษ)', href: `${TRAVEL_BASE}/approval`, icon: <FaUserCheck />, approver: true, color: '#f59e0b', short: 'พิจารณาและลงนามคำขอในสายอนุมัติ' },
+  { title: 'ตรวจการเบิกค่าใช้จ่ายเดินทาง', desc: 'HRD ตรวจยอดและสิทธิ์ ปรับยอดพร้อมเหตุผล ส่งการเงิน · การเงินยืนยันยอดหรือตีกลับ แล้วปิดเรื่องคืน/จ่ายเงิน', href: `${TRAVEL_BASE}/claims`, icon: <FaFileInvoiceDollar />, roles: TRAVEL_CLAIM_ROLES, color: '#0f766e', short: 'HRD ตรวจยอด → การเงินยืนยัน → ปิดเรื่อง' },
   { title: 'รายงานผลการเดินทางไปราชการ', desc: 'ผู้เดินทางเขียนรายงานหลังเดินทาง พิมพ์บันทึกข้อความเสนอผู้บริหารทราบ · ผู้บริหารดูรายงานทั้งหมดได้ที่นี่', href: `${TRAVEL_BASE}/reports`, icon: <FaFileAlt />, color: '#0d9488', short: 'รายงานผลหลังเดินทาง เสนอผู้บริหารทราบ' },
 ]
 /** การ์ด/หน้า งานที่ต้องดำเนินการ (ADMIN / HRD) */
@@ -48,11 +52,12 @@ export const TRAVEL_TASKS_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BA
 export const TRAVEL_APPROVAL_ITEM = TRAVEL_MENU.find(it => it.href === `${TRAVEL_BASE}/approval`)!
 
 // งานที่ต้องดำเนินการของ HRD — การ์ดหน้าแรก (HrdTasks) และตัวกรอง ?task= ของหน้ารายการคำขอ (ตรงกับ backend taskWhere)
-export type HrdTaskKey = 'director' | 'actual' | 'soon'
+export type HrdTaskKey = 'review' | 'director' | 'actual' | 'soon'
 export const HRD_TASKS: Record<HrdTaskKey, { title: string; hint: string; color: string }> = {
-  director: { title: 'รอบันทึกผลคำสั่งผู้อำนวยการ', hint: 'ผ่านสายอนุมัติแล้ว หรือเดินเอกสาร — บันทึกผลตามบันทึกข้อความที่ ผอ. ลงนามจริง', color: '#d97706' },
+  review: { title: 'รอตรวจคำขอ', hint: 'คำขอที่ยื่นใหม่หรือผู้ขอแก้ไขแล้ว — ตรวจความถูกต้องและเอกสารแนบ ก่อนส่งเข้าสายหัวหน้า', color: '#0d9488' },
+  director: { title: 'รอ ผอ. ลงนาม · อัปเดตสถานะ', hint: 'ได้รับเอกสารที่ผู้อำนวยการลงนามแล้ว ให้อัปเดตสถานะ — ระบบแจ้งผู้เดินทางว่าเดินทางได้ / ไม่ได้รับอนุมัติ', color: '#d97706' },
   actual: { title: 'รอบันทึกยอดที่การเงินยืนยัน', hint: 'ผอ. อนุมัติแล้ว — บันทึกยอดเบิกจ่ายจริงเพื่อตัดงบประมาณ', color: '#2563eb' },
-  soon: { title: 'ใกล้เดินทางแต่ ผอ. ยังไม่อนุมัติ', hint: 'ออกเดินทางภายใน 7 วัน (หรือเลยวันแล้ว) แต่ยังค้างในสายอนุมัติหรือรอ ผอ. ลงนาม — ต้องเร่ง ไม่งั้นผู้เดินทางไม่มีสิทธิ์เดินทาง', color: '#dc2626' },
+  soon: { title: 'ใกล้เดินทางแต่ ผอ. ยังไม่อนุมัติ', hint: 'ออกเดินทางภายใน 7 วัน (หรือเลยวันแล้ว) แต่ยังรอ HRD ตรวจ ค้างในสายอนุมัติ หรือรอ ผอ. ลงนาม — ต้องเร่ง ไม่งั้นผู้เดินทางไม่มีสิทธิ์เดินทาง', color: '#dc2626' },
 }
 export const isHrdTaskKey = (v: unknown): v is HrdTaskKey => typeof v === 'string' && v in HRD_TASKS
 export const HRD_ROLES_ITEM = { roles: HRD_ALLOWANCE_ROLES } as TravelMenuItem

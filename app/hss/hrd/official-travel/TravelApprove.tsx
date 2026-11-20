@@ -13,16 +13,25 @@ import { RequestFiles } from './TravelFiles'
 const { Text } = Typography
 
 /** ป้ายเร่งด่วน: ใกล้/เลยวันออกเดินทางแต่ ผอ. ยังไม่อนุมัติ — ไม่อนุมัติทัน ผู้เดินทางจะไม่มีสิทธิ์เดินทาง */
-export const TripUrgency = ({ r, now, days }: { r: TravelRequest; now: number; days: number }) => {
+export const TripUrgency = ({ r, now, days, inline }: { r: TravelRequest; now: number; days: number; inline?: boolean }) => {
   if (r.status !== 'submitted' || r.approval_stage === 'approved') return null
   const DAY = 86_400_000
   const left = Math.floor((Date.parse(r.start_at) - now) / DAY)   // วันเต็มที่เหลือก่อนออกเดินทาง
   if (left >= days) return null
   const overdue = Date.parse(r.start_at) < now
   const label = overdue ? 'เลยวันออกเดินทางแล้ว' : left === 0 ? 'เดินทางภายใน 24 ชม.' : `อีก ${left} วันเดินทาง`
-  const stage = r.approval_stage === 'director' ? 'รอผู้อำนวยการอนุมัติ' : 'ยังค้างในสายอนุมัติ ยังไม่ถึงผู้อำนวยการ'
+  const stage = r.approval_stage === 'director' ? 'รอผู้อำนวยการอนุมัติ' : r.approval_stage === 'hrd' ? 'ยังรอเจ้าหน้าที่ HRD ตรวจ'
+    : r.approval_stage === 'returned' ? 'HRD ส่งกลับให้ผู้ขอแก้ไข' : 'ยังค้างในสายอนุมัติ ยังไม่ถึงผู้อำนวยการ'
+  const tip = `${stage} — ต้องเร่งให้อนุมัติก่อนวันเดินทาง มิฉะนั้นผู้เดินทางจะไม่มีสิทธิ์เดินทาง`
+  // inline: ป้ายเดียวต่อท้ายบรรทัดสถานะ (แถวกะทัดรัด)
+  if (inline) return (
+    <Tooltip title={tip}>
+      <Tag data-testid="trip-urgency" data-level={overdue || left <= 2 ? 'critical' : 'warn'} color={overdue || left <= 2 ? 'red' : 'orange'} variant="solid"
+        icon={<ExclamationCircleOutlined />} style={{ margin: 0, fontWeight: 600, fontSize: 11 }}>{label}</Tag>
+    </Tooltip>
+  )
   return (
-    <Tooltip title={`${stage} — ต้องเร่งให้อนุมัติก่อนวันเดินทาง มิฉะนั้นผู้เดินทางจะไม่มีสิทธิ์เดินทาง`}>
+    <Tooltip title={tip}>
       <div data-testid="trip-urgency" data-level={overdue || left <= 2 ? 'critical' : 'warn'} style={{ marginTop: 4 }}>
         <Tag color={overdue || left <= 2 ? 'red' : 'orange'} variant="solid" icon={<ExclamationCircleOutlined />} style={{ margin: 0, fontWeight: 600 }}>{label}</Tag>
         <div style={{ fontSize: 11, color: 'var(--app-text-2)', marginTop: 2 }}>เร่งให้ ผอ. อนุมัติ</div>
@@ -73,7 +82,8 @@ export const ApproveModal = ({ id, onClose, onSaved, onOpenPdf }: { id: number; 
       ] : [<Button key="x" onClick={onClose}>ปิด</Button>]}>
       {!r ? <div style={{ padding: 24, textAlign: 'center' }}><Spin /></div> : <>
         <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginBottom: 12 }} items={[
-          { key: 'n', label: 'ผู้ขอ', children: <>{r.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[r.requester_position, r.requester_unit].filter(Boolean).join(' · ')}</div></> },
+          { key: 'n', label: 'ผู้ขอ', children: <>{r.requester_name}<div style={{ fontSize: 12, color: 'var(--app-text-3)' }}>{[r.requester_position, r.requester_unit].filter(Boolean).join(' · ')}</div>
+            {r.capacity_label && <Tag color="purple" style={{ marginTop: 4 }}>ในฐานะ{r.capacity_label}</Tag>}</> },
           { key: 'd', label: 'วันเดินทาง', children: requestDates(r) },
           { key: 's', label: 'เรื่อง', span: 'filled', children: <>{r.purpose} · {r.subject}</> },
           { key: 'l', label: 'สถานที่', span: 'filled', children: r.location },
