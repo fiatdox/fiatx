@@ -117,13 +117,16 @@ export const TravelersModal = ({ r, onClose, onSaved }: { r: TravelRequest; onCl
   // ค้นหาบุคลากร (หน่วงเวลาพิมพ์)
   useEffect(() => {
     if (q.trim().length < 2) return
+    // พิมพ์ต่อ = ยกเลิกคำค้นเดิม — ผลของคำเก่าที่ตอบช้าไม่ทับผลของคำล่าสุด
+    const ctl = new AbortController()
     const t = setTimeout(() => {
-      fetch(`/api/v1/hrd/travel/requests/people?search=${encodeURIComponent(q.trim())}`).then(x => x.json()).then(j => {
+      fetch(`/api/v1/hrd/travel/requests/people?search=${encodeURIComponent(q.trim())}`, { signal: ctl.signal }).then(x => x.json()).then(j => {
+        if (ctl.signal.aborted) return
         const list = (j?.data ?? []) as PersonOpt[]
         setOpts(list.filter(p => p.id !== r.requester_id)); remember(list)
       }).catch(() => {})
     }, 300)
-    return () => clearTimeout(t)
+    return () => { clearTimeout(t); ctl.abort() }
   }, [q, r.requester_id])
   const added = orig ? value.filter(v => !orig.includes(v)) : []
   const removed = orig ? orig.filter(v => !value.includes(v)) : []

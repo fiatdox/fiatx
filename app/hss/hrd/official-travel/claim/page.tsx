@@ -82,6 +82,8 @@ const ClaimContent = () => {
     const days = ok ? allowanceDays(s!.valueOf(), e!.valueOf()).days : 0
     const maxNights = ok ? tripNights(s!.valueOf(), e!.valueOf()) : 0
     const nights = f.lodgingMode === 'none' ? 0 : Math.min(f.nights ?? 0, maxNights)
+    // มื้อเลี้ยงไม่เกินวันเบี้ยเลี้ยงจริง — ค่าที่แสดง/ส่ง backend ตรงกับยอดตัวอย่าง (แก้วันเวลาให้สั้นลงแล้วตัดให้)
+    const meals = Math.min(f.meals, maxMeals(days))
     const rows = data.travelers.map(t => {
       const p = f.people[t.user_id]
       if (p?.absent) return { t, absent: true, days: 0, nights: 0, allowance: 0, cap: 0, lodging: 0, registration: 0, overCap: false, badTime: false }
@@ -90,7 +92,7 @@ const ClaimContent = () => {
       const pok = ok && !!ps && !!pe && pe.isAfter(ps) && !ps.isBefore(s!) && !pe.isAfter(e!)
       const pdays = pok ? allowanceDays(ps!.valueOf(), pe!.valueOf()).days : 0
       const pn = pok ? Math.min(nights, tripNights(ps!.valueOf(), pe!.valueOf())) : 0
-      const allowance = personAllowance(t.rate, pdays, Math.min(f.meals, maxMeals(pdays)))
+      const allowance = personAllowance(t.rate, pdays, Math.min(meals, maxMeals(pdays)))
       const rate = f.lodgingMode === 'lump' ? t.lodging.lump : p?.room === 'single' ? t.lodging.single : t.lodging.double
       const cap = round2(rate * pn)
       const lodging = f.lodgingMode === 'lump' ? cap : f.lodgingMode === 'actual' ? Number(p?.lodging ?? 0) : 0
@@ -107,7 +109,7 @@ const ClaimContent = () => {
     const total = round2(CLAIM_CATEGORIES.reduce((x, c) => x + claimed[c], 0))
     const over = CLAIM_CATEGORIES.filter(c => claimed[c] > (data.request.estimate[c] ?? 0) + 0.004)
     const fareCap = (mode === 'bus' || mode === 'plane') && data.request.route_max_fare != null ? data.request.route_max_fare * 2 * presentN : null
-    return { ok, days, maxNights, nights, rows, presentN, fuel, claimed, total, over, fareCap, hours: ok ? e!.diff(s!, 'minute') / 60 : 0 }
+    return { ok, days, maxNights, nights, meals, rows, presentN, fuel, claimed, total, over, fareCap, hours: ok ? e!.diff(s!, 'minute') / 60 : 0 }
   }, [data, f])
 
   const save = async (submit: boolean) => {
@@ -118,8 +120,9 @@ const ClaimContent = () => {
       const body = {
         submit, confirmed: f.confirmed, mode: f.mode,
         ...(f.mode === 'advance' ? { advance_no: f.advanceNo.trim() || null, advance_amount: f.advanceAmount, advance_date: f.advanceDate?.format('YYYY-MM-DD') ?? null } : {}),
-        actual_start_at: s?.toISOString() ?? null, actual_end_at: e?.toISOString() ?? null, meals_provided: f.meals,
-        lodging_mode: f.lodgingMode, lodging_nights: f.lodgingMode === 'none' ? 0 : f.nights,
+        // ส่งค่าที่ตัดตามวันเวลาจริงแล้ว (ตรงกับยอดตัวอย่างบนหน้า)
+        actual_start_at: s?.toISOString() ?? null, actual_end_at: e?.toISOString() ?? null, meals_provided: calc.meals,
+        lodging_mode: f.lodgingMode, lodging_nights: f.lodgingMode === 'none' ? 0 : f.nights == null ? null : calc.nights,
         travelers: data.travelers.map(t => {
           const p = f.people[t.user_id]
           if (p?.absent) return { user_id: t.user_id, absent: true }
@@ -192,6 +195,8 @@ const ClaimContent = () => {
     needReceipts && data.receipts.length === 0 && 'แนบใบเสร็จ',
     missingReason.length > 0 && `ระบุเหตุผลที่เบิกเกินประมาณการ (${missingReason.map(k => CATEGORY_LABEL[k]).join(', ')})`,
     calc.rows.some(x => x.overCap) && 'ค่าที่พักเกินเพดาน',
+    f.lodgingMode !== 'none' && calc.ok && calc.maxNights === 0 && 'เดินทางไป-กลับในวันเดียว เบิกค่าที่พักไม่ได้ — เลือก "ไม่เบิก"',
+    f.lodgingMode !== 'none' && calc.maxNights > 0 && !f.nights && 'ระบุจำนวนคืนที่พัก',
     calc.presentN === 0 && 'ต้องมีผู้เดินทางจริงอย่างน้อย 1 คน (ไม่ได้ไปทั้งคณะ ให้ยกเลิกคำขอ)',
     calc.rows.some(x => x.badTime) && 'เวลาไป-กลับรายคนต้องอยู่ในช่วงเดินทางของคณะ',
     !f.confirmed && 'ติ๊กยืนยันว่าตรวจยอดกับใบเสร็จแล้ว',
@@ -235,10 +240,10 @@ const ClaimContent = () => {
               <Col xs={10} sm={5}><Text style={{ fontSize: 13 }}>เวลา</Text><TimePicker format="HH:mm" allowClear={false} value={f.startTime} onChange={v => set('startTime', v)} style={{ width: '100%' }} needConfirm={false} aria-label="เวลาออกเดินทางจริง" /></Col>
               <Col xs={14} sm={7}><Text style={{ fontSize: 13 }}>กลับถึง</Text><ThaiDatePicker format={DATE_FORMAT} allowClear={false} value={f.endDate} onChange={v => set('endDate', v)} style={{ width: '100%' }} status={bad('actual_end_at')} aria-label="วันที่กลับถึงจริง" /></Col>
               <Col xs={10} sm={5}><Text style={{ fontSize: 13 }}>เวลา</Text><TimePicker format="HH:mm" allowClear={false} value={f.endTime} onChange={v => set('endTime', v)} style={{ width: '100%' }} needConfirm={false} aria-label="เวลากลับถึงจริง" /></Col>
-              <Col xs={24} sm={8}><Text style={{ fontSize: 13 }}>มื้อที่ผู้จัดเลี้ยง</Text><InputNumber min={0} max={maxMeals(calc.days)} precision={0} value={f.meals} onChange={v => set('meals', v ?? 0)} style={{ width: '100%' }} status={bad('meals_provided')} aria-label="มื้อที่ผู้จัดเลี้ยง" suffix="มื้อ" /></Col>
+              <Col xs={24} sm={8}><Text style={{ fontSize: 13 }}>มื้อที่ผู้จัดเลี้ยง</Text><InputNumber min={0} max={maxMeals(calc.days)} precision={0} value={calc.meals} onChange={v => set('meals', v ?? 0)} style={{ width: '100%' }} status={bad('meals_provided')} aria-label="มื้อที่ผู้จัดเลี้ยง" suffix="มื้อ" /></Col>
             </Row>
             <div data-testid="days-note" style={{ marginTop: 10, fontSize: 13, background: calc.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)', borderRadius: 8, padding: '8px 10px' }}>
-              {calc.ok ? <>{Math.floor(calc.hours)} ชม. {Math.round((calc.hours % 1) * 60)} นาที → <b>เบิกเบี้ยเลี้ยงได้ {calc.days} วัน</b>{f.meals ? ` · หักอาหาร ${f.meals} มื้อ มื้อละ ⅓ ของอัตรา` : ''} · พักได้ไม่เกิน {calc.maxNights} คืน</> : 'วันเวลากลับต้องหลังวันเวลาออกเดินทาง'}
+              {calc.ok ? <>{Math.floor(calc.hours)} ชม. {Math.round((calc.hours % 1) * 60)} นาที → <b>เบิกเบี้ยเลี้ยงได้ {calc.days} วัน</b>{calc.meals ? ` · หักอาหาร ${calc.meals} มื้อ มื้อละ ⅓ ของอัตรา` : ''} · พักได้ไม่เกิน {calc.maxNights} คืน</> : 'วันเวลากลับต้องหลังวันเวลาออกเดินทาง'}
             </div>
           </Card>
 
@@ -253,7 +258,7 @@ const ClaimContent = () => {
                 </ConfigProvider>
               </Col>
               {f.lodgingMode !== 'none' && <Col xs={24} sm={10}><Text style={{ fontSize: 13 }}>จำนวนคืน</Text>
-                <InputNumber min={1} max={Math.max(1, calc.maxNights)} precision={0} value={f.nights} onChange={v => set('nights', v)} style={{ width: '100%' }} status={bad('lodging_nights')} aria-label="จำนวนคืนที่พัก" suffix={`คืน (≤ ${calc.maxNights})`} /></Col>}
+                <InputNumber min={1} max={Math.max(1, calc.maxNights)} precision={0} value={f.nights == null ? null : calc.nights || f.nights} onChange={v => set('nights', v)} style={{ width: '100%' }} status={bad('lodging_nights') || (calc.ok && calc.maxNights === 0 ? 'error' : undefined)} aria-label="จำนวนคืนที่พัก" suffix={`คืน (≤ ${calc.maxNights})`} /></Col>}
             </Row>
             <div style={{ overflowX: 'auto', border: '1px solid var(--app-border)', borderRadius: 10 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5, minWidth: 620 }} data-testid="people-table">

@@ -173,7 +173,7 @@ const ClaimsContent = () => {
   const queue = (sp.get('queue') ?? '') as Queue
   const sel = Number(sp.get('id')) || null
   const load = useCallback(async () => {
-    try { setList(await travelApi<ListResp>(`claims${queue ? `?queue=${queue}` : ''}`)); setError(null) }
+    try { setList(await travelApi<ListResp>(`claims${queue ? `?queue=${encodeURIComponent(queue)}` : ''}`)); setError(null) }
     catch (e) { setError(e instanceof TravelApiError && e.status === 403 ? 'หน้านี้สำหรับเจ้าหน้าที่ HRD และการเงิน' : (e as Error).message) }
   }, [queue])
   // eslint-disable-next-line react-hooks/set-state-in-effect -- โหลดข้อมูลจาก API

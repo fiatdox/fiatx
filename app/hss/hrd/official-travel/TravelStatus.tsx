@@ -39,7 +39,13 @@ export const progressOf = (r: ProgressInput) => {
   if (r.cost_mode !== 'no_claim') steps.push({ key: 'finance', label: 'การเงินยืนยันยอด', short: 'การเงิน' })
   const curKey = stage === 'hrd' || stage === 'returned' ? 'hrd' : stage === 'chain' ? `chain-${r.current_step}` : stage === 'director' ? 'director'
     : r.cost_mode !== 'no_claim' && r.actual_amount == null ? 'finance' : null
-  const cur = curKey ? steps.findIndex(s => s.key === curKey) : steps.length
+  const found = curKey ? steps.findIndex(s => s.key === curKey) : steps.length
+  // current_step ไม่ตรงขั้นใดในสาย (ขั้นถูกข้าม/สายถูกคิดใหม่) — ถือว่าอยู่ขั้นหัวหน้าถัดไปที่ยังไม่ผ่าน หรือ ผอ. · ไม่ใช่ "ครบทุกขั้น"
+  const cur = found >= 0 ? found : (() => {
+    const next = (r.approval_chain ?? []).find(s => Number(s.step) >= Number(r.current_step))
+    const i = next ? steps.findIndex(s => s.key === `chain-${next.step}`) : -1
+    return i >= 0 ? i : Math.max(0, steps.findIndex(s => s.key === 'director'))
+  })()
   const items = steps.map((s, i) => ({
     ...s,
     state: (r.status === 'cancelled' ? 'wait'

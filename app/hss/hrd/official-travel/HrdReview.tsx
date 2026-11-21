@@ -1,6 +1,6 @@
 'use client'
 // เจ้าหน้าที่ HRD ตรวจคำขอ (ขั้นแรก ก่อนเข้าสายหัวหน้า): ผ่าน · ส่งกลับให้ผู้ขอแก้ไข · ไม่อนุมัติ (จบคำขอ)
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Alert, App, Button, Checkbox, ConfigProvider, Descriptions, Form, Input, Modal, Radio, Select, Spin, Tag, Typography } from 'antd'
 import { FilePdfOutlined, FileSearchOutlined } from '@ant-design/icons'
 import { TRAVEL_COLOR, travelApi } from './travelShared'
@@ -49,9 +49,14 @@ export const ReviewModal = ({ id, onClose, onSaved, onOpenPdf }: { id: number; o
   const [saving, setSaving] = useState(false)
   const result = Form.useWatch('result', form) as ReviewResult | undefined
   const issues = Form.useWatch('issues', form) as string[] | undefined
+  // โหลดครั้งเดียวต่อคำขอ — onClose จากหน้าแม่เป็นฟังก์ชันใหม่ทุก render (เก็บใน ref ไม่ให้โหลดซ้ำ)
+  const closeRef = useRef(onClose)
+  useEffect(() => { closeRef.current = onClose })
   useEffect(() => {
-    travelApi<TravelRequest>(`requests/${id}`).then(setR).catch(e => { message.error((e as Error).message); onClose() })
-  }, [id, message, onClose])
+    let alive = true
+    travelApi<TravelRequest>(`requests/${id}`).then(x => { if (alive) setR(x) }).catch(e => { if (alive) { message.error((e as Error).message); closeRef.current() } })
+    return () => { alive = false }
+  }, [id, message])
 
   const submit = async () => {
     const v = await form.validateFields().catch(() => null) as ReviewForm | null
